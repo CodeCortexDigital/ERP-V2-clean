@@ -1,228 +1,385 @@
-# ERP V2 Frontend
+cd "D:\Code Cortex\03_Projects\Current\8_ERP-V2-clean"
 
-A modern, responsive ERP (Enterprise Resource Planning) frontend built with React, TypeScript, Vite, and TailwindCSS.
+Write-Host "📝 Generating Frontend Requirements Document..." -ForegroundColor Cyan
 
-## Features
+$outputFile = "FRONTEND_REQUIREMENTS.txt"
 
-- **Multi-Module Architecture**: Dashboard, Accounts, Tenants, Inventory, Finance, HR, Reports, Analytics, Education, CRM, Commerce, AI, SCM, Business, Documents, Settings
-- **Real-time Updates**: WebSocket integration for live data
-- **Advanced Analytics**: Interactive charts and dashboards with drill-down capabilities
-- **Responsive Design**: Mobile-first approach with TailwindCSS
-- **Type Safety**: Full TypeScript implementation
-- **Code Splitting**: Lazy loading for optimal performance
+@"
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║                    FRONTEND DEVELOPMENT REQUIREMENTS - COMPLETE AUDIT                 ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝
 
-## Tech Stack
+Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
-- **Framework**: React 18.3.1
-- **Language**: TypeScript 5.x
-- **Build Tool**: Vite 5.4.21
-- **Styling**: TailwindCSS 3.4.14
-- **State Management**: Zustand
-- **Routing**: React Router 6
-- **HTTP Client**: Axios
-- **Charts**: Recharts
-- **Icons**: Lucide React
-- **Notifications**: Sonner
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 1: STUDENT MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## Prerequisites
+REQUIRED PAGES:
+1. Student List Page (Table View with pagination)
+2. Student Detail Page (360° Profile View with tabs)
+3. Student Add/Edit Form
+4. Student Import/Export Page
 
-- Node.js 18.x or higher
-- npm 9.x or higher
+UI COMPONENTS NEEDED:
+• DataTable with pagination, sorting, filtering
+• Search bar (search by name, ID, email)
+• Status badges (Active/Inactive)
+• Profile card with avatar
+• Tabbed interface for 360° view
 
-## Installation
+FORM FIELDS (STUDENT):
+✓ student_id: CharField (required, unique)
+✓ full_name: CharField (required)
+✓ email: EmailField (required, unique)
+○ phone: CharField (optional)
+○ father_name: CharField (optional)
+○ mother_name: CharField (optional)
+○ guardian_phone: CharField (optional)
+○ guardian_email: EmailField (optional)
+○ enrollment_date: DateField (optional)
+○ program: CharField (optional)
+○ current_semester: IntegerField (default: 1)
+○ emergency_contact_name: CharField (optional)
+○ emergency_contact_phone: CharField (optional)
+○ current_class: ForeignKey (dropdown from SchoolClass)
+○ current_section: ForeignKey (dropdown from Section)
+✓ is_active: BooleanField (checkbox, default: true)
 
-```bash
-# Install dependencies
-npm install
+UI REQUIREMENTS:
+• Student List: Display student_id, full_name, email, phone, current_class, status
+• Quick Actions: Edit, Delete, View Profile, Send Message
+• Bulk Actions: Delete, Export, Send Notification
+• Filters: By class, section, status, enrollment date range
+• 360° Dashboard Tabs: Overview, Attendance, Exams, Finance, Communications
 
-# Copy environment file
-cp .env.example .env
-```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 2: ATTENDANCE MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## Environment Variables
+REQUIRED PAGES:
+1. Mark Attendance Page (Grid/Matrix View)
+2. Attendance List Page
+3. Attendance Summary/Dashboard
+4. Student Attendance Report
 
-Create a `.env` file in the root directory:
+UI COMPONENTS NEEDED:
+• Calendar view for date selection
+• Class/Section selector dropdown
+• Student grid with Present/Absent/Late buttons
+• Save button with confirmation
+• Progress bar for attendance rate
+• Color-coded status badges (Green=Present, Red=Absent, Orange=Late)
 
-```env
-# API Configuration
-VITE_API_URL=http://localhost:8000
-VITE_API_PREFIX=/api
+FORM FIELDS (ATTENDANCE):
+✓ student: ForeignKey (required)
+✓ date: DateField (required)
+✓ status: CharField (required - choices: present, absent, late, excused)
+○ remarks: TextField (optional)
 
-# WebSocket Configuration
-VITE_WS_URL=ws://localhost:8000
+UI REQUIREMENTS:
+• Class Selection: Dropdown with class → section hierarchy
+• Date Picker: Default to current date
+• Student Table: Buttons per student with status options
+• Quick Actions: Mark All Present, Mark All Absent
+• Auto-save or Save Draft
+• Attendance Reports: With filters by date range, class, student
 
-# App Configuration
-VITE_APP_NAME=ERP V2
-VITE_APP_VERSION=2.0.0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 3: EXAM MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Feature Flags
-VITE_ENABLE_ANALYTICS=true
-VITE_ENABLE_AI=true
-VITE_ENABLE_WEBSOCKET=true
+REQUIRED PAGES:
+1. Exam List Page
+2. Exam Add/Edit Form
+3. Exam Schedule (Calendar View)
+4. Result Entry Page
+5. Result Card/Report Card View
 
-# Pagination
-VITE_DEFAULT_PAGE_SIZE=20
+UI COMPONENTS NEEDED:
+• Calendar/Scheduler for exam dates
+• DataTable for exam list
+• Marks entry grid (student × subject)
+• Auto-calculation of percentage and grade
+• Result card template
+• Export to PDF (Report Card)
 
-# Cache Configuration
-VITE_CACHE_ENABLED=true
-VITE_CACHE_DURATION=300000
-```
+EXAM FIELDS:
+✓ code: CharField (required)
+✓ title: CharField (required)
+○ description: TextField (optional)
+○ exam_date: DateField (optional)
+✓ duration_minutes: IntegerField (required)
+✓ total_marks: DecimalField (required, default: 100)
+✓ passing_marks: DecimalField (required, default: 40)
+✓ status: CharField (required - choices: scheduled, ongoing, completed, cancelled)
 
-## Available Scripts
+EXAM RESULT FIELDS:
+✓ exam: ForeignKey (required)
+✓ student: ForeignKey (required)
+○ roll_number: CharField (optional)
+✓ obtained_marks: DecimalField (required)
+✓ total_marks: DecimalField (required)
+• percentage: READONLY (auto-calculated)
+• grade: READONLY (auto-calculated A+, A, B, C, D, F)
+• is_pass: READONLY (auto-calculated)
+○ remarks: TextField (optional)
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build |
-| `npm run lint` | Run ESLint |
-| `npm run format` | Format code with Prettier |
+UI REQUIREMENTS:
+• Exam List: Title, code, date, status, total_marks
+• Result Entry: Matrix with student names, marks input, auto grade
+• Grade Calculation: Instant feedback on marks entry
+• Publish Results: Button with confirmation (triggers WhatsApp)
+• Student View: Result card showing marks, percentage, grade
 
-## Development
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 4: FINANCE MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-```bash
-# Start development server
-npm run dev
+REQUIRED PAGES:
+1. Fee Structure Management
+2. Invoice List Page
+3. Generate Invoice Page
+4. Payment Collection Page
+5. Payment History
+6. Student Fee Status Dashboard
 
-# The app will be available at http://localhost:5173
-```
+UI COMPONENTS NEEDED:
+• Invoice template (print-friendly)
+• Payment gateway integration (optional)
+• Receipt generator
+• Due date calculator
+• Balance summary cards
+• Overdue alerts
 
-## Production Build
+INVOICE FIELDS:
+✓ invoice_number: CharField (required, auto-generated)
+✓ student: ForeignKey (required)
+✓ amount: DecimalField (required)
+✓ paid_amount: DecimalField (required, default: 0)
+✓ due_date: DateField (required)
+✓ status: CharField (required - choices: pending, paid, partial, overdue)
 
-```bash
-# Build for production
-npm run build
+PAYMENT FIELDS:
+✓ payment_id: CharField (required, auto-generated)
+✓ invoice: ForeignKey (required)
+✓ amount: DecimalField (required)
+○ payment_date: DateField (optional)
+✓ payment_method: CharField (required - choices: cash, card, bank_transfer, online)
+○ transaction_id: CharField (optional)
+✓ status: CharField (required - choices: pending, completed, failed)
 
-# Preview the build
-npm run preview
-```
+UI REQUIREMENTS:
+• Student Search: Autocomplete for student selection
+• Fee Structure: Predefined fee types with amounts
+• Invoice Preview: Before final generation
+• Payment Form: Amount, method, transaction ID
+• Payment Status: Paid, Partial, Overdue badges
+• Send Reminder: Button to trigger WhatsApp reminder
 
-## Project Structure
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 5: COMMUNICATION & AUTOMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-```
-frontend/
-├── src/
-│   ├── assets/           # Static assets
-│   ├── components/       # Reusable components
-│   │   ├── common/       # Common UI components
-│   │   ├── layout/       # Layout components
-│   │   ├── analytics/   # Analytics components
-│   │   └── reports/     # Report components
-│   ├── configs/         # Configuration files
-│   ├── constants/       # App constants
-│   ├── contexts/        # React contexts
-│   ├── hooks/           # Custom hooks
-│   ├── pages/           # Page components
-│   │   ├── accounts/
-│   │   ├── analytics/
-│   │   ├── auth/
-│   │   ├── dashboard/
-│   │   ├── documents/
-│   │   ├── education/
-│   │   ├── finance/
-│   │   ├── hr/
-│   │   ├── inventory/
-│   │   ├── procurement/
-│   │   ├── reports/
-│   │   ├── settings/
-│   │   └── tenants/
-│   ├── routes/          # Route definitions
-│   ├── services/       # API services
-│   ├── store/          # Zustand stores
-│   ├── styles/         # Global styles
-│   ├── types/          # TypeScript types
-│   ├── utils/          # Utility functions
-│   ├── App.tsx         # Main app component
-│   └── main.tsx        # Entry point
-├── public/              # Public assets
-├── index.html           # HTML template
-├── package.json         # Dependencies
-├── tsconfig.json        # TypeScript config
-├── vite.config.ts       # Vite config
-└── tailwind.config.js  # Tailwind config
-```
+REQUIRED PAGES:
+1. Message Center (Inbox/Outbox)
+2. Compose Message (WhatsApp/Email/SMS)
+3. Template Management
+4. Auto-Trigger Configuration
+5. WhatsApp Settings
+6. Notification History
 
-## API Endpoints
+UI COMPONENTS NEEDED:
+• Rich text editor with variable insertion
+• Variable selector dropdown ({{student_name}}, {{amount}}, etc.)
+• Channel selector (WhatsApp/Email/SMS/In-app)
+• Recipient selector (Individual/Group/All)
+• Preview before send
+• Delivery status indicators
 
-The frontend communicates with the backend via REST API:
+MESSAGE FIELDS:
+○ student: ForeignKey (optional)
+✓ sender: CharField (required)
+✓ recipient: CharField (required)
+○ recipient_phone: CharField (optional)
+○ recipient_email: EmailField (optional)
+○ subject: CharField (optional)
+✓ message: TextField (required)
+✓ channel: CharField (required - choices: whatsapp, sms, email, in_app)
+✓ is_delivered: BooleanField (checkbox)
 
-| Module | Endpoint |
-|--------|----------|
-| Auth | `/api/auth` |
-| Accounts | `/api/accounts` |
-| Tenants | `/api/tenants` |
-| Inventory | `/api/inventory` |
-| Finance | `/api/finance` |
-| HR | `/api/hr` |
-| Reports | `/api/reports` |
-| Analytics | `/api/analytics` |
-| Education | `/api/education` |
-| CRM | `/api/crm` |
-| AI | `/api/ai` |
-| SCM | `/api/scm` |
-| Business | `/api/business` |
+TEMPLATE FIELDS:
+✓ name: CharField (required)
+✓ template_type: CharField (required - choices: fee_reminder, attendance_alert, exam_result, etc.)
+○ subject: CharField (optional)
+✓ body: TextField (required)
+○ variables: JSONField (list of variable names)
+✓ is_active: BooleanField (checkbox)
 
-## WebSocket Events
+AUTO-TRIGGER FIELDS:
+✓ name: CharField (required)
+✓ trigger_event: CharField (required - choices: attendance_low, fee_due_soon, fee_overdue, exam_result_published)
+✓ template: ForeignKey (required)
+✓ channel: CharField (required, default: whatsapp)
+✓ is_active: BooleanField (checkbox)
+○ days_before: IntegerField (default: 0)
 
-Real-time updates via WebSocket:
+UI REQUIREMENTS:
+• Template Editor: WYSIWYG with variable insertion
+• Trigger Rules: Condition builder (If attendance < 75% Then...)
+• Test Message: Send test to specific number
+• Analytics: Message delivery success rate
+• Webhook Status: WhatsApp configuration status
 
-| Event | Description |
-|-------|-------------|
-| `dashboard:update` | Dashboard data update |
-| `analytics:update` | Analytics data update |
-| `notification:new` | New notification |
-| `invoice:status` | Invoice status change |
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 6: ACADEMICS MANAGEMENT (Hierarchy)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## User Roles & Permissions
+REQUIRED PAGES:
+1. Academic Year Management
+2. Program/Course Management
+3. Class & Section Management (Tree View)
+4. Subject Allocation
 
-| Role | Description |
-|------|-------------|
-| Super Admin | Full system access |
-| Admin | Administrative access |
-| Manager | Department management |
-| Accountant | Finance operations |
-| Sales | Sales activities |
-| Purchase | Procurement activities |
-| HR | Human resources |
-| Teacher | Education |
-| Student | Education |
-| Warehouse | Warehouse operations |
-| Viewer | Read-only access |
+UI COMPONENTS NEEDED:
+• Tree/Nested view for hierarchy
+• Drag-and-drop reordering
+• Collapsible sections
+• Multi-level selectors
 
-## Performance Optimizations
+HIERARCHY STRUCTURE:
+   Academic Year
+   └── Program
+       └── SchoolClass
+           └── Section
+               └── Students
 
-- Code splitting with React.lazy
-- Memoization with React.memo
-- Virtual scrolling for large lists
-- Image lazy loading
-- API response caching
+UI must support this nested navigation!
 
-## Browser Support
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 7: ADMISSIONS MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
+REQUIRED PAGES:
+1. Online Application Form (Public)
+2. Applicant List (Admin)
+3. Application Review Page
+4. Convert to Student (Action Button)
 
-## Troubleshooting
+UI COMPONENTS NEEDED:
+• Multi-step wizard form
+• File upload (documents)
+• Status tracking timeline
+• Decision buttons (Accept/Reject/Waitlist)
 
-### Common Issues
+APPLICATION STATUS FLOW:
+   New → Under Review → Accepted/Rejected → Enrolled
 
-1. **Build fails with TypeScript errors**
-   - Run `npm run lint` to see specific errors
+• Convert to Student: One-click action when Accepted
 
-2. **API calls failing**
-   - Check `.env` file configuration
-   - Ensure backend is running on port 8000
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODULE 8: ANALYTICS & SMART INSIGHTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-3. **WebSocket not connecting**
-   - Verify WebSocket URL in `.env`
-   - Check browser console for errors
+REQUIRED PAGES:
+1. Dashboard Overview (KPI Cards)
+2. Student Risk Dashboard
+3. Performance Analytics
+4. Class/Section Reports
 
-## License
+UI COMPONENTS NEEDED:
+• Chart.js / Recharts integration
+• Heat maps for attendance
+• Trend lines for performance
+• Risk indicator cards (Red/Orange/Yellow/Green)
+• Export charts as images
 
-Proprietary - All rights reserved
+METRICS TO DISPLAY:
+• Total Students vs Active
+• Average Attendance Rate
+• Average Exam Score
+• Fee Collection Rate
+• At-Risk Students Count
+• Upcoming Exams
+• Recent Notifications
 
-## Support
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ FRONTEND DEVELOPMENT CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-For issues and feature requests, please contact the development team.
+PAGES TO BUILD (Priority Order):
+
+P0 - MUST HAVE (Core Functionality):
+   □ 1. Login/Authentication Page
+   □ 2. Dashboard with KPI cards
+   □ 3. Student List with CRUD
+   □ 4. Student 360° Profile View
+   □ 5. Attendance Marking Page
+   □ 6. Exam Result Entry Page
+
+P1 - IMPORTANT (Business Logic):
+   □ 7. Course/Class Management
+   □ 8. Fee/Invoice Management
+   □ 9. Payment Collection
+   □ 10. Admissions Processing
+   □ 11. Communication/Messaging
+
+P2 - NICE TO HAVE (Automation & Insights):
+   □ 12. WhatsApp Integration UI
+   □ 13. Auto-Trigger Configuration
+   □ 14. Analytics Dashboard
+   □ 15. Student Risk Assessment View
+   □ 16. Bulk Import/Export
+
+UI COMPONENTS NEEDED:
+   □ DataTable (with sort, filter, pagination)
+   □ Form Builder (with validation)
+   □ Modal Dialog
+   □ Toast Notifications
+   □ Tabs Component
+   □ Date Picker
+   □ Select Dropdown (with search)
+   □ File Uploader
+   □ Rich Text Editor
+   □ Chart Library
+   □ Calendar/Scheduler
+   □ Progress Bar
+   □ Status Badges
+
+DESIGN REQUIREMENTS:
+   • Responsive (Mobile, Tablet, Desktop)
+   • Dark/Light theme support
+   • Accessibility (WCAG 2.1)
+   • Loading states (Skeleton screens)
+   • Error boundaries
+   • Form validation with inline errors
+   • Confirmation dialogs for destructive actions
+
+API INTEGRATION CHECKLIST:
+   □ Connect Student List → GET /api/auth/students/
+   □ Connect Student Detail → GET /api/education/students/student-360/{id}/
+   □ Connect Student Create → POST /api/auth/students/
+   □ Connect Student Update → PUT /api/auth/students/{id}/
+   □ Connect Student Delete → DELETE /api/auth/students/{id}/
+   □ Connect Attendance → GET/POST /api/auth/attendance/
+   □ Connect Exams → GET /api/auth/exams/
+   □ Connect Results → POST /api/auth/exams/results/
+   □ Connect Finance → GET /api/auth/invoices/
+   □ Connect Messages → POST /api/communication/messages/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ AUDIT COMPLETE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"@ | Out-File -FilePath $outputFile -Encoding utf8
+
+Write-Host ""
+Write-Host "✅ Frontend requirements saved to: $outputFile" -ForegroundColor Green
+Write-Host ""
+Write-Host "File contains:" -ForegroundColor Yellow
+Write-Host "  • 8 modules with all fields" -ForegroundColor Gray
+Write-Host "  • Required pages per module" -ForegroundColor Gray
+Write-Host "  • UI components checklist" -ForegroundColor Gray
+Write-Host "  • Priority P0/P1/P2 tasks" -ForegroundColor Gray
+Write-Host "  • API endpoints" -ForegroundColor Gray
+Write-Host ""
+Write-Host "📋 Share FRONTEND_REQUIREMENTS.txt with frontend developer!" -ForegroundColor Cyan
