@@ -1,17 +1,20 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '@/services/api';
+import authService from '@/services/auth.service';
 
 interface User {
   id: string;
   email: string;
-  full_name?: string;
-  is_superuser?: boolean;
+  full_name: string;
+  is_demo?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  demoLogin: () => Promise<void>;
+  googleLogin: (token: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -33,11 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = async () => {
     try {
-      const response = await api.get('/auth/me/');
+      const response = await authService.getCurrentUser();
       setUser(response.data);
     } catch (error) {
       console.error('Failed to fetch user:', error);
       localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       delete api.defaults.headers.common['Authorization'];
     } finally {
       setLoading(false);
@@ -45,24 +49,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    const response = await api.post('/auth/login/', { email, password });
-    const { access } = response.data;
+    const response = await authService.login(email, password);
+    const { access, refresh, user: userData } = response.data;
     
     localStorage.setItem('access_token', access);
+    localStorage.setItem('refresh_token', refresh);
     api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
     
-    await fetchUser();
+    setUser(userData);
+  };
+
+  const demoLogin = async () => {
+    const response = await authService.demoLogin('Demo User');
+    const { access, refresh, user: userData } = response.data;
+    
+    localStorage.setItem('access_token', access);
+    localStorage.setItem('refresh_token', refresh);
+    api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+    
+    setUser(userData);
+    
+    // Show warning if demo is expiring soon
+    if (response.data.demo_warning) {
+      alert(response.data.demo_message);
+    }
+  };
+
+  const googleLogin = async (token: string) => {
+    const response = await authService.googleLogin(token);
+    const { access, refresh, user: userData } = response.data;
+    
+    localStorage.setItem('access_token', access);
+    localStorage.setItem('refresh_token', refresh);
+    api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+    
+    setUser(userData);
   };
 
   const logout = () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, demoLogin, googleLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );

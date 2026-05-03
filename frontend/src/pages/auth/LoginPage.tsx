@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { Mail, Lock, LogIn, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@code.com');
   const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState('');
-
+  const { login, demoLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,117 +18,130 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Call login API
-      const response = await api.post('/auth/login/', { email, password });
-      console.log('Login response:', response.data);
-      
-      // Get the token from response
-      const { access } = response.data;
-      
-      if (access) {
-        // Store token
-        localStorage.setItem('access_token', access);
-        
-        // Set default header for future requests
-        api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-        
-        // Test the token by fetching user info
-        try {
-          const userResponse = await api.get('/auth/me/');
-          console.log('User info:', userResponse.data);
-          
-          // Store user info if needed
-          localStorage.setItem('user', JSON.stringify(userResponse.data));
-          
-          // Redirect to dashboard
-          navigate('/dashboard');
-        } catch (userError) {
-          console.error('Failed to fetch user:', userError);
-          setError('Login successful but failed to load user data');
-        }
-      } else {
-        setError('No access token received');
-      }
+      await login(email, password);
+      navigate('/dashboard');
     } catch (err: any) {
-      console.error('Login error:', err);
-      if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else if (err.response?.data?.non_field_errors) {
-        setError(err.response.data.non_field_errors[0]);
-      } else {
-        setError('Invalid email or password');
-      }
+      setError(err.response?.data?.error || err.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    setError('');
+
+    try {
+      await demoLogin();
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Demo login failed');
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-            <span className="text-2xl font-bold text-blue-600">CC</span>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-3">
+            <span className="text-3xl font-bold text-white">CC</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Code Cortex</h1>
-          <p className="text-gray-500 mt-1">School Management System</p>
+          <h1 className="text-2xl font-bold text-white">Code Cortex</h1>
+          <p className="text-blue-100 mt-1">School Management System</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Body */}
+        <div className="p-8">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm">
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm">
               {error}
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="admin@code.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
+          {/* Demo Button - One Click Test */}
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            onClick={handleDemoLogin}
+            disabled={demoLoading}
+            className="w-full mb-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-medium hover:from-green-600 hover:to-emerald-700 transition flex items-center justify-center gap-2"
           >
-            {loading ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Signing in...
-              </div>
+            {demoLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
             ) : (
-              'Sign In'
+              <>
+                <Sparkles className="w-5 h-5" />
+                Try Free Demo (No Signup)
+              </>
             )}
           </button>
-        </form>
 
-        <div className="mt-6 pt-6 border-t text-center">
-          <p className="text-xs text-gray-500">
-            Demo Credentials: <span className="font-mono">admin@code.com</span> / <span className="font-mono">admin123</span>
-          </p>
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or sign in with email</span>
+            </div>
+          </div>
+
+          {/* Email Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="admin@code.com"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-xs text-gray-500">
+            <p>Demo: One-click trial | Admin: admin@code.com / admin123</p>
+          </div>
         </div>
       </div>
     </div>

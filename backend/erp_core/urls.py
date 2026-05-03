@@ -3,10 +3,10 @@ from django.urls import path, include
 from django.http import JsonResponse
 
 def health_check(request):
-    return JsonResponse({'status': 'ok', 'service': 'clean-erp-v2'})
+    return JsonResponse({"status": "ok", "message": "Server is running"})
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/health/', health_check),
-    path('api/auth/', include('auth_api.urls')),
+    path('api/health/', health_check, name='health'),
+    path('api/auth/', include('services.core.accounts.urls')),
 ]
