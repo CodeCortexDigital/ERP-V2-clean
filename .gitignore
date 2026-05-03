@@ -1,0 +1,29 @@
+# Exclude weird files
+t
+tructure
+Current8_ERP-V2-clean
+
+# Backend
+*.pyc
+__pycache__/
+db.sqlite3
+*.log
+.env
+venv/
+.env.local
+
+# Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,7 @@
+export { default as StudentsListPage } from './StudentsListPage'
+export { default as CoursesListPage } from './CoursesListPage'
+export { default as AcademicsPage } from './AcademicsPage'
+export { default as AdmissionsPage } from './AdmissionsPage'
+export { default as ExamsPage } from './ExamsPage'
+export { default as FeesPage } from './FeesPage'
+export { default as AttendancePage } from './AttendancePage'

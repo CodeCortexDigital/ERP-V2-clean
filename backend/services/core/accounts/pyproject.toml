@@ -1,0 +1,166 @@
+# ============================================
+# FILE: D:\Code Cortex\03_Projects\Current\6_ERP-V2\backend\services\core\accounts-service\pyproject.toml
+# ============================================
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "accounts-service"
+version = "1.0.0"
+description = "Accounts and authentication microservice"
+readme = "README.md"
+authors = [
+    {name = "Core Team", email = "core@erp.internal"},
+]
+license = {text = "Proprietary"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.0",
+    "Intended Audience :: System Administrators",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.2.0",
+    "djangorestframework>=3.16.0",
+    "psycopg2-binary>=2.9.0",
+    "python-dotenv>=1.0.0",
+    "django-environ>=0.13.0",
+    "redis>=7.2.0",
+    "django-redis>=6.0.0",
+    "PyJWT>=2.11.0",
+    "cryptography>=44.0.0",
+    "django-cors-headers>=4.9.0",
+    "requests>=2.32.0",
+    "django-filter>=25.2.0",
+    "celery>=5.6.0",
+    "django-prometheus>=2.4.0",
+    "django-health-check>=4.1.0",
+    "sentry-sdk>=2.53.0",
+    "drf-yasg>=1.21.0",
+    "django-storages>=1.14.0",
+    "boto3>=1.42.0",
+    "Pillow>=11.2.0",
+    "gunicorn>=23.0.0",
+    "passlib>=1.7.4",
+    "bcrypt>=4.3.0",
+    "django-otp>=1.5.4",
+    "qrcode>=8.0",
+]
+
+[project.urls]
+Homepage = "http://accounts-service.core.internal"
+Documentation = "http://accounts-service.core.internal/docs"
+Repository = "https://github.com/erp/accounts-service"
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+known_django = ["django"]
+known_first_party = ["accounts", "accounts_project"]
+sections = ["FUTURE", "STDLIB", "DJANGO", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "django.*",
+    "rest_framework.*",
+    "celery.*",
+    "redis.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers"
+testpaths = [
+    "accounts/tests",
+]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["accounts"]
+omit = ["*/tests/*", "*/migrations/*", "*/management/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if False:",
+]
+
+[tool.bandit]
+exclude_dirs = ["venv", "migrations", "tests", "accounts_project"]
+skips = ["B101", "B311", "B403"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "W", "C", "N", "D", "I", "UP", "YTT", "ANN", "S", "A", "B", "C4", "DTZ", "EM", "ERA", "EXE", "FURB", "G", "ISC", "ICN", "INP", "LOG", "PIE", "PL", "PT", "PTH", "PYI", "Q", "RSE", "RET", "RUF", "SIM", "SLF", "SLOT", "T10", "T20", "TCH", "TID", "TRY", "UP", "W", "YTT"]
+ignore = [
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+    "ANN101", "ANN102", "ANN201", "ANN202", "ANN204", "ANN205", "ANN206",
+    "S101",
+]
+
+[tool.ruff.isort]
+known-first-party = ["accounts", "accounts_project"]
+known-django = ["django"]

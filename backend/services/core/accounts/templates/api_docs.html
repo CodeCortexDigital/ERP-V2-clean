@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accounts Service API Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 0; margin-bottom: 40px; }
+        h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 5px; font-size: 0.9em; margin-top: 10px; }
+        .section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .section h2 { color: #667eea; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #eee; }
+        .endpoint { background: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+        .method { display: inline-block; padding: 3px 8px; border-radius: 3px; font-weight: bold; font-size: 0.85em; margin-right: 10px; }
+        .method.get { background: #28a745; color: white; }
+        .method.post { background: #007bff; color: white; }
+        .method.put { background: #fd7e14; color: white; }
+        .method.delete { background: #dc3545; color: white; }
+        .method.patch { background: #6f42c1; color: white; }
+        .url { font-family: monospace; font-size: 1.1em; }
+        .description { margin-top: 10px; color: #666; }
+        pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; margin-top: 10px; font-size: 0.9em; }
+        .status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; margin-left: 10px; }
+        .status.healthy { background: #28a745; color: white; }
+        footer { text-align: center; margin-top: 40px; padding: 20px; color: #666; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📚 Accounts Service API</h1>
+            <p>Complete User Management Service with GDPR Compliance</p>
+            <div class="badge">Version 2.0.0</div>
+            <div class="badge">Status: 🟢 Running</div>
+            <div class="badge">Port: 8050</div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="grid">
+            <div class="section">
+                <h2>🔐 Authentication</h2>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/auth/register/</span>
+                    <div class="description">Register a new user account</div>
+                    <pre>{
+  "email": "user@example.com",
+  "password": "Test@123456",
+  "password_confirm": "Test@123456",
+  "full_name": "John Doe",
+  "phone_number": "+1234567890"
+}</pre>
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/auth/verify-email/</span>
+                    <div class="description">Verify email with token</div>
+                    <pre>{"token": "verification_token_here"}</pre>
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/auth/password-reset/</span>
+                    <div class="description">Request password reset</div>
+                    <pre>{"email": "user@example.com"}</pre>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>👤 User Profile</h2>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="url">/api/v1/users/me/</span>
+                    <div class="description">Get current user profile (Requires JWT)</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method patch">PATCH</span>
+                    <span class="url">/api/v1/users/me/</span>
+                    <div class="description">Update user profile</div>
+                    <pre>{
+  "full_name": "Updated Name",
+  "bio": "My bio",
+  "preferred_language": "en",
+  "preferred_timezone": "America/New_York"
+}</pre>
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="url">/api/v1/users/me/activities/</span>
+                    <div class="description">Get user activity history</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>⚙️ Preferences & Settings</h2>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="method patch">PATCH</span>
+                    <span class="url">/api/v1/users/me/preferences/</span>
+                    <div class="description">Manage user preferences</div>
+                    <pre>{
+  "preferred_language": "es",
+  "preferred_timezone": "Europe/Madrid",
+  "email_notifications": true,
+  "sms_notifications": false,
+  "marketing_emails": false
+}</pre>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🔒 Account Management</h2>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/accounts/lock/</span>
+                    <div class="description">Lock your account</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method delete">DELETE</span>
+                    <span class="url">/api/v1/accounts/lock/</span>
+                    <div class="description">Unlock your account</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/accounts/recover/</span>
+                    <div class="description">Recover locked account</div>
+                    <pre>{"email": "user@example.com"}</pre>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>📜 GDPR Compliance</h2>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/gdpr/data-portability/</span>
+                    <div class="description">Request data export</div>
+                    <pre>{"format": "json"}</pre>
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/gdpr/delete-account/</span>
+                    <div class="description">Request account deletion (Right to be forgotten)</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="method post">POST</span>
+                    <span class="url">/api/v1/users/me/consents/</span>
+                    <div class="description">Manage user consents</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🏷️ Tags & Delegation</h2>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="method post">POST</span>
+                    <span class="method delete">DELETE</span>
+                    <span class="url">/api/v1/users/me/tags/</span>
+                    <div class="description">Manage user tags</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="method post">POST</span>
+                    <span class="method delete">DELETE</span>
+                    <span class="url">/api/v1/delegated/users/</span>
+                    <div class="description">Manage delegated users</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>💚 Health & Monitoring</h2>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="url">/health/</span>
+                    <span class="status healthy">Liveness</span>
+                    <div class="description">Health check endpoint</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="url">/ready/</span>
+                    <span class="status healthy">Readiness</span>
+                    <div class="description">Readiness probe</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="url">/metrics/</span>
+                    <div class="description">Prometheus metrics</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="url">/version/</span>
+                    <div class="description">Service version info</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📊 Service Statistics</h2>
+            <div id="stats">
+                <p>Loading statistics...</p>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Accounts Service v2.0.0 | Built with Django REST Framework | GDPR Compliant</p>
+            <p>Admin Panel: <a href="/admin/">/admin/</a> | API Root: <a href="/api/v1/">/api/v1/</a></p>
+        </footer>
+    </div>
+    
+    <script>
+        fetch('/metrics/')
+            .then(response => response.text())
+            .then(data => {
+                const stats = document.getElementById('stats');
+                const usersMatch = data.match(/users_total (\d+)/);
+                const activeMatch = data.match(/users_active_total (\d+)/);
+                if (usersMatch || activeMatch) {
+                    stats.innerHTML = `
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                            <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                                <h3>Total Users</h3>
+                                <div style="font-size: 2em; color: #667eea;">${usersMatch ? usersMatch[1] : 'N/A'}</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                                <h3>Active Users</h3>
+                                <div style="font-size: 2em; color: #28a745;">${activeMatch ? activeMatch[1] : 'N/A'}</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                                <h3>Service Status</h3>
+                                <div style="font-size: 1.5em; color: #28a745;">🟢 Running</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(() => {
+                document.getElementById('stats').innerHTML = '<p>Service is running. Metrics endpoint available at /metrics/</p>';
+            });
+    </script>
+</body>
+</html>

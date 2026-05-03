@@ -1,0 +1,76 @@
+# ============================================
+# FILE: D:\Code Cortex\03_Projects\Current\6_ERP-V2\backend\services\education\academics-service\docker-compose.yml
+# ============================================
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: academics-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=education_academics
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Samra_6921*
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - academics-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: academics-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - academics-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  academics-service:
+    build: .
+    container_name: academics-service
+    restart: unless-stopped
+    ports:
+      - "8020:8020"
+    environment:
+      - DEBUG=False
+      - DB_HOST=postgres
+      - DB_NAME=education_academics
+      - DB_USER=postgres
+      - DB_PASSWORD=Samra_6921*
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./static:/app/static
+      - ./media:/app/media
+      - ./logs:/app/logs
+    networks:
+      - academics-network
+
+networks:
+  academics-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
