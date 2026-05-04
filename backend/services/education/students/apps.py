@@ -5,6 +5,3 @@ class EducationStudentsConfig(AppConfig):
     name = 'services.education.students'
     label = 'education_students'
     verbose_name = 'Students'
-
-    def ready(self):
-        pass

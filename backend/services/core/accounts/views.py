@@ -101,3 +101,36 @@ def logout_view(request):
 
 # Demo endpoints
 from .views_auth import demo_login, demo_status, google_login
+
+# ============================================================
+# STUDENT VIEWS
+# ============================================================
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from django.apps import apps
+from .serializers import StudentSerializer
+
+class StudentListCreateView(generics.ListCreateAPIView):
+    """List all students or create a new student"""
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        Student = apps.get_model('education_students', 'Student')
+        return Student.objects.filter(is_active=True)
+    
+    def get_serializer_class(self):
+        return StudentSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save()
+
+class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a student"""
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        Student = apps.get_model('education_students', 'Student')
+        return Student.objects.all()
+    
+    def get_serializer_class(self):
+        return StudentSerializer

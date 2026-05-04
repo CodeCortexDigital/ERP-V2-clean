@@ -1,10 +1,8 @@
 from django.urls import path
-from .views import StudentsViewSet
+from . import views
 
-
+urlpatterns = [
+    path('test/', views.test_endpoint, name='test'),
+    path('student-360/<str:student_id>/', views.student_360, name='student-360'),
     path('student-dashboard/<str:student_id>/', views.student_dashboard, name='student-dashboard'),
-    path('', StudentsViewSet.as_view({'get': 'list', 'post': 'create'})),
-    path('<str:pk>/', StudentsViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'})),
 ]
-
-
