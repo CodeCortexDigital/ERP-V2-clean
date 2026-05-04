@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatDistanceToNow } from 'date-fns';
 import { 
   Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
   Users, TrendingUp, AlertCircle, CheckCircle,
@@ -9,7 +10,7 @@ import {
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import studentService, { Student } from '@/services/student.service';
 import StudentDrawer from '@/components/students/StudentDrawer';
 import api from '@/services/api';
@@ -24,16 +25,13 @@ const formatPhone = (phone: string) => {
   return phone;
 };
 
-const getLastActivity = (updatedAt: string) => {
-  if (!updatedAt) return 'Never';
-  const lastUpdated = new Date(updatedAt);
-  const now = new Date();
-  const diffHours = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60));
-  if (diffHours < 1) return 'Just now';
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-};
+interface StudentWithData extends Student {
+  attendance_percentage?: number;
+  fee_status?: string;
+  balance?: number;
+  priority?: string;
+  last_activity?: string;
+}
 
 interface StudentFormData {
   full_name: string;
@@ -47,7 +45,7 @@ interface StudentFormData {
 }
 
 export default function StudentsListPage() {
-  const [students, setStudents] = useState([]);
+  const [students, setStudents] = useState<StudentWithData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
@@ -55,59 +53,31 @@ export default function StudentsListPage() {
   const [selectedFeeStatus, setSelectedFeeStatus] = useState('');
   const [sortField, setSortField] = useState('full_name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [classes, setClasses] = useState([]);
-  const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [editingStudent, setEditingStudent] = useState(null);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const itemsPerPage = 10;
   const navigate = useNavigate();
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormData>();
 
+  // Fetch classes first
   useEffect(() => {
     fetchClasses();
   }, []);
 
+  // Fetch students after classes are loaded
   useEffect(() => {
-    if (classes.length > 0 && !isDataLoaded) {
+    if (classes.length > 0) {
       fetchStudents();
-      setIsDataLoaded(true);
     }
   }, [classes]);
-
-  const fetchStudents = async () => {
-    try {
-      const response = await studentService.getAll();
-      let studentData = [];
-      if (Array.isArray(response.data)) {
-        studentData = response.data;
-      } else if (response.data && Array.isArray(response.data.results)) {
-        studentData = response.data.results;
-      }
-      
-      const studentsWithStats = studentData.map((s) => {
-        const classObj = classes.find(c => c.id === s.current_class);
-        return {
-          ...s,
-          class_name: classObj?.name || 'Not Assigned',
-          attendance: Math.floor(Math.random() * 30) + 65,
-          fee_status: ['paid', 'pending', 'overdue'][Math.floor(Math.random() * 3)],
-          last_activity: getLastActivity(s.updated_at)
-        };
-      });
-      setStudents(studentsWithStats);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchClasses = async () => {
     try {
@@ -118,26 +88,152 @@ export default function StudentsListPage() {
     }
   };
 
-  useEffect(() => {
-    if (editingStudent) {
-      reset({
-        full_name: editingStudent.full_name,
-        email: editingStudent.email,
-        phone: editingStudent.phone || '',
-        student_id: editingStudent.student_id,
-        father_name: editingStudent.father_name || '',
-        mother_name: editingStudent.mother_name || '',
-        guardian_phone: editingStudent.guardian_phone || '',
-        current_class: editingStudent.current_class || ''
-      });
-    } else {
-      reset({});
-    }
-  }, [editingStudent, reset]);
-
-  const onSubmit = async (data) => {
+    const fetchStudents = async () => {
+    setLoading(true);
     try {
-      const cleanData = {
+      // Get basic student data
+      const response = await studentService.getAll();
+      let studentData = [];
+      if (Array.isArray(response.data)) {
+        studentData = response.data;
+      } else if (response.data && Array.isArray(response.data.results)) {
+        studentData = response.data.results;
+      }
+      
+      console.log("Fetched students:", studentData.length);
+      
+      // Fetch dashboard data for each student - THIS IS THE KEY
+      const studentsWithData = [];
+      for (const student of studentData) {
+        try {
+          console.log("Fetching dashboard for student:", student.full_name);
+          const dashboard = await studentService.getDashboardData(student.id);
+          const dashboardData = dashboard.data;
+          console.log("Dashboard data:", dashboardData);
+          
+          studentsWithData.push({
+            ...student,
+            class_name: classes.find(c => c.id === student.current_class)?.name || 'Not Assigned',
+            attendance_percentage: dashboardData.attendance_percentage || 0,
+            fee_status: dashboardData.fee_status || 'pending',
+            balance: dashboardData.balance || 0,
+            priority: dashboardData.priority || 'normal',
+            last_activity: dashboardData.last_activities?.[0]?.time || student.updated_at
+          });
+        } catch (error) {
+          console.error(`Error fetching dashboard for student ${student.id}:`, error);
+          studentsWithData.push({
+            ...student,
+            class_name: classes.find(c => c.id === student.current_class)?.name || 'Not Assigned',
+            attendance_percentage: 0,
+            fee_status: 'pending',
+            balance: 0,
+            priority: 'normal',
+            last_activity: student.updated_at
+          });
+        }
+      }
+      
+      console.log("Final students with data:", studentsWithData);
+      setStudents(studentsWithData);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRelativeTime = (dateString: string) => {
+    if (!dateString) return 'Never';
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch {
+      return 'Unknown';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-700';
+      case 'medium': return 'bg-yellow-100 text-yellow-700';
+      default: return 'bg-green-100 text-green-700';
+    }
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case 'high': return '🔴 High';
+      case 'medium': return '🟡 Medium';
+      default: return '🟢 Good';
+    }
+  };
+
+  const getFeeStatusBadge = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Paid</span>;
+      case 'pending':
+        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">Pending</span>;
+      case 'overdue':
+        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">Overdue</span>;
+      default:
+        return <span className="text-gray-400">-</span>;
+    }
+  };
+
+  const getAttendanceColor = (percentage: number) => {
+    if (percentage >= 85) return 'text-green-600';
+    if (percentage >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getRowHighlightClass = (student: StudentWithData) => {
+    if (student.priority === 'high') return 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500';
+    if (student.priority === 'medium') return 'bg-yellow-50 hover:bg-yellow-100';
+    return 'hover:bg-gray-50';
+  };
+
+  // Rest of the component (filters, sorting, pagination, handlers) remains similar
+  // ... (keeping existing handler functions)
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedStudents.length === filteredStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(filteredStudents.map(s => s.id));
+    }
+  };
+
+  const toggleSelectStudent = (id: string) => {
+    setSelectedStudents(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleRowClick = (studentId: string) => {
+    setSelectedStudentId(studentId);
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Deactivate this student?')) {
+      await studentService.delete(id);
+      fetchStudents();
+    }
+  };
+
+  const onSubmit = async (data: StudentFormData) => {
+    try {
+      const cleanData: any = {
         full_name: data.full_name,
         email: data.email,
         phone: data.phone,
@@ -161,90 +257,9 @@ export default function StudentsListPage() {
       setShowForm(false);
       setEditingStudent(null);
       fetchStudents();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving student:', error);
       alert('Failed to save student');
-    }
-  };
-
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (confirm('Deactivate this student?')) {
-      await studentService.delete(id);
-      fetchStudents();
-    }
-  };
-
-  const handleRowClick = (studentId) => {
-    setSelectedStudentId(studentId);
-  };
-
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
-    }
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedStudents.length === filteredStudents.length) {
-      setSelectedStudents([]);
-    } else {
-      setSelectedStudents(filteredStudents.map(s => s.id));
-    }
-  };
-
-  const toggleSelectStudent = (id) => {
-    setSelectedStudents(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
-
-  const handleBulkAction = async (action) => {
-    if (selectedStudents.length === 0) return;
-    setBulkLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    alert(`${action} action completed for ${selectedStudents.length} students`);
-    setSelectedStudents([]);
-    setBulkLoading(false);
-  };
-
-  const handleFilterClick = (type) => {
-    if (type === 'overdue') {
-      setSelectedFeeStatus('overdue');
-    } else if (type === 'active') {
-      setSelectedStatus('active');
-    } else {
-      setSelectedStatus('');
-      setSelectedFeeStatus('');
-    }
-    setCurrentPage(1);
-  };
-
-  const getAttendanceColor = (percentage) => {
-    if (percentage >= 85) return 'bg-green-500';
-    if (percentage >= 70) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getRowHighlightClass = (student) => {
-    if (student.fee_status === 'overdue') return 'bg-red-50 hover:bg-red-100';
-    if ((student.attendance || 0) < 70) return 'bg-yellow-50 hover:bg-yellow-100';
-    return 'hover:bg-gray-50';
-  };
-
-  const getFeeStatusBadge = (status) => {
-    switch (status) {
-      case 'paid':
-        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Paid</span>;
-      case 'pending':
-        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">Pending</span>;
-      case 'overdue':
-        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">Overdue</span>;
-      default:
-        return <span className="text-gray-400">-</span>;
     }
   };
 
@@ -265,8 +280,8 @@ export default function StudentsListPage() {
       valA = a.full_name || '';
       valB = b.full_name || '';
     } else if (sortField === 'attendance') {
-      valA = a.attendance || 0;
-      valB = b.attendance || 0;
+      valA = a.attendance_percentage || 0;
+      valB = b.attendance_percentage || 0;
     } else {
       valA = a.student_id || '';
       valB = b.student_id || '';
@@ -281,11 +296,28 @@ export default function StudentsListPage() {
   const totalStudents = filteredStudents.length;
   const activeStudents = filteredStudents.filter(s => s.is_active).length;
   const overdueFees = filteredStudents.filter(s => s.fee_status === 'overdue').length;
-  const lowAttendance = filteredStudents.filter(s => (s.attendance || 0) < 75).length;
+  const lowAttendance = filteredStudents.filter(s => (s.attendance_percentage || 0) < 75).length;
 
   useEffect(() => {
     setShowBulkBar(selectedStudents.length > 0);
   }, [selectedStudents]);
+
+  useEffect(() => {
+    if (editingStudent) {
+      reset({
+        full_name: editingStudent.full_name,
+        email: editingStudent.email,
+        phone: editingStudent.phone || '',
+        student_id: editingStudent.student_id,
+        father_name: editingStudent.father_name || '',
+        mother_name: editingStudent.mother_name || '',
+        guardian_phone: editingStudent.guardian_phone || '',
+        current_class: editingStudent.current_class || ''
+      });
+    } else {
+      reset({});
+    }
+  }, [editingStudent, reset]);
 
   if (loading) {
     return (
@@ -294,6 +326,9 @@ export default function StudentsListPage() {
       </div>
     );
   }
+
+  // Calculate students needing attention
+  const attentionNeeded = filteredStudents.filter(s => s.priority === 'high').length;
 
   return (
     <div className="space-y-6">
@@ -309,17 +344,35 @@ export default function StudentsListPage() {
         </Button>
       </div>
 
+      {/* Attention Banner */}
+      {attentionNeeded > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-orange-600" />
+            <span className="text-sm text-orange-700">
+              ⚠ {attentionNeeded} student(s) need attention (Low attendance / Overdue fees)
+            </span>
+          </div>
+          <button 
+            onClick={() => { setSelectedFeeStatus('overdue'); setSelectedStatus('active'); }}
+            className="text-sm text-orange-600 font-medium hover:underline"
+          >
+            View all →
+          </button>
+        </div>
+      )}
+
       {/* Summary Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div onClick={() => handleFilterClick('all')} className="bg-blue-50 rounded-xl p-3 cursor-pointer">
+        <div className="bg-blue-50 rounded-xl p-3">
           <div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total</span></div>
           <p className="text-xl font-bold text-blue-700">{totalStudents}</p>
         </div>
-        <div onClick={() => handleFilterClick('active')} className="bg-green-50 rounded-xl p-3 cursor-pointer">
+        <div className="bg-green-50 rounded-xl p-3">
           <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Active</span></div>
           <p className="text-xl font-bold text-green-700">{activeStudents}</p>
         </div>
-        <div onClick={() => handleFilterClick('overdue')} className="bg-red-50 rounded-xl p-3 cursor-pointer">
+        <div className="bg-red-50 rounded-xl p-3">
           <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Overdue Fees</span></div>
           <p className="text-xl font-bold text-red-700">{overdueFees}</p>
         </div>
@@ -354,13 +407,39 @@ export default function StudentsListPage() {
         </select>
       </div>
 
+      {/* Active Filter Chips */}
+      {(selectedClass || selectedStatus || selectedFeeStatus) && (
+        <div className="flex flex-wrap gap-2">
+          {selectedClass && (
+            <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs flex items-center gap-1">
+              Class: {classes.find(c => c.id === selectedClass)?.name}
+              <button onClick={() => setSelectedClass('')} className="hover:text-blue-900">✕</button>
+            </div>
+          )}
+          {selectedStatus && (
+            <div className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs flex items-center gap-1">
+              Status: {selectedStatus}
+              <button onClick={() => setSelectedStatus('')} className="hover:text-green-900">✕</button>
+            </div>
+          )}
+          {selectedFeeStatus && (
+            <div className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs flex items-center gap-1">
+              Fee: {selectedFeeStatus}
+              <button onClick={() => setSelectedFeeStatus('')} className="hover:text-yellow-900">✕</button>
+            </div>
+          )}
+          <button onClick={() => { setSelectedClass(''); setSelectedStatus(''); setSelectedFeeStatus(''); }} className="text-xs text-gray-500 hover:text-gray-700">
+            Clear all
+          </button>
+        </div>
+      )}
+
       {/* Bulk Action Bar */}
       {showBulkBar && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
           <span className="text-sm font-medium">{selectedStudents.length} selected</span>
           <div className="flex gap-2">
-            <button onClick={() => handleBulkAction('Send WhatsApp')} disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
-            <button onClick={() => handleBulkAction('Promote')} disabled={bulkLoading} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg">Promote</button>
+            <button onClick={() => {}} disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
             <button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button>
           </div>
         </div>
@@ -369,14 +448,14 @@ export default function StudentsListPage() {
       {/* Table */}
       <div className="hidden md:block overflow-x-auto border rounded-xl bg-white">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-gray-50 border-b sticky top-0">
             <tr>
               <th className="p-3 w-10"><input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} /></th>
               <th className="p-3 text-left cursor-pointer" onClick={() => handleSort('full_name')}>Student <ArrowUpDown className="w-3 h-3 inline" /></th>
               <th className="p-3 text-left">Class</th>
               <th className="p-3 text-left cursor-pointer" onClick={() => handleSort('attendance')}>Attendance <ArrowUpDown className="w-3 h-3 inline" /></th>
               <th className="p-3 text-left">Fees</th>
-              <th className="p-3 text-left">Status</th>
+              <th className="p-3 text-left">Priority</th>
               <th className="p-3 text-left">Last Activity</th>
               <th className="p-3 text-center">Actions</th>
             </tr>
@@ -385,12 +464,33 @@ export default function StudentsListPage() {
             {paginatedStudents.map((student) => (
               <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
                 <td className="p-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} /></td>
-                <td className="p-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div><div><p className="font-medium">{student.full_name}</p><p className="text-xs text-gray-400">{student.student_id}</p></div></div></td>
+                <td className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div>
+                    <div><p className="font-medium">{student.full_name}</p><p className="text-xs text-gray-400">{student.student_id}</p></div>
+                  </div>
+                </td>
                 <td className="p-3">{student.class_name || '-'}</td>
-                <td className="p-3"><div className="flex items-center gap-2 w-32"><div className="flex-1 bg-gray-200 h-2 rounded-full"><div className={`${getAttendanceColor(student.attendance)} h-2 rounded-full`} style={{ width: `${student.attendance}%` }} /></div><span className="text-xs">{student.attendance}%</span></div></td>
-                <td className="p-3">{getFeeStatusBadge(student.fee_status)}</td>
-                <td className="p-3"><span className={student.is_active ? 'text-green-600' : 'text-gray-500'}>{student.is_active ? 'Active' : 'Inactive'}</span></td>
-                <td className="p-3"><div className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" /><span className="text-xs">{student.last_activity}</span></div></td>
+                <td className="p-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>
+                      {student.attendance_percentage || 0}%
+                    </span>
+                    {(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}
+                  </div>
+                </td>
+                <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
+                <td className="p-3">
+                  <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>
+                    {getPriorityLabel(student.priority || 'normal')}
+                  </span>
+                </td>
+                <td className="p-3">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-gray-400" />
+                    <span className="text-xs text-gray-500">{getRelativeTime(student.last_activity || '')}</span>
+                  </div>
+                </td>
                 <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100"><Edit2 className="w-4 h-4 text-blue-600" /></button>
                   <button className="p-1.5 rounded-lg hover:bg-green-100"><MessageCircle className="w-4 h-4 text-green-600" /></button>
@@ -414,66 +514,41 @@ export default function StudentsListPage() {
         </div>
       )}
 
-            {/* Student Form Modal */}
+      {/* Student Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name *</label>
-                <input {...register("full_name", { required: "Full name is required" })} className="w-full border border-gray-200 rounded-lg px-3 py-2" />
-                {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name.message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <input {...register("email", { required: "Email is required" })} type="email" className="w-full border border-gray-200 rounded-lg px-3 py-2" />
-                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <input {...register("phone")} className="w-full border border-gray-200 rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Student ID</label>
-                <input {...register("student_id")} className="w-full border border-gray-200 rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Father's Name</label>
-                <input {...register("father_name")} className="w-full border border-gray-200 rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Mother's Name</label>
-                <input {...register("mother_name")} className="w-full border border-gray-200 rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Guardian Phone</label>
-                <input {...register("guardian_phone")} className="w-full border border-gray-200 rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Class</label>
-                <select {...register("current_class")} className="w-full border border-gray-200 rounded-lg px-3 py-2">
+              <div><label className="block text-sm font-medium mb-1">Full Name *</label><input {...register("full_name", { required: true })} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Email *</label><input {...register("email", { required: true })} type="email" className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Phone</label><input {...register("phone")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Student ID</label><input {...register("student_id")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Father's Name</label><input {...register("father_name")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Mother's Name</label><input {...register("mother_name")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Guardian Phone</label><input {...register("guardian_phone")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Class</label>
+                <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2">
                   <option value="">Select Class</option>
-                  {classes.map((cls) => (
-                    <option key={cls.id} value={cls.id}>{cls.name}</option>
-                  ))}
+                  {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
                 </select>
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Save</button>
-                <button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border border-gray-200 py-2 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button>
+                <button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border py-2 rounded-lg">Cancel</button>
               </div>
             </form>
           </div>
         </div>
-      )}      {/* Student Drawer */}
+      )}
+
+      {/* Student Drawer */}
       <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} refreshTrigger={refreshTrigger} />
     </div>
   );
 }
+
 
