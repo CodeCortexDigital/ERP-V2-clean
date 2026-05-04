@@ -29,3 +29,31 @@ Thumbs.db
 Desktop.ini
 
 t
+
+# Test scripts (temporary)
+verify_*.py
+generate_*.py
+create_*.py
+add_*.py
+test_*.py
+*_test.py
+*_temp.py
+debug_*.py
+temp_*.py
+
+# Generated data files
+*.bak
+*.tmp
+*.swp
+data_*.json
+sample_*.csv
+
+# Backup files
+*.backup
+*.old
+*.orig
+
+# Local configuration
+.env.local
+.env.*.local
+config.local.*

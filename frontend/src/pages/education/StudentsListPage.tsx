@@ -31,6 +31,7 @@ interface StudentWithData extends Student {
   balance?: number;
   priority?: string;
   last_activity?: string;
+  class_name?: string;
 }
 
 interface StudentFormData {
@@ -52,7 +53,7 @@ export default function StudentsListPage() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedFeeStatus, setSelectedFeeStatus] = useState('');
   const [sortField, setSortField] = useState('full_name');
-  const [sortOrder, setSortOrder] = useState('asc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showBulkBar, setShowBulkBar] = useState(false);
@@ -67,12 +68,40 @@ export default function StudentsListPage() {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormData>();
 
-  // Fetch classes first
+  // Column filters
+  const [filters, setFilters] = useState({
+    student: '',
+    class: '',
+    attendance: '',
+    fees: '',
+    priority: '',
+    lastActivity: ''
+  });
+
+  const handleFilterChange = (column: string, value: string) => {
+    setFilters(prev => ({ ...prev, [column]: value }));
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      student: '',
+      class: '',
+      attendance: '',
+      fees: '',
+      priority: '',
+      lastActivity: ''
+    });
+    setSearchTerm('');
+    setSelectedClass('');
+    setSelectedStatus('');
+    setSelectedFeeStatus('');
+  };
+
   useEffect(() => {
     fetchClasses();
   }, []);
 
-  // Fetch students after classes are loaded
   useEffect(() => {
     if (classes.length > 0) {
       fetchStudents();
@@ -88,9 +117,8 @@ export default function StudentsListPage() {
     }
   };
 
-        const fetchStudents = async () => {
+  const fetchStudents = async () => {
     setLoading(true);
-    console.log("=== STARTING fetchStudents ===");
     try {
       const response = await studentService.getAll();
       let studentData = [];
@@ -100,22 +128,16 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
-      console.log("Raw student data:", studentData.map(s => ({ name: s.full_name, id: s.id })));
-      
       const dashboardPromises = studentData.map(async (student) => {
-        console.log(`Fetching dashboard for: ${student.full_name}`);
         try {
           const dashboard = await studentService.getDashboardData(student.id);
-          console.log(`Dashboard response for ${student.full_name}:`, dashboard.data);
           return { student, dashboard: dashboard.data };
         } catch (err) {
-          console.error(`Failed for ${student.full_name}:`, err);
           return { student, dashboard: null };
         }
       });
       
       const results = await Promise.all(dashboardPromises);
-      console.log("All dashboard results:", results);
       
       const studentsWithData = results.map(({ student, dashboard }) => {
         const classObj = classes.find(c => c.id === student.current_class);
@@ -129,12 +151,6 @@ export default function StudentsListPage() {
           last_activity: dashboard?.last_activities?.[0]?.time || student.updated_at
         };
       });
-      
-      console.log("FINAL students with data:", studentsWithData.map(s => ({ 
-        name: s.full_name, 
-        attendance: s.attendance_percentage,
-        fee_status: s.fee_status
-      })));
       
       setStudents(studentsWithData);
     } catch (error) {
@@ -193,9 +209,6 @@ export default function StudentsListPage() {
     if (student.priority === 'medium') return 'bg-yellow-50 hover:bg-yellow-100';
     return 'hover:bg-gray-50';
   };
-
-  // Rest of the component (filters, sorting, pagination, handlers) remains similar
-  // ... (keeping existing handler functions)
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -267,12 +280,35 @@ export default function StudentsListPage() {
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesClass = !selectedClass || s.current_class === selectedClass;
+    
+    const matchesStudent = !filters.student || s.full_name?.toLowerCase().includes(filters.student.toLowerCase());
+    const matchesClass = !filters.class || s.class_name === filters.class;
+    const matchesAttendance = !filters.attendance || 
+      (filters.attendance === 'high' && (s.attendance_percentage || 0) >= 85) ||
+      (filters.attendance === 'medium' && (s.attendance_percentage || 0) >= 70 && (s.attendance_percentage || 0) < 85) ||
+      (filters.attendance === 'low' && (s.attendance_percentage || 0) < 70);
+    const matchesFees = !filters.fees || s.fee_status === filters.fees;
+    const matchesPriority = !filters.priority || s.priority === filters.priority;
+    
+    let matchesLastActivity = true;
+    if (filters.lastActivity) {
+      const lastActivityDate = new Date(s.last_activity || '');
+      const now = new Date();
+      const daysDiff = (now.getTime() - lastActivityDate.getTime()) / (1000 * 3600 * 24);
+      if (filters.lastActivity === 'today') matchesLastActivity = daysDiff <= 1;
+      else if (filters.lastActivity === 'week') matchesLastActivity = daysDiff <= 7;
+      else if (filters.lastActivity === 'month') matchesLastActivity = daysDiff <= 30;
+    }
+    
+    const matchesClassDropdown = !selectedClass || s.current_class === selectedClass;
     const matchesStatus = !selectedStatus || 
       (selectedStatus === 'active' && s.is_active) ||
       (selectedStatus === 'inactive' && !s.is_active);
-    const matchesFeeStatus = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
-    return matchesSearch && matchesClass && matchesStatus && matchesFeeStatus;
+    const matchesFeeStatusDropdown = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
+    
+    return matchesSearch && matchesStudent && matchesClass && matchesAttendance && 
+           matchesFees && matchesPriority && matchesLastActivity &&
+           matchesClassDropdown && matchesStatus && matchesFeeStatusDropdown;
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
@@ -280,9 +316,12 @@ export default function StudentsListPage() {
     if (sortField === 'full_name') {
       valA = a.full_name || '';
       valB = b.full_name || '';
-    } else if (sortField === 'attendance') {
+    } else if (sortField === 'attendance_percentage') {
       valA = a.attendance_percentage || 0;
       valB = b.attendance_percentage || 0;
+    } else if (sortField === 'class_name') {
+      valA = a.class_name || '';
+      valB = b.class_name || '';
     } else {
       valA = a.student_id || '';
       valB = b.student_id || '';
@@ -328,7 +367,6 @@ export default function StudentsListPage() {
     );
   }
 
-  // Calculate students needing attention
   const attentionNeeded = filteredStudents.filter(s => s.priority === 'high').length;
 
   return (
@@ -406,34 +444,10 @@ export default function StudentsListPage() {
           <option value="pending">Pending</option>
           <option value="overdue">Overdue</option>
         </select>
+        <button onClick={clearFilters} className="px-3 py-2 text-sm text-red-600 border rounded-lg hover:bg-red-50">
+          Clear All Filters
+        </button>
       </div>
-
-      {/* Active Filter Chips */}
-      {(selectedClass || selectedStatus || selectedFeeStatus) && (
-        <div className="flex flex-wrap gap-2">
-          {selectedClass && (
-            <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs flex items-center gap-1">
-              Class: {classes.find(c => c.id === selectedClass)?.name}
-              <button onClick={() => setSelectedClass('')} className="hover:text-blue-900">✕</button>
-            </div>
-          )}
-          {selectedStatus && (
-            <div className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs flex items-center gap-1">
-              Status: {selectedStatus}
-              <button onClick={() => setSelectedStatus('')} className="hover:text-green-900">✕</button>
-            </div>
-          )}
-          {selectedFeeStatus && (
-            <div className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs flex items-center gap-1">
-              Fee: {selectedFeeStatus}
-              <button onClick={() => setSelectedFeeStatus('')} className="hover:text-yellow-900">✕</button>
-            </div>
-          )}
-          <button onClick={() => { setSelectedClass(''); setSelectedStatus(''); setSelectedFeeStatus(''); }} className="text-xs text-gray-500 hover:text-gray-700">
-            Clear all
-          </button>
-        </div>
-      )}
 
       {/* Bulk Action Bar */}
       {showBulkBar && (
@@ -451,10 +465,27 @@ export default function StudentsListPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b sticky top-0">
             <tr>
-              <th className="p-3 w-10"><input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} /></th>
-              <th className="p-3 text-left cursor-pointer" onClick={() => handleSort('full_name')}>Student <ArrowUpDown className="w-3 h-3 inline" /></th>
-              <th className="p-3 text-left">Class</th>
-              <th className="p-3 text-left cursor-pointer" onClick={() => handleSort('attendance')}>Attendance <ArrowUpDown className="w-3 h-3 inline" /></th>
+              <th className="p-3 w-10">
+                <input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} />
+              </th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>
+                <div className="flex items-center gap-1">
+                  Student
+                  <ArrowUpDown className={`w-3 h-3 ${sortField === 'full_name' ? 'text-blue-600' : 'text-gray-400'}`} />
+                </div>
+              </th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('class_name')}>
+                <div className="flex items-center gap-1">
+                  Class
+                  <ArrowUpDown className={`w-3 h-3 ${sortField === 'class_name' ? 'text-blue-600' : 'text-gray-400'}`} />
+                </div>
+              </th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>
+                <div className="flex items-center gap-1">
+                  Attendance
+                  <ArrowUpDown className={`w-3 h-3 ${sortField === 'attendance_percentage' ? 'text-blue-600' : 'text-gray-400'}`} />
+                </div>
+              </th>
               <th className="p-3 text-left">Fees</th>
               <th className="p-3 text-left">Priority</th>
               <th className="p-3 text-left">Last Activity</th>
@@ -464,15 +495,23 @@ export default function StudentsListPage() {
           <tbody>
             {paginatedStudents.map((student) => (
               <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
-                <td className="p-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} /></td>
+                <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} />
+                </td>
                 <td className="p-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div>
-                    <div><p className="font-medium">{student.full_name}</p><p className="text-xs text-gray-400">{student.student_id}</p></div>
+                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">
+                      {student.full_name?.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-medium">{student.full_name}</p>
+                      <p className="text-xs text-gray-400">{student.student_id}</p>
+                    </div>
                   </div>
                 </td>
                 <td className="p-3">{student.class_name || '-'}</td>
-                <td className="p-3"><div className="flex items-center gap-2">
+                <td className="p-3">
+                  <div className="flex items-center gap-2">
                     <span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>
                       {student.attendance_percentage || 0}%
                     </span>
@@ -492,9 +531,15 @@ export default function StudentsListPage() {
                   </div>
                 </td>
                 <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100"><Edit2 className="w-4 h-4 text-blue-600" /></button>
-                  <button className="p-1.5 rounded-lg hover:bg-green-100"><MessageCircle className="w-4 h-4 text-green-600" /></button>
-                  <button className="p-1.5 rounded-lg hover:bg-yellow-100"><DollarSign className="w-4 h-4 text-yellow-600" /></button>
+                  <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100">
+                    <Edit2 className="w-4 h-4 text-blue-600" />
+                  </button>
+                  <button className="p-1.5 rounded-lg hover:bg-green-100">
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                  </button>
+                  <button className="p-1.5 rounded-lg hover:bg-yellow-100">
+                    <DollarSign className="w-4 h-4 text-yellow-600" />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -507,9 +552,13 @@ export default function StudentsListPage() {
         <div className="flex justify-between items-center">
           <p className="text-sm text-gray-500">Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length}</p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="w-4 h-4" /></Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
             <span className="px-3 py-1 text-sm bg-gray-100 rounded-lg">{currentPage} / {totalPages}</span>
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight className="w-4 h-4" /></Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       )}
@@ -520,7 +569,9 @@ export default function StudentsListPage() {
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div><label className="block text-sm font-medium mb-1">Full Name *</label><input {...register("full_name", { required: true })} className="w-full border rounded-lg px-3 py-2" /></div>
@@ -550,9 +601,3 @@ export default function StudentsListPage() {
     </div>
   );
 }
-
-
-
-
-
-
