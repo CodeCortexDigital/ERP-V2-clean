@@ -3,31 +3,24 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer
+import jwt
 
 User = get_user_model()
 
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def health_check(request):
-    """Basic health check endpoint"""
     return JsonResponse({"status": "ok", "message": "Server is running"})
 
 
-# ============================================================
-# AUTHENTICATION
-# ============================================================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    """Login user and return JWT token"""
     email = request.data.get('email')
     password = request.data.get('password')
     
@@ -38,17 +31,14 @@ def login_view(request):
         )
     
     # Try to authenticate
-    user = authenticate(request, username=email, password=password)
+    user = None
+    try:
+        user_obj = User.objects.get(email=email)
+        user = authenticate(request, username=user_obj.email, password=password)
+    except User.DoesNotExist:
+        pass
     
-    if user is None:
-        # Try with email as username
-        try:
-            user_obj = User.objects.get(email=email)
-            user = authenticate(request, username=user_obj.email, password=password)
-        except User.DoesNotExist:
-            pass
-    
-    if user:
+    if user and user.is_active:
         refresh = RefreshToken.for_user(user)
         return Response({
             'access': str(refresh.access_token),
@@ -56,7 +46,7 @@ def login_view(request):
             'user': {
                 'id': str(user.id),
                 'email': user.email,
-                'full_name': user.full_name,
+                'full_name': getattr(user, 'full_name', user.email),
                 'is_staff': user.is_staff,
                 'is_superuser': user.is_superuser
             }
@@ -69,23 +59,36 @@ def login_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def me(request):
-    """Get current user info"""
-    user = request.user
-    return Response({
-        'id': str(user.id),
-        'email': user.email,
-        'full_name': user.full_name,
-        'is_staff': user.is_staff,
-        'is_superuser': user.is_superuser
-    })
+    """Get current user info - manual token verification"""
+    auth_header = request.headers.get('Authorization', '')
+    
+    if not auth_header.startswith('Bearer '):
+        return Response({'error': 'Invalid token format'}, status=401)
+    
+    token = auth_header.split(' ')[1]
+    
+    try:
+        # Decode token manually
+        access_token = AccessToken(token)
+        user_id = access_token['user_id']
+        user = User.objects.get(id=user_id)
+        
+        return Response({
+            'id': str(user.id),
+            'email': user.email,
+            'full_name': getattr(user, 'full_name', user.email),
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'is_active': user.is_active
+        })
+    except (InvalidToken, TokenError, User.DoesNotExist) as e:
+        return Response({'error': str(e)}, status=401)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-    """Logout user"""
     try:
         refresh_token = request.data.get('refresh')
         if refresh_token:
@@ -94,3 +97,7 @@ def logout_view(request):
         return Response({'message': 'Logged out successfully'})
     except Exception:
         return Response({'message': 'Logged out'}, status=200)
+
+
+# Demo endpoints
+from .views_auth import demo_login, demo_status, google_login
