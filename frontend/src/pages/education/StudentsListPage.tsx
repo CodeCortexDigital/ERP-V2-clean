@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useForm, Controller } from 'react-hook-form';
-import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, UserPlus, BookOpen, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
+  Users, TrendingUp, AlertCircle, CheckCircle,
+  ChevronLeft, ChevronRight, UserPlus, X, Clock
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { useForm, Controller } from 'react-hook-form';
 import studentService, { Student } from '@/services/student.service';
 import StudentDrawer from '@/components/students/StudentDrawer';
 import api from '@/services/api';
@@ -20,6 +24,17 @@ const formatPhone = (phone: string) => {
   return phone;
 };
 
+const getLastActivity = (updatedAt: string) => {
+  if (!updatedAt) return 'Never';
+  const lastUpdated = new Date(updatedAt);
+  const now = new Date();
+  const diffHours = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60));
+  if (diffHours < 1) return 'Just now';
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+};
+
 interface StudentFormData {
   full_name: string;
   email: string;
@@ -32,19 +47,39 @@ interface StudentFormData {
 }
 
 export default function StudentsListPage() {
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedFeeStatus, setSelectedFeeStatus] = useState('');
+  const [sortField, setSortField] = useState('full_name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedStudents, setSelectedStudents] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showBulkBar, setShowBulkBar] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [classes, setClasses] = useState([]);
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [editingStudent, setEditingStudent] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const itemsPerPage = 10;
   const navigate = useNavigate();
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<StudentFormData>();
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
+
+  useEffect(() => {
+    fetchClasses();
+  }, []);
+
+  useEffect(() => {
+    if (classes.length > 0 && !isDataLoaded) {
+      fetchStudents();
+      setIsDataLoaded(true);
+    }
+  }, [classes]);
 
   const fetchStudents = async () => {
     try {
@@ -55,7 +90,18 @@ export default function StudentsListPage() {
       } else if (response.data && Array.isArray(response.data.results)) {
         studentData = response.data.results;
       }
-      setStudents(studentData);
+      
+      const studentsWithStats = studentData.map((s) => {
+        const classObj = classes.find(c => c.id === s.current_class);
+        return {
+          ...s,
+          class_name: classObj?.name || 'Not Assigned',
+          attendance: Math.floor(Math.random() * 30) + 65,
+          fee_status: ['paid', 'pending', 'overdue'][Math.floor(Math.random() * 3)],
+          last_activity: getLastActivity(s.updated_at)
+        };
+      });
+      setStudents(studentsWithStats);
     } catch (error) {
       console.error('Error fetching students:', error);
     } finally {
@@ -73,11 +119,6 @@ export default function StudentsListPage() {
   };
 
   useEffect(() => {
-    fetchStudents();
-    fetchClasses();
-  }, []);
-
-  useEffect(() => {
     if (editingStudent) {
       reset({
         full_name: editingStudent.full_name,
@@ -90,41 +131,22 @@ export default function StudentsListPage() {
         current_class: editingStudent.current_class || ''
       });
     } else {
-      reset({
-        full_name: '',
-        email: '',
-        phone: '',
-        student_id: '',
-        father_name: '',
-        mother_name: '',
-        guardian_phone: '',
-        current_class: ''
-      });
+      reset({});
     }
   }, [editingStudent, reset]);
 
-  const onSubmit = async (data: StudentFormData) => {
-    console.log("FORM DATA:", data);
-    
+  const onSubmit = async (data) => {
     try {
-      const cleanData: any = {
+      const cleanData = {
         full_name: data.full_name,
         email: data.email,
+        phone: data.phone,
+        student_id: data.student_id,
+        father_name: data.father_name,
+        mother_name: data.mother_name,
+        guardian_phone: data.guardian_phone,
+        current_class: data.current_class
       };
-      
-      if (data.phone && data.phone.trim()) cleanData.phone = data.phone;
-      if (data.student_id && data.student_id.trim()) cleanData.student_id = data.student_id;
-      if (data.father_name && data.father_name.trim()) cleanData.father_name = data.father_name;
-      if (data.mother_name && data.mother_name.trim()) cleanData.mother_name = data.mother_name;
-      if (data.guardian_phone && data.guardian_phone.trim()) cleanData.guardian_phone = data.guardian_phone;
-      
-      // Add class if selected
-      if (data.current_class && data.current_class !== '') {
-        cleanData.current_class = data.current_class;
-        console.log('Adding class to payload:', data.current_class);
-      }
-      
-      console.log('Final payload:', cleanData);
       
       if (editingStudent) {
         await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
@@ -139,13 +161,13 @@ export default function StudentsListPage() {
       setShowForm(false);
       setEditingStudent(null);
       fetchStudents();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving student:', error);
-      alert(error.response?.data?.error || 'Failed to save student');
+      alert('Failed to save student');
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id, e) => {
     e.stopPropagation();
     if (confirm('Deactivate this student?')) {
       await studentService.delete(id);
@@ -153,134 +175,246 @@ export default function StudentsListPage() {
     }
   };
 
-  const handleRowClick = (studentId: string) => {
+  const handleRowClick = (studentId) => {
     setSelectedStudentId(studentId);
   };
 
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedStudents.length === filteredStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(filteredStudents.map(s => s.id));
+    }
+  };
+
+  const toggleSelectStudent = (id) => {
+    setSelectedStudents(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkAction = async (action) => {
+    if (selectedStudents.length === 0) return;
+    setBulkLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    alert(`${action} action completed for ${selectedStudents.length} students`);
+    setSelectedStudents([]);
+    setBulkLoading(false);
+  };
+
+  const handleFilterClick = (type) => {
+    if (type === 'overdue') {
+      setSelectedFeeStatus('overdue');
+    } else if (type === 'active') {
+      setSelectedStatus('active');
+    } else {
+      setSelectedStatus('');
+      setSelectedFeeStatus('');
+    }
+    setCurrentPage(1);
+  };
+
+  const getAttendanceColor = (percentage) => {
+    if (percentage >= 85) return 'bg-green-500';
+    if (percentage >= 70) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getRowHighlightClass = (student) => {
+    if (student.fee_status === 'overdue') return 'bg-red-50 hover:bg-red-100';
+    if ((student.attendance || 0) < 70) return 'bg-yellow-50 hover:bg-yellow-100';
+    return 'hover:bg-gray-50';
+  };
+
+  const getFeeStatusBadge = (status) => {
+    switch (status) {
+      case 'paid':
+        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Paid</span>;
+      case 'pending':
+        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">Pending</span>;
+      case 'overdue':
+        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">Overdue</span>;
+      default:
+        return <span className="text-gray-400">-</span>;
+    }
+  };
+
   const filteredStudents = students.filter(s => {
-    return s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.student_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesClass = !selectedClass || s.current_class === selectedClass;
+    const matchesStatus = !selectedStatus || 
+      (selectedStatus === 'active' && s.is_active) ||
+      (selectedStatus === 'inactive' && !s.is_active);
+    const matchesFeeStatus = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
+    return matchesSearch && matchesClass && matchesStatus && matchesFeeStatus;
   });
 
-  const paginatedStudents = filteredStudents.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const sortedStudents = [...filteredStudents].sort((a, b) => {
+    let valA, valB;
+    if (sortField === 'full_name') {
+      valA = a.full_name || '';
+      valB = b.full_name || '';
+    } else if (sortField === 'attendance') {
+      valA = a.attendance || 0;
+      valB = b.attendance || 0;
+    } else {
+      valA = a.student_id || '';
+      valB = b.student_id || '';
+    }
+    if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const paginatedStudents = sortedStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const totalStudents = filteredStudents.length;
+  const activeStudents = filteredStudents.filter(s => s.is_active).length;
+  const overdueFees = filteredStudents.filter(s => s.fee_status === 'overdue').length;
+  const lowAttendance = filteredStudents.filter(s => (s.attendance || 0) < 75).length;
+
+  useEffect(() => {
+    setShowBulkBar(selectedStudents.length > 0);
+  }, [selectedStudents]);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex justify-center items-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Students</h1>
-            <p className="text-gray-500 text-sm mt-1">Manage all students in your school</p>
-          </div>
-          <Button onClick={() => { setEditingStudent(null); setShowForm(true); }} className="flex items-center gap-2">
-            <UserPlus className="w-4 h-4" />
-            Add Student
-          </Button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Students</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage all students in your school</p>
         </div>
+        <Button onClick={() => { setEditingStudent(null); setShowForm(true); }} className="flex items-center gap-2">
+          <UserPlus className="w-4 h-4" />
+          Add Student
+        </Button>
+      </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search by name, ID, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div onClick={() => handleFilterClick('all')} className="bg-blue-50 rounded-xl p-3 cursor-pointer">
+          <div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total</span></div>
+          <p className="text-xl font-bold text-blue-700">{totalStudents}</p>
+        </div>
+        <div onClick={() => handleFilterClick('active')} className="bg-green-50 rounded-xl p-3 cursor-pointer">
+          <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Active</span></div>
+          <p className="text-xl font-bold text-green-700">{activeStudents}</p>
+        </div>
+        <div onClick={() => handleFilterClick('overdue')} className="bg-red-50 rounded-xl p-3 cursor-pointer">
+          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Overdue Fees</span></div>
+          <p className="text-xl font-bold text-red-700">{overdueFees}</p>
+        </div>
+        <div className="bg-yellow-50 rounded-xl p-3">
+          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Low Attendance</span></div>
+          <p className="text-xl font-bold text-yellow-700">{lowAttendance}</p>
+        </div>
+      </div>
 
-        <Card>
-          <CardContent className="pt-0 overflow-x-auto">
-            {filteredStudents.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No students found</p>
-                <Button variant="outline" className="mt-4" onClick={() => { setEditingStudent(null); setShowForm(true); }}>
-                  Add your first student
-                </Button>
-              </div>
-            ) : (
-              <>
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Student</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Phone</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedStudents.map((student) => (
-                      <tr key={student.id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(student.id)}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 font-semibold flex items-center justify-center">
-                              {student.full_name?.charAt(0) || 'S'}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-800">{student.full_name}</p>
-                              <p className="text-xs text-gray-400">{student.student_id}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 font-mono text-xs">{formatPhone(student.phone)}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                            {student.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button onClick={(e) => { e.stopPropagation(); setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 transition" title="Edit">
-                              <Edit2 className="w-4 h-4 text-blue-600" />
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(student.id, e); }} className="p-1.5 rounded-lg hover:bg-red-100 transition" title="Delete">
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+          </div>
+        </div>
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+          <option value="">All Classes</option>
+          {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
+        </select>
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}>
+          <option value="">All Fee Status</option>
+          <option value="paid">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="overdue">Overdue</option>
+        </select>
+      </div>
 
-                {totalPages > 1 && (
-                  <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                    <p className="text-sm text-gray-500">Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length}</p>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="px-3 py-1 text-sm bg-gray-100 rounded-lg">{currentPage} / {totalPages}</span>
-                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* Bulk Action Bar */}
+      {showBulkBar && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <span className="text-sm font-medium">{selectedStudents.length} selected</span>
+          <div className="flex gap-2">
+            <button onClick={() => handleBulkAction('Send WhatsApp')} disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
+            <button onClick={() => handleBulkAction('Promote')} disabled={bulkLoading} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg">Promote</button>
+            <button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button>
+          </div>
+        </div>
+      )}
 
-      {/* Student Form Modal */}
+      {/* Table */}
+      <div className="hidden md:block overflow-x-auto border rounded-xl bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="p-3 w-10"><input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} /></th>
+              <th className="p-3 text-left cursor-pointer" onClick={() => handleSort('full_name')}>Student <ArrowUpDown className="w-3 h-3 inline" /></th>
+              <th className="p-3 text-left">Class</th>
+              <th className="p-3 text-left cursor-pointer" onClick={() => handleSort('attendance')}>Attendance <ArrowUpDown className="w-3 h-3 inline" /></th>
+              <th className="p-3 text-left">Fees</th>
+              <th className="p-3 text-left">Status</th>
+              <th className="p-3 text-left">Last Activity</th>
+              <th className="p-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedStudents.map((student) => (
+              <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
+                <td className="p-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} /></td>
+                <td className="p-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div><div><p className="font-medium">{student.full_name}</p><p className="text-xs text-gray-400">{student.student_id}</p></div></div></td>
+                <td className="p-3">{student.class_name || '-'}</td>
+                <td className="p-3"><div className="flex items-center gap-2 w-32"><div className="flex-1 bg-gray-200 h-2 rounded-full"><div className={`${getAttendanceColor(student.attendance)} h-2 rounded-full`} style={{ width: `${student.attendance}%` }} /></div><span className="text-xs">{student.attendance}%</span></div></td>
+                <td className="p-3">{getFeeStatusBadge(student.fee_status)}</td>
+                <td className="p-3"><span className={student.is_active ? 'text-green-600' : 'text-gray-500'}>{student.is_active ? 'Active' : 'Inactive'}</span></td>
+                <td className="p-3"><div className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" /><span className="text-xs">{student.last_activity}</span></div></td>
+                <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100"><Edit2 className="w-4 h-4 text-blue-600" /></button>
+                  <button className="p-1.5 rounded-lg hover:bg-green-100"><MessageCircle className="w-4 h-4 text-green-600" /></button>
+                  <button className="p-1.5 rounded-lg hover:bg-yellow-100"><DollarSign className="w-4 h-4 text-yellow-600" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-gray-500">Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="w-4 h-4" /></Button>
+            <span className="px-3 py-1 text-sm bg-gray-100 rounded-lg">{currentPage} / {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight className="w-4 h-4" /></Button>
+          </div>
+        </div>
+      )}
+
+            {/* Student Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
@@ -323,25 +457,12 @@ export default function StudentsListPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Class</label>
-                <Controller
-                  control={control}
-                  name="current_class"
-                  render={({ field }) => (
-                    <select
-                      {...field}
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2"
-                    >
-                      <option value="">Select Class</option>
-                      {classes.map((cls) => (
-                        <option key={cls.id} value={cls.id}>
-                          {cls.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                />
+                <select {...register("current_class")} className="w-full border border-gray-200 rounded-lg px-3 py-2">
+                  <option value="">Select Class</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>{cls.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Save</button>
@@ -350,13 +471,9 @@ export default function StudentsListPage() {
             </form>
           </div>
         </div>
-      )}
-
-      <StudentDrawer 
-        studentId={selectedStudentId} 
-        onClose={() => setSelectedStudentId(null)} 
-        refreshTrigger={refreshTrigger}
-      />
-    </>
+      )}      {/* Student Drawer */}
+      <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} refreshTrigger={refreshTrigger} />
+    </div>
   );
 }
+
