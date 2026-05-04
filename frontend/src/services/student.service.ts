@@ -62,12 +62,14 @@ const studentService = {
   getAll: () => api.get<Student[]>('/auth/students/'),
   getById: (id: string) => api.get<Student>(`/auth/students/${id}/`),
   get360View: (studentId: string) => api.get<Student360Data>(`/education/students/student-360/${studentId}/`),
+  getDashboardData: (studentId: string) => api.get(`/education/students/dashboard/${studentId}/`),
   create: (data: Partial<Student>) => api.post('/auth/students/', data),
   update: (id: string, data: Partial<Student>) => api.patch(`/auth/students/${id}/`, data),
   delete: (id: string) => api.delete(`/auth/students/${id}/`),
 };
 
 export default studentService;
+
 
 
 

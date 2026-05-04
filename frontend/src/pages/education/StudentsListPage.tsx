@@ -88,10 +88,10 @@ export default function StudentsListPage() {
     }
   };
 
-    const fetchStudents = async () => {
+        const fetchStudents = async () => {
     setLoading(true);
+    console.log("=== STARTING fetchStudents ===");
     try {
-      // Get basic student data
       const response = await studentService.getAll();
       let studentData = [];
       if (Array.isArray(response.data)) {
@@ -100,41 +100,42 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
-      console.log("Fetched students:", studentData.length);
+      console.log("Raw student data:", studentData.map(s => ({ name: s.full_name, id: s.id })));
       
-      // Fetch dashboard data for each student - THIS IS THE KEY
-      const studentsWithData = [];
-      for (const student of studentData) {
+      const dashboardPromises = studentData.map(async (student) => {
+        console.log(`Fetching dashboard for: ${student.full_name}`);
         try {
-          console.log("Fetching dashboard for student:", student.full_name);
           const dashboard = await studentService.getDashboardData(student.id);
-          const dashboardData = dashboard.data;
-          console.log("Dashboard data:", dashboardData);
-          
-          studentsWithData.push({
-            ...student,
-            class_name: classes.find(c => c.id === student.current_class)?.name || 'Not Assigned',
-            attendance_percentage: dashboardData.attendance_percentage || 0,
-            fee_status: dashboardData.fee_status || 'pending',
-            balance: dashboardData.balance || 0,
-            priority: dashboardData.priority || 'normal',
-            last_activity: dashboardData.last_activities?.[0]?.time || student.updated_at
-          });
-        } catch (error) {
-          console.error(`Error fetching dashboard for student ${student.id}:`, error);
-          studentsWithData.push({
-            ...student,
-            class_name: classes.find(c => c.id === student.current_class)?.name || 'Not Assigned',
-            attendance_percentage: 0,
-            fee_status: 'pending',
-            balance: 0,
-            priority: 'normal',
-            last_activity: student.updated_at
-          });
+          console.log(`Dashboard response for ${student.full_name}:`, dashboard.data);
+          return { student, dashboard: dashboard.data };
+        } catch (err) {
+          console.error(`Failed for ${student.full_name}:`, err);
+          return { student, dashboard: null };
         }
-      }
+      });
       
-      console.log("Final students with data:", studentsWithData);
+      const results = await Promise.all(dashboardPromises);
+      console.log("All dashboard results:", results);
+      
+      const studentsWithData = results.map(({ student, dashboard }) => {
+        const classObj = classes.find(c => c.id === student.current_class);
+        return {
+          ...student,
+          class_name: classObj?.name || 'Not Assigned',
+          attendance_percentage: dashboard?.attendance_percentage || 0,
+          fee_status: dashboard?.fee_status || 'pending',
+          balance: dashboard?.balance || 0,
+          priority: dashboard?.priority || 'normal',
+          last_activity: dashboard?.last_activities?.[0]?.time || student.updated_at
+        };
+      });
+      
+      console.log("FINAL students with data:", studentsWithData.map(s => ({ 
+        name: s.full_name, 
+        attendance: s.attendance_percentage,
+        fee_status: s.fee_status
+      })));
+      
       setStudents(studentsWithData);
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -471,8 +472,7 @@ export default function StudentsListPage() {
                   </div>
                 </td>
                 <td className="p-3">{student.class_name || '-'}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
+                <td className="p-3"><div className="flex items-center gap-2">
                     <span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>
                       {student.attendance_percentage || 0}%
                     </span>
@@ -550,5 +550,9 @@ export default function StudentsListPage() {
     </div>
   );
 }
+
+
+
+
 
 

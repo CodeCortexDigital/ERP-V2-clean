@@ -9,6 +9,15 @@ interface StudentDrawerProps {
   refreshTrigger?: number;
 }
 
+const formatPhone = (phone: string) => {
+  if (!phone) return 'Not provided';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 11) {
+    return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7, 11)}`;
+  }
+  return phone;
+};
+
 // Mini attendance trend component
 const AttendanceTrend = ({ data }) => {
   const max = Math.max(...data, 1);
@@ -238,16 +247,18 @@ export default function StudentDrawer({ studentId, onClose, refreshTrigger = 0 }
                 {activeTab === 'overview' && (
                   <>
                     <div className="space-y-2">
-                      <p className="text-sm flex items-center gap-2"><Phone className="w-4 h-4 text-gray-400" /><span className="text-gray-600">Phone:</span><span>{student.student.phone || 'Not provided'}</span></p>
+                      <p className="text-sm flex items-center gap-2"><Phone className="w-4 h-4 text-gray-400" /><span className="text-gray-600">Phone:</span><span>{formatPhone(student.student.phone)}</span></p>
                       <p className="text-sm flex items-center gap-2"><Mail className="w-4 h-4 text-gray-400" /><span className="text-gray-600">Email:</span><span>{student.student.email}</span></p>
-                      <p className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4 text-gray-400" /><span className="text-gray-600">Program:</span><span>{student.student.program || 'Not specified'}</span></p>
+                      {student.student.program && (
+                        <p className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4 text-gray-400" /><span className="text-gray-600">Program:</span><span>{student.student.program}</span></p>
+                      )}
                     </div>
                     <div className="border-t pt-3">
                       <h4 className="font-medium text-sm mb-2">Guardian Info</h4>
                       <div className="space-y-1 text-sm text-gray-600">
                         <p>Father: {student.student.father_name || 'Not provided'}</p>
                         <p>Mother: {student.student.mother_name || 'Not provided'}</p>
-                        <p>Guardian Phone: {student.student.guardian_phone || 'Not provided'}</p>
+                        <p>Guardian Phone: {formatPhone(student.student.guardian_phone)}</p>
                       </div>
                     </div>
                   </>
@@ -324,4 +335,3 @@ export default function StudentDrawer({ studentId, onClose, refreshTrigger = 0 }
     </AnimatePresence>
   );
 }
-
