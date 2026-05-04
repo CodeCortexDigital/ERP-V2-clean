@@ -3,11 +3,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
-import jwt
+from rest_framework import generics
+from django.apps import apps
+from .serializers import UserSerializer, StudentSerializer
 
 User = get_user_model()
 
@@ -25,18 +26,13 @@ def login_view(request):
     password = request.data.get('password')
     
     if not email or not password:
-        return Response(
-            {'error': 'Email and password required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'error': 'Email and password required'}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Try to authenticate
-    user = None
     try:
         user_obj = User.objects.get(email=email)
         user = authenticate(request, username=user_obj.email, password=password)
     except User.DoesNotExist:
-        pass
+        user = None
     
     if user and user.is_active:
         refresh = RefreshToken.for_user(user)
@@ -52,38 +48,20 @@ def login_view(request):
             }
         })
     
-    return Response(
-        {'error': 'Invalid credentials'},
-        status=status.HTTP_401_UNAUTHORIZED
-    )
+    return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def me(request):
-    """Get current user info - manual token verification"""
-    auth_header = request.headers.get('Authorization', '')
-    
-    if not auth_header.startswith('Bearer '):
-        return Response({'error': 'Invalid token format'}, status=401)
-    
-    token = auth_header.split(' ')[1]
-    
-    try:
-        # Decode token manually
-        access_token = AccessToken(token)
-        user_id = access_token['user_id']
-        user = User.objects.get(id=user_id)
-        
-        return Response({
-            'id': str(user.id),
-            'email': user.email,
-            'full_name': getattr(user, 'full_name', user.email),
-            'is_staff': user.is_staff,
-            'is_superuser': user.is_superuser,
-            'is_active': user.is_active
-        })
-    except (InvalidToken, TokenError, User.DoesNotExist) as e:
-        return Response({'error': str(e)}, status=401)
+    user = request.user
+    return Response({
+        'id': str(user.id),
+        'email': user.email,
+        'full_name': getattr(user, 'full_name', user.email),
+        'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser
+    })
 
 
 @api_view(['POST'])
@@ -99,33 +77,7 @@ def logout_view(request):
         return Response({'message': 'Logged out'}, status=200)
 
 
-# Demo endpoints
-from .views_auth import demo_login, demo_status, google_login
-
-# ============================================================
-# STUDENT VIEWS
-# ============================================================
-from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
-from django.apps import apps
-from .serializers import StudentSerializer
-
 class StudentListCreateView(generics.ListCreateAPIView):
-    """List all students or create a new student"""
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        Student = apps.get_model('education_students', 'Student')
-        return Student.objects.filter(is_active=True)
-    
-    def get_serializer_class(self):
-        return StudentSerializer
-    
-    def perform_create(self, serializer):
-        serializer.save()
-
-class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update or delete a student"""
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
@@ -134,3 +86,36 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_serializer_class(self):
         return StudentSerializer
+
+
+class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
+    
+    def get_queryset(self):
+        Student = apps.get_model('education_students', 'Student')
+        return Student.objects.all()
+    
+    def get_serializer_class(self):
+        return StudentSerializer
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response({'message': 'Student deactivated'}, status=status.HTTP_200_OK)
+
+# ============================================================
+# CLASS VIEWS
+# ============================================================
+class ClassListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        SchoolClass = apps.get_model('education_academics', 'SchoolClass')
+        return SchoolClass.objects.filter(is_active=True)
+    
+    def get_serializer_class(self):
+        from .serializers import ClassSerializer
+        return ClassSerializer

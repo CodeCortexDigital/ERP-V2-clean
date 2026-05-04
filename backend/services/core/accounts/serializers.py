@@ -1,32 +1,59 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
+from django.apps import apps
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
     class Meta:
-        model = User
-        fields = ['id', 'email', 'username', 'password']
+        model = apps.get_model('core_accounts', 'User')
+        fields = ['id', 'email', 'full_name', 'is_staff', 'is_superuser']
 
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
 
 # ============================================================
 # STUDENT SERIALIZER
 # ============================================================
-from rest_framework import serializers
-from django.apps import apps
-
 class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = apps.get_model('education_students', 'Student')
-        fields = [
-            'id', 'student_id', 'full_name', 'email', 'phone', 
-            'father_name', 'mother_name', 'guardian_phone', 
-            'enrollment_date', 'program', 'current_semester',
-            'current_class', 'current_section', 'is_active', 
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'deleted_at']
+        extra_kwargs = {
+            'phone': {'required': False, 'allow_blank': True},
+            'father_name': {'required': False, 'allow_blank': True},
+            'mother_name': {'required': False, 'allow_blank': True},
+            'guardian_phone': {'required': False, 'allow_blank': True},
+            'guardian_email': {'required': False, 'allow_blank': True},
+            'program': {'required': False, 'allow_blank': True},
+            'enrollment_date': {'required': False, 'allow_null': True},
+            'current_class': {'required': False, 'allow_null': True},
+            'current_section': {'required': False, 'allow_null': True},
+            'student_id': {'required': False, 'allow_blank': True},
+            'full_name': {'required': True},
+            'email': {'required': False, 'allow_blank': True},
+        }
+    
+    def validate_email(self, value):
+        """Validate email uniqueness, but allow blank during updates"""
+        if not value:
+            return value
+        # Check if email exists for another student
+        if self.instance:
+            # During update, exclude current instance
+            if apps.get_model('education_students', 'Student').objects.filter(email=value).exclude(id=self.instance.id).exists():
+                raise serializers.ValidationError("A student with this email already exists.")
+        else:
+            # During create, check if email exists
+            if apps.get_model('education_students', 'Student').objects.filter(email=value).exists():
+                raise serializers.ValidationError("A student with this email already exists.")
+        return value
+    
+    def validate_full_name(self, value):
+        if not value:
+            raise serializers.ValidationError("Full name is required.")
+        return value
+
+# ============================================================
+# CLASS SERIALIZER
+# ============================================================
+class ClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = apps.get_model('education_academics', 'SchoolClass')
+        fields = ['id', 'name', 'code', 'capacity', 'is_active']
