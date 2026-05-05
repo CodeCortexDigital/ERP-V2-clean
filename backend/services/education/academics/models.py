@@ -79,3 +79,4 @@ class Section(models.Model):
 
     class Meta:
         unique_together = ['class_ref', 'code']
+
