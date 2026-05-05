@@ -1,14 +1,8 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import AttendanceViewSet
+from django.urls import path
+from . import views
 
 urlpatterns = [
-    path('mark/', AttendanceViewSet.as_view({'post': 'mark_attendance'}), name='mark'),
-    path('bulk-mark/', AttendanceViewSet.as_view({'post': 'bulk_mark'}), name='bulk_mark'),
-    path('summary/', AttendanceViewSet.as_view({'get': 'get_summary'}), name='summary'),
+    path('', views.attendance_list, name='attendance-list'),
+    path('mark/', views.mark_attendance, name='mark-attendance'),
+    path('bulk/', views.bulk_mark_attendance, name='bulk-attendance'),
 ]
-
-# Also register the default routes
-router = DefaultRouter()
-router.register(r'records', AttendanceViewSet, basename='attendance')
-urlpatterns += router.urls

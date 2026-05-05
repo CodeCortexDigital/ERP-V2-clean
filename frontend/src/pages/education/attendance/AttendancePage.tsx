@@ -1,29 +1,29 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, Search, Filter, Save, Check, X, Clock, Users } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/Card';
+import { Calendar, Users, CheckCircle, XCircle, Clock, Save, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
 import api from '@/services/api';
-import classService from '@/services/class.service';
+import classService, { SchoolClass } from '@/services/class.service';
+import studentService from '@/services/student.service';
 
 interface Student {
   id: string;
-  full_name: string;
   student_id: string;
-  status?: 'present' | 'absent' | 'late';
+  full_name: string;
+  attendance_status?: 'present' | 'absent' | 'late';
 }
 
 export default function AttendancePage() {
-  const [classes, setClasses] = useState([]);
-  const [selectedClass, setSelectedClass] = useState('');
-  const [selectedSection, setSelectedSection] = useState('');
-  const [sections, setSections] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [summary, setSummary] = useState({ present: 0, absent: 0, late: 0 });
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     fetchClasses();
@@ -31,15 +31,15 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (selectedClass) {
-      fetchSections();
+      fetchStudents();
     }
   }, [selectedClass]);
 
   useEffect(() => {
-    if (selectedClass && selectedSection && selectedDate) {
-      fetchStudents();
+    if (selectedClass && students.length > 0) {
+      fetchExistingAttendance();
     }
-  }, [selectedClass, selectedSection, selectedDate]);
+  }, [selectedClass, selectedDate, students.length]);
 
   const fetchClasses = async () => {
     try {
@@ -50,27 +50,28 @@ export default function AttendancePage() {
     }
   };
 
-  const fetchSections = async () => {
-    try {
-      const response = await api.get(`/api/classes/${selectedClass}/sections/`);
-      setSections(response.data || []);
-    } catch (error) {
-      console.error('Error fetching sections:', error);
-    }
-  };
-
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/classes/${selectedClass}/students/`, {
-        params: { section: selectedSection, date: selectedDate }
-      });
-      const studentsWithStatus = (response.data || []).map(s => ({
-        ...s,
-        status: s.attendance_status || 'present'
-      }));
-      setStudents(studentsWithStatus);
-      updateSummary(studentsWithStatus);
+      const response = await studentService.getAll();
+      let allStudents: any[] = [];
+      if (Array.isArray(response.data)) {
+        allStudents = response.data;
+      } else if (response.data && Array.isArray(response.data.results)) {
+        allStudents = response.data.results;
+      }
+      
+      let filteredStudents = allStudents;
+      if (selectedClass) {
+        filteredStudents = allStudents.filter(s => s.current_class === selectedClass);
+      }
+      
+      setStudents(filteredStudents.map((s: any) => ({
+        id: s.id,
+        student_id: s.student_id,
+        full_name: s.full_name,
+        attendance_status: 'present'
+      })));
     } catch (error) {
       console.error('Error fetching students:', error);
     } finally {
@@ -78,192 +79,290 @@ export default function AttendancePage() {
     }
   };
 
-  const updateSummary = (studentList: Student[]) => {
-    const present = studentList.filter(s => s.status === 'present').length;
-    const absent = studentList.filter(s => s.status === 'absent').length;
-    const late = studentList.filter(s => s.status === 'late').length;
-    setSummary({ present, absent, late });
+  const fetchExistingAttendance = async () => {
+    if (!selectedClass) return;
+    try {
+      const response = await api.get('/attendance/', {
+        params: { date: selectedDate, class_id: selectedClass }
+      });
+      
+      if (response.data && response.data.length > 0) {
+        const attendanceMap = new Map();
+        response.data.forEach((record: any) => {
+          attendanceMap.set(record.student_id, record.status);
+        });
+        
+        setStudents(prev => prev.map(s => ({
+          ...s,
+          attendance_status: (attendanceMap.get(s.id) as 'present' | 'absent' | 'late') || 'present'
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching existing attendance:', error);
+    }
   };
 
-  const updateStudentStatus = (studentId: string, status: 'present' | 'absent' | 'late') => {
-    const updatedStudents = students.map(s =>
-      s.id === studentId ? { ...s, status } : s
+  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late') => {
+    setStudents(prev => prev.map(s => 
+      s.id === studentId ? { ...s, attendance_status: status } : s
+    ));
+  };
+
+  const handleBulkStatusChange = (status: 'present' | 'absent' | 'late') => {
+    const studentsToUpdate = selectedStudents.length > 0 ? selectedStudents : students.map(s => s.id);
+    setStudents(prev => prev.map(s => 
+      studentsToUpdate.includes(s.id) ? { ...s, attendance_status: status } : s
+    ));
+    setSelectedStudents([]);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedStudents.length === paginatedStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(paginatedStudents.map(s => s.id));
+    }
+  };
+
+  const handleSelectStudent = (studentId: string) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]
     );
-    setStudents(updatedStudents);
-    updateSummary(updatedStudents);
-  };
-
-  const markAll = (status: 'present' | 'absent' | 'late') => {
-    const updatedStudents = students.map(s => ({ ...s, status }));
-    setStudents(updatedStudents);
-    updateSummary(updatedStudents);
   };
 
   const saveAttendance = async () => {
     setSaving(true);
     try {
-      const attendanceData = students.map(s => ({
+      const records = students.map(s => ({
         student_id: s.id,
-        status: s.status,
-        date: selectedDate,
-        class_id: selectedClass,
-        section_id: selectedSection
+        status: s.attendance_status
       }));
       
-      await api.post('/api/attendance/bulk/', { records: attendanceData });
-      alert('Attendance saved successfully!');
-    } catch (error) {
+      const response = await api.post('/attendance/bulk/', {
+        date: selectedDate,
+        records: records
+      });
+      
+      if (response.status === 200) {
+        alert(`Attendance saved successfully! ${response.data.message || ''}`);
+      }
+    } catch (error: any) {
       console.error('Error saving attendance:', error);
-      alert('Failed to save attendance');
+      alert('Failed to save attendance: ' + (error.response?.data?.error || error.message));
     } finally {
       setSaving(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const sendWhatsAppAlerts = () => {
+    const absentStudents = students.filter(s => s.attendance_status === 'absent');
+    if (absentStudents.length === 0) {
+      alert('No absent students to notify');
+      return;
+    }
+    alert(`Send WhatsApp alerts to ${absentStudents.length} parents?`);
+  };
+
+  const paginatedStudents = students.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(students.length / itemsPerPage);
+  
+  const presentCount = students.filter(s => s.attendance_status === 'present').length;
+  const absentCount = students.filter(s => s.attendance_status === 'absent').length;
+  const lateCount = students.filter(s => s.attendance_status === 'late').length;
+  const attendanceRate = students.length > 0 ? Math.round((presentCount / students.length) * 100) : 0;
+
+  const getStatusBadge = (status: string) => {
     switch(status) {
-      case 'present': return 'bg-green-100 text-green-700 border-green-300';
-      case 'absent': return 'bg-red-100 text-red-700 border-red-300';
-      case 'late': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-      default: return 'bg-gray-100';
+      case 'present': return <Badge className="bg-green-100 text-green-700">PRESENT</Badge>;
+      case 'absent': return <Badge className="bg-red-100 text-red-700">ABSENT</Badge>;
+      case 'late': return <Badge className="bg-yellow-100 text-yellow-700">LATE</Badge>;
+      default: return <Badge>UNKNOWN</Badge>;
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Attendance</h1>
-        <p className="text-gray-500 text-sm mt-1">Mark and manage student attendance</p>
+        <h1 className="text-2xl font-bold">Attendance Management</h1>
+        <p className="text-gray-500">Mark daily attendance for students</p>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <select
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-            >
-              <option value="">Select Class</option>
-              {classes.map(cls => (
-                <option key={cls.id} value={cls.id}>{cls.name}</option>
-              ))}
-            </select>
-            
-            <select
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
-              disabled={!selectedClass}
-            >
-              <option value="">Select Section</option>
-              {sections.map(sec => (
-                <option key={sec.id} value={sec.id}>{sec.name}</option>
-              ))}
-            </select>
-            
-            <input
-              type="date"
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
+            <div>
+              <label className="block text-sm font-medium mb-1">Select Class</label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+              >
+                <option value="">Select Class</option>
+                {classes.map(cls => (
+                  <option key={cls.id} value={cls.id}>{cls.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Date</label>
+              <input 
+                type="date" 
+                className="w-full border rounded-lg px-3 py-2"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={saveAttendance} disabled={saving || !selectedClass} className="w-full">
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? 'Saving...' : 'Save Attendance'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      {students.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-green-50 rounded-xl p-4 text-center">
-            <Check className="w-6 h-6 text-green-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-green-600">{summary.present}</p>
-            <p className="text-sm text-gray-600">Present</p>
-          </div>
-          <div className="bg-yellow-50 rounded-xl p-4 text-center">
-            <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-yellow-600">{summary.late}</p>
-            <p className="text-sm text-gray-600">Late</p>
-          </div>
-          <div className="bg-red-50 rounded-xl p-4 text-center">
-            <X className="w-6 h-6 text-red-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-red-600">{summary.absent}</p>
-            <p className="text-sm text-gray-600">Absent</p>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Actions */}
-      {students.length > 0 && (
-        <div className="flex gap-2 justify-end">
-          <button onClick={() => markAll('present')} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">All Present</button>
-          <button onClick={() => markAll('late')} className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm hover:bg-yellow-200">All Late</button>
-          <button onClick={() => markAll('absent')} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200">All Absent</button>
-        </div>
-      )}
-
-      {/* Student List */}
-      <Card>
-        <CardContent className="pt-6">
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      {selectedClass && students.length > 0 && (
+        <>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-blue-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-gray-600">Total Students</p>
+              <p className="text-2xl font-bold text-blue-700">{students.length}</p>
             </div>
-          ) : students.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-              <p>No students found for selected class</p>
+            <div className="bg-green-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-gray-600">Present</p>
+              <p className="text-2xl font-bold text-green-700">{presentCount}</p>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {students.map((student) => (
-                <div key={student.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                  <div>
-                    <p className="font-medium text-gray-800">{student.full_name}</p>
-                    <p className="text-xs text-gray-400">{student.student_id}</p>
-                  </div>
+            <div className="bg-red-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-gray-600">Absent</p>
+              <p className="text-2xl font-bold text-red-700">{absentCount}</p>
+            </div>
+            <div className="bg-yellow-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-gray-600">Late</p>
+              <p className="text-2xl font-bold text-yellow-700">{lateCount}</p>
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap gap-3 items-center justify-between mb-4">
+                <div className="flex gap-2">
+                  <Button onClick={() => handleBulkStatusChange('present')} className="bg-green-600">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Mark All Present
+                  </Button>
+                  <Button onClick={() => handleBulkStatusChange('absent')} variant="destructive">
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Mark All Absent
+                  </Button>
+                  <Button onClick={() => handleBulkStatusChange('late')} className="bg-yellow-600">
+                    <Clock className="w-4 h-4 mr-2" />
+                    Mark All Late
+                  </Button>
+                </div>
+                {absentCount > 0 && (
+                  <Button onClick={sendWhatsAppAlerts} variant="outline" className="border-green-500 text-green-600">
+                    <Send className="w-4 h-4 mr-2" />
+                    Send WhatsApp Alerts ({absentCount})
+                  </Button>
+                )}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 w-10 text-left">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedStudents.length === paginatedStudents.length && paginatedStudents.length > 0}
+                          onChange={handleSelectAll}
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left">Student ID</th>
+                      <th className="px-4 py-3 text-left">Student Name</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedStudents.map((student) => (
+                      <tr key={student.id} className="border-t hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedStudents.includes(student.id)}
+                            onChange={() => handleSelectStudent(student.id)}
+                          />
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{student.student_id}</td>
+                        <td className="px-4 py-3 font-medium">{student.full_name}</td>
+                        <td className="px-4 py-3">{getStatusBadge(student.attendance_status || 'present')}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleStatusChange(student.id, 'present')}
+                              className="px-3 py-1 rounded text-xs bg-green-100 hover:bg-green-200"
+                            >
+                              P
+                            </button>
+                            <button 
+                              onClick={() => handleStatusChange(student.id, 'absent')}
+                              className="px-3 py-1 rounded text-xs bg-red-100 hover:bg-red-200"
+                            >
+                              A
+                            </button>
+                            <button 
+                              onClick={() => handleStatusChange(student.id, 'late')}
+                              className="px-3 py-1 rounded text-xs bg-yellow-100 hover:bg-yellow-200"
+                            >
+                              L
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                  <p className="text-sm text-gray-500">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, students.length)} of {students.length}
+                  </p>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => updateStudentStatus(student.id, 'present')}
-                      className={`px-3 py-1 rounded-lg text-sm transition ${student.status === 'present' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-green-100'}`}
-                    >
-                      Present
-                    </button>
-                    <button
-                      onClick={() => updateStudentStatus(student.id, 'late')}
-                      className={`px-3 py-1 rounded-lg text-sm transition ${student.status === 'late' ? 'bg-yellow-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-yellow-100'}`}
-                    >
-                      Late
-                    </button>
-                    <button
-                      onClick={() => updateStudentStatus(student.id, 'absent')}
-                      className={`px-3 py-1 rounded-lg text-sm transition ${student.status === 'absent' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-100'}`}
-                    >
-                      Absent
-                    </button>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="px-3 py-1 text-sm bg-gray-100 rounded-lg">{currentPage} / {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Save Button */}
-      {students.length > 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={saveAttendance}
-            disabled={saving}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Save className="w-4 h-4" />}
-            Save Attendance
-          </button>
-        </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
-    </motion.div>
+
+      {!selectedClass && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">Select a class to mark attendance</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

@@ -3,6 +3,8 @@ from . import views
 from . import views_auth
 
 urlpatterns = [
+    
+    
     path('health/', views.health_check, name='health'),
     path('login/', views.login_view, name='login'),
     path('me/', views.me, name='me'),
@@ -13,6 +15,8 @@ urlpatterns = [
     path('students/', views.StudentListCreateView.as_view(), name='student-list'),
     path('students/<uuid:pk>/', views.StudentDetailView.as_view(), name='student-detail'),
 ]
+
+
 
 
 

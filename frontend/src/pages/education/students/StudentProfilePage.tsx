@@ -1,82 +1,87 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, MessageCircle, DollarSign, Calendar, FileText,
-  User, Mail, Phone, BookOpen, CheckCircle, XCircle, Clock,
-  TrendingUp, Award, AlertCircle, Send, CreditCard, Eye,
-  Check, X, Plus, Download, Printer, Trash2, Edit2
+  User, Mail, Phone, Calendar, BookOpen, 
+  CheckCircle, XCircle, Clock, DollarSign,
+  ArrowLeft, RefreshCw, MessageSquare,
+  GraduationCap, AlertCircle, TrendingUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
-import studentService, { Student360Data } from '@/services/student.service';
+import studentService from '@/services/student.service';
 
-// Format phone number
-const formatPhone = (phone: string) => {
-  if (!phone) return 'Not provided';
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 11) {
-    return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7, 11)}`;
-  }
-  return phone;
-};
-
-// Reusable Card Component
-function InfoCard({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) {
-  return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
-      <div className="flex items-center gap-2 mb-3">
-        {icon && <div className="text-gray-400">{icon}</div>}
-        <p className="text-sm text-gray-500">{title}</p>
-      </div>
-      {children}
-    </div>
-  );
+interface Student360Data {
+  student: {
+    id: string;
+    student_id: string;
+    full_name: string;
+    email: string;
+    phone: string;
+    father_name?: string;
+    mother_name?: string;
+    guardian_phone?: string;
+    program?: string;
+    enrollment_date?: string;
+    is_active: boolean;
+    current_class?: string;
+    current_section?: string;
+  };
+  attendance: {
+    total_days: number;
+    present: number;
+    absent: number;
+    late: number;
+    attendance_rate: number;
+    recent_records?: Array<{ date: string; status: string; status_display: string }>;
+  };
+  exams: {
+    total_exams: number;
+    passed: number;
+    failed: number;
+    average_percentage: number;
+    results: Array<{
+      exam_title: string;
+      marks: string;
+      percentage: number;
+      grade: string;
+      status: string;
+    }>;
+  };
+  finance: {
+    total_invoices: number;
+    total_amount: number;
+    total_paid: number;
+    balance_due: number;
+    payment_percentage: number;
+  };
+  performance_summary?: {
+    attendance_grade: string;
+    academic_grade: string;
+    overall_status: string;
+  };
 }
 
 export default function StudentProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [student, setStudent] = useState<Student360Data | null>(null);
+  const [studentData, setStudentData] = useState<Student360Data | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
-  const [markingAttendance, setMarkingAttendance] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // Save last tab to localStorage
   useEffect(() => {
-    if (activeTab) {
-      localStorage.setItem('studentLastTab', activeTab);
-      setSearchParams({ tab: activeTab });
+    if (id) {
+      fetchStudentData();
     }
-  }, [activeTab, setSearchParams]);
-
-  // Load last tab from localStorage on mount
-  useEffect(() => {
-    const lastTab = localStorage.getItem('studentLastTab');
-    if (lastTab && !searchParams.get('tab')) {
-      setActiveTab(lastTab);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    fetchStudentData();
   }, [id]);
 
   const fetchStudentData = async () => {
-    if (!id) return;
     setLoading(true);
     try {
-      const response = await studentService.get360View(id);
-      setStudent(response.data);
+      const response = await studentService.get360View(id!);
+      setStudentData(response.data);
     } catch (error) {
       console.error('Error fetching student data:', error);
     } finally {
@@ -84,68 +89,20 @@ export default function StudentProfilePage() {
     }
   };
 
-  const handleMarkAttendance = async (status: string) => {
-    setMarkingAttendance(true);
-    try {
-      // API call to mark attendance
-      await new Promise(resolve => setTimeout(resolve, 500));
-      alert(`Attendance marked as ${status}`);
-      fetchStudentData();
-    } finally {
-      setMarkingAttendance(false);
-    }
-  };
-
-  const handleRecordPayment = async () => {
-    if (!paymentAmount) return;
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      alert(`Payment of Rs ${paymentAmount} recorded successfully`);
-      setShowPaymentModal(false);
-      setPaymentAmount('');
-      fetchStudentData();
-    } catch (error) {
-      console.error('Error recording payment:', error);
-    }
-  };
-
-  const handleSendWhatsApp = (type: string) => {
-    if (!student) return;
-    let message = '';
-    const phone = student.student.guardian_phone || student.student.phone;
-    
-    switch (type) {
-      case 'fee_reminder':
-        message = `Dear Parent, fee of Rs ${student.finance.balance} is due for ${student.student.full_name}. Please pay at your earliest convenience.`;
-        break;
-      case 'attendance_alert':
-        message = `Dear Parent, ${student.student.full_name} was marked absent today. Please ensure regular attendance.`;
-        break;
-      case 'result':
-        message = `Dear Parent, exam results for ${student.student.full_name} are now available. Average: ${student.exams.average_percentage}%`;
-        break;
-      default:
-        message = `Dear Parent, this is a message regarding ${student.student.full_name}.`;
-    }
-    
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-  };
-
-  const attendanceRate = student?.attendance.attendance_rate || 0;
-  const balanceDue = student?.finance.balance || 0;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-500">Loading student profile...</p>
+        </div>
       </div>
     );
   }
 
-  if (!student) {
+  if (!studentData) {
     return (
       <div className="text-center py-12">
-        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
         <p className="text-red-500">Student not found</p>
         <Button onClick={() => navigate('/education/students')} className="mt-4">
           Back to Students
@@ -154,364 +111,318 @@ export default function StudentProfilePage() {
     );
   }
 
+  const { student, attendance, exams, finance, performance_summary } = studentData;
+  const attendanceRate = attendance?.attendance_rate || 0;
+  const avgScore = exams?.average_percentage || 0;
+  const balanceDue = finance?.balance_due || 0;
+
+  const getAttendanceColor = (rate: number) => {
+    if (rate >= 80) return 'text-green-600';
+    if (rate >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getStatusBadge = () => {
+    if (performance_summary?.overall_status === 'On Track') {
+      return <Badge className="bg-green-100 text-green-700">On Track ✅</Badge>;
+    } else if (performance_summary?.overall_status === 'Needs Attention') {
+      return <Badge className="bg-yellow-100 text-yellow-700">Needs Attention 🟡</Badge>;
+    }
+    return <Badge className="bg-red-100 text-red-700">At Risk 🔴</Badge>;
+  };
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => navigate('/education/students')} className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
+          <Button variant="outline" onClick={() => navigate('/education/students')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 flex items-center justify-center text-xl font-bold">
-            {student.student.full_name?.charAt(0) || 'S'}
-          </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-semibold">{student.student.full_name}</h1>
-              <Badge variant={student.student.is_active ? 'success' : 'secondary'}>
-                {student.student.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
-            <p className="text-sm text-gray-500">
-              {student.class_info.class_name || 'No Class'} {student.class_info.section_name ? `• ${student.class_info.section_name}` : ''} • {student.student.student_id}
-            </p>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <User className="w-6 h-6 text-blue-600" />
+              {student.full_name}
+            </h1>
+            <p className="text-gray-500">Student ID: {student.student_id}</p>
           </div>
         </div>
-
-        {/* QUICK ACTIONS BAR */}
-        <div className="flex gap-2 flex-wrap">
-          <button 
-            onClick={() => handleSendWhatsApp('general')}
-            className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center gap-2"
-          >
-            <MessageCircle className="w-4 h-4" />
-            WhatsApp
-          </button>
-          <button 
-            onClick={() => setShowPaymentModal(true)}
-            className="px-3 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 transition flex items-center gap-2"
-          >
-            <DollarSign className="w-4 h-4" />
-            Payment
-          </button>
-          <button 
-            onClick={() => handleMarkAttendance('present')}
-            disabled={markingAttendance}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2"
-          >
-            <Calendar className="w-4 h-4" />
-            Mark Attendance
-          </button>
+        <div className="flex gap-2">
+          <Button onClick={fetchStudentData} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="default">
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Send Message
+          </Button>
         </div>
       </div>
 
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <InfoCard title="Attendance Rate" icon={<CheckCircle className="w-4 h-4" />}>
-          <p className="text-2xl font-bold text-green-600">{attendanceRate}%</p>
-          <Progress value={attendanceRate} className="mt-2" />
-        </InfoCard>
-        
-        <InfoCard title="Average Marks" icon={<Award className="w-4 h-4" />}>
-          <p className="text-2xl font-bold text-blue-600">{student.exams.average_percentage}%</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {student.exams.passed} passed / {student.exams.total_exams} exams
-          </p>
-        </InfoCard>
-        
-        <InfoCard title="Fee Balance" icon={<DollarSign className="w-4 h-4" />}>
-          <p className={`text-2xl font-bold ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            Rs {balanceDue.toLocaleString()}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Paid: Rs {student.finance.paid.toLocaleString()} / Rs {student.finance.total_fees.toLocaleString()}
-          </p>
-        </InfoCard>
-        
-        <InfoCard title="Status" icon={<AlertCircle className="w-4 h-4" />}>
-          <div className="flex items-center gap-2">
-            {attendanceRate < 75 ? (
-              <>
-                <AlertCircle className="w-5 h-5 text-orange-500" />
-                <span className="text-sm text-orange-600">Needs Attention</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                <span className="text-sm text-green-600">Good Standing</span>
-              </>
-            )}
-          </div>
-          {attendanceRate < 75 && (
-            <button 
-              onClick={() => handleSendWhatsApp('attendance_alert')}
-              className="mt-2 text-xs text-orange-600 hover:underline flex items-center gap-1"
-            >
-              <Send className="w-3 h-3" />
-              Notify Parent
-            </button>
-          )}
-        </InfoCard>
-      </div>
-
-      {/* TABS */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="flex overflow-x-auto">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="finance">Finance</TabsTrigger>
-          <TabsTrigger value="exams">Exams</TabsTrigger>
-        </TabsList>
-
-        {/* OVERVIEW TAB */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-800">Basic Information</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Student ID:</span>
-                  <span className="font-mono">{student.student.student_id}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Email:</span>
-                  <span>{student.student.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Phone:</span>
-                  <span>{formatPhone(student.student.phone)}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <BookOpen className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Program:</span>
-                  <span>{student.student.program || 'Not specified'}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-800">Guardian Information</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Father:</span>
-                  <span>{student.student.father_name || 'Not provided'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Mother:</span>
-                  <span>{student.student.mother_name || 'Not provided'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Guardian Phone:</span>
-                  <span>{formatPhone(student.student.guardian_phone)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* ATTENDANCE TAB */}
-        <TabsContent value="attendance" className="space-y-6">
-          <div className="flex gap-3">
-            <button 
-              onClick={() => handleMarkAttendance('present')}
-              disabled={markingAttendance}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center gap-2"
-            >
-              <Check className="w-4 h-4" />
-              Mark Present Today
-            </button>
-            <button 
-              onClick={() => handleMarkAttendance('absent')}
-              disabled={markingAttendance}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition flex items-center gap-2"
-            >
-              <X className="w-4 h-4" />
-              Mark Absent
-            </button>
-          </div>
-
-          <div className="bg-white rounded-xl p-4 shadow-sm border">
-            <h3 className="font-medium mb-3">Recent Records</h3>
-            <div className="space-y-2">
-              {student.attendance.recent_records?.slice(0, 10).map((record, idx) => (
-                <div key={idx} className="flex justify-between items-center py-2 border-b last:border-0">
-                  <span className="text-sm">{record.date}</span>
-                  <Badge variant={record.status === 'present' ? 'success' : record.status === 'late' ? 'warning' : 'destructive'}>
-                    {record.status}
-                  </Badge>
-                </div>
-              ))}
-              {(!student.attendance.recent_records || student.attendance.recent_records.length === 0) && (
-                <p className="text-gray-500 text-center py-4">No attendance records found</p>
-              )}
-            </div>
-          </div>
-
-          {attendanceRate < 75 && (
-            <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-orange-500" />
-                  <span className="text-sm text-orange-700">Low attendance detected (below 75%)</span>
-                </div>
-                <button 
-                  onClick={() => handleSendWhatsApp('attendance_alert')}
-                  className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 transition flex items-center gap-2"
-                >
-                  <Send className="w-3 h-3" />
-                  Notify Parent
-                </button>
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* FINANCE TAB */}
-        <TabsContent value="finance" className="space-y-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm border">
-            <h3 className="font-semibold mb-2">Financial Summary</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      {/* Performance Summary Banner */}
+      {performance_summary && (
+        <div className={`p-4 rounded-lg ${
+          performance_summary.overall_status === 'On Track' ? 'bg-green-50 border border-green-200' :
+          performance_summary.overall_status === 'Needs Attention' ? 'bg-yellow-50 border border-yellow-200' :
+          'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              {performance_summary.overall_status === 'On Track' ? 
+                <CheckCircle className="w-5 h-5 text-green-600" /> :
+                <AlertCircle className="w-5 h-5 text-yellow-600" />}
               <div>
-                <p className="text-xs text-gray-500">Total Fees</p>
-                <p className="text-lg font-bold">Rs {student.finance.total_fees.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Paid Amount</p>
-                <p className="text-lg font-bold text-green-600">Rs {student.finance.paid.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Balance Due</p>
-                <p className={`text-lg font-bold ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  Rs {balanceDue.toLocaleString()}
+                <p className="font-medium">Overall Status: {performance_summary.overall_status}</p>
+                <p className="text-sm text-gray-600">
+                  Attendance: {performance_summary.attendance_grade} | 
+                  Academic: {performance_summary.academic_grade}
                 </p>
               </div>
             </div>
-            <Progress value={student.finance.payment_percentage} className="h-2" />
-            <p className="text-xs text-gray-500 text-center mt-2">
-              {Math.round(student.finance.payment_percentage)}% Paid
-            </p>
-          </div>
-
-          {student.finance.last_payment && (
-            <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-              <p className="text-sm text-green-700">
-                Last Payment: Rs {student.finance.last_payment.amount} on {student.finance.last_payment.date}
-              </p>
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button 
-              onClick={() => setShowPaymentModal(true)}
-              className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 transition flex items-center gap-2"
-            >
-              <CreditCard className="w-4 h-4" />
-              Record Payment
-            </button>
-            {balanceDue > 0 && (
-              <button 
-                onClick={() => handleSendWhatsApp('fee_reminder')}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Send Reminder
-              </button>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* EXAMS TAB */}
-        <TabsContent value="exams" className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left">Exam</th>
-                  <th className="px-4 py-3 text-center">Marks</th>
-                  <th className="px-4 py-3 text-center">Percentage</th>
-                  <th className="px-4 py-3 text-center">Grade</th>
-                 </tr>
-              </thead>
-              <tbody>
-                {student.exams.recent_results?.map((result, idx) => (
-                  <tr key={idx} className="border-b">
-                    <td className="px-4 py-3">{result.exam_title}</td>
-                    <td className="px-4 py-3 text-center">{result.marks}</td>
-                    <td className="px-4 py-3 text-center">{result.percentage}%</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`font-bold ${
-                        result.grade === 'A+' || result.grade === 'A' ? 'text-green-600' :
-                        result.grade === 'B' ? 'text-blue-600' :
-                        result.grade === 'C' ? 'text-yellow-600' : 'text-red-600'
-                      }`}>
-                        {result.grade}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {(!student.exams.recent_results || student.exams.recent_results.length === 0) && (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                      No exam results available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <button 
-            onClick={() => handleSendWhatsApp('result')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-            Send Results via WhatsApp
-          </button>
-        </TabsContent>
-      </Tabs>
-
-      {/* PAYMENT MODAL */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h2 className="text-lg font-semibold mb-4">Record Payment</h2>
-            <div className="space-y-4">
-              <div>
-                <Label>Amount (Rs)</Label>
-                <Input
-                  type="number"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="Enter amount"
-                />
-              </div>
-              <div>
-                <Label>Payment Method</Label>
-                <select 
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                >
-                  <option value="cash">Cash</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="card">Credit/Debit Card</option>
-                </select>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button onClick={handleRecordPayment} className="flex-1">Record Payment</Button>
-                <Button variant="outline" onClick={() => setShowPaymentModal(false)} className="flex-1">Cancel</Button>
-              </div>
-            </div>
+            {getStatusBadge()}
           </div>
         </div>
       )}
-    </motion.div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Attendance Rate</p>
+                <p className={`text-2xl font-bold ${getAttendanceColor(attendanceRate)}`}>{attendanceRate}%</p>
+              </div>
+              <div className={`p-3 rounded-full ${attendanceRate >= 80 ? 'bg-green-100' : attendanceRate >= 70 ? 'bg-yellow-100' : 'bg-red-100'}`}>
+                <CheckCircle className={`w-6 h-6 ${attendanceRate >= 80 ? 'text-green-600' : attendanceRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`} />
+              </div>
+            </div>
+            <Progress value={attendanceRate} className="mt-3" />
+            <p className="text-xs text-gray-500 mt-2">{attendance?.present || 0} present / {attendance?.total_days || 0} days</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Average Score</p>
+                <p className="text-2xl font-bold text-blue-600">{avgScore}%</p>
+              </div>
+              <div className="bg-blue-100 p-3 rounded-full">
+                <GraduationCap className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              {exams?.passed || 0} passed / {exams?.total_exams || 0} exams
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Fee Balance</p>
+                <p className={`text-2xl font-bold ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  ${balanceDue.toFixed(2)}
+                </p>
+              </div>
+              <div className="bg-red-100 p-3 rounded-full">
+                <DollarSign className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              Paid: ${finance?.total_paid?.toFixed(2) || '0'} / ${finance?.total_amount?.toFixed(2) || '0'}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Class</p>
+                <p className="text-xl font-bold text-purple-600">{student.current_class || 'Not assigned'}</p>
+              </div>
+              <div className="bg-purple-100 p-3 rounded-full">
+                <GraduationCap className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              Section: {student.current_section || 'N/A'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="exams">Exams</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm">Student ID: {student.student_id}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm">{student.email}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm">{student.phone || 'Not provided'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm">Enrolled: {student.enrollment_date || 'N/A'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={student.is_active ? 'success' : 'secondary'}>
+                    {student.is_active ? 'Active Student' : 'Inactive'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Guardian Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm">Father: {student.father_name || 'Not provided'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm">Mother: {student.mother_name || 'Not provided'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm">Guardian Phone: {student.guardian_phone || 'Not provided'}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Attendance Tab */}
+        <TabsContent value="attendance">
+          <Card>
+            <CardHeader>
+              <CardTitle>Attendance Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Present</p>
+                  <p className="text-3xl font-bold text-green-600">{attendance?.present || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Absent</p>
+                  <p className="text-3xl font-bold text-red-600">{attendance?.absent || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Late</p>
+                  <p className="text-3xl font-bold text-orange-600">{attendance?.late || 0}</p>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-500 mb-2">Overall Attendance Rate</p>
+                <div className="flex items-center gap-4 justify-center">
+                  <Progress value={attendanceRate} className="w-64" />
+                  <span className={`text-2xl font-bold ${getAttendanceColor(attendanceRate)}`}>{attendanceRate}%</span>
+                </div>
+              </div>
+              {attendance?.recent_records && attendance.recent_records.length > 0 && (
+                <div className="mt-6">
+                  <p className="text-sm font-medium mb-3">Recent Attendance Records</p>
+                  <div className="space-y-2">
+                    {attendance.recent_records.slice(0, 7).map((record, idx) => (
+                      <div key={idx} className="flex justify-between items-center border-b pb-2">
+                        <span className="text-sm">{record.date}</span>
+                        <Badge variant={record.status === 'present' ? 'success' : record.status === 'absent' ? 'destructive' : 'warning'}>
+                          {record.status_display}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Exams Tab */}
+        <TabsContent value="exams">
+          <Card>
+            <CardHeader>
+              <CardTitle>Exam Results</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Total Exams</p>
+                  <p className="text-2xl font-bold">{exams?.total_exams || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Passed</p>
+                  <p className="text-2xl font-bold text-green-600">{exams?.passed || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Average Score</p>
+                  <p className="text-2xl font-bold text-blue-600">{exams?.average_percentage || 0}%</p>
+                </div>
+              </div>
+              {exams?.results && exams.results.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Exam</th>
+                        <th className="px-4 py-3 text-center">Marks</th>
+                        <th className="px-4 py-3 text-center">Percentage</th>
+                        <th className="px-4 py-3 text-center">Grade</th>
+                        <th className="px-4 py-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {exams.results.map((result, idx) => (
+                        <tr key={idx} className="border-b">
+                          <td className="px-4 py-3">{result.exam_title}</td>
+                          <td className="px-4 py-3 text-center">{result.marks}</td>
+                          <td className="px-4 py-3 text-center">{result.percentage}%</td>
+                          <td className="px-4 py-3 text-center font-bold">{result.grade}</td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant={result.status === 'Pass' ? 'success' : 'destructive'}>
+                              {result.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No exam results available</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

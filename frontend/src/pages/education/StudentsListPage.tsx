@@ -89,31 +89,44 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
-      const dashboardPromises = studentData.map(async (student) => {
-        try {
-          const dashboard = await studentService.getDashboardData(student.id);
-          return { student, dashboard: dashboard.data };
-        } catch (err) {
-          return { student, dashboard: null };
-        }
-      });
-      
-      const results = await Promise.all(dashboardPromises);
-      
-      const studentsWithData = results.map(({ student, dashboard }) => {
+      // First, set basic student data
+      const studentsWithData = studentData.map((student) => {
         const classObj = classes.find(c => c.id === student.current_class);
         return {
           ...student,
           class_name: classObj?.name || 'Not Assigned',
-          attendance_percentage: dashboard?.attendance_percentage || 0,
-          fee_status: dashboard?.fee_status || 'pending',
-          balance: dashboard?.balance || 0,
-          priority: dashboard?.priority || 'normal',
-          last_activity: dashboard?.last_activities?.[0]?.time || student.updated_at
+          fee_status: 'pending',
+          balance: 0,
+          priority: 'normal',
+          last_activity: student.updated_at,
+          attendance_percentage: undefined // Will load separately
         };
       });
       
       setStudents(studentsWithData);
+      
+      // Then load attendance for all students in parallel
+      const attendancePromises = studentsWithData.map(async (student) => {
+        try {
+          const dashboard = await studentService.get360View(student.id);
+          return { id: student.id, attendance: dashboard.data.attendance?.attendance_rate || 0 };
+        } catch (error) {
+          return { id: student.id, attendance: 0 };
+        }
+      });
+      
+      const attendanceResults = await Promise.all(attendancePromises);
+      
+      setStudents(prevStudents => 
+        prevStudents.map(s => {
+          const result = attendanceResults.find(r => r.id === s.id);
+          if (result) {
+            return { ...s, attendance_percentage: result.attendance };
+          }
+          return s;
+        })
+      );
+      
     } catch (error) {
       console.error('Error fetching students:', error);
     } finally {
@@ -159,16 +172,17 @@ export default function StudentsListPage() {
     }
   };
 
-  const getAttendanceColor = (percentage: number) => {
-    if (percentage >= 85) return 'text-green-600';
-    if (percentage >= 70) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   const getRowHighlightClass = (student: StudentWithData) => {
     if (student.priority === 'high') return 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500';
     if (student.priority === 'medium') return 'bg-yellow-50 hover:bg-yellow-100';
     return 'hover:bg-gray-50';
+  };
+
+  const getAttendanceDisplay = (percentage: number) => {
+    if (!percentage || percentage === 0) return { color: 'bg-gray-100 text-gray-500', icon: '—', label: 'No data' };
+    if (percentage >= 80) return { color: 'bg-green-100 text-green-700', icon: '✅', label: 'Good' };
+    if (percentage >= 70) return { color: 'bg-yellow-100 text-yellow-700', icon: '🟡', label: 'Needs Improvement' };
+    return { color: 'bg-red-100 text-red-700', icon: '🔴', label: 'Critical' };
   };
 
   const handleSort = (field: string) => {
@@ -275,10 +289,6 @@ export default function StudentsListPage() {
       if (editingStudent) {
         await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
         alert('Student updated successfully!');
-        if (selectedStudentId === editingStudent.id) {
-          setSelectedStudentId(null);
-          setTimeout(() => setSelectedStudentId(editingStudent.id), 100);
-        }
       } else {
         await api.post('/auth/students/', cleanData);
         alert('Student created successfully!');
@@ -306,17 +316,7 @@ export default function StudentsListPage() {
         is_active: editingStudent.is_active
       });
     } else {
-      reset({
-        full_name: '',
-        email: '',
-        phone: '',
-        student_id: '',
-        father_name: '',
-        mother_name: '',
-        guardian_phone: '',
-        current_class: '',
-        is_active: true
-      });
+      reset();
     }
   }, [editingStudent, reset]);
 
@@ -327,6 +327,10 @@ export default function StudentsListPage() {
       </div>
     );
   }
+
+  // Calculate summary statistics
+  const totalWithAttendance = students.filter(s => s.attendance_percentage && s.attendance_percentage > 0).length;
+  const avgAttendance = students.reduce((sum, s) => sum + (s.attendance_percentage || 0), 0) / students.length || 0;
 
   return (
     <div className="space-y-6">
@@ -342,29 +346,12 @@ export default function StudentsListPage() {
         </Button>
       </div>
 
-      {/* Attention Banner */}
-      {attentionNeeded > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-orange-600" />
-            <span className="text-sm text-orange-700">
-              ⚠ {attentionNeeded} student(s) need attention (Low attendance / Overdue fees)
-            </span>
-          </div>
-          <button 
-            onClick={() => { setSelectedFeeStatus('overdue'); setSelectedStatus('active'); }}
-            className="text-sm text-orange-600 font-medium hover:underline"
-          >
-            View all →
-          </button>
-        </div>
-      )}
-
       {/* Summary Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-blue-50 rounded-xl p-3">
           <div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total</span></div>
           <p className="text-xl font-bold text-blue-700">{totalStudents}</p>
+          <p className="text-xs text-gray-500">{totalWithAttendance} with attendance data</p>
         </div>
         <div className="bg-green-50 rounded-xl p-3">
           <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Active</span></div>
@@ -375,8 +362,8 @@ export default function StudentsListPage() {
           <p className="text-xl font-bold text-red-700">{overdueFees}</p>
         </div>
         <div className="bg-yellow-50 rounded-xl p-3">
-          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Low Attendance</span></div>
-          <p className="text-xl font-bold text-yellow-700">{lowAttendance}</p>
+          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Avg Attendance</span></div>
+          <p className="text-xl font-bold text-yellow-700">{Math.round(avgAttendance)}%</p>
         </div>
       </div>
 
@@ -406,17 +393,6 @@ export default function StudentsListPage() {
         <Button onClick={clearFilters} variant="outline" size="sm">Clear Filters</Button>
       </div>
 
-      {/* Bulk Action Bar */}
-      {showBulkBar && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
-          <span className="text-sm font-medium">{selectedStudents.length} selected</span>
-          <div className="flex gap-2">
-            <button disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
-            <button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button>
-          </div>
-        </div>
-      )}
-
       {/* Table */}
       <div className="overflow-x-auto border rounded-xl bg-white">
         <table className="w-full text-sm">
@@ -426,82 +402,84 @@ export default function StudentsListPage() {
                 <input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} />
               </th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>
-                <div className="flex items-center gap-1">Student <ArrowUpDown className="w-3 h-3" /></div>
+                Student <ArrowUpDown className="w-3 h-3 inline ml-1" />
               </th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('class_name')}>
-                <div className="flex items-center gap-1">Class <ArrowUpDown className="w-3 h-3" /></div>
+                Class <ArrowUpDown className="w-3 h-3 inline ml-1" />
               </th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>
-                <div className="flex items-center gap-1">Attendance <ArrowUpDown className="w-3 h-3" /></div>
+                Attendance <ArrowUpDown className="w-3 h-3 inline ml-1" />
               </th>
               <th className="p-3 text-left">Fees</th>
               <th className="p-3 text-left">Priority</th>
-              <th className="p-3 text-left">Last Activity</th>
               <th className="p-3 text-left">Status</th>
               <th className="p-3 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedStudents.map((student) => (
-              <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
-                <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} />
-                </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">
-                      {student.full_name?.charAt(0)}
+            {paginatedStudents.map((student) => {
+              const attendanceDisplay = getAttendanceDisplay(student.attendance_percentage || 0);
+              return (
+                <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
+                  <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} />
+                  </td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">
+                        {student.full_name?.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium">{student.full_name}</p>
+                        <p className="text-xs text-gray-400">{student.student_id}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{student.full_name}</p>
-                      <p className="text-xs text-gray-400">{student.student_id}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-3">{student.class_name || '-'}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>
-                      {student.attendance_percentage || 0}%
+                  </td>
+                  <td className="p-3">{student.class_name || '-'}</td>
+                  <td className="p-3">
+                    {student.attendance_percentage ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${attendanceDisplay.color}`}>
+                          {student.attendance_percentage}%
+                        </span>
+                        <span className="text-sm" title={attendanceDisplay.label}>
+                          {attendanceDisplay.icon}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                        <span className="text-xs text-gray-400">loading...</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>
+                      {getPriorityLabel(student.priority || 'normal')}
                     </span>
-                    {(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}
-                  </div>
-                </td>
-                <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
-                <td className="p-3">
-                  <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>
-                    {getPriorityLabel(student.priority || 'normal')}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">{getRelativeTime(student.last_activity || '')}</span>
-                  </div>
-                </td>
-                <td className="p-3">
-                  <Badge variant={student.is_active ? 'success' : 'secondary'}>
-                    {student.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </td>
-                <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-1 justify-center">
-                    <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit">
-                      <Edit2 className="w-4 h-4 text-blue-600" />
-                    </button>
-                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message">
-                      <MessageCircle className="w-4 h-4 text-green-600" />
-                    </button>
-                    <button className="p-1.5 rounded-lg hover:bg-yellow-100" title="View Finance">
-                      <DollarSign className="w-4 h-4 text-yellow-600" />
-                    </button>
-                    <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100" title="Delete">
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="p-3">
+                    <Badge variant={student.is_active ? 'success' : 'secondary'}>
+                      {student.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </td>
+                  <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-1 justify-center">
+                      <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit">
+                        <Edit2 className="w-4 h-4 text-blue-600" />
+                      </button>
+                      <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message">
+                        <MessageCircle className="w-4 h-4 text-green-600" />
+                      </button>
+                      <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100" title="Delete">
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -545,10 +523,6 @@ export default function StudentsListPage() {
                   <option value="">Select Class</option>
                   {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
                 </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" {...register("is_active")} className="w-4 h-4" />
-                <label className="text-sm font-medium">Active Student</label>
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button>
