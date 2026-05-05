@@ -1,74 +1,32 @@
 from rest_framework import generics, status
-from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from .models import AcademicYear, Program, Course, SchoolClass, Section
-from .serializers import (
-    AcademicYearSerializer, ProgramSerializer, CourseSerializer,
-    SchoolClassSerializer, SectionSerializer
-)
+from rest_framework.response import Response
+from .models import SchoolClass, Section, AcademicYear, Course, Program
+from .serializers import SchoolClassSerializer, SectionSerializer
 
-# Academic Year Views
-class AcademicYearListCreateView(generics.ListCreateAPIView):
-    queryset = AcademicYear.objects.filter(is_active=True)
-    serializer_class = AcademicYearSerializer
+class ClassListCreateView(generics.ListCreateAPIView):
+    """List all classes or create a new class"""
     permission_classes = [IsAuthenticated]
-
-class AcademicYearDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = AcademicYear.objects.all()
-    serializer_class = AcademicYearSerializer
-    permission_classes = [IsAuthenticated]
-
-# Program Views
-class ProgramListCreateView(generics.ListCreateAPIView):
-    queryset = Program.objects.filter(is_active=True)
-    serializer_class = ProgramSerializer
-    permission_classes = [IsAuthenticated]
-
-class ProgramDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Program.objects.all()
-    serializer_class = ProgramSerializer
-    permission_classes = [IsAuthenticated]
-
-# Course Views
-class CourseListCreateView(generics.ListCreateAPIView):
-    queryset = Course.objects.filter(is_active=True)
-    serializer_class = CourseSerializer
-    permission_classes = [IsAuthenticated]
-
-class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Course.objects.all()
-    serializer_class = CourseSerializer
-    permission_classes = [IsAuthenticated]
-
-# Class Views
-class SchoolClassListCreateView(generics.ListCreateAPIView):
+    serializer_class = SchoolClassSerializer
     queryset = SchoolClass.objects.filter(is_active=True)
-    serializer_class = SchoolClassSerializer
-    permission_classes = [IsAuthenticated]
 
-class SchoolClassDetailView(generics.RetrieveUpdateDestroyAPIView):
+
+class ClassDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a class"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = SchoolClassSerializer
+    lookup_field = 'id'
     queryset = SchoolClass.objects.all()
-    serializer_class = SchoolClassSerializer
-    permission_classes = [IsAuthenticated]
 
-# Section Views
-class SectionListCreateView(generics.ListCreateAPIView):
-    queryset = Section.objects.filter(is_active=True)
-    serializer_class = SectionSerializer
-    permission_classes = [IsAuthenticated]
 
-class SectionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Section.objects.all()
-    serializer_class = SectionSerializer
-    permission_classes = [IsAuthenticated]
-
-# Custom API endpoint for class list (used by frontend)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def class_list(request):
-    """Get all classes for dropdown"""
-    classes = SchoolClass.objects.filter(is_active=True).order_by('code')
-    serializer = SchoolClassSerializer(classes, many=True)
-    return Response(serializer.data)
+def get_sections(request, class_id):
+    """Get sections for a specific class"""
+    try:
+        sections = Section.objects.filter(class_ref_id=class_id, is_active=True)
+        serializer = SectionSerializer(sections, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

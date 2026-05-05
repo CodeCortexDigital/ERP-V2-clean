@@ -119,3 +119,26 @@ class ClassListCreateView(generics.ListCreateAPIView):
     def get_serializer_class(self):
         from .serializers import ClassSerializer
         return ClassSerializer
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def attendance_summary(request):
+    """Get attendance summary for dashboard"""
+    try:
+        from django.apps import apps
+        Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+        
+        total_records = Attendance.objects.count()
+        present = Attendance.objects.filter(status='present').count()
+        absent = Attendance.objects.filter(status='absent').count()
+        late = Attendance.objects.filter(status='late').count()
+        
+        return Response({
+            'total_records': total_records,
+            'present': present,
+            'absent': absent,
+            'late': late,
+            'attendance_rate': round((present / total_records * 100), 1) if total_records > 0 else 0
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { 
   Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
   Users, TrendingUp, AlertCircle, CheckCircle,
-  ChevronLeft, ChevronRight, UserPlus, X, Clock
+  ChevronLeft, ChevronRight, UserPlus, X, Clock, Eye
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -14,7 +14,7 @@ import { useForm } from 'react-hook-form';
 import studentService, { Student } from '@/services/student.service';
 import StudentDrawer from '@/components/students/StudentDrawer';
 import api from '@/services/api';
-import classService, { SchoolClass } from '@/services/class.service';
+import classService, { SchoolClass, Section } from '@/services/class.service';
 
 interface StudentWithData extends Student {
   attendance_percentage?: number;
@@ -23,6 +23,7 @@ interface StudentWithData extends Student {
   priority?: string;
   last_activity?: string;
   class_name?: string;
+  section_name?: string;
 }
 
 interface StudentFormData {
@@ -34,6 +35,7 @@ interface StudentFormData {
   mother_name: string;
   guardian_phone: string;
   current_class?: string;
+  current_section?: string;
   is_active?: boolean;
 }
 
@@ -51,30 +53,46 @@ export default function StudentsListPage() {
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const itemsPerPage = 10;
   const navigate = useNavigate();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormData>();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<StudentFormData>();
+  const selectedClassId = watch('current_class');
 
   useEffect(() => {
     fetchClasses();
+    fetchStudents();
   }, []);
 
   useEffect(() => {
-    if (classes.length > 0) {
-      fetchStudents();
+    if (selectedClassId) {
+      fetchSections(selectedClassId);
+    } else {
+      setSections([]);
+      setValue('current_section', '');
     }
-  }, [classes]);
+  }, [selectedClassId, setValue]);
 
   const fetchClasses = async () => {
     try {
       const response = await classService.getAll();
-      setClasses(response.data);
+      setClasses(response.data || []);
     } catch (error) {
       console.error('Error fetching classes:', error);
+    }
+  };
+
+  const fetchSections = async (classId: string) => {
+    try {
+      const response = await classService.getSections(classId);
+      setSections(response.data || []);
+    } catch (error) {
+      console.error('Error fetching sections:', error);
+      setSections([]);
     }
   };
 
@@ -89,37 +107,61 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
-      const studentsWithData = studentData.map((student) => {
-        const classObj = classes.find(c => c.id === student.current_class);
+      // Map basic student data with class names
+      const studentsWithClass = await Promise.all(studentData.map(async (student) => {
+        let className = 'Not Assigned';
+        let sectionName = '';
+        if (student.current_class) {
+          const classObj = classes.find(c => c.id === student.current_class);
+          className = classObj?.name || 'Not Assigned';
+        }
+        if (student.current_section) {
+          const sectionObj = sections.find(s => s.id === student.current_section);
+          sectionName = sectionObj?.name || '';
+        }
         return {
           ...student,
-          class_name: classObj?.name || 'Not Assigned',
+          class_name: className,
+          section_name: sectionName,
+          attendance_percentage: 0,
           fee_status: 'pending',
           balance: 0,
           priority: 'normal',
-          last_activity: student.updated_at,
-          attendance_percentage: undefined
+          last_activity: student.updated_at
         };
-      });
+      }));
       
-      setStudents(studentsWithData);
+      setStudents(studentsWithClass);
       
-      const attendancePromises = studentsWithData.map(async (student) => {
+      // Fetch additional data in background
+      const enhancedPromises = studentsWithClass.map(async (student) => {
         try {
           const dashboard = await studentService.get360View(student.id);
-          return { id: student.id, attendance: dashboard.data.attendance?.attendance_rate || 0 };
-        } catch (error) {
-          return { id: student.id, attendance: 0 };
+          return {
+            id: student.id,
+            attendance_percentage: dashboard.data?.attendance?.attendance_rate || 0,
+            balance: dashboard.data?.finance?.balance_due || 0,
+            fee_status: (dashboard.data?.finance?.balance_due || 0) > 0 ? 'pending' : 'paid',
+            priority: (dashboard.data?.attendance?.attendance_rate || 0) < 75 || (dashboard.data?.finance?.balance_due || 0) > 0 ? 'high' : 'normal'
+          };
+        } catch (err) {
+          return { id: student.id, attendance_percentage: 0, balance: 0, fee_status: 'pending', priority: 'normal' };
         }
       });
       
-      const attendanceResults = await Promise.all(attendancePromises);
+      const results = await Promise.all(enhancedPromises);
       
       setStudents(prevStudents => 
         prevStudents.map(s => {
-          const result = attendanceResults.find(r => r.id === s.id);
+          const result = results.find(r => r.id === s.id);
           if (result) {
-            return { ...s, attendance_percentage: result.attendance };
+            return { 
+              ...s, 
+              attendance_percentage: result.attendance_percentage,
+              balance: result.balance,
+              fee_status: result.fee_status,
+              priority: result.priority
+            };
           }
           return s;
         })
@@ -171,7 +213,7 @@ export default function StudentsListPage() {
   };
 
   const getAttendanceColor = (percentage: number) => {
-    if (percentage >= 80) return 'text-green-600';
+    if (percentage >= 85) return 'text-green-600';
     if (percentage >= 70) return 'text-yellow-600';
     return 'text-red-600';
   };
@@ -261,7 +303,7 @@ export default function StudentsListPage() {
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
   const totalStudents = filteredStudents.length;
   const activeStudents = filteredStudents.filter(s => s.is_active).length;
-  const overdueFees = filteredStudents.filter(s => s.fee_status === 'overdue').length;
+  const overdueFees = filteredStudents.filter(s => s.fee_status === 'overdue' || s.fee_status === 'pending').length;
   const lowAttendance = filteredStudents.filter(s => (s.attendance_percentage || 0) < 75).length;
   const attentionNeeded = filteredStudents.filter(s => s.priority === 'high').length;
 
@@ -280,12 +322,17 @@ export default function StudentsListPage() {
         mother_name: data.mother_name,
         guardian_phone: data.guardian_phone,
         current_class: data.current_class,
+        current_section: data.current_section,
         is_active: data.is_active !== undefined ? data.is_active : true
       };
       
       if (editingStudent) {
         await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
         alert('Student updated successfully!');
+        if (selectedStudentId === editingStudent.id) {
+          setSelectedStudentId(null);
+          setTimeout(() => setSelectedStudentId(editingStudent.id), 100);
+        }
       } else {
         await api.post('/auth/students/', cleanData);
         alert('Student created successfully!');
@@ -310,10 +357,26 @@ export default function StudentsListPage() {
         mother_name: editingStudent.mother_name || '',
         guardian_phone: editingStudent.guardian_phone || '',
         current_class: editingStudent.current_class || '',
+        current_section: editingStudent.current_section || '',
         is_active: editingStudent.is_active
       });
+      if (editingStudent.current_class) {
+        fetchSections(editingStudent.current_class);
+      }
     } else {
-      reset();
+      reset({
+        full_name: '',
+        email: '',
+        phone: '',
+        student_id: '',
+        father_name: '',
+        mother_name: '',
+        guardian_phone: '',
+        current_class: '',
+        current_section: '',
+        is_active: true
+      });
+      setSections([]);
     }
   }, [editingStudent, reset]);
 
@@ -331,12 +394,31 @@ export default function StudentsListPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Students</h1>
-          <p className="text-gray-500 text-sm mt-1">Students are created through the admissions process</p>
+          <p className="text-gray-500 text-sm mt-1">Manage all students in your school</p>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-700">
-          ➕ New students via Admissions → Accept applicant → Convert to Student
-        </div>
+        <Button onClick={() => { setEditingStudent(null); setShowForm(true); }} className="flex items-center gap-2">
+          <UserPlus className="w-4 h-4" />
+          Add Student
+        </Button>
       </div>
+
+      {/* Attention Banner */}
+      {attentionNeeded > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-orange-600" />
+            <span className="text-sm text-orange-700">
+              ⚠ {attentionNeeded} student(s) need attention (Low attendance / Pending fees)
+            </span>
+          </div>
+          <button 
+            onClick={() => { setSelectedFeeStatus('pending'); setSelectedStatus('active'); }}
+            className="text-sm text-orange-600 font-medium hover:underline"
+          >
+            View all →
+          </button>
+        </div>
+      )}
 
       {/* Summary Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -349,7 +431,7 @@ export default function StudentsListPage() {
           <p className="text-xl font-bold text-green-700">{activeStudents}</p>
         </div>
         <div className="bg-red-50 rounded-xl p-3">
-          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Overdue Fees</span></div>
+          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Pending Fees</span></div>
           <p className="text-xl font-bold text-red-700">{overdueFees}</p>
         </div>
         <div className="bg-yellow-50 rounded-xl p-3">
@@ -376,13 +458,24 @@ export default function StudentsListPage() {
           <option value="inactive">Inactive</option>
         </select>
         <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}>
-          <option value="">All Fee Status</option>
+          <option value="">All Fees</option>
           <option value="paid">Paid</option>
           <option value="pending">Pending</option>
           <option value="overdue">Overdue</option>
         </select>
         <Button onClick={clearFilters} variant="outline" size="sm">Clear Filters</Button>
       </div>
+
+      {/* Bulk Action Bar */}
+      {showBulkBar && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <span className="text-sm font-medium">{selectedStudents.length} selected</span>
+          <div className="flex gap-2">
+            <button disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
+            <button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto border rounded-xl bg-white">
@@ -408,69 +501,60 @@ export default function StudentsListPage() {
             </tr>
           </thead>
           <tbody>
-            {paginatedStudents.map((student) => {
-              const attendanceDisplay = student.attendance_percentage || 0;
-              return (
-                <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
-                  <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} />
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">
-                        {student.full_name?.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-medium">{student.full_name}</p>
-                        <p className="text-xs text-gray-400">{student.student_id}</p>
-                      </div>
+            {paginatedStudents.map((student) => (
+              <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
+                <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} />
+                </td>
+                <td className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">
+                      {student.full_name?.charAt(0)}
                     </div>
-                  </td>
-                  <td className="p-3">{student.class_name || '-'}</td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
-                        attendanceDisplay >= 80 ? 'bg-green-100 text-green-700' :
-                        attendanceDisplay >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {attendanceDisplay}%
-                      </span>
-                      {attendanceDisplay < 80 && (
-                        <span className="text-xs" title={attendanceDisplay >= 70 ? 'Needs Improvement' : 'Critical - Low Attendance'}>
-                          {attendanceDisplay >= 70 ? '🟡' : '🔴'}
-                        </span>
-                      )}
-                      {attendanceDisplay >= 80 && <span className="text-xs" title="Good Attendance">✅</span>}
+                    <div>
+                      <p className="font-medium">{student.full_name}</p>
+                      <p className="text-xs text-gray-400">{student.student_id}</p>
                     </div>
-                  </td>
-                  <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>
-                      {getPriorityLabel(student.priority || 'normal')}
+                  </div>
+                </td>
+                <td className="p-3">
+                  {student.class_name || '-'}
+                  {student.section_name && <span className="text-xs text-gray-400 ml-1">({student.section_name})</span>}
+                </td>
+                <td className="p-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>
+                      {student.attendance_percentage || 0}%
                     </span>
-                  </td>
-                  <td className="p-3">
-                    <Badge variant={student.is_active ? 'success' : 'secondary'}>
-                      {student.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </td>
-                  <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-1 justify-center">
-                      <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit">
-                        <Edit2 className="w-4 h-4 text-blue-600" />
-                      </button>
-                      <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message">
-                        <MessageCircle className="w-4 h-4 text-green-600" />
-                      </button>
-                      <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100" title="Delete">
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                    {(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}
+                  </div>
+                </td>
+                <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
+                <td className="p-3">
+                  <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>
+                    {getPriorityLabel(student.priority || 'normal')}
+                  </span>
+                </td>
+                <td className="p-3">
+                  <Badge variant={student.is_active ? 'success' : 'secondary'}>
+                    {student.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </td>
+                <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1 justify-center">
+                    <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit">
+                      <Edit2 className="w-4 h-4 text-blue-600" />
+                    </button>
+                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message">
+                      <MessageCircle className="w-4 h-4 text-green-600" />
+                    </button>
+                    <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100" title="Delete">
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -487,6 +571,52 @@ export default function StudentsListPage() {
             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
               <ChevronRight className="w-4 h-4" />
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Student Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
+              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div><label className="block text-sm font-medium mb-1">Full Name *</label><input {...register("full_name", { required: true })} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Email *</label><input {...register("email", { required: true })} type="email" className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Phone</label><input {...register("phone")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Student ID</label><input {...register("student_id")} className="w-full border rounded-lg px-3 py-2" placeholder="Auto-generated if empty" /></div>
+              <div><label className="block text-sm font-medium mb-1">Father's Name</label><input {...register("father_name")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Mother's Name</label><input {...register("mother_name")} className="w-full border rounded-lg px-3 py-2" /></div>
+              <div><label className="block text-sm font-medium mb-1">Guardian Phone</label><input {...register("guardian_phone")} className="w-full border rounded-lg px-3 py-2" /></div>
+              
+              <div><label className="block text-sm font-medium mb-1">Class</label>
+                <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2">
+                  <option value="">Select Class</option>
+                  {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
+                </select>
+              </div>
+              
+              <div><label className="block text-sm font-medium mb-1">Section</label>
+                <select {...register("current_section")} className="w-full border rounded-lg px-3 py-2" disabled={!selectedClassId}>
+                  <option value="">Select Section</option>
+                  {sections.map((sec) => (<option key={sec.id} value={sec.id}>{sec.name}</option>))}
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <input type="checkbox" {...register("is_active")} className="w-4 h-4" />
+                <label className="text-sm font-medium">Active Student</label>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button>
+                <button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border py-2 rounded-lg">Cancel</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

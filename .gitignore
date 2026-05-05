@@ -1,59 +1,57 @@
-# Exclude weird files
-t
-tructure
-Current8_ERP-V2-clean
-
 # Backend
-*.pyc
 __pycache__/
-db.sqlite3
-*.log
-.env
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
 venv/
-.env.local
+ENV/
+env.bak/
+venv.bak/
+*.log
+*.pid
+*.seed
+*.pid.lock
+.coverage
+.coverage.*
+*.pot
+*.pyc
+db.sqlite3
+db.sqlite3-journal
+/media/
+/static/
+.env
+.venv
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+*.bak
+*.backup
 
 # Frontend
 node_modules/
-dist/
-dist-ssr/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+/dist
+/dist-ssr
+/.vite
 *.local
-.DS_Store
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
-Thumbs.db
-Desktop.ini
-
-t
-
-# Test scripts (temporary)
-verify_*.py
-generate_*.py
-create_*.py
-add_*.py
-test_*.py
-*_test.py
-*_temp.py
-debug_*.py
-temp_*.py
-
-# Generated data files
-*.bak
-*.tmp
-*.swp
-data_*.json
-sample_*.csv
-
-# Backup files
-*.backup
-*.old
-*.orig
-
-# Local configuration
 .env.local
 .env.*.local
-config.local.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Keep migration files (don't ignore)
+!backend/services/**/migrations/__init__.py
+!backend/services/**/migrations/0*.py
+
+# Logs
+*.log
+logs/
