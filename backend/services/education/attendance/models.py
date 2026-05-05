@@ -4,7 +4,7 @@ import uuid
 class AttendanceRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey('education_students.Student', on_delete=models.CASCADE, related_name='attendance_records')
-    course_id = models.CharField(max_length=50)
+    course_id = models.CharField(max_length=50, null=True, blank=True)
     date = models.DateField()
     status = models.CharField(max_length=20, choices=[
         ('present', 'Present'),
@@ -19,3 +19,4 @@ class AttendanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.student.full_name} - {self.date} - {self.status}"
+

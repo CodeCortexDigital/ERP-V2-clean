@@ -91,7 +91,7 @@ export default function StudentDrawer({ studentId, onClose, refreshTrigger = 0 }
     if (!studentId) return;
     setLoading(true);
     try {
-      const response = await studentService.get360View(studentId);
+      const response = await studentService.getDashboardData(studentId);
       setStudent(response.data);
     } catch (error) {
       console.error('Error fetching student data:', error);
@@ -335,3 +335,5 @@ export default function StudentDrawer({ studentId, onClose, refreshTrigger = 0 }
     </AnimatePresence>
   );
 }
+
+
