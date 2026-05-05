@@ -6,6 +6,7 @@ def health_check(request):
     return JsonResponse({"status": "ok", "message": "Server is running"})
 
 urlpatterns = [
+    path('api/admissions/', include('services.education.admissions.urls')),
         path('api/attendance/', include('services.education.attendance.urls')),
     path('admin/', admin.site.urls),
     path('api/health/', health_check, name='health'),
@@ -13,5 +14,6 @@ urlpatterns = [
     path('api/academics/', include('services.education.academics.urls')),
     path('api/education/students/', include('services.education.students.urls')),
 ]
+
 
 
