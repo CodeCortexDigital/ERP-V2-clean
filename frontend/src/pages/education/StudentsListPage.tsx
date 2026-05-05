@@ -89,7 +89,6 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
-      // First, set basic student data
       const studentsWithData = studentData.map((student) => {
         const classObj = classes.find(c => c.id === student.current_class);
         return {
@@ -99,13 +98,12 @@ export default function StudentsListPage() {
           balance: 0,
           priority: 'normal',
           last_activity: student.updated_at,
-          attendance_percentage: undefined // Will load separately
+          attendance_percentage: undefined
         };
       });
       
       setStudents(studentsWithData);
       
-      // Then load attendance for all students in parallel
       const attendancePromises = studentsWithData.map(async (student) => {
         try {
           const dashboard = await studentService.get360View(student.id);
@@ -172,17 +170,16 @@ export default function StudentsListPage() {
     }
   };
 
+  const getAttendanceColor = (percentage: number) => {
+    if (percentage >= 80) return 'text-green-600';
+    if (percentage >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
   const getRowHighlightClass = (student: StudentWithData) => {
     if (student.priority === 'high') return 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500';
     if (student.priority === 'medium') return 'bg-yellow-50 hover:bg-yellow-100';
     return 'hover:bg-gray-50';
-  };
-
-  const getAttendanceDisplay = (percentage: number) => {
-    if (!percentage || percentage === 0) return { color: 'bg-gray-100 text-gray-500', icon: '—', label: 'No data' };
-    if (percentage >= 80) return { color: 'bg-green-100 text-green-700', icon: '✅', label: 'Good' };
-    if (percentage >= 70) return { color: 'bg-yellow-100 text-yellow-700', icon: '🟡', label: 'Needs Improvement' };
-    return { color: 'bg-red-100 text-red-700', icon: '🔴', label: 'Critical' };
   };
 
   const handleSort = (field: string) => {
@@ -328,22 +325,17 @@ export default function StudentsListPage() {
     );
   }
 
-  // Calculate summary statistics
-  const totalWithAttendance = students.filter(s => s.attendance_percentage && s.attendance_percentage > 0).length;
-  const avgAttendance = students.reduce((sum, s) => sum + (s.attendance_percentage || 0), 0) / students.length || 0;
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Students</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage all students in your school</p>
+          <p className="text-gray-500 text-sm mt-1">Students are created through the admissions process</p>
         </div>
-        <Button onClick={() => { setEditingStudent(null); setShowForm(true); }} className="flex items-center gap-2">
-          <UserPlus className="w-4 h-4" />
-          Add Student
-        </Button>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-700">
+          ➕ New students via Admissions → Accept applicant → Convert to Student
+        </div>
       </div>
 
       {/* Summary Bar */}
@@ -351,7 +343,6 @@ export default function StudentsListPage() {
         <div className="bg-blue-50 rounded-xl p-3">
           <div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total</span></div>
           <p className="text-xl font-bold text-blue-700">{totalStudents}</p>
-          <p className="text-xs text-gray-500">{totalWithAttendance} with attendance data</p>
         </div>
         <div className="bg-green-50 rounded-xl p-3">
           <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Active</span></div>
@@ -362,8 +353,8 @@ export default function StudentsListPage() {
           <p className="text-xl font-bold text-red-700">{overdueFees}</p>
         </div>
         <div className="bg-yellow-50 rounded-xl p-3">
-          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Avg Attendance</span></div>
-          <p className="text-xl font-bold text-yellow-700">{Math.round(avgAttendance)}%</p>
+          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Low Attendance</span></div>
+          <p className="text-xl font-bold text-yellow-700">{lowAttendance}</p>
         </div>
       </div>
 
@@ -418,7 +409,7 @@ export default function StudentsListPage() {
           </thead>
           <tbody>
             {paginatedStudents.map((student) => {
-              const attendanceDisplay = getAttendanceDisplay(student.attendance_percentage || 0);
+              const attendanceDisplay = student.attendance_percentage || 0;
               return (
                 <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
                   <td className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -437,21 +428,21 @@ export default function StudentsListPage() {
                   </td>
                   <td className="p-3">{student.class_name || '-'}</td>
                   <td className="p-3">
-                    {student.attendance_percentage ? (
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${attendanceDisplay.color}`}>
-                          {student.attendance_percentage}%
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
+                        attendanceDisplay >= 80 ? 'bg-green-100 text-green-700' :
+                        attendanceDisplay >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {attendanceDisplay}%
+                      </span>
+                      {attendanceDisplay < 80 && (
+                        <span className="text-xs" title={attendanceDisplay >= 70 ? 'Needs Improvement' : 'Critical - Low Attendance'}>
+                          {attendanceDisplay >= 70 ? '🟡' : '🔴'}
                         </span>
-                        <span className="text-sm" title={attendanceDisplay.label}>
-                          {attendanceDisplay.icon}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                        <span className="text-xs text-gray-400">loading...</span>
-                      </div>
-                    )}
+                      )}
+                      {attendanceDisplay >= 80 && <span className="text-xs" title="Good Attendance">✅</span>}
+                    </div>
                   </td>
                   <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
                   <td className="p-3">
@@ -496,39 +487,6 @@ export default function StudentsListPage() {
             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
               <ChevronRight className="w-4 h-4" />
             </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Student Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Full Name *</label><input {...register("full_name", { required: true })} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Email *</label><input {...register("email", { required: true })} type="email" className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Phone</label><input {...register("phone")} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Student ID</label><input {...register("student_id")} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Father's Name</label><input {...register("father_name")} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Mother's Name</label><input {...register("mother_name")} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Guardian Phone</label><input {...register("guardian_phone")} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Class</label>
-                <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2">
-                  <option value="">Select Class</option>
-                  {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
-                </select>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button>
-                <button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border py-2 rounded-lg">Cancel</button>
-              </div>
-            </form>
           </div>
         </div>
       )}

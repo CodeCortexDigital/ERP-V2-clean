@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 from django.apps import apps
@@ -121,3 +121,123 @@ def student_360(request, student_id):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_list(request):
+    """Get list of all students"""
+    try:
+        Student = apps.get_model('education_students', 'Student')
+        students = Student.objects.filter(is_active=True).select_related('current_class', 'current_section')
+        
+        data = []
+        for student in students:
+            data.append({
+                'id': str(student.id),
+                'student_id': student.student_id,
+                'full_name': student.full_name,
+                'email': student.email,
+                'phone': student.phone,
+                'class': student.current_class.name if student.current_class else None,
+                'section': student.current_section.name if student.current_section else None,
+                'is_active': student.is_active
+            })
+        
+        return Response(data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_detail(request, student_id):
+    """Get single student details - READ ONLY"""
+    try:
+        Student = apps.get_model('education_students', 'Student')
+        student = get_object_or_404(Student, id=student_id)
+        
+        data = {
+            'id': str(student.id),
+            'student_id': student.student_id,
+            'full_name': student.full_name,
+            'email': student.email,
+            'phone': student.phone,
+            'father_name': student.father_name,
+            'mother_name': student.mother_name,
+            'guardian_phone': student.guardian_phone,
+            'program': student.program,
+            'enrollment_date': student.enrollment_date,
+            'is_active': student.is_active,
+            'current_class_id': str(student.current_class.id) if student.current_class else None,
+            'current_section_id': str(student.current_section.id) if student.current_section else None
+        }
+        
+        return Response(data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ============================================================
+# IMPORTANT: Student creation is DISABLED - Must come from Admissions
+# ============================================================
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def student_create_disabled(request):
+    """Student creation is NOT allowed directly. Use Admissions module instead."""
+    return Response({
+        'error': 'Direct student creation is not allowed.',
+        'message': 'Students can only be created through the Admissions module by converting an accepted applicant.',
+        'action': 'Please go to Admissions → Accept an applicant → Click "Convert to Student"'
+    }, status=status.HTTP_403_FORBIDDEN)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def student_update(request, student_id):
+    """Update existing student - Allowed (for editing student info)"""
+    try:
+        Student = apps.get_model('education_students', 'Student')
+        student = get_object_or_404(Student, id=student_id)
+        
+        # Allow updates to certain fields
+        allowed_fields = ['father_name', 'mother_name', 'guardian_phone', 'phone', 'is_active']
+        
+        for field in allowed_fields:
+            if field in request.data:
+                setattr(student, field, request.data[field])
+        
+        # Class/Section updates require admin approval (could be added)
+        if 'current_class' in request.data and request.user.is_superuser:
+            SchoolClass = apps.get_model('education_academics', 'SchoolClass')
+            class_obj = get_object_or_404(SchoolClass, id=request.data['current_class'])
+            student.current_class = class_obj
+        
+        if 'current_section' in request.data and request.user.is_superuser:
+            Section = apps.get_model('education_academics', 'Section')
+            section_obj = get_object_or_404(Section, id=request.data['current_section'])
+            student.current_section = section_obj
+        
+        student.save()
+        
+        return Response({'message': 'Student updated successfully'}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def student_delete(request, student_id):
+    """Delete student - Admin only"""
+    if not request.user.is_superuser:
+        return Response({'error': 'Only administrators can delete students'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        Student = apps.get_model('education_students', 'Student')
+        student = get_object_or_404(Student, id=student_id)
+        student.delete()
+        return Response({'message': 'Student deleted successfully'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

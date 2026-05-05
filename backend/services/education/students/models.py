@@ -10,7 +10,12 @@ class Student(models.Model):
     father_name = models.CharField(max_length=255, blank=True)
     mother_name = models.CharField(max_length=255, blank=True)
     guardian_phone = models.CharField(max_length=20, blank=True)
-    guardian_email = models.EmailField(blank=True)
+    
+    # Address Information
+    address = models.TextField(blank=True, help_text="Complete residential address")
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
     enrollment_date = models.DateField(null=True, blank=True)
     program = models.CharField(max_length=100, blank=True)
     current_semester = models.IntegerField(default=1)
@@ -27,3 +32,4 @@ class Student(models.Model):
 
     def __str__(self):
         return f"{self.student_id} - {self.full_name}"
+
