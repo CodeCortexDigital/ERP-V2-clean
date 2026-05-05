@@ -1,45 +1,39 @@
-// API Endpoints configuration
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export const API_ENDPOINTS = {
-  AUTH: {
-    LOGIN: '/auth/login/',
-    LOGOUT: '/auth/logout/',
-    REFRESH: '/auth/refresh/',
-    REGISTER: '/auth/register/',
-    ME: '/auth/me/',
-  },
-  TENANTS: {
-    BASE: '/tenants/',
-    DETAIL: (id: number) => `/tenants/${id}/`,
-  },
-  ACCOUNTS: {
-    BASE: '/accounts/',
-    DETAIL: (id: number) => `/accounts/${id}/`,
-  },
-  STUDENTS: {
-    BASE: '/education/students/',
-    DETAIL: (id: number) => `/education/students/${id}/`,
-  },
-  COURSES: {
-    BASE: '/education/courses/',
-    DETAIL: (id: number) => `/education/courses/${id}/`,
-  },
+  // Auth
+  LOGIN: `${API_BASE_URL}/api/auth/login/`,
+  ME: `${API_BASE_URL}/api/auth/me/`,
+  LOGOUT: `${API_BASE_URL}/api/auth/logout/`,
+  
+  // Demo & Google
+  DEMO_LOGIN: `${API_BASE_URL}/api/auth/demo/`,
+  GOOGLE_LOGIN: `${API_BASE_URL}/api/auth/google/`,
+  
+  // Students
+  STUDENTS: `${API_BASE_URL}/api/auth/students/`,
+  STUDENT_360: (id: string) => `${API_BASE_URL}/api/education/students/student-360/${id}/`,
+  
+  // Academics
+  CLASSES_WITH_SECTIONS: `${API_BASE_URL}/api/academics/classes-with-sections/`,
+  SECTIONS_FOR_CLASS: (classId: string) => `${API_BASE_URL}/api/academics/sections-for-class/${classId}/`,
+  
+  // Attendance
+  ATTENDANCE: `${API_BASE_URL}/api/auth/attendance/`,
+  
+  // Exams
+  EXAMS: `${API_BASE_URL}/api/auth/exams/`,
+  EXAM_RESULTS: `${API_BASE_URL}/api/auth/exams/results/`,
+  
+  // Finance
+  INVOICES: `${API_BASE_URL}/api/auth/invoices/`,
+  PAYMENTS: `${API_BASE_URL}/api/auth/payments/`,
+  
+  // Communication
+  MESSAGES: `${API_BASE_URL}/api/communication/messages/`,
+  TEMPLATES: `${API_BASE_URL}/api/communication/templates/`,
+  
+  // Admissions
+  APPLICANTS: `${API_BASE_URL}/api/auth/applicants/`,
+  APPLICATIONS: `${API_BASE_URL}/api/auth/applications/`,
 }
-
-// Mock service exports for compatibility
-export const tenantService = {
-  getTenants: () => Promise.resolve({ data: [] }),
-  getTenant: (id: number) => Promise.resolve({ data: {} }),
-  createTenant: (data: any) => Promise.resolve({ data }),
-  updateTenant: (id: number, data: any) => Promise.resolve({ data }),
-  deleteTenant: (id: number) => Promise.resolve(),
-}
-
-export const accountService = {
-  getAccounts: () => Promise.resolve({ data: [] }),
-  getAccount: (id: number) => Promise.resolve({ data: {} }),
-  createAccount: (data: any) => Promise.resolve({ data }),
-  updateAccount: (id: number, data: any) => Promise.resolve({ data }),
-  deleteAccount: (id: number) => Promise.resolve(),
-}
-
-export default API_ENDPOINTS

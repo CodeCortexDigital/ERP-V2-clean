@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import *
+from .models import AcademicYear, Program, Course, SchoolClass, Section
 
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,12 +16,16 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = '__all__'
 
-class SemesterSerializer(serializers.ModelSerializer):
+class SchoolClassSerializer(serializers.ModelSerializer):
+    academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
+    
     class Meta:
-        model = Semester
+        model = SchoolClass
         fields = '__all__'
 
-class ProgramCurriculumSerializer(serializers.ModelSerializer):
+class SectionSerializer(serializers.ModelSerializer):
+    class_name = serializers.CharField(source='class_ref.name', read_only=True)
+    
     class Meta:
-        model = ProgramCurriculum
+        model = Section
         fields = '__all__'

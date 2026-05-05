@@ -1,14 +1,9 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import *
-
-router = DefaultRouter()
-router.register(r'academic-years', AcademicYearViewSet)
-router.register(r'programs', ProgramViewSet)
-router.register(r'courses', CourseViewSet)
-router.register(r'semesters', SemesterViewSet)
-router.register(r'curriculum', ProgramCurriculumViewSet)
+from django.urls import path
+from . import views_api
+from . import views
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('classes/', views.class_list, name='class-list'),
+    path('classes-with-sections/', views_api.get_classes_with_sections, name='classes-with-sections'),
+    path('sections-for-class/<str:class_id>/', views_api.get_sections_for_class, name='sections-for-class'),
 ]

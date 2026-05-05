@@ -1,112 +1,163 @@
-import { useState } from 'react'
-import { Save, X, User, Mail, Phone, CheckCircle } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Label } from '@/components/ui/Label'
+import { useState, useEffect } from 'react';
+import ClassSectionSelector from './ClassSectionSelector';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Label } from './ui/Label';
 
 interface StudentFormData {
-  id?: string
-  student_id: string
-  full_name: string
-  email: string
-  phone: string
-  is_active: boolean
+  student_id?: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  father_name?: string;
+  mother_name?: string;
+  guardian_phone?: string;
+  current_class?: string;
+  current_section?: string;
+  enrollment_date?: string;
+  is_active?: boolean;
 }
 
 interface StudentFormProps {
-  initialData?: Partial<StudentFormData>
-  onSubmit: (data: StudentFormData) => Promise<void>
-  onCancel: () => void
-  isEdit?: boolean
+  initialData?: StudentFormData;
+  onSubmit: (data: StudentFormData) => void;
+  onCancel: () => void;
+  loading?: boolean;
 }
 
-export default function StudentForm({ initialData, onSubmit, onCancel, isEdit = false }: StudentFormProps) {
+export default function StudentForm({ initialData, onSubmit, onCancel, loading }: StudentFormProps) {
   const [formData, setFormData] = useState<StudentFormData>({
-    student_id: initialData?.student_id || '',
-    full_name: initialData?.full_name || '',
-    email: initialData?.email || '',
-    phone: initialData?.phone || '',
-    is_active: initialData?.is_active ?? true,
-  })
-  
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+    full_name: '',
+    email: '',
+    phone: '',
+    father_name: '',
+    mother_name: '',
+    guardian_phone: '',
+    is_active: true,
+    ...initialData
+  });
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-    if (!formData.full_name.trim()) newErrors.full_name = 'Full name is required'
-    if (!formData.email.trim()) newErrors.email = 'Email is required'
-    if (!formData.email.match(/\S+@\S+\.\S+/)) newErrors.email = 'Email is invalid'
-    if (!formData.phone.trim()) newErrors.phone = 'Phone number is required'
-    if (!formData.student_id.trim()) newErrors.student_id = 'Student ID is required'
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedSectionId, setSelectedSectionId] = useState<string>('');
+  const [className, setClassName] = useState<string>('');
+  const [sectionName, setSectionName] = useState<string>('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateForm()) return
-    setLoading(true)
-    try {
-      await onSubmit(formData)
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    // If editing existing student, pre-select class and section
+    if (initialData?.current_class) {
+      // You would need to fetch class ID from name here
+      // For now, we'll rely on the selector
     }
-  }
+  }, [initialData]);
 
-  const handleChange = (field: keyof StudentFormData, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
-  }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleClassChange = (classId: string, className: string) => {
+    setSelectedClassId(classId);
+    setClassName(className);
+    setFormData({
+      ...formData,
+      current_class: className
+    });
+  };
+
+  const handleSectionChange = (sectionId: string, sectionName: string) => {
+    setSelectedSectionId(sectionId);
+    setSectionName(sectionName);
+    setFormData({
+      ...formData,
+      current_section: sectionName
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-md">
-        <form onSubmit={handleSubmit}>
-          <div className="border-b p-4 flex justify-between items-center">
-            <h2 className="text-xl font-bold">{isEdit ? 'Edit Student' : 'Add New Student'}</h2>
-            <button type="button" onClick={onCancel} className="text-gray-500 hover:text-gray-700">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="p-6 space-y-4">
-            <div>
-              <Label className="flex items-center gap-2 mb-1"><User className="w-4 h-4" />Student ID *</Label>
-              <Input value={formData.student_id} onChange={(e) => handleChange('student_id', e.target.value)} placeholder="e.g., STU001" className={errors.student_id ? 'border-red-500' : ''} />
-              {errors.student_id && <p className="text-red-500 text-xs mt-1">{errors.student_id}</p>}
-            </div>
-
-            <div>
-              <Label className="flex items-center gap-2 mb-1"><User className="w-4 h-4" />Full Name *</Label>
-              <Input value={formData.full_name} onChange={(e) => handleChange('full_name', e.target.value)} placeholder="e.g., John Doe" className={errors.full_name ? 'border-red-500' : ''} />
-              {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name}</p>}
-            </div>
-
-            <div>
-              <Label className="flex items-center gap-2 mb-1"><Mail className="w-4 h-4" />Email *</Label>
-              <Input type="email" value={formData.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="student@example.com" className={errors.email ? 'border-red-500' : ''} />
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-            </div>
-
-            <div>
-              <Label className="flex items-center gap-2 mb-1"><Phone className="w-4 h-4" />Phone Number *</Label>
-              <Input value={formData.phone} onChange={(e) => handleChange('phone', e.target.value)} placeholder="+91 9876543210" className={errors.phone ? 'border-red-500' : ''} />
-              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <input type="checkbox" id="is_active" checked={formData.is_active} onChange={(e) => handleChange('is_active', e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
-              <Label htmlFor="is_active" className="flex items-center gap-2 cursor-pointer"><CheckCircle className="w-4 h-4 text-green-500" />Active Student</Label>
-            </div>
-          </div>
-
-          <div className="border-t p-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-            <Button type="submit" disabled={loading}><Save className="w-4 h-4 mr-2" />{loading ? 'Saving...' : (isEdit ? 'Update' : 'Create')}</Button>
-          </div>
-        </form>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="full_name">Full Name *</Label>
+          <Input
+            id="full_name"
+            name="full_name"
+            value={formData.full_name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="email">Email *</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="phone">Phone *</Label>
+          <Input
+            id="phone"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="father_name">Father Name</Label>
+          <Input
+            id="father_name"
+            name="father_name"
+            value={formData.father_name || ''}
+            onChange={handleChange}
+          />
+        </div>
+        <div>
+          <Label htmlFor="mother_name">Mother Name</Label>
+          <Input
+            id="mother_name"
+            name="mother_name"
+            value={formData.mother_name || ''}
+            onChange={handleChange}
+          />
+        </div>
+        <div>
+          <Label htmlFor="guardian_phone">Guardian Phone</Label>
+          <Input
+            id="guardian_phone"
+            name="guardian_phone"
+            value={formData.guardian_phone || ''}
+            onChange={handleChange}
+          />
+        </div>
       </div>
-    </div>
-  )
+
+      {/* Class and Section Selector */}
+      <ClassSectionSelector
+        onClassChange={handleClassChange}
+        onSectionChange={handleSectionChange}
+        showSection={true}
+      />
+
+      <div className="flex justify-end gap-3 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Saving...' : initialData ? 'Update Student' : 'Add Student'}
+        </Button>
+      </div>
+    </form>
+  );
 }

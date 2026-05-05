@@ -1,29 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { 
   Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
   Users, TrendingUp, AlertCircle, CheckCircle,
-  ChevronLeft, ChevronRight, UserPlus, X, Clock
+  ChevronLeft, ChevronRight, UserPlus, X, Clock, Filter
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
 import { useForm } from 'react-hook-form';
 import studentService, { Student } from '@/services/student.service';
 import StudentDrawer from '@/components/students/StudentDrawer';
 import api from '@/services/api';
 import classService, { SchoolClass } from '@/services/class.service';
-
-const formatPhone = (phone: string) => {
-  if (!phone) return '-';
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 11) {
-    return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7, 11)}`;
-  }
-  return phone;
-};
 
 interface StudentWithData extends Student {
   attendance_percentage?: number;
@@ -62,41 +53,11 @@ export default function StudentsListPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
   const itemsPerPage = 10;
   const navigate = useNavigate();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<StudentFormData>();
-
-  // Column filters
-  const [filters, setFilters] = useState({
-    student: '',
-    class: '',
-    attendance: '',
-    fees: '',
-    priority: '',
-    lastActivity: ''
-  });
-
-  const handleFilterChange = (column: string, value: string) => {
-    setFilters(prev => ({ ...prev, [column]: value }));
-    setCurrentPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      student: '',
-      class: '',
-      attendance: '',
-      fees: '',
-      priority: '',
-      lastActivity: ''
-    });
-    setSearchTerm('');
-    setSelectedClass('');
-    setSelectedStatus('');
-    setSelectedFeeStatus('');
-  };
 
   useEffect(() => {
     fetchClasses();
@@ -188,13 +149,13 @@ export default function StudentsListPage() {
   const getFeeStatusBadge = (status: string) => {
     switch (status) {
       case 'paid':
-        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Paid</span>;
+        return <Badge variant="success">Paid</Badge>;
       case 'pending':
-        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">Pending</span>;
+        return <Badge variant="warning">Pending</Badge>;
       case 'overdue':
-        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">Overdue</span>;
+        return <Badge variant="danger">Overdue</Badge>;
       default:
-        return <span className="text-gray-400">-</span>;
+        return <Badge variant="secondary">-</Badge>;
     }
   };
 
@@ -239,76 +200,30 @@ export default function StudentsListPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Deactivate this student?')) {
+    if (confirm('Delete this student? This action cannot be undone.')) {
       await studentService.delete(id);
       fetchStudents();
     }
   };
 
-  const onSubmit = async (data: StudentFormData) => {
-    try {
-      const cleanData: any = {
-        full_name: data.full_name,
-        email: data.email,
-        phone: data.phone,
-        student_id: data.student_id,
-        father_name: data.father_name,
-        mother_name: data.mother_name,
-        guardian_phone: data.guardian_phone,
-        current_class: data.current_class
-      };
-      
-      if (editingStudent) {
-        await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
-        alert('Student updated successfully!');
-        if (selectedStudentId === editingStudent.id) {
-          setRefreshTrigger(prev => prev + 1);
-        }
-      } else {
-        await api.post('/auth/students/', cleanData);
-        alert('Student created successfully!');
-      }
-      setShowForm(false);
-      setEditingStudent(null);
-      fetchStudents();
-    } catch (error: any) {
-      console.error('Error saving student:', error);
-      alert('Failed to save student');
-    }
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedClass('');
+    setSelectedStatus('');
+    setSelectedFeeStatus('');
   };
 
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStudent = !filters.student || s.full_name?.toLowerCase().includes(filters.student.toLowerCase());
-    const matchesClass = !filters.class || s.class_name === filters.class;
-    const matchesAttendance = !filters.attendance || 
-      (filters.attendance === 'high' && (s.attendance_percentage || 0) >= 85) ||
-      (filters.attendance === 'medium' && (s.attendance_percentage || 0) >= 70 && (s.attendance_percentage || 0) < 85) ||
-      (filters.attendance === 'low' && (s.attendance_percentage || 0) < 70);
-    const matchesFees = !filters.fees || s.fee_status === filters.fees;
-    const matchesPriority = !filters.priority || s.priority === filters.priority;
-    
-    let matchesLastActivity = true;
-    if (filters.lastActivity) {
-      const lastActivityDate = new Date(s.last_activity || '');
-      const now = new Date();
-      const daysDiff = (now.getTime() - lastActivityDate.getTime()) / (1000 * 3600 * 24);
-      if (filters.lastActivity === 'today') matchesLastActivity = daysDiff <= 1;
-      else if (filters.lastActivity === 'week') matchesLastActivity = daysDiff <= 7;
-      else if (filters.lastActivity === 'month') matchesLastActivity = daysDiff <= 30;
-    }
-    
-    const matchesClassDropdown = !selectedClass || s.current_class === selectedClass;
+    const matchesClass = !selectedClass || s.current_class === selectedClass;
     const matchesStatus = !selectedStatus || 
       (selectedStatus === 'active' && s.is_active) ||
       (selectedStatus === 'inactive' && !s.is_active);
-    const matchesFeeStatusDropdown = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
+    const matchesFeeStatus = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
     
-    return matchesSearch && matchesStudent && matchesClass && matchesAttendance && 
-           matchesFees && matchesPriority && matchesLastActivity &&
-           matchesClassDropdown && matchesStatus && matchesFeeStatusDropdown;
+    return matchesSearch && matchesClass && matchesStatus && matchesFeeStatus;
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
@@ -337,10 +252,45 @@ export default function StudentsListPage() {
   const activeStudents = filteredStudents.filter(s => s.is_active).length;
   const overdueFees = filteredStudents.filter(s => s.fee_status === 'overdue').length;
   const lowAttendance = filteredStudents.filter(s => (s.attendance_percentage || 0) < 75).length;
+  const attentionNeeded = filteredStudents.filter(s => s.priority === 'high').length;
 
   useEffect(() => {
     setShowBulkBar(selectedStudents.length > 0);
   }, [selectedStudents]);
+
+  const onSubmit = async (data: StudentFormData) => {
+    try {
+      const cleanData: any = {
+        full_name: data.full_name,
+        email: data.email,
+        phone: data.phone,
+        student_id: data.student_id,
+        father_name: data.father_name,
+        mother_name: data.mother_name,
+        guardian_phone: data.guardian_phone,
+        current_class: data.current_class
+      };
+      
+      if (editingStudent) {
+        await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
+        alert('Student updated successfully!');
+        if (selectedStudentId === editingStudent.id) {
+          // Refresh drawer
+          setSelectedStudentId(null);
+          setTimeout(() => setSelectedStudentId(editingStudent.id), 100);
+        }
+      } else {
+        await api.post('/auth/students/', cleanData);
+        alert('Student created successfully!');
+      }
+      setShowForm(false);
+      setEditingStudent(null);
+      fetchStudents();
+    } catch (error: any) {
+      console.error('Error saving student:', error);
+      alert(error.response?.data?.error || 'Failed to save student');
+    }
+  };
 
   useEffect(() => {
     if (editingStudent) {
@@ -366,8 +316,6 @@ export default function StudentsListPage() {
       </div>
     );
   }
-
-  const attentionNeeded = filteredStudents.filter(s => s.priority === 'high').length;
 
   return (
     <div className="space-y-6">
@@ -426,7 +374,7 @@ export default function StudentsListPage() {
         <div className="flex-1 min-w-[200px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+            <Input placeholder="Search by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
         </div>
         <select className="border rounded-lg px-3 py-2 text-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
@@ -444,9 +392,7 @@ export default function StudentsListPage() {
           <option value="pending">Pending</option>
           <option value="overdue">Overdue</option>
         </select>
-        <button onClick={clearFilters} className="px-3 py-2 text-sm text-red-600 border rounded-lg hover:bg-red-50">
-          Clear All Filters
-        </button>
+        <Button onClick={clearFilters} variant="outline" size="sm">Clear Filters</Button>
       </div>
 
       {/* Bulk Action Bar */}
@@ -454,14 +400,14 @@ export default function StudentsListPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
           <span className="text-sm font-medium">{selectedStudents.length} selected</span>
           <div className="flex gap-2">
-            <button onClick={() => {}} disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
+            <button disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
             <button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button>
           </div>
         </div>
       )}
 
       {/* Table */}
-      <div className="hidden md:block overflow-x-auto border rounded-xl bg-white">
+      <div className="overflow-x-auto border rounded-xl bg-white">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b sticky top-0">
             <tr>
@@ -469,22 +415,13 @@ export default function StudentsListPage() {
                 <input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} />
               </th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>
-                <div className="flex items-center gap-1">
-                  Student
-                  <ArrowUpDown className={`w-3 h-3 ${sortField === 'full_name' ? 'text-blue-600' : 'text-gray-400'}`} />
-                </div>
+                <div className="flex items-center gap-1">Student <ArrowUpDown className="w-3 h-3" /></div>
               </th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('class_name')}>
-                <div className="flex items-center gap-1">
-                  Class
-                  <ArrowUpDown className={`w-3 h-3 ${sortField === 'class_name' ? 'text-blue-600' : 'text-gray-400'}`} />
-                </div>
+                <div className="flex items-center gap-1">Class <ArrowUpDown className="w-3 h-3" /></div>
               </th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>
-                <div className="flex items-center gap-1">
-                  Attendance
-                  <ArrowUpDown className={`w-3 h-3 ${sortField === 'attendance_percentage' ? 'text-blue-600' : 'text-gray-400'}`} />
-                </div>
+                <div className="flex items-center gap-1">Attendance <ArrowUpDown className="w-3 h-3" /></div>
               </th>
               <th className="p-3 text-left">Fees</th>
               <th className="p-3 text-left">Priority</th>
@@ -540,6 +477,9 @@ export default function StudentsListPage() {
                   <button className="p-1.5 rounded-lg hover:bg-yellow-100">
                     <DollarSign className="w-4 h-4 text-yellow-600" />
                   </button>
+                  <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100">
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -566,7 +506,7 @@ export default function StudentsListPage() {
       {/* Student Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
               <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
@@ -597,7 +537,7 @@ export default function StudentsListPage() {
       )}
 
       {/* Student Drawer */}
-      <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} refreshTrigger={refreshTrigger} />
+      <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />
     </div>
   );
 }
