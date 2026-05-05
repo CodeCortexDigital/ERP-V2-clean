@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { 
   Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
   Users, TrendingUp, AlertCircle, CheckCircle,
-  ChevronLeft, ChevronRight, UserPlus, X, Clock, Filter
+  ChevronLeft, ChevronRight, UserPlus, X, Clock
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -34,6 +34,7 @@ interface StudentFormData {
   mother_name: string;
   guardian_phone: string;
   current_class?: string;
+  is_active?: boolean;
 }
 
 export default function StudentsListPage() {
@@ -53,7 +54,6 @@ export default function StudentsListPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const itemsPerPage = 10;
   const navigate = useNavigate();
 
@@ -268,14 +268,14 @@ export default function StudentsListPage() {
         father_name: data.father_name,
         mother_name: data.mother_name,
         guardian_phone: data.guardian_phone,
-        current_class: data.current_class
+        current_class: data.current_class,
+        is_active: data.is_active !== undefined ? data.is_active : true
       };
       
       if (editingStudent) {
         await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
         alert('Student updated successfully!');
         if (selectedStudentId === editingStudent.id) {
-          // Refresh drawer
           setSelectedStudentId(null);
           setTimeout(() => setSelectedStudentId(editingStudent.id), 100);
         }
@@ -302,10 +302,21 @@ export default function StudentsListPage() {
         father_name: editingStudent.father_name || '',
         mother_name: editingStudent.mother_name || '',
         guardian_phone: editingStudent.guardian_phone || '',
-        current_class: editingStudent.current_class || ''
+        current_class: editingStudent.current_class || '',
+        is_active: editingStudent.is_active
       });
     } else {
-      reset({});
+      reset({
+        full_name: '',
+        email: '',
+        phone: '',
+        student_id: '',
+        father_name: '',
+        mother_name: '',
+        guardian_phone: '',
+        current_class: '',
+        is_active: true
+      });
     }
   }, [editingStudent, reset]);
 
@@ -426,6 +437,7 @@ export default function StudentsListPage() {
               <th className="p-3 text-left">Fees</th>
               <th className="p-3 text-left">Priority</th>
               <th className="p-3 text-left">Last Activity</th>
+              <th className="p-3 text-left">Status</th>
               <th className="p-3 text-center">Actions</th>
             </tr>
           </thead>
@@ -467,19 +479,26 @@ export default function StudentsListPage() {
                     <span className="text-xs text-gray-500">{getRelativeTime(student.last_activity || '')}</span>
                   </div>
                 </td>
+                <td className="p-3">
+                  <Badge variant={student.is_active ? 'success' : 'secondary'}>
+                    {student.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </td>
                 <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100">
-                    <Edit2 className="w-4 h-4 text-blue-600" />
-                  </button>
-                  <button className="p-1.5 rounded-lg hover:bg-green-100">
-                    <MessageCircle className="w-4 h-4 text-green-600" />
-                  </button>
-                  <button className="p-1.5 rounded-lg hover:bg-yellow-100">
-                    <DollarSign className="w-4 h-4 text-yellow-600" />
-                  </button>
-                  <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100">
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                  </button>
+                  <div className="flex gap-1 justify-center">
+                    <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit">
+                      <Edit2 className="w-4 h-4 text-blue-600" />
+                    </button>
+                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message">
+                      <MessageCircle className="w-4 h-4 text-green-600" />
+                    </button>
+                    <button className="p-1.5 rounded-lg hover:bg-yellow-100" title="View Finance">
+                      <DollarSign className="w-4 h-4 text-yellow-600" />
+                    </button>
+                    <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100" title="Delete">
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -526,6 +545,10 @@ export default function StudentsListPage() {
                   <option value="">Select Class</option>
                   {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
                 </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" {...register("is_active")} className="w-4 h-4" />
+                <label className="text-sm font-medium">Active Student</label>
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button>
