@@ -407,15 +407,44 @@ export default function StudentsListPage() {
         
       </div>
 
-      {attentionNeeded > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-orange-600" />
-            <span className="text-sm text-orange-700">
-              ⚠ {attentionNeeded} student(s) need attention (Low attendance / Pending fees)
-            </span>
+            {attentionNeeded > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="bg-red-100 p-2 rounded-full">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-red-800">
+                ⚠️ {attentionNeeded} Student(s) Need Attention
+              </span>
+              <p className="text-xs text-red-600 mt-0.5">Low attendance (&lt;75%) or pending fees</p>
+            </div>
           </div>
-          <button onClick={() => { setLowAttendanceOnly(true); setSelectedStatus("active"); setSelectedFeeStatus(""); setSelectedClass(""); setSearchTerm(""); }} className="text-sm text-orange-600 font-medium hover:underline">View all → (Low Attendance)</button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => { 
+                setLowAttendanceOnly(true); 
+                setSelectedStatus('active'); 
+                setSelectedFeeStatus(''); 
+                setSelectedClass(''); 
+                setSearchTerm(''); 
+              }} 
+              className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors font-medium"
+            >
+              View All → ({attentionNeeded})
+            </button>
+            {lowAttendanceOnly && (
+              <button 
+                onClick={() => { 
+                  setLowAttendanceOnly(false); 
+                  clearFilters(); 
+                }} 
+                className="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -433,8 +462,8 @@ export default function StudentsListPage() {
         <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
         <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}><option value="">All Fees</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select>
         <Button onClick={clearFilters} variant="outline" size="sm">Clear Filters</Button>
-        {lowAttendanceOnly && (
-          <Button onClick={() => { setLowAttendanceOnly(false); clearFilters(); }} variant="outline" size="sm" className="bg-orange-50 text-orange-600">
+                {lowAttendanceOnly && (
+          <Button onClick={() => { setLowAttendanceOnly(false); clearFilters(); }} variant="outline" size="sm" className="bg-red-50 text-red-600 border-red-200">
             <AlertCircle className="w-3 h-3 mr-1" /> Clear Low Attendance Filter
           </Button>
         )}
@@ -566,7 +595,6 @@ export default function StudentsListPage() {
     </div>
   );
 }
-
 
 
 

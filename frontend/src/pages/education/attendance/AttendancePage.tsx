@@ -2,22 +2,24 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, Users, CheckCircle, XCircle, Clock, 
-  Save, RefreshCw, AlertCircle
+  Save, RefreshCw, AlertCircle, Eye
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
+import { Badge } from '@/components/ui/Badge';
+import { toast } from 'sonner';
 import api from '@/services/api';
 import studentService from '@/services/student.service';
-import classService, { SchoolClass } from '@/services/class.service';
+import classService, { SchoolClass, Section } from '@/services/class.service';
 
-interface Student {
+interface AttendanceStudent {
   id: string;
   student_id: string;
   full_name: string;
-  email: string;
-  phone: string;
-  is_active: boolean;
+  status: 'present' | 'absent' | 'late';
+  savedStatus?: 'present' | 'absent' | 'late';
+  isSaved: boolean;
 }
 
 export default function AttendancePage() {
@@ -25,14 +27,19 @@ export default function AttendancePage() {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [sections, setSections] = useState<{ id: string; name: string }[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [attendance, setAttendance] = useState<Map<string, string>>(new Map());
+  const [students, setStudents] = useState<AttendanceStudent[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [savedStatus, setSavedStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [summary, setSummary] = useState({ present: 0, absent: 0, late: 0, total: 0 });
+  const [hasSavedData, setHasSavedData] = useState(false);
   const navigate = useNavigate();
+
+  // Statistics based on actual student data
+  const totalStudents = students.length;
+  const presentCount = students.filter(s => s.status === 'present').length;
+  const absentCount = students.filter(s => s.status === 'absent').length;
+  const lateCount = students.filter(s => s.status === 'late').length;
+  const attendanceRate = totalStudents > 0 ? (presentCount / totalStudents) * 100 : 0;
 
   useEffect(() => {
     fetchClasses();
@@ -46,7 +53,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (selectedClass && selectedSection && selectedDate) {
-      fetchStudents();
+      fetchStudentsAndAttendance();
     }
   }, [selectedClass, selectedSection, selectedDate]);
 
@@ -71,10 +78,10 @@ export default function AttendancePage() {
     }
   };
 
-  const fetchStudents = async () => {
+  const fetchStudentsAndAttendance = async () => {
     setLoading(true);
     try {
-      // Get all students
+      // Fetch all students
       const response = await studentService.getAll();
       let allStudents = [];
       if (Array.isArray(response.data)) {
@@ -87,123 +94,129 @@ export default function AttendancePage() {
       const filtered = allStudents.filter(s => {
         const classMatch = !selectedClass || s.current_class === selectedClass;
         const sectionMatch = !selectedSection || s.current_section === selectedSection;
-        return classMatch && sectionMatch;
+        return classMatch && sectionMatch && s.is_active === true;
       });
       
-      setStudents(filtered);
+      // Fetch existing attendance for this date
+      let existingAttendance: any[] = [];
+      let hasExisting = false;
+      try {
+        const attResponse = await api.get(`/auth/attendance/?date=${selectedDate}`);
+        existingAttendance = attResponse.data || [];
+        hasExisting = existingAttendance.length > 0;
+      } catch (err) {
+        console.log('No existing attendance found');
+      }
       
-      // Fetch existing attendance for these students on selected date
-      await fetchExistingAttendance(filtered);
+      // Map students with their saved status
+      const studentsWithStatus: AttendanceStudent[] = filtered.map(student => {
+        const existing = existingAttendance.find((a: any) => a.student_id === student.id);
+        const savedStatus = existing?.status;
+        return {
+          id: student.id,
+          student_id: student.student_id,
+          full_name: student.full_name,
+          status: savedStatus || 'present',
+          savedStatus: savedStatus,
+          isSaved: !!existing
+        };
+      });
+      
+      setStudents(studentsWithStatus);
+      setHasSavedData(hasExisting);
       
     } catch (error) {
       console.error('Error fetching students:', error);
+      toast.error('Failed to load students');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchExistingAttendance = async (studentsList: Student[]) => {
-    try {
-      // Fetch all attendance records for this date
-      const response = await api.get(`/auth/attendance/?date=${selectedDate}`);
-      const records = response.data || [];
-      
-      // Create a map of student_id -> status from existing records
-      const existingStatus = new Map();
-      records.forEach((record: any) => {
-        existingStatus.set(record.student_id, record.status);
-      });
-      
-      // Initialize attendance map: use existing status if found, otherwise default to 'present'
-      const newAttendance = new Map();
-      studentsList.forEach(student => {
-        const existing = existingStatus.get(student.id);
-        newAttendance.set(student.id, existing || 'present');
-      });
-      
-      setAttendance(newAttendance);
-      updateSummary(newAttendance);
-      
-    } catch (error) {
-      console.error('Error fetching existing attendance:', error);
-      // If error, default all to present
-      const newAttendance = new Map();
-      studentsList.forEach(student => {
-        newAttendance.set(student.id, 'present');
-      });
-      setAttendance(newAttendance);
-      updateSummary(newAttendance);
-    }
-  };
-
-  const updateSummary = (attendanceMap: Map<string, string>) => {
-    let present = 0, absent = 0, late = 0;
-    attendanceMap.forEach((status) => {
-      if (status === 'present') present++;
-      else if (status === 'absent') absent++;
-      else if (status === 'late') late++;
-    });
-    setSummary({ present, absent, late, total: students.length });
-  };
-
-  const handleStatusChange = (studentId: string, status: string) => {
-    const newAttendance = new Map(attendance);
-    newAttendance.set(studentId, status);
-    setAttendance(newAttendance);
-    updateSummary(newAttendance);
+  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late') => {
+    setStudents(prev => prev.map(s => 
+      s.id === studentId ? { ...s, status: status } : s
+    ));
   };
 
   const markAllPresent = () => {
-    const newAttendance = new Map();
-    students.forEach(student => {
-      newAttendance.set(student.id, 'present');
-    });
-    setAttendance(newAttendance);
-    updateSummary(newAttendance);
+    setStudents(prev => prev.map(s => ({ ...s, status: 'present' })));
+    toast.success(`✓ All ${students.length} students marked as Present`);
   };
 
   const markAllAbsent = () => {
-    const newAttendance = new Map();
-    students.forEach(student => {
-      newAttendance.set(student.id, 'absent');
-    });
-    setAttendance(newAttendance);
-    updateSummary(newAttendance);
+    setStudents(prev => prev.map(s => ({ ...s, status: 'absent' })));
+    toast.success(`✓ All ${students.length} students marked as Absent`);
   };
 
   const saveAttendance = async () => {
+    if (students.length === 0) {
+      toast.error('No students to save attendance for');
+      return;
+    }
+
     setSaving(true);
-    setSavedStatus('idle');
     
     try {
-      const records = Array.from(attendance.entries()).map(([studentId, status]) => ({
-        student_id: studentId,
-        status,
+      const records = students.map(student => ({
+        student_id: student.id,
+        status: student.status,
         date: selectedDate,
         class_id: selectedClass,
         section_id: selectedSection
       }));
       
       await api.post('/auth/attendance/bulk/', { records });
-      setSavedStatus('success');
       
-      // Refresh to ensure UI is in sync with server
-      setTimeout(() => {
-        setSavedStatus('idle');
-        // Reload to confirm saved data
-        fetchStudents();
-      }, 2000);
+      // Update saved status for all students
+      setStudents(prev => prev.map(s => ({ 
+        ...s, 
+        savedStatus: s.status,
+        isSaved: true 
+      })));
+      setHasSavedData(true);
       
-    } catch (error) {
+      toast.success(`Attendance saved successfully! (${students.length} students)`);
+      
+      // Refresh to get latest data
+      await fetchStudentsAndAttendance();
+      
+    } catch (error: any) {
       console.error('Error saving attendance:', error);
-      setSavedStatus('error');
-      setTimeout(() => setSavedStatus('idle'), 3000);
+      toast.error(error.response?.data?.error || 'Failed to save attendance');
     } finally {
       setSaving(false);
     }
   };
 
-  const attendanceRate = summary.total > 0 ? (summary.present / summary.total) * 100 : 0;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'present': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'absent': return <XCircle className="w-4 h-4 text-red-600" />;
+      case 'late': return <Clock className="w-4 h-4 text-orange-600" />;
+      default: return null;
+    }
+  };
+
+  const getStatusButtonClass = (currentStatus: string, buttonStatus: string) => {
+    if (currentStatus === buttonStatus) {
+      switch (buttonStatus) {
+        case 'present': return 'bg-green-600 text-white border-green-600';
+        case 'absent': return 'bg-red-600 text-white border-red-600';
+        case 'late': return 'bg-orange-600 text-white border-orange-600';
+        default: return 'bg-blue-600 text-white';
+      }
+    }
+    return 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -212,12 +225,17 @@ export default function AttendancePage() {
           <h1 className="text-2xl font-bold">Attendance Management</h1>
           <p className="text-gray-500">Mark and track student attendance</p>
         </div>
-        <Button onClick={saveAttendance} disabled={saving} className="bg-green-600 hover:bg-green-700">
+        <Button 
+          onClick={saveAttendance} 
+          disabled={saving || students.length === 0}
+          className="bg-green-600 hover:bg-green-700"
+        >
           {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Save Attendance
+          {hasSavedData ? 'Update Attendance' : 'Save Attendance'}
         </Button>
       </div>
 
+      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -261,12 +279,22 @@ export default function AttendancePage() {
             </div>
             
             <div className="flex items-end gap-2">
-              <Button variant="outline" onClick={markAllPresent} className="flex-1">
-                <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+              <Button 
+                variant="outline" 
+                onClick={markAllPresent} 
+                className="flex-1 border-green-300 text-green-700 hover:bg-green-50"
+                disabled={students.length === 0}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
                 All Present
               </Button>
-              <Button variant="outline" onClick={markAllAbsent} className="flex-1">
-                <XCircle className="w-4 h-4 mr-2 text-red-600" />
+              <Button 
+                variant="outline" 
+                onClick={markAllAbsent} 
+                className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+                disabled={students.length === 0}
+              >
+                <XCircle className="w-4 h-4 mr-2" />
                 All Absent
               </Button>
             </div>
@@ -274,34 +302,101 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
 
-      {selectedClass && selectedSection && (
+      {/* Statistics Cards - FIXED: Based on actual student data */}
+      {students.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card><CardContent className="pt-4"><div className="flex items-center justify-between"><div><p className="text-sm text-gray-500">Total Students</p><p className="text-2xl font-bold">{summary.total}</p></div><Users className="w-8 h-8 text-blue-500" /></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center justify-between"><div><p className="text-sm text-gray-500">Present</p><p className="text-2xl font-bold text-green-600">{summary.present}</p></div><CheckCircle className="w-8 h-8 text-green-500" /></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center justify-between"><div><p className="text-sm text-gray-500">Absent</p><p className="text-2xl font-bold text-red-600">{summary.absent}</p></div><XCircle className="w-8 h-8 text-red-500" /></div></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center justify-between"><div><p className="text-sm text-gray-500">Late</p><p className="text-2xl font-bold text-orange-600">{summary.late}</p></div><Clock className="w-8 h-8 text-orange-500" /></div></CardContent></Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Total Students</p>
+                  <p className="text-2xl font-bold text-blue-600">{totalStudents}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-200">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Present</p>
+                  <p className="text-2xl font-bold text-green-600">{presentCount}</p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-red-200">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Absent</p>
+                  <p className="text-2xl font-bold text-red-600">{absentCount}</p>
+                </div>
+                <XCircle className="w-8 h-8 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-orange-200">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Late</p>
+                  <p className="text-2xl font-bold text-orange-600">{lateCount}</p>
+                </div>
+                <Clock className="w-8 h-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
+      ) : null}
+
+      {/* Attendance Rate Progress */}
+      {students.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex justify-between text-sm mb-2">
+              <span>Attendance Rate</span>
+              <span className={attendanceRate >= 75 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                {attendanceRate.toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={attendanceRate} />
+            {hasSavedData && (
+              <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Attendance already recorded for this date. You can update it.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      {summary.total > 0 && (
-        <Card><CardContent className="pt-6"><div className="flex justify-between text-sm mb-2"><span>Attendance Rate</span><span className={attendanceRate >= 75 ? 'text-green-600' : 'text-red-600'}>{attendanceRate.toFixed(1)}%</span></div><Progress value={attendanceRate} /></CardContent></Card>
-      )}
-
-      {savedStatus === 'success' && <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm">✅ Attendance saved successfully!</div>}
-      {savedStatus === 'error' && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">❌ Failed to save attendance. Please try again.</div>}
-
-      {loading ? (
-        <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>
-      ) : students.length === 0 ? (
-        <Card><CardContent className="text-center py-12"><AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">No students found in this class/section</p></CardContent></Card>
+      {/* Students Table */}
+      {students.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">No students found in this class/section</p>
+            <p className="text-sm text-gray-400 mt-1">Please select a different class or section</p>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
-          <CardHeader><CardTitle>Mark Attendance</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Mark Attendance</CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
-                  <tr><th className="px-4 py-3 text-left">Student ID</th><th className="px-4 py-3 text-left">Student Name</th><th className="px-4 py-3 text-left">Status</th></tr>
+                  <tr>
+                    <th className="px-4 py-3 text-left">Student ID</th>
+                    <th className="px-4 py-3 text-left">Student Name</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Saved</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {students.map((student) => (
@@ -310,12 +405,47 @@ export default function AttendancePage() {
                       <td className="px-4 py-3 font-medium">{student.full_name}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <button onClick={() => handleStatusChange(student.id, 'present')} className={`px-3 py-1 rounded-lg flex items-center gap-1 transition ${attendance.get(student.id) === 'present' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-green-100'}`}><CheckCircle className="w-4 h-4" />Present</button>
-                          <button onClick={() => handleStatusChange(student.id, 'absent')} className={`px-3 py-1 rounded-lg flex items-center gap-1 transition ${attendance.get(student.id) === 'absent' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-red-100'}`}><XCircle className="w-4 h-4" />Absent</button>
-                          <button onClick={() => handleStatusChange(student.id, 'late')} className={`px-3 py-1 rounded-lg flex items-center gap-1 transition ${attendance.get(student.id) === 'late' ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-orange-100'}`}><Clock className="w-4 h-4" />Late</button>
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'present')}
+                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'present')}`}
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Present
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'absent')}
+                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'absent')}`}
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Absent
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'late')}
+                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'late')}`}
+                          >
+                            <Clock className="w-4 h-4" />
+                            Late
+                          </button>
                         </div>
+                       </td>
+                      <td className="px-4 py-3">
+                        {student.isSaved ? (
+                          <div className="flex flex-col">
+    <div className="flex flex-col">
+    <Badge variant="success" className="flex items-center gap-1 w-fit">
+      <CheckCircle className="w-3 h-3" /> Saved
+    </Badge>
+    <span className="text-xs text-gray-400 mt-1">Today at {new Date().toLocaleTimeString()}</span>
+  </div>
+    <span className="text-xs text-gray-400 mt-1">Today at {new Date().toLocaleTimeString()}</span>
+  </div>
+                        ) : (
+                          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                            <Clock className="w-3 h-3" /> Not saved
+                          </Badge>
+                        )}
                       </td>
-                    </tr>
+                     </tr>
                   ))}
                 </tbody>
               </table>
@@ -326,3 +456,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+
