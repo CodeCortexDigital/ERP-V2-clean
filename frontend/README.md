@@ -387,4 +387,4 @@ Write-Host "📋 Share FRONTEND_REQUIREMENTS.txt with frontend developer!" -Fore
 
 
 
-dtudent and attendance and admission completed
+dtudent and attendance completed
