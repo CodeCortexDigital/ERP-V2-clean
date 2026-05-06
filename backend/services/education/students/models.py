@@ -27,9 +27,11 @@ class Student(models.Model):
     is_active = models.BooleanField(default=True)
     tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    
+    last_activity = models.DateTimeField(null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.student_id} - {self.full_name}"
+
 

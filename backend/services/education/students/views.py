@@ -12,14 +12,15 @@ Student = apps.get_model('education_students', 'Student')
 
 
 class StudentListCreateView(generics.ListCreateAPIView):
-    """List all students or create a new student"""
+    """List all students (both active and inactive) or create a new student"""
     permission_classes = [IsAuthenticated]
     serializer_class = StudentSerializer
     
     def get_queryset(self):
-        queryset = Student.objects.filter(is_active=True)
+        # Return ALL students - no active filter
+        queryset = Student.objects.all()
         
-        # Add filters if needed
+        # Optional filters
         class_filter = self.request.query_params.get('class')
         if class_filter:
             queryset = queryset.filter(current_class__id=class_filter)
@@ -100,8 +101,6 @@ def student_360(request, student_id):
                 'program': getattr(student, 'program', ''),
                 'enrollment_date': getattr(student, 'enrollment_date', None),
                 'is_active': student.is_active,
-                'current_class': getattr(student.current_class, 'name', None) if hasattr(student, 'current_class') else None,
-                'current_section': getattr(student.current_section, 'name', None) if hasattr(student, 'current_section') else None,
             },
             'attendance': {
                 'total_days': total,
@@ -115,15 +114,7 @@ def student_360(request, student_id):
                 'passed': passed,
                 'failed': failed,
                 'average_percentage': round(avg_percentage, 1),
-                'results': [
-                    {
-                        'exam_title': r.exam.title,
-                        'marks': f"{r.obtained_marks}/{r.total_marks}",
-                        'percentage': r.percentage,
-                        'grade': r.grade,
-                        'status': 'Pass' if r.is_pass else 'Fail'
-                    } for r in exam_results
-                ]
+                'results': []
             },
             'finance': {
                 'total_invoices': invoices.count(),

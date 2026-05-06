@@ -10,12 +10,13 @@ export interface Student {
   mother_name?: string;
   guardian_phone?: string;
   program?: string;
-  enrollment_date?: string;
-  is_active: boolean;
   current_class?: string;
   current_section?: string;
-  current_class_name?: string;
-  current_section_name?: string;
+  is_active: boolean;
+  enrollment_date?: string;
+  created_at?: string;
+  updated_at?: string;
+  last_activity?: string;
 }
 
 export interface Student360Data {
@@ -89,3 +90,4 @@ const studentService = {
 };
 
 export default studentService;
+

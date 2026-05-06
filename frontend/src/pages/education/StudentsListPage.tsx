@@ -24,8 +24,6 @@ interface StudentWithData extends Student {
   last_activity?: string;
   class_name?: string;
   section_name?: string;
-  current_class_name?: string;
-  current_section_name?: string;
 }
 
 interface StudentFormData {
@@ -67,7 +65,6 @@ export default function StudentsListPage() {
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<StudentFormData>();
   const selectedClassId = watch('current_class');
 
-  // Load classes first
   useEffect(() => {
     loadClassesAndSections();
   }, []);
@@ -78,14 +75,12 @@ export default function StudentsListPage() {
       const classesData = response.data || [];
       setClasses(classesData);
       
-      // Build class map
       const newClassMap = new Map();
       classesData.forEach(cls => {
         newClassMap.set(cls.id, cls.name);
       });
       setClassMap(newClassMap);
       
-      // Load sections for all classes
       const allSections = [];
       for (const cls of classesData) {
         try {
@@ -100,8 +95,6 @@ export default function StudentsListPage() {
         }
       }
       setSections(allSections);
-      
-      // After classes are loaded, fetch students
       fetchStudents();
     } catch (error) {
       console.error('Error loading classes:', error);
@@ -120,20 +113,16 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
-      // Map class names from the classMap
       const studentsWithNames = studentData.map((student) => {
         let className = 'Not Assigned';
         let sectionName = '';
         
-        // Try to get class name from the map
         if (student.current_class && classMap.has(student.current_class)) {
           className = classMap.get(student.current_class) || 'Not Assigned';
         }
-        // Also check if API returned current_class_name
         if (student.current_class_name) {
           className = student.current_class_name;
         }
-        
         if (student.current_section && sectionMap.has(student.current_section)) {
           sectionName = sectionMap.get(student.current_section) || '';
         }
@@ -149,13 +138,12 @@ export default function StudentsListPage() {
           fee_status: 'pending',
           balance: 0,
           priority: 'normal',
-          last_activity: student.updated_at
+          last_activity: student.last_activity || student.updated_at
         };
       });
       
       setStudents(studentsWithNames);
       
-      // Fetch additional data in background
       const enhancedPromises = studentsWithNames.map(async (student) => {
         try {
           const dashboard = await studentService.get360View(student.id);
@@ -273,13 +261,7 @@ export default function StudentsListPage() {
     setSelectedStudentId(studentId);
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm('Delete this student? This action cannot be undone.')) {
-      await studentService.delete(id);
-      fetchStudents();
-    }
-  };
+  // NO DELETE FUNCTION - Students cannot be deleted, only deactivated
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -293,9 +275,14 @@ export default function StudentsListPage() {
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesClass = !selectedClass || s.current_class === selectedClass;
-    const matchesStatus = !selectedStatus || 
-      (selectedStatus === 'active' && s.is_active) ||
-      (selectedStatus === 'inactive' && !s.is_active);
+    
+    let matchesStatus = true;
+    if (selectedStatus === 'active') {
+      matchesStatus = s.is_active === true;
+    } else if (selectedStatus === 'inactive') {
+      matchesStatus = s.is_active === false;
+    }
+    
     const matchesFeeStatus = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
     
     return matchesSearch && matchesClass && matchesStatus && matchesFeeStatus;
@@ -324,7 +311,8 @@ export default function StudentsListPage() {
   const paginatedStudents = sortedStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
   const totalStudents = filteredStudents.length;
-  const activeStudents = filteredStudents.filter(s => s.is_active).length;
+  const activeStudents = filteredStudents.filter(s => s.is_active === true).length;
+  const inactiveStudents = filteredStudents.filter(s => s.is_active === false).length;
   const overdueFees = filteredStudents.filter(s => s.fee_status === 'overdue' || s.fee_status === 'pending').length;
   const lowAttendance = filteredStudents.filter(s => (s.attendance_percentage || 0) < 75).length;
   const attentionNeeded = filteredStudents.filter(s => s.priority === 'high').length;
@@ -357,7 +345,6 @@ export default function StudentsListPage() {
       }
       setShowForm(false);
       setEditingStudent(null);
-      // Reload classes and students
       loadClassesAndSections();
     } catch (error: any) {
       console.error('Error saving student:', error);
@@ -405,7 +392,6 @@ export default function StudentsListPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Students</h1>
@@ -417,7 +403,6 @@ export default function StudentsListPage() {
         </Button>
       </div>
 
-      {/* Attention Banner */}
       {attentionNeeded > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -426,91 +411,39 @@ export default function StudentsListPage() {
               ⚠ {attentionNeeded} student(s) need attention (Low attendance / Pending fees)
             </span>
           </div>
-          <button 
-            onClick={() => { setSelectedFeeStatus('pending'); setSelectedStatus('active'); }}
-            className="text-sm text-orange-600 font-medium hover:underline"
-          >
-            View all →
-          </button>
+          <button onClick={() => { setSelectedFeeStatus('pending'); setSelectedStatus('active'); }} className="text-sm text-orange-600 font-medium hover:underline">View all →</button>
         </div>
       )}
 
-      {/* Summary Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-blue-50 rounded-xl p-3">
-          <div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total</span></div>
-          <p className="text-xl font-bold text-blue-700">{totalStudents}</p>
-        </div>
-        <div className="bg-green-50 rounded-xl p-3">
-          <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Active</span></div>
-          <p className="text-xl font-bold text-green-700">{activeStudents}</p>
-        </div>
-        <div className="bg-red-50 rounded-xl p-3">
-          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Pending Fees</span></div>
-          <p className="text-xl font-bold text-red-700">{overdueFees}</p>
-        </div>
-        <div className="bg-yellow-50 rounded-xl p-3">
-          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Low Attendance</span></div>
-          <p className="text-xl font-bold text-yellow-700">{lowAttendance}</p>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-blue-50 rounded-xl p-3"><div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total</span></div><p className="text-xl font-bold text-blue-700">{totalStudents}</p></div>
+        <div className="bg-green-50 rounded-xl p-3"><div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Active</span></div><p className="text-xl font-bold text-green-700">{activeStudents}</p></div>
+        <div className="bg-gray-50 rounded-xl p-3"><div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-gray-600" /><span className="text-xs text-gray-600">Inactive</span></div><p className="text-xl font-bold text-gray-700">{inactiveStudents}</p></div>
+        <div className="bg-red-50 rounded-xl p-3"><div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Pending Fees</span></div><p className="text-xl font-bold text-red-700">{overdueFees}</p></div>
+        <div className="bg-yellow-50 rounded-xl p-3"><div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Low Attendance</span></div><p className="text-xl font-bold text-yellow-700">{lowAttendance}</p></div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <div className="flex-1 min-w-[200px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input placeholder="Search by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
-          </div>
-        </div>
-        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
-          <option value="">All Classes</option>
-          {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
-        </select>
-        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}>
-          <option value="">All Fees</option>
-          <option value="paid">Paid</option>
-          <option value="pending">Pending</option>
-          <option value="overdue">Overdue</option>
-        </select>
+        <div className="flex-1 min-w-[200px]"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div></div>
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}><option value="">All Classes</option>{classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}</select>
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}><option value="">All Fees</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select>
         <Button onClick={clearFilters} variant="outline" size="sm">Clear Filters</Button>
       </div>
 
-      {/* Bulk Action Bar */}
-      {showBulkBar && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
-          <span className="text-sm font-medium">{selectedStudents.length} selected</span>
-          <div className="flex gap-2">
-            <button disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button>
-            <button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button>
-          </div>
-        </div>
-      )}
+      {showBulkBar && (<div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between"><span className="text-sm font-medium">{selectedStudents.length} selected</span><div className="flex gap-2"><button disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button><button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button></div></div>)}
 
-      {/* Table */}
       <div className="overflow-x-auto border rounded-xl bg-white">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b sticky top-0">
             <tr>
-              <th className="p-3 w-10">
-                <input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} />
-              </th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>
-                Student <ArrowUpDown className="w-3 h-3 inline ml-1" />
-              </th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('class_name')}>
-                Class <ArrowUpDown className="w-3 h-3 inline ml-1" />
-              </th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>
-                Attendance <ArrowUpDown className="w-3 h-3 inline ml-1" />
-              </th>
+              <th className="p-3 w-10"><input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>Student <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('class_name')}>Class <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>Attendance <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
               <th className="p-3 text-left">Fees</th>
               <th className="p-3 text-left">Priority</th>
+              <th className="p-3 text-left">Last Activity</th>
               <th className="p-3 text-left">Status</th>
               <th className="p-3 text-center">Actions</th>
             </tr>
@@ -518,54 +451,19 @@ export default function StudentsListPage() {
           <tbody>
             {paginatedStudents.map((student) => (
               <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
-                <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} />
-                </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">
-                      {student.full_name?.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-medium">{student.full_name}</p>
-                      <p className="text-xs text-gray-400">{student.student_id}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-3">
-                  {student.class_name || '-'}
-                  {student.section_name && <span className="text-xs text-gray-400 ml-1">({student.section_name})</span>}
-                </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>
-                      {student.attendance_percentage || 0}%
-                    </span>
-                    {(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}
-                  </div>
-                </td>
+                <td className="p-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} /></td>
+                <td className="p-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div><div><p className="font-medium">{student.full_name}</p><p className="text-xs text-gray-400">{student.student_id}</p></div></div></td>
+                <td className="p-3">{student.class_name || '-'}{student.section_name && <span className="text-xs text-gray-400 ml-1">({student.section_name})</span>}</td>
+                <td className="p-3"><div className="flex items-center gap-2"><span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>{student.attendance_percentage || 0}%</span>{(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}</div></td>
                 <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
-                <td className="p-3">
-                  <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>
-                    {getPriorityLabel(student.priority || 'normal')}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <Badge variant={student.is_active ? 'success' : 'secondary'}>
-                    {student.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </td>
+                <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>{getPriorityLabel(student.priority || 'normal')}</span></td>
+                <td className="p-3"><div className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" /><span className="text-xs text-gray-500">{student.last_activity ? getRelativeTime(student.last_activity) : "Never"}</span></div></td>
+                <td className="p-3"><Badge variant={student.is_active ? 'success' : 'secondary'}>{student.is_active ? 'Active' : 'Inactive'}</Badge></td>
                 <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1 justify-center">
-                    <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit">
-                      <Edit2 className="w-4 h-4 text-blue-600" />
-                    </button>
-                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message">
-                      <MessageCircle className="w-4 h-4 text-green-600" />
-                    </button>
-                    <button onClick={(e) => handleDelete(student.id, e)} className="p-1.5 rounded-lg hover:bg-red-100" title="Delete">
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>
+                    <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit"><Edit2 className="w-4 h-4 text-blue-600" /></button>
+                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message"><MessageCircle className="w-4 h-4 text-green-600" /></button>
+                    {/* Delete button removed - students cannot be deleted */}
                   </div>
                 </td>
               </tr>
@@ -574,32 +472,21 @@ export default function StudentsListPage() {
         </table>
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-between items-center">
           <p className="text-sm text-gray-500">Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length}</p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="w-4 h-4" /></Button>
             <span className="px-3 py-1 text-sm bg-gray-100 rounded-lg">{currentPage} / {totalPages}</span>
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight className="w-4 h-4" /></Button>
           </div>
         </div>
       )}
 
-      {/* Student Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <div className="flex justify-between items-center mb-4"><h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2><button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5" /></button></div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div><label className="block text-sm font-medium mb-1">Full Name *</label><input {...register("full_name", { required: true })} className="w-full border rounded-lg px-3 py-2" /></div>
               <div><label className="block text-sm font-medium mb-1">Email *</label><input {...register("email", { required: true })} type="email" className="w-full border rounded-lg px-3 py-2" /></div>
@@ -608,36 +495,29 @@ export default function StudentsListPage() {
               <div><label className="block text-sm font-medium mb-1">Father's Name</label><input {...register("father_name")} className="w-full border rounded-lg px-3 py-2" /></div>
               <div><label className="block text-sm font-medium mb-1">Mother's Name</label><input {...register("mother_name")} className="w-full border rounded-lg px-3 py-2" /></div>
               <div><label className="block text-sm font-medium mb-1">Guardian Phone</label><input {...register("guardian_phone")} className="w-full border rounded-lg px-3 py-2" /></div>
-              
               <div><label className="block text-sm font-medium mb-1">Class</label>
                 <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2" onChange={(e) => { setValue('current_class', e.target.value); setValue('current_section', ''); }}>
                   <option value="">Select Class</option>
                   {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
                 </select>
               </div>
-              
               <div><label className="block text-sm font-medium mb-1">Section</label>
                 <select {...register("current_section")} className="w-full border rounded-lg px-3 py-2" disabled={!selectedClassId}>
                   <option value="">Select Section</option>
                   {sections.filter(sec => sec.class_ref === selectedClassId).map((sec) => (<option key={sec.id} value={sec.id}>{sec.name}</option>))}
                 </select>
               </div>
-              
-              <div className="flex items-center gap-2">
-                <input type="checkbox" {...register("is_active")} className="w-4 h-4" />
-                <label className="text-sm font-medium">Active Student</label>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button>
-                <button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border py-2 rounded-lg">Cancel</button>
-              </div>
+              <div className="flex items-center gap-2"><input type="checkbox" {...register("is_active")} className="w-4 h-4" /><label className="text-sm font-medium">Active Student</label></div>
+              <div className="flex gap-3 pt-4"><button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button><button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border py-2 rounded-lg">Cancel</button></div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Student Drawer */}
       <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />
     </div>
   );
 }
+
+
+
