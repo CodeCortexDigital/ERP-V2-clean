@@ -482,10 +482,80 @@ export default function StudentsListPage() {
 
       
 
+      
+      {/* Student Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
+              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Full Name *</label>
+                <input {...register("full_name", { required: true })} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email *</label>
+                <input {...register("email", { required: true })} type="email" className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <input {...register("phone")} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Student ID</label>
+                <input {...register("student_id")} className="w-full border rounded-lg px-3 py-2" placeholder="Auto-generated if empty" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Father's Name</label>
+                <input {...register("father_name")} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Mother's Name</label>
+                <input {...register("mother_name")} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Guardian Phone</label>
+                <input {...register("guardian_phone")} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Class</label>
+                <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2" onChange={(e) => { setValue('current_class', e.target.value); setValue('current_section', ''); }}>
+                  <option value="">Select Class</option>
+                  {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Section</label>
+                <select {...register("current_section")} className="w-full border rounded-lg px-3 py-2" disabled={!selectedClassId}>
+                  <option value="">Select Section</option>
+                  {sections.filter(sec => sec.class_ref === selectedClassId).map((sec) => (<option key={sec.id} value={sec.id}>{sec.name}</option>))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" {...register("is_active")} className="w-4 h-4" />
+                <label className="text-sm font-medium">Active Student</label>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Save</button>
+                <button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border py-2 rounded-lg hover:bg-gray-50">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+
       <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />
     </div>
   );
 }
+
+
 
 
 
