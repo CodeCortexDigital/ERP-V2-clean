@@ -24,6 +24,8 @@ interface StudentWithData extends Student {
   last_activity?: string;
   class_name?: string;
   section_name?: string;
+  current_class_name?: string;
+  current_section_name?: string;
 }
 
 interface StudentFormData {
@@ -53,6 +55,8 @@ export default function StudentsListPage() {
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [classMap, setClassMap] = useState<Map<string, string>>(new Map());
+  const [sectionMap, setSectionMap] = useState<Map<string, string>>(new Map());
   const [sections, setSections] = useState<Section[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -63,36 +67,45 @@ export default function StudentsListPage() {
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<StudentFormData>();
   const selectedClassId = watch('current_class');
 
+  // Load classes first
   useEffect(() => {
-    fetchClasses();
-    fetchStudents();
+    loadClassesAndSections();
   }, []);
 
-  useEffect(() => {
-    if (selectedClassId) {
-      fetchSections(selectedClassId);
-    } else {
-      setSections([]);
-      setValue('current_section', '');
-    }
-  }, [selectedClassId, setValue]);
-
-  const fetchClasses = async () => {
+  const loadClassesAndSections = async () => {
     try {
       const response = await classService.getAll();
-      setClasses(response.data || []);
+      const classesData = response.data || [];
+      setClasses(classesData);
+      
+      // Build class map
+      const newClassMap = new Map();
+      classesData.forEach(cls => {
+        newClassMap.set(cls.id, cls.name);
+      });
+      setClassMap(newClassMap);
+      
+      // Load sections for all classes
+      const allSections = [];
+      for (const cls of classesData) {
+        try {
+          const sectionsRes = await classService.getSections(cls.id);
+          const sectionsData = sectionsRes.data || [];
+          allSections.push(...sectionsData);
+          sectionsData.forEach(sec => {
+            sectionMap.set(sec.id, sec.name);
+          });
+        } catch (e) {
+          console.error('Error loading sections for class:', cls.id);
+        }
+      }
+      setSections(allSections);
+      
+      // After classes are loaded, fetch students
+      fetchStudents();
     } catch (error) {
-      console.error('Error fetching classes:', error);
-    }
-  };
-
-  const fetchSections = async (classId: string) => {
-    try {
-      const response = await classService.getSections(classId);
-      setSections(response.data || []);
-    } catch (error) {
-      console.error('Error fetching sections:', error);
-      setSections([]);
+      console.error('Error loading classes:', error);
+      fetchStudents();
     }
   };
 
@@ -107,18 +120,27 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
-      // Map basic student data with class names
-      const studentsWithClass = await Promise.all(studentData.map(async (student) => {
+      // Map class names from the classMap
+      const studentsWithNames = studentData.map((student) => {
         let className = 'Not Assigned';
         let sectionName = '';
-        if (student.current_class) {
-          const classObj = classes.find(c => c.id === student.current_class);
-          className = classObj?.name || 'Not Assigned';
+        
+        // Try to get class name from the map
+        if (student.current_class && classMap.has(student.current_class)) {
+          className = classMap.get(student.current_class) || 'Not Assigned';
         }
-        if (student.current_section) {
-          const sectionObj = sections.find(s => s.id === student.current_section);
-          sectionName = sectionObj?.name || '';
+        // Also check if API returned current_class_name
+        if (student.current_class_name) {
+          className = student.current_class_name;
         }
+        
+        if (student.current_section && sectionMap.has(student.current_section)) {
+          sectionName = sectionMap.get(student.current_section) || '';
+        }
+        if (student.current_section_name) {
+          sectionName = student.current_section_name;
+        }
+        
         return {
           ...student,
           class_name: className,
@@ -129,12 +151,12 @@ export default function StudentsListPage() {
           priority: 'normal',
           last_activity: student.updated_at
         };
-      }));
+      });
       
-      setStudents(studentsWithClass);
+      setStudents(studentsWithNames);
       
       // Fetch additional data in background
-      const enhancedPromises = studentsWithClass.map(async (student) => {
+      const enhancedPromises = studentsWithNames.map(async (student) => {
         try {
           const dashboard = await studentService.get360View(student.id);
           return {
@@ -329,17 +351,14 @@ export default function StudentsListPage() {
       if (editingStudent) {
         await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
         alert('Student updated successfully!');
-        if (selectedStudentId === editingStudent.id) {
-          setSelectedStudentId(null);
-          setTimeout(() => setSelectedStudentId(editingStudent.id), 100);
-        }
       } else {
         await api.post('/auth/students/', cleanData);
         alert('Student created successfully!');
       }
       setShowForm(false);
       setEditingStudent(null);
-      fetchStudents();
+      // Reload classes and students
+      loadClassesAndSections();
     } catch (error: any) {
       console.error('Error saving student:', error);
       alert(error.response?.data?.error || 'Failed to save student');
@@ -360,9 +379,6 @@ export default function StudentsListPage() {
         current_section: editingStudent.current_section || '',
         is_active: editingStudent.is_active
       });
-      if (editingStudent.current_class) {
-        fetchSections(editingStudent.current_class);
-      }
     } else {
       reset({
         full_name: '',
@@ -376,7 +392,6 @@ export default function StudentsListPage() {
         current_section: '',
         is_active: true
       });
-      setSections([]);
     }
   }, [editingStudent, reset]);
 
@@ -595,7 +610,7 @@ export default function StudentsListPage() {
               <div><label className="block text-sm font-medium mb-1">Guardian Phone</label><input {...register("guardian_phone")} className="w-full border rounded-lg px-3 py-2" /></div>
               
               <div><label className="block text-sm font-medium mb-1">Class</label>
-                <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2">
+                <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2" onChange={(e) => { setValue('current_class', e.target.value); setValue('current_section', ''); }}>
                   <option value="">Select Class</option>
                   {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
                 </select>
@@ -604,7 +619,7 @@ export default function StudentsListPage() {
               <div><label className="block text-sm font-medium mb-1">Section</label>
                 <select {...register("current_section")} className="w-full border rounded-lg px-3 py-2" disabled={!selectedClassId}>
                   <option value="">Select Section</option>
-                  {sections.map((sec) => (<option key={sec.id} value={sec.id}>{sec.name}</option>))}
+                  {sections.filter(sec => sec.class_ref === selectedClassId).map((sec) => (<option key={sec.id} value={sec.id}>{sec.name}</option>))}
                 </select>
               </div>
               

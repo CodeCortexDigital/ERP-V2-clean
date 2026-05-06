@@ -3,7 +3,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.apps import apps
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Prefetch
+from datetime import datetime, date
 from .models import AttendanceRecord
 from .serializers import AttendanceRecordSerializer
 
@@ -17,10 +18,10 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
     serializer_class = AttendanceRecordSerializer
     
     def get_queryset(self):
-        queryset = Attendance.objects.all()
-        date = self.request.query_params.get('date')
-        if date:
-            queryset = queryset.filter(date=date)
+        queryset = Attendance.objects.select_related('student').all()
+        date_param = self.request.query_params.get('date')
+        if date_param:
+            queryset = queryset.filter(date=date_param)
         student_id = self.request.query_params.get('student_id')
         if student_id:
             queryset = queryset.filter(student_id=student_id)
@@ -35,7 +36,7 @@ class AttendanceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AttendanceRecordSerializer
     lookup_field = 'id'
-    queryset = Attendance.objects.all()
+    queryset = Attendance.objects.select_related('student').all()
 
 
 @api_view(['POST'])
@@ -46,26 +47,34 @@ def bulk_attendance(request):
         records = request.data.get('records', [])
         created_count = 0
         updated_count = 0
+        errors = []
         
         for record in records:
             student_id = record.get('student_id')
             status_val = record.get('status')
-            date = record.get('date')
-            course_id = record.get('class_id', '')
+            date_str = record.get('date')
+            class_id = record.get('class_id', '')
+            
+            # Parse date
+            try:
+                record_date = datetime.strptime(date_str, '%Y-%m-%d').date() if isinstance(date_str, str) else date.today()
+            except:
+                record_date = date.today()
             
             # Get the student object
             try:
                 student = Student.objects.get(id=student_id)
             except Student.DoesNotExist:
+                errors.append(f'Student not found: {student_id}')
                 continue
             
-            # Update or create attendance record (no student_name field)
+            # Update or create attendance record
             attendance, created = Attendance.objects.update_or_create(
                 student=student,
-                date=date,
+                date=record_date,
                 defaults={
                     'status': status_val,
-                    'course_id': course_id,
+                    'course_id': class_id,
                     'remarks': ''
                 }
             )
@@ -78,7 +87,8 @@ def bulk_attendance(request):
         return Response({
             'message': f'Attendance saved: {created_count} created, {updated_count} updated',
             'created': created_count,
-            'updated': updated_count
+            'updated': updated_count,
+            'errors': errors
         }, status=status.HTTP_200_OK)
         
     except Exception as e:

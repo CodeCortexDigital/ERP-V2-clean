@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, Users, CheckCircle, XCircle, Clock, 
-  Save, RefreshCw, AlertCircle, ChevronLeft, ChevronRight 
+  Save, RefreshCw, AlertCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
 import api from '@/services/api';
 import studentService from '@/services/student.service';
@@ -19,12 +18,6 @@ interface Student {
   email: string;
   phone: string;
   is_active: boolean;
-}
-
-interface AttendanceRecord {
-  student_id: string;
-  status: 'present' | 'absent' | 'late';
-  date: string;
 }
 
 export default function AttendancePage() {
@@ -54,7 +47,6 @@ export default function AttendancePage() {
   useEffect(() => {
     if (selectedClass && selectedSection && selectedDate) {
       fetchStudents();
-      fetchExistingAttendance();
     }
   }, [selectedClass, selectedSection, selectedDate]);
 
@@ -76,13 +68,13 @@ export default function AttendancePage() {
       }
     } catch (error) {
       console.error('Error fetching sections:', error);
-      setSections([]);
     }
   };
 
   const fetchStudents = async () => {
     setLoading(true);
     try {
+      // Get all students
       const response = await studentService.getAll();
       let allStudents = [];
       if (Array.isArray(response.data)) {
@@ -91,7 +83,7 @@ export default function AttendancePage() {
         allStudents = response.data.results;
       }
       
-      // Filter students by selected class and section
+      // Filter by selected class and section
       const filtered = allStudents.filter(s => {
         const classMatch = !selectedClass || s.current_class === selectedClass;
         const sectionMatch = !selectedSection || s.current_section === selectedSection;
@@ -99,14 +91,9 @@ export default function AttendancePage() {
       });
       
       setStudents(filtered);
-      setSummary({ present: 0, absent: 0, late: 0, total: filtered.length });
       
-      // Initialize attendance map with 'present' as default
-      const newAttendance = new Map();
-      filtered.forEach(student => {
-        newAttendance.set(student.id, 'present');
-      });
-      setAttendance(newAttendance);
+      // Fetch existing attendance for these students on selected date
+      await fetchExistingAttendance(filtered);
       
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -115,21 +102,37 @@ export default function AttendancePage() {
     }
   };
 
-  const fetchExistingAttendance = async () => {
+  const fetchExistingAttendance = async (studentsList: Student[]) => {
     try {
-      // Use correct API path: /api/auth/attendance/
-      const response = await api.get(`/auth/attendance/?date=${selectedDate}&class_id=${selectedClass}`);
+      // Fetch all attendance records for this date
+      const response = await api.get(`/auth/attendance/?date=${selectedDate}`);
       const records = response.data || [];
       
-      const newAttendance = new Map(attendance);
+      // Create a map of student_id -> status from existing records
+      const existingStatus = new Map();
       records.forEach((record: any) => {
-        newAttendance.set(record.student_id, record.status);
+        existingStatus.set(record.student_id, record.status);
       });
+      
+      // Initialize attendance map: use existing status if found, otherwise default to 'present'
+      const newAttendance = new Map();
+      studentsList.forEach(student => {
+        const existing = existingStatus.get(student.id);
+        newAttendance.set(student.id, existing || 'present');
+      });
+      
       setAttendance(newAttendance);
       updateSummary(newAttendance);
       
     } catch (error) {
-      console.error('Error fetching attendance:', error);
+      console.error('Error fetching existing attendance:', error);
+      // If error, default all to present
+      const newAttendance = new Map();
+      studentsList.forEach(student => {
+        newAttendance.set(student.id, 'present');
+      });
+      setAttendance(newAttendance);
+      updateSummary(newAttendance);
     }
   };
 
@@ -181,10 +184,16 @@ export default function AttendancePage() {
         section_id: selectedSection
       }));
       
-      // Correct API path: /api/auth/attendance/bulk/
       await api.post('/auth/attendance/bulk/', { records });
       setSavedStatus('success');
-      setTimeout(() => setSavedStatus('idle'), 3000);
+      
+      // Refresh to ensure UI is in sync with server
+      setTimeout(() => {
+        setSavedStatus('idle');
+        // Reload to confirm saved data
+        fetchStudents();
+      }, 2000);
+      
     } catch (error) {
       console.error('Error saving attendance:', error);
       setSavedStatus('error');
@@ -203,12 +212,10 @@ export default function AttendancePage() {
           <h1 className="text-2xl font-bold">Attendance Management</h1>
           <p className="text-gray-500">Mark and track student attendance</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={saveAttendance} disabled={saving} className="bg-green-600 hover:bg-green-700">
-            {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Attendance
-          </Button>
-        </div>
+        <Button onClick={saveAttendance} disabled={saving} className="bg-green-600 hover:bg-green-700">
+          {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          Save Attendance
+        </Button>
       </div>
 
       <Card>
@@ -319,4 +326,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-
