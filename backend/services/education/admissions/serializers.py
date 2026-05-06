@@ -8,11 +8,18 @@ class ApplicantSerializer(serializers.ModelSerializer):
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
-    applicant_name = serializers.SerializerMethodField()
+    applicant = ApplicantSerializer(read_only=True)
+    applicant_id = serializers.UUIDField(write_only=True, required=False)
     
     class Meta:
         model = Application
         fields = '__all__'
+        read_only_fields = ('application_no', 'submitted_at')
     
-    def get_applicant_name(self, obj):
-        return obj.applicant.full_name if obj.applicant else None
+    def create(self, validated_data):
+        applicant_id = validated_data.pop('applicant_id', None)
+        if applicant_id:
+            from .models import Applicant
+            applicant = Applicant.objects.get(id=applicant_id)
+            validated_data['applicant'] = applicant
+        return super().create(validated_data)
