@@ -1,45 +1,59 @@
 import api from './api';
 
 export interface Applicant {
-  id: string;
-  applicant_id: string;
-  full_name: string;
+  id?: string;
   first_name: string;
   last_name: string;
   email: string;
   phone: string;
-  applying_for: string;
-  status: 'new' | 'reviewed' | 'accepted' | 'rejected' | 'enrolled';
-  created_at: string;
   date_of_birth?: string;
   gender?: string;
   address?: string;
   city?: string;
   state?: string;
+  postal_code?: string;
   country?: string;
   previous_institution?: string;
   previous_qualification?: string;
   previous_percentage?: number;
+  applying_for?: string;
+  status?: string;
+}
+
+export interface Application {
+  id?: string;
+  applicant: string;
+  program: string;
+  semester: string;
+  academic_year: string;
+  documents?: any;
+  notes?: string;
+  status?: string;
 }
 
 const admissionsService = {
-  // Get all applicants
-  getAll: () => api.get<Applicant[]>('/admissions/applicants/'),
+  // Alias for getApplicants (for compatibility)
+  getAll: () => api.get('/auth/admissions/applicants/'),
   
-  // Get single applicant
-  getById: (id: string) => api.get<Applicant>(`/admissions/applicants/${id}/`),
+  // Alias for create (for compatibility)
+  create: (data: Partial<Applicant>) => api.post('/auth/admissions/applicants/', data),
   
-  // Create new applicant (public)
-  create: (data: Partial<Applicant>) => api.post('/admissions/applicants/create/', data),
+  // Applicants
+  getApplicants: () => api.get('/auth/admissions/applicants/'),
+  getApplicant: (id: string) => api.get(`/auth/admissions/applicants/${id}/`),
+  createApplicant: (data: Partial<Applicant>) => api.post('/auth/admissions/applicants/', data),
+  updateApplicant: (id: string, data: Partial<Applicant>) => api.patch(`/auth/admissions/applicants/${id}/`, data),
+  deleteApplicant: (id: string) => api.delete(`/auth/admissions/applicants/${id}/`),
   
-  // Update applicant status
-  updateStatus: (id: string, status: string) => api.put(`/admissions/applicants/${id}/status/`, { status }),
+  // Applications
+  getApplications: () => api.get('/auth/admissions/applications/'),
+  getApplication: (id: string) => api.get(`/auth/admissions/applications/${id}/`),
+  createApplication: (data: Partial<Application>) => api.post('/auth/admissions/applications/', data),
+  updateApplication: (id: string, data: Partial<Application>) => api.patch(`/auth/admissions/applications/${id}/`, data),
+  convertToStudent: (id: string) => api.post(`/auth/admissions/applications/convert/${id}/`),
   
-  // Convert to student
-  convertToStudent: (id: string) => api.post(`/admissions/applicants/${id}/convert/`),
-  
-  // Delete applicant
-  delete: (id: string) => api.delete(`/admissions/applicants/${id}/delete/`),
+  // Additional helper methods
+  submitApplication: (data: any) => api.post('/auth/admissions/applications/', data),
 };
 
 export default admissionsService;

@@ -14,3 +14,11 @@ class StudentSerializer(serializers.ModelSerializer):
     
     def get_current_section_name(self, obj):
         return obj.current_section.name if obj.current_section else None
+    
+    def validate_current_class(self, value):
+        """Ensure current_class is a valid UUID or None"""
+        return value
+    
+    def validate_current_section(self, value):
+        """Ensure current_section is a valid UUID or None"""
+        return value

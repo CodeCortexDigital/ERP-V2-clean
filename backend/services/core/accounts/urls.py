@@ -3,7 +3,6 @@ from . import views
 from . import views_auth
 
 urlpatterns = [
-    path('attendance-summary/', views.attendance_summary, name='attendance-summary'),
     # Health check
     path('health/', views.health_check, name='health'),
     
@@ -19,9 +18,9 @@ urlpatterns = [
     path('demo/', views_auth.demo_login, name='demo_login'),
     path('demo/status/', views_auth.demo_status, name='demo_status'),
     
-    # Education endpoints
+    # Include education app endpoints
     path('students/', include('services.education.students.urls')),
     path('attendance/', include('services.education.attendance.urls')),
     path('classes/', include('services.education.academics.urls')),
+    path('admissions/', include('services.education.admissions.urls')),
 ]
-

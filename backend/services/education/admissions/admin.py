@@ -3,14 +3,13 @@ from .models import Applicant, Application
 
 @admin.register(Applicant)
 class ApplicantAdmin(admin.ModelAdmin):
-    list_display = ('applicant_id', 'full_name', 'email', 'phone', 'status', 'created_at')
-    search_fields = ('applicant_id', 'first_name', 'last_name', 'email')
-    list_filter = ('status', 'gender', 'created_at')
-    readonly_fields = ('applicant_id', 'created_at', 'updated_at')
+    list_display = ('id', 'first_name', 'last_name', 'email', 'status', 'created_at')
+    list_filter = ('status',)
+    search_fields = ('first_name', 'last_name', 'email')
+
 
 @admin.register(Application)
 class ApplicationAdmin(admin.ModelAdmin):
-    list_display = ('application_number', 'applicant', 'program', 'academic_year', 'status', 'submitted_at')
-    search_fields = ('application_number', 'applicant__first_name', 'applicant__last_name')
-    list_filter = ('status', 'program', 'academic_year')
-    readonly_fields = ('application_number', 'submitted_at', 'updated_at')
+    list_display = ('id', 'applicant', 'program', 'status', 'submitted_at')
+    list_filter = ('status', 'program')
+    search_fields = ('applicant__first_name', 'applicant__last_name', 'program')
