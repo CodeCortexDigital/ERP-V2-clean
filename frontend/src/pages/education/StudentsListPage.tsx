@@ -46,6 +46,7 @@ export default function StudentsListPage() {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedFeeStatus, setSelectedFeeStatus] = useState('');
+  const [lowAttendanceOnly, setLowAttendanceOnly] = useState(false);
   const [sortField, setSortField] = useState('full_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -270,7 +271,7 @@ export default function StudentsListPage() {
     setSelectedFeeStatus('');
   };
 
-  const filteredStudents = students.filter(s => {
+    const filteredStudents = students.filter(s => {
     const matchesSearch = s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -285,7 +286,13 @@ export default function StudentsListPage() {
     
     const matchesFeeStatus = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
     
-    return matchesSearch && matchesClass && matchesStatus && matchesFeeStatus;
+    // Low attendance filter
+    let matchesLowAttendance = true;
+    if (lowAttendanceOnly) {
+      matchesLowAttendance = (s.attendance_percentage || 0) < 75;
+    }
+    
+    return matchesSearch && matchesClass && matchesStatus && matchesFeeStatus && matchesLowAttendance;
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
@@ -408,7 +415,7 @@ export default function StudentsListPage() {
               ⚠ {attentionNeeded} student(s) need attention (Low attendance / Pending fees)
             </span>
           </div>
-          <button onClick={() => { setSelectedFeeStatus('pending'); setSelectedStatus('active'); }} className="text-sm text-orange-600 font-medium hover:underline">View all →</button>
+          <button onClick={() => { setLowAttendanceOnly(true); setSelectedStatus("active"); setSelectedFeeStatus(""); setSelectedClass(""); setSearchTerm(""); }} className="text-sm text-orange-600 font-medium hover:underline">View all → (Low Attendance)</button>
         </div>
       )}
 
@@ -426,6 +433,11 @@ export default function StudentsListPage() {
         <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
         <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}><option value="">All Fees</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select>
         <Button onClick={clearFilters} variant="outline" size="sm">Clear Filters</Button>
+        {lowAttendanceOnly && (
+          <Button onClick={() => { setLowAttendanceOnly(false); clearFilters(); }} variant="outline" size="sm" className="bg-orange-50 text-orange-600">
+            <AlertCircle className="w-3 h-3 mr-1" /> Clear Low Attendance Filter
+          </Button>
+        )}
       </div>
 
       {showBulkBar && (<div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between"><span className="text-sm font-medium">{selectedStudents.length} selected</span><div className="flex gap-2"><button disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button><button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button></div></div>)}
@@ -554,6 +566,8 @@ export default function StudentsListPage() {
     </div>
   );
 }
+
+
 
 
 
