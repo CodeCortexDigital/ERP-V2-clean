@@ -1,93 +1,105 @@
 from django.db import models
+from django.utils import timezone
 import uuid
 
 class FeeStructure(models.Model):
-    tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
-    
+    """Fee structure for classes"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=200)
+    class_ref = models.ForeignKey('education_academics.SchoolClass', on_delete=models.CASCADE, related_name='fee_structures')
+    section = models.ForeignKey('education_academics.Section', on_delete=models.SET_NULL, null=True, blank=True)
+    fee_name = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    frequency = models.CharField(max_length=20, choices=[
-        ('monthly', 'Monthly'),
-        ('quarterly', 'Quarterly'),
-        ('semester', 'Semester'),
-        ('annual', 'Annual')
-    ], default='semester')
-    is_active = models.BooleanField(default=True)
+    due_date = models.DateField()
+    academic_year = models.CharField(max_length=20, default='2026-2027')
+    is_recurring = models.BooleanField(default=False)
+    frequency = models.CharField(max_length=20, choices=[('monthly', 'Monthly'), ('quarterly', 'Quarterly'), ('yearly', 'Yearly')], default='yearly')
     created_at = models.DateTimeField(auto_now_add=True)
-
+    updated_at = models.DateTimeField(auto_now=True)
+    
     def __str__(self):
-        return f"{self.name} - ${self.amount}"
+        return f"{self.class_ref.name} - {self.fee_name} (${self.amount})"
+    
+    class Meta:
+        ordering = ['-due_date']
+
 
 class Invoice(models.Model):
-    tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('issued', 'Issued'),
+        ('paid', 'Paid'),
+        ('overdue', 'Overdue'),
+        ('cancelled', 'Cancelled'),
+    ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    invoice_number = models.CharField(max_length=50, unique=True)
+    invoice_number = models.CharField(max_length=50, unique=True, editable=False)
     student = models.ForeignKey('education_students.Student', on_delete=models.CASCADE, related_name='invoices')
-    # DEPRECATED: student_name = models.CharField(max_length=255)  # Use student.full_name instead
+    fee_structure = models.ForeignKey(FeeStructure, on_delete=models.SET_NULL, null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     due_date = models.DateField()
-    status = models.CharField(max_length=20, choices=[
-        ('pending', 'Pending'),
-        ('paid', 'Paid'),
-        ('overdue', 'Overdue'),
-        ('cancelled', 'Cancelled')
-    ], default='pending')
+    issue_date = models.DateField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='issued')
+    description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            year = timezone.now().year
+            last_invoice = Invoice.objects.filter(invoice_number__startswith=f'INV-{year}').order_by('-invoice_number').first()
+            if last_invoice:
+                last_num = int(last_invoice.invoice_number.split('-')[-1])
+                new_num = last_num + 1
+            else:
+                new_num = 1
+            self.invoice_number = f'INV-{year}-{str(new_num).zfill(4)}'
+        super().save(*args, **kwargs)
+    
     @property
-    def balance(self):
+    def balance_due(self):
         return self.amount - self.paid_amount
-
+    
     def __str__(self):
-        return f"{self.invoice_number} - {self.student_name} - ${self.amount}"
+        return f"{self.invoice_number} - {self.student.full_name} - ${self.amount}"
+    
+    class Meta:
+        ordering = ['-due_date']
+
 
 class Payment(models.Model):
-    tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
+    PAYMENT_METHODS = [
+        ('cash', 'Cash'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('credit_card', 'Credit Card'),
+        ('cheque', 'Cheque'),
+        ('online', 'Online Payment'),
+    ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    payment_id = models.CharField(max_length=50, unique=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateField(auto_now_add=True)
-    payment_method = models.CharField(max_length=20, choices=[
-        ('cash', 'Cash'),
-        ('card', 'Card'),
-        ('bank_transfer', 'Bank Transfer'),
-        ('online', 'Online')
-    ])
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='cash')
     transaction_id = models.CharField(max_length=100, blank=True)
-    status = models.CharField(max_length=20, default='completed')
+    received_by = models.ForeignKey('core_accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Update invoice paid amount
+        total_paid = self.invoice.payments.aggregate(total=models.Sum('amount'))['total'] or 0
+        self.invoice.paid_amount = total_paid
+        if total_paid >= self.invoice.amount:
+            self.invoice.status = 'paid'
+        elif total_paid > 0:
+            self.invoice.status = 'issued'
+        self.invoice.save()
+    
     def __str__(self):
-        return f"{self.payment_id} - ${self.amount}"
-
-    def send_reminder(self):
-        """Send fee reminder via communication module"""
-        from services.education.communication.models import Message, MessageTemplate
-        
-        template = MessageTemplate.objects.filter(template_type='fee_reminder', is_active=True).first()
-        if template:
-            context = {
-                'student_name': self.student_name,
-                'amount': self.balance,
-                'due_date': self.due_date,
-                'invoice_number': self.invoice_number
-            }
-            message = template.render(context)
-            
-            Message.objects.create(
-                sender='ERP System',
-                recipient=self.student_name,
-                recipient_phone='',  # Would need phone number from student
-                subject='Fee Reminder',
-                message=message,
-                channel='whatsapp'
-            )
-
-
-
-
+        return f"Payment for {self.invoice.invoice_number} - ${self.amount}"
+    
+    class Meta:
+        ordering = ['-payment_date']

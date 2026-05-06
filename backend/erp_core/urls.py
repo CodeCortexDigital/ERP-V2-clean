@@ -9,7 +9,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/health/', health_check, name='health'),
     path('api/auth/', include('services.core.accounts.urls')),
+    path('api/auth/academics/', include('services.education.academics.urls')),
     path('api/auth/admissions/', include('services.education.admissions.urls')),
     path('api/education/', include('services.education.urls')),
 ]
+
 

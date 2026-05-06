@@ -8,7 +8,8 @@ from .models import Student
 from .serializers import StudentSerializer
 import uuid
 
-Student = apps.get_model('education_students', 'Student')
+# Get other models dynamically
+Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
 
 
 class StudentListCreateView(generics.ListCreateAPIView):
@@ -17,20 +18,15 @@ class StudentListCreateView(generics.ListCreateAPIView):
     serializer_class = StudentSerializer
     
     def get_queryset(self):
-        # Return ALL students - no active filter
         queryset = Student.objects.all()
-        
-        # Optional filters
         class_filter = self.request.query_params.get('class')
         if class_filter:
             queryset = queryset.filter(current_class__id=class_filter)
-        
         return queryset
     
     def perform_create(self, serializer):
-        # Auto-generate student_id if not provided
         if not serializer.validated_data.get('student_id'):
-            serializer.save(student_id=f"STU-2026-{str(uuid.uuid4().hex[:4]).upper()}")
+            serializer.save(student_id=f"STU-{uuid.uuid4().hex[:8].upper()}")
         else:
             serializer.save()
 
@@ -54,13 +50,13 @@ def get_student_by_id(request, student_id):
         serializer = StudentSerializer(student)
         return Response(serializer.data)
     except Student.DoesNotExist:
-        return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Student not found'}, status=404)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_360(request, student_id):
-    """Get complete student 360 data"""
+    """Get complete student 360 data including attendance"""
     try:
         student = Student.objects.get(id=student_id)
         
@@ -73,58 +69,16 @@ def student_360(request, student_id):
         late = attendance_records.filter(status='late').count()
         attendance_rate = round((present / total * 100), 1) if total > 0 else 0
         
-        # Get exam results
-        ExamResult = apps.get_model('education_exams', 'ExamResult')
-        exam_results = ExamResult.objects.filter(student=student)
-        total_exams = exam_results.count()
-        passed = exam_results.filter(is_pass=True).count()
-        failed = total_exams - passed
-        avg_percentage = exam_results.aggregate(models.Avg('percentage'))['percentage__avg'] or 0
-        
-        # Get finance data
-        Invoice = apps.get_model('education_finance', 'Invoice')
-        invoices = Invoice.objects.filter(student=student)
-        total_amount = sum(float(i.amount) for i in invoices)
-        total_paid = sum(float(i.paid_amount) for i in invoices)
-        balance_due = total_amount - total_paid
-        
         return Response({
-            'student': {
-                'id': str(student.id),
-                'student_id': student.student_id,
-                'full_name': student.full_name,
-                'email': student.email,
-                'phone': student.phone,
-                'father_name': getattr(student, 'father_name', ''),
-                'mother_name': getattr(student, 'mother_name', ''),
-                'guardian_phone': getattr(student, 'guardian_phone', ''),
-                'program': getattr(student, 'program', ''),
-                'enrollment_date': getattr(student, 'enrollment_date', None),
-                'is_active': student.is_active,
-            },
             'attendance': {
                 'total_days': total,
                 'present': present,
                 'absent': absent,
                 'late': late,
                 'attendance_rate': attendance_rate,
-            },
-            'exams': {
-                'total_exams': total_exams,
-                'passed': passed,
-                'failed': failed,
-                'average_percentage': round(avg_percentage, 1),
-                'results': []
-            },
-            'finance': {
-                'total_invoices': invoices.count(),
-                'total_amount': total_amount,
-                'total_paid': total_paid,
-                'balance_due': balance_due,
-                'payment_percentage': round((total_paid / total_amount * 100), 1) if total_amount > 0 else 0
             }
         })
     except Student.DoesNotExist:
-        return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Student not found'}, status=404)
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': str(e)}, status=400)

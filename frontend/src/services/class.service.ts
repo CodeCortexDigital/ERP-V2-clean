@@ -4,36 +4,25 @@ export interface SchoolClass {
   id: string;
   name: string;
   code: string;
-  capacity: number;
-  is_active: boolean;
-  academic_year?: string;
+  teacher_name: string;
+  academic_year: string;
 }
 
 export interface Section {
   id: string;
-  name: string;
-  code: string;
   class_ref: string;
+  name: string;
+  capacity: number;
+  student_count?: number;
 }
 
 const classService = {
-  // Get all classes
-  getAll: () => api.get<SchoolClass[]>('/auth/classes/'),
-  
-  // Get single class
-  getById: (id: string) => api.get<SchoolClass>(`/auth/classes/${id}/`),
-  
-  // Create class
-  create: (data: Partial<SchoolClass>) => api.post('/auth/classes/', data),
-  
-  // Update class
-  update: (id: string, data: Partial<SchoolClass>) => api.put(`/auth/classes/${id}/`, data),
-  
-  // Delete class
-  delete: (id: string) => api.delete(`/auth/classes/${id}/`),
-  
-  // Get sections for a class
-  getSections: (classId: string) => api.get<Section[]>(`/auth/classes/${classId}/sections/`),
+  getAll: () => api.get('/auth/academics/classes/'),
+  getById: (id: string) => api.get(`/auth/academics/classes/${id}/`),
+  create: (data: Partial<SchoolClass>) => api.post('/auth/academics/classes/', data),
+  update: (id: string, data: Partial<SchoolClass>) => api.put(`/auth/academics/classes/${id}/`, data),
+  delete: (id: string) => api.delete(`/auth/academics/classes/${id}/`),
+  getSections: (classId: string) => api.get(`/auth/academics/classes/${classId}/sections/`),
 };
 
 export default classService;
