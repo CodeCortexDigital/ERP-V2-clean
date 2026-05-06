@@ -1,68 +1,125 @@
 from django.db import models
+from django.utils import timezone
 import uuid
 
 class Exam(models.Model):
-    tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
+    EXAM_TYPES = [
+        ('midterm', 'Mid Term Examination'),
+        ('final', 'Final Term Examination'),
+        ('quiz', 'Quiz'),
+        ('test', 'Unit Test'),
+        ('assignment', 'Assignment'),
+    ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    code = models.CharField(max_length=50, unique=True)
+    exam_code = models.CharField(max_length=50, unique=True, editable=False)
     title = models.CharField(max_length=200)
+    exam_type = models.CharField(max_length=20, choices=EXAM_TYPES)
+    
+    # Relationships (using strings to avoid circular imports)
+    class_ref = models.ForeignKey('education_academics.SchoolClass', on_delete=models.CASCADE, related_name='exams')
+    section = models.ForeignKey('education_academics.Section', on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.ForeignKey('education_academics.Subject', on_delete=models.CASCADE, related_name='exams')
+    
+    # Exam details
+    total_marks = models.IntegerField()
+    passing_marks = models.IntegerField()
+    exam_date = models.DateField()
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    duration_minutes = models.IntegerField(null=True, blank=True, help_text="Duration in minutes")
+    
+    # Academic info
+    academic_year = models.CharField(max_length=20, default='2026-2027')
+    term = models.CharField(max_length=20, choices=[('first', 'First Term'), ('second', 'Second Term')], default='first')
     description = models.TextField(blank=True)
-    exam_date = models.DateField(null=True, blank=True)
-    duration_minutes = models.IntegerField(default=120)
-    total_marks = models.DecimalField(max_digits=5, decimal_places=2, default=100)
-    passing_marks = models.DecimalField(max_digits=5, decimal_places=2, default=40)
-    status = models.CharField(max_length=20, default='scheduled')
+    
+    # Status
+    is_published = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    is_deleted = models.BooleanField(default=False)
+    
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
+    def save(self, *args, **kwargs):
+        if not self.exam_code:
+            year = timezone.now().year
+            last_exam = Exam.objects.filter(exam_code__startswith=f'EXM-{year}').order_by('-exam_code').first()
+            if last_exam:
+                last_num = int(last_exam.exam_code.split('-')[-1])
+                new_num = last_num + 1
+            else:
+                new_num = 1
+            self.exam_code = f'EXM-{year}-{str(new_num).zfill(4)}'
+        super().save(*args, **kwargs)
+    
     def __str__(self):
-        return f"{self.code} - {self.title}"
+        return f"{self.exam_code} - {self.title} ({self.subject.name})"
+    
+    class Meta:
+        ordering = ['-exam_date']
+
 
 class ExamResult(models.Model):
-    tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
+    GRADE_CHOICES = [
+        ('A+', 'A+ (90-100%)'), ('A', 'A (80-89%)'), ('B+', 'B+ (70-79%)'),
+        ('B', 'B (60-69%)'), ('C+', 'C+ (50-59%)'), ('C', 'C (40-49%)'),
+        ('D', 'D (33-39%)'), ('F', 'F (Below 33%)'),
+    ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='results')
     student = models.ForeignKey('education_students.Student', on_delete=models.CASCADE, related_name='exam_results')
-    # DEPRECATED: student_name = models.CharField(max_length=255)  # Use student.full_name instead
-    roll_number = models.CharField(max_length=50, blank=True)
+    
+    # Marks
     obtained_marks = models.DecimalField(max_digits=5, decimal_places=2)
-    total_marks = models.DecimalField(max_digits=5, decimal_places=2)
-    percentage = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-    grade = models.CharField(max_length=5, blank=True)
-    is_pass = models.BooleanField(default=False)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, editable=False)
+    grade = models.CharField(max_length=2, choices=GRADE_CHOICES, editable=False)
+    
+    # Status
+    is_pass = models.BooleanField(default=False, editable=False)
     remarks = models.TextField(blank=True)
-    entered_by = models.CharField(max_length=100, blank=True)
+    
+    # Entry info
+    entered_by = models.ForeignKey('core_accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
     entered_at = models.DateTimeField(auto_now_add=True)
-
+    
     def save(self, *args, **kwargs):
-        if self.total_marks and self.obtained_marks:
-            self.percentage = (float(self.obtained_marks) / float(self.total_marks)) * 100
-            self.is_pass = self.percentage >= 40
-            if self.percentage >= 80:
-                self.grade = 'A+'
-            elif self.percentage >= 70:
-                self.grade = 'A'
-            elif self.percentage >= 60:
-                self.grade = 'B'
-            elif self.percentage >= 50:
-                self.grade = 'C'
-            elif self.percentage >= 40:
-                self.grade = 'D'
-            else:
-                self.grade = 'F'
+        # Calculate percentage
+        self.percentage = (self.obtained_marks / self.exam.total_marks) * 100
+        
+        # Determine grade
+        if self.percentage >= 90:
+            self.grade = 'A+'
+            self.is_pass = True
+        elif self.percentage >= 80:
+            self.grade = 'A'
+            self.is_pass = True
+        elif self.percentage >= 70:
+            self.grade = 'B+'
+            self.is_pass = True
+        elif self.percentage >= 60:
+            self.grade = 'B'
+            self.is_pass = True
+        elif self.percentage >= 50:
+            self.grade = 'C+'
+            self.is_pass = True
+        elif self.percentage >= 40:
+            self.grade = 'C'
+            self.is_pass = True
+        elif self.percentage >= 33:
+            self.grade = 'D'
+            self.is_pass = True
+        else:
+            self.grade = 'F'
+            self.is_pass = False
+        
         super().save(*args, **kwargs)
-
+    
     def __str__(self):
-        return f"{self.student_name} - {self.exam.title} - {self.percentage}%"
-
+        return f"{self.exam.title} - {self.student.full_name}: {self.percentage}% ({self.grade})"
+    
     class Meta:
-        unique_together = ['exam', 'student_id']
-        ordering = ['-entered_at']
-
-
-
-
+        unique_together = ['exam', 'student']
+        ordering = ['-exam__exam_date']

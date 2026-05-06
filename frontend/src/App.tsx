@@ -19,7 +19,8 @@ import CommunicationPage from './pages/education/CommunicationPage'
 import AnalyticsPage from './pages/education/AnalyticsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import NewApplicationPage from '@/pages/education/admissions/NewApplicationPage';
-
+// Add this line with the other education module imports
+import ExamResultsPage from './pages/education/exams/ExamResultsPage'
 // Auth and Error Handling
 import { AuthProvider } from './contexts/AuthContext'
 import { setupGlobalErrorHandlers, ErrorBoundary } from './utils/errorHandler'
@@ -47,6 +48,7 @@ function App() {
               <Route path="education/students/:id" element={<StudentProfilePage />} />
               <Route path="education/courses" element={<CoursesListPage />} />
               <Route path="education/exams" element={<ExamsListPage />} />
+          <Route path='education/exams/:id/results' element={<ExamResultsPage />} />
               <Route path="education/attendance" element={<AttendancePage />} />
               <Route path="education/academics" element={<AcademicsPage />} />
               <Route path="education/admissions" element={<AdmissionsPage />} />
@@ -65,6 +67,7 @@ function App() {
 }
 
 export default memo(App)
+
 
 
 
