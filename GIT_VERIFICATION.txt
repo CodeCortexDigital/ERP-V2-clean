@@ -1,0 +1,6 @@
+# Git Verification Test
+- Date: 2026-05-06 09:32:17
+- User: codecortex101
+- Email: codecortex101@gmail.com
+- Remote: https://codecortex101@github.com/CodeCortexDigital/ERP-V2-clean.git
+- This file confirms git push is working with codecortex101 account
