@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, Users, CheckCircle, XCircle, Clock, 
-  Save, RefreshCw, AlertCircle, Eye
+  Save, RefreshCw, AlertCircle, Eye, Search, X
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -32,7 +32,10 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasSavedData, setHasSavedData] = useState(false);
-  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [studentHistory, setStudentHistory] = useState<any[]>([]);
 
   // Statistics based on actual student data
   const totalStudents = students.length;
@@ -40,6 +43,12 @@ export default function AttendancePage() {
   const absentCount = students.filter(s => s.status === 'absent').length;
   const lateCount = students.filter(s => s.status === 'late').length;
   const attendanceRate = totalStudents > 0 ? (presentCount / totalStudents) * 100 : 0;
+
+  // Filtered students based on search
+  const filteredStudents = students.filter(student =>
+    student.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student.student_id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     fetchClasses();
@@ -81,7 +90,6 @@ export default function AttendancePage() {
   const fetchStudentsAndAttendance = async () => {
     setLoading(true);
     try {
-      // Fetch all students
       const response = await studentService.getAll();
       let allStudents = [];
       if (Array.isArray(response.data)) {
@@ -90,14 +98,12 @@ export default function AttendancePage() {
         allStudents = response.data.results;
       }
       
-      // Filter by selected class and section
       const filtered = allStudents.filter(s => {
         const classMatch = !selectedClass || s.current_class === selectedClass;
         const sectionMatch = !selectedSection || s.current_section === selectedSection;
         return classMatch && sectionMatch && s.is_active === true;
       });
       
-      // Fetch existing attendance for this date
       let existingAttendance: any[] = [];
       let hasExisting = false;
       try {
@@ -108,7 +114,6 @@ export default function AttendancePage() {
         console.log('No existing attendance found');
       }
       
-      // Map students with their saved status
       const studentsWithStatus: AttendanceStudent[] = filtered.map(student => {
         const existing = existingAttendance.find((a: any) => a.student_id === student.id);
         const savedStatus = existing?.status;
@@ -168,7 +173,6 @@ export default function AttendancePage() {
       
       await api.post('/auth/attendance/bulk/', { records });
       
-      // Update saved status for all students
       setStudents(prev => prev.map(s => ({ 
         ...s, 
         savedStatus: s.status,
@@ -177,8 +181,6 @@ export default function AttendancePage() {
       setHasSavedData(true);
       
       toast.success(`Attendance saved successfully! (${students.length} students)`);
-      
-      // Refresh to get latest data
       await fetchStudentsAndAttendance();
       
     } catch (error: any) {
@@ -189,12 +191,16 @@ export default function AttendancePage() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'present': return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'absent': return <XCircle className="w-4 h-4 text-red-600" />;
-      case 'late': return <Clock className="w-4 h-4 text-orange-600" />;
-      default: return null;
+  const handleViewHistory = async (student: any) => {
+    setSelectedStudent(student);
+    try {
+      const response = await api.get(`/auth/attendance/?student_id=${student.id}`);
+      setStudentHistory(response.data || []);
+      setShowHistoryModal(true);
+    } catch (error) {
+      console.error('Error fetching student history:', error);
+      setStudentHistory([]);
+      setShowHistoryModal(true);
     }
   };
 
@@ -302,8 +308,30 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
 
-      {/* Statistics Cards - FIXED: Based on actual student data */}
-      {students.length > 0 ? (
+      {/* Search Bar */}
+      {students.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search by student name or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full border rounded-lg pl-10 pr-10 py-2 text-sm"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Statistics Cards */}
+      {students.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-4">
@@ -350,7 +378,7 @@ export default function AttendancePage() {
             </CardContent>
           </Card>
         </div>
-      ) : null}
+      )}
 
       {/* Attendance Rate Progress */}
       {students.length > 0 && (
@@ -396,10 +424,11 @@ export default function AttendancePage() {
                     <th className="px-4 py-3 text-left">Student Name</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-left">Saved</th>
+                    <th className="px-4 py-3 text-center">History</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((student) => (
+                  {filteredStudents.map((student) => (
                     <tr key={student.id} className="border-b hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-xs">{student.student_id}</td>
                       <td className="px-4 py-3 font-medium">{student.full_name}</td>
@@ -427,25 +456,28 @@ export default function AttendancePage() {
                             Late
                           </button>
                         </div>
-                       </td>
+                      </td>
                       <td className="px-4 py-3">
                         {student.isSaved ? (
-                          <div className="flex flex-col">
-    <div className="flex flex-col">
-    <Badge variant="success" className="flex items-center gap-1 w-fit">
-      <CheckCircle className="w-3 h-3" /> Saved
-    </Badge>
-    <span className="text-xs text-gray-400 mt-1">Today at {new Date().toLocaleTimeString()}</span>
-  </div>
-    <span className="text-xs text-gray-400 mt-1">Today at {new Date().toLocaleTimeString()}</span>
-  </div>
+                          <Badge variant="success" className="flex items-center gap-1 w-fit">
+                            <CheckCircle className="w-3 h-3" /> Saved
+                          </Badge>
                         ) : (
                           <Badge variant="secondary" className="flex items-center gap-1 w-fit">
                             <Clock className="w-3 h-3" /> Not saved
                           </Badge>
                         )}
                       </td>
-                     </tr>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => handleViewHistory(student)}
+                          className="p-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                          title="View Attendance History"
+                        >
+                          <Eye className="w-4 h-4 text-blue-600" />
+                        </button>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -453,8 +485,70 @@ export default function AttendancePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* History Modal */}
+      {showHistoryModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-semibold">Attendance History</h2>
+                <p className="text-gray-500">{selectedStudent.full_name} ({selectedStudent.student_id})</p>
+              </div>
+              <button onClick={() => setShowHistoryModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-blue-700">{studentHistory.length}</p>
+                  <p className="text-xs text-gray-600">Total Days</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-green-700">{studentHistory.filter((h: any) => h.status === 'present').length}</p>
+                  <p className="text-xs text-gray-600">Present</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-purple-700">
+                    {studentHistory.length > 0 ? Math.round((studentHistory.filter((h: any) => h.status === 'present').length / studentHistory.length) * 100) : 0}%
+                  </p>
+                  <p className="text-xs text-gray-600">Attendance Rate</p>
+                </div>
+              </div>
+
+              {studentHistory.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No attendance records found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-2 text-left">Date</th>
+                        <th className="p-2 text-left">Status</th>
+                        <th className="p-2 text-left">Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studentHistory.map((record: any, idx: number) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2">{record.date}</td>
+                          <td className="p-2">
+                            <Badge variant={record.status === 'present' ? 'success' : record.status === 'absent' ? 'danger' : 'warning'}>
+                              {record.status === 'present' ? '✓ Present' : record.status === 'absent' ? '✗ Absent' : '⏰ Late'}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-gray-500">{record.remarks || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
