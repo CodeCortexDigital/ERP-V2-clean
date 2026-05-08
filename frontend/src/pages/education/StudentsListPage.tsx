@@ -44,11 +44,11 @@ export default function StudentsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
-  const [selectedSection, setSelectedSection] = useState('');  // ADDED
+  const [selectedSection, setSelectedSection] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedFeeStatus, setSelectedFeeStatus] = useState('');
   const [lowAttendanceOnly, setLowAttendanceOnly] = useState(false);
-  const [sortField, setSortField] = useState('full_name');
+  const [sortField, setSortField] = useState('student_id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,7 +64,7 @@ export default function StudentsListPage() {
   const itemsPerPage = 10;
   const navigate = useNavigate();
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<StudentFormData>();
+  const { register, handleSubmit, reset, setValue, watch } = useForm<StudentFormData>();
   const selectedClassId = watch('current_class');
 
   useEffect(() => {
@@ -107,7 +107,6 @@ export default function StudentsListPage() {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      // ADDED: Include section filter in API call
       const params: any = {};
       if (selectedClass) params.current_class = selectedClass;
       if (selectedSection) params.current_section = selectedSection;
@@ -271,7 +270,7 @@ export default function StudentsListPage() {
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedClass('');
-    setSelectedSection('');  // ADDED
+    setSelectedSection('');
     setSelectedStatus('');
     setSelectedFeeStatus('');
   };
@@ -281,7 +280,7 @@ export default function StudentsListPage() {
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesClass = !selectedClass || s.current_class === selectedClass;
-    const matchesSection = !selectedSection || s.current_section === selectedSection;  // ADDED
+    const matchesSection = !selectedSection || s.current_section === selectedSection;
     
     let matchesStatus = true;
     if (selectedStatus === 'active') {
@@ -300,24 +299,11 @@ export default function StudentsListPage() {
     return matchesSearch && matchesClass && matchesSection && matchesStatus && matchesFeeStatus && matchesLowAttendance;
   });
 
+  // Sort students by student_id ascending by default
   const sortedStudents = [...filteredStudents].sort((a, b) => {
-    let valA, valB;
-    if (sortField === 'full_name') {
-      valA = a.full_name || '';
-      valB = b.full_name || '';
-    } else if (sortField === 'attendance_percentage') {
-      valA = a.attendance_percentage || 0;
-      valB = b.attendance_percentage || 0;
-    } else if (sortField === 'class_name') {
-      valA = a.class_name || '';
-      valB = b.class_name || '';
-    } else {
-      valA = a.student_id || '';
-      valB = b.student_id || '';
-    }
-    if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-    if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
+    const idA = a.student_id || '';
+    const idB = b.student_id || '';
+    return sortOrder === 'asc' ? idA.localeCompare(idB) : idB.localeCompare(idA);
   });
 
   const paginatedStudents = sortedStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -409,7 +395,10 @@ export default function StudentsListPage() {
           <h1 className="text-2xl font-bold text-gray-800">Students</h1>
           <p className="text-gray-500 text-sm mt-1">Manage all students in your school</p>
         </div>
-        
+        <Button onClick={() => navigate('/education/students/add')} className="flex items-center gap-2">
+          <UserPlus className="w-4 h-4" />
+          Add Student
+        </Button>
       </div>
 
       {attentionNeeded > 0 && (
@@ -432,7 +421,7 @@ export default function StudentsListPage() {
                 setSelectedStatus('active'); 
                 setSelectedFeeStatus(''); 
                 setSelectedClass(''); 
-                setSelectedSection('');  // ADDED
+                setSelectedSection('');
                 setSearchTerm(''); 
               }} 
               className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors font-medium"
@@ -470,7 +459,6 @@ export default function StudentsListPage() {
           {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
         </select>
         
-        {/* ADDED: Section Filter */}
         <select 
           className="border rounded-lg px-3 py-2 text-sm"
           value={selectedSection}
@@ -512,7 +500,8 @@ export default function StudentsListPage() {
           <thead className="bg-gray-50 border-b sticky top-0">
             <tr>
               <th className="p-3 w-10"><input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} /></th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>Student <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('student_id')}>Student ID <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>Student Name <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('class_name')}>Class <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>Attendance <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
               <th className="p-3 text-left">Fees</th>
@@ -526,7 +515,8 @@ export default function StudentsListPage() {
             {paginatedStudents.map((student) => (
               <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
                 <td className="p-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} /></td>
-                <td className="p-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div><div><p className="font-medium">{student.full_name}</p><p className="text-xs text-gray-400">{student.student_id}</p></div></div></td>
+                <td className="p-3 font-mono text-xs font-medium">{student.student_id}</td>
+                <td className="p-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div><div><p className="font-medium">{student.full_name}</p></div></div></td>
                 <td className="p-3">{student.class_name || '-'}{student.section_name && <span className="text-xs text-gray-400 ml-1">({student.section_name})</span>}</td>
                 <td className="p-3"><div className="flex items-center gap-2"><span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>{student.attendance_percentage || 0}%</span>{(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}</div></td>
                 <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
@@ -535,7 +525,7 @@ export default function StudentsListPage() {
                 <td className="p-3"><Badge variant={student.is_active ? 'success' : 'secondary'}>{student.is_active ? 'Active' : 'Inactive'}</Badge></td>
                 <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1 justify-center">
-                    <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit"><Edit2 className="w-4 h-4 text-blue-600" /></button>
+                    <button onClick={() => navigate(`/education/students/${student.id}/edit`)} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit"><Edit2 className="w-4 h-4 text-blue-600" /></button>
                     <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message"><MessageCircle className="w-4 h-4 text-green-600" /></button>
                   </div>
                 </td>
@@ -556,72 +546,7 @@ export default function StudentsListPage() {
         </div>
       )}
 
-      {/* Student Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">{editingStudent ? 'Edit Student' : 'Add Student'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingStudent(null); }} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name *</label>
-                <input {...register("full_name", { required: true })} className="w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <input {...register("email", { required: true })} type="email" className="w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <input {...register("phone")} className="w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Student ID</label>
-                <input {...register("student_id")} className="w-full border rounded-lg px-3 py-2" placeholder="Auto-generated if empty" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Father's Name</label>
-                <input {...register("father_name")} className="w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Mother's Name</label>
-                <input {...register("mother_name")} className="w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Guardian Phone</label>
-                <input {...register("guardian_phone")} className="w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Class</label>
-                <select {...register("current_class")} className="w-full border rounded-lg px-3 py-2" onChange={(e) => { setValue('current_class', e.target.value); setValue('current_section', ''); }}>
-                  <option value="">Select Class</option>
-                  {classes.map((cls) => (<option key={cls.id} value={cls.id}>{cls.name}</option>))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Section</label>
-                <select {...register("current_section")} className="w-full border rounded-lg px-3 py-2" disabled={!selectedClassId}>
-                  <option value="">Select Section</option>
-                  {sections.filter(sec => sec.class_ref === selectedClassId).map((sec) => (<option key={sec.id} value={sec.id}>{sec.name}</option>))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" {...register("is_active")} className="w-4 h-4" />
-                <label className="text-sm font-medium">Active Student</label>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Save</button>
-                <button type="button" onClick={() => { setShowForm(false); setEditingStudent(null); }} className="flex-1 border py-2 rounded-lg hover:bg-gray-50">Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* Student Drawer */}
       <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />
     </div>
   );
