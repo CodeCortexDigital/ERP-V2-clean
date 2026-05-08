@@ -44,6 +44,7 @@ export default function StudentsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');  // ADDED
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedFeeStatus, setSelectedFeeStatus] = useState('');
   const [lowAttendanceOnly, setLowAttendanceOnly] = useState(false);
@@ -106,7 +107,12 @@ export default function StudentsListPage() {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const response = await studentService.getAll();
+      // ADDED: Include section filter in API call
+      const params: any = {};
+      if (selectedClass) params.current_class = selectedClass;
+      if (selectedSection) params.current_section = selectedSection;
+      
+      const response = await studentService.getAll(params);
       let studentData = [];
       if (Array.isArray(response.data)) {
         studentData = response.data;
@@ -262,20 +268,20 @@ export default function StudentsListPage() {
     setSelectedStudentId(studentId);
   };
 
-  // NO DELETE FUNCTION - Students cannot be deleted, only deactivated
-
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedClass('');
+    setSelectedSection('');  // ADDED
     setSelectedStatus('');
     setSelectedFeeStatus('');
   };
 
-    const filteredStudents = students.filter(s => {
+  const filteredStudents = students.filter(s => {
     const matchesSearch = s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesClass = !selectedClass || s.current_class === selectedClass;
+    const matchesSection = !selectedSection || s.current_section === selectedSection;  // ADDED
     
     let matchesStatus = true;
     if (selectedStatus === 'active') {
@@ -286,13 +292,12 @@ export default function StudentsListPage() {
     
     const matchesFeeStatus = !selectedFeeStatus || s.fee_status === selectedFeeStatus;
     
-    // Low attendance filter
     let matchesLowAttendance = true;
     if (lowAttendanceOnly) {
       matchesLowAttendance = (s.attendance_percentage || 0) < 75;
     }
     
-    return matchesSearch && matchesClass && matchesStatus && matchesFeeStatus && matchesLowAttendance;
+    return matchesSearch && matchesClass && matchesSection && matchesStatus && matchesFeeStatus && matchesLowAttendance;
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
@@ -407,7 +412,7 @@ export default function StudentsListPage() {
         
       </div>
 
-            {attentionNeeded > 0 && (
+      {attentionNeeded > 0 && (
         <div className="bg-red-50 border border-red-300 rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <div className="bg-red-100 p-2 rounded-full">
@@ -427,6 +432,7 @@ export default function StudentsListPage() {
                 setSelectedStatus('active'); 
                 setSelectedFeeStatus(''); 
                 setSelectedClass(''); 
+                setSelectedSection('');  // ADDED
                 setSearchTerm(''); 
               }} 
               className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors font-medium"
@@ -458,11 +464,41 @@ export default function StudentsListPage() {
 
       <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[200px]"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div></div>
-        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}><option value="">All Classes</option>{classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}</select>
-        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
-        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}><option value="">All Fees</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select>
+        
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+          <option value="">All Classes</option>
+          {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
+        </select>
+        
+        {/* ADDED: Section Filter */}
+        <select 
+          className="border rounded-lg px-3 py-2 text-sm"
+          value={selectedSection}
+          onChange={(e) => setSelectedSection(e.target.value)}
+          disabled={!selectedClass}
+        >
+          <option value="">All Sections</option>
+          {sections.filter(sec => sec.class_ref === selectedClass).map(sec => (
+            <option key={sec.id} value={sec.id}>Section {sec.name}</option>
+          ))}
+        </select>
+        
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        
+        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedFeeStatus} onChange={(e) => setSelectedFeeStatus(e.target.value)}>
+          <option value="">All Fees</option>
+          <option value="paid">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="overdue">Overdue</option>
+        </select>
+        
         <Button onClick={clearFilters} variant="outline" size="sm">Clear Filters</Button>
-                {lowAttendanceOnly && (
+        
+        {lowAttendanceOnly && (
           <Button onClick={() => { setLowAttendanceOnly(false); clearFilters(); }} variant="outline" size="sm" className="bg-red-50 text-red-600 border-red-200">
             <AlertCircle className="w-3 h-3 mr-1" /> Clear Low Attendance Filter
           </Button>
@@ -501,7 +537,6 @@ export default function StudentsListPage() {
                   <div className="flex gap-1 justify-center">
                     <button onClick={() => { setEditingStudent(student); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit"><Edit2 className="w-4 h-4 text-blue-600" /></button>
                     <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message"><MessageCircle className="w-4 h-4 text-green-600" /></button>
-                    {/* Delete button removed - students cannot be deleted */}
                   </div>
                 </td>
               </tr>
@@ -521,9 +556,6 @@ export default function StudentsListPage() {
         </div>
       )}
 
-      
-
-      
       {/* Student Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -590,15 +622,7 @@ export default function StudentsListPage() {
         </div>
       )}
 
-
       <StudentDrawer studentId={selectedStudentId} onClose={() => setSelectedStudentId(null)} />
     </div>
   );
 }
-
-
-
-
-
-
-

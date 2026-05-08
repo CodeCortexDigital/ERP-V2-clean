@@ -9,6 +9,7 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 // Education Module Imports
 import StudentsListPage from './pages/education/StudentsListPage'
 import StudentProfilePage from './pages/education/students/StudentProfilePage'
+import EditStudentPage from './pages/education/students/EditStudentPage'
 import CoursesListPage from './pages/education/CoursesListPage'
 import ExamsListPage from './pages/education/exams/ExamsListPage'
 import AttendancePage from './pages/education/attendance/AttendancePage'
@@ -46,9 +47,10 @@ function App() {
               {/* Education Routes */}
               <Route path="education/students" element={<StudentsListPage />} />
               <Route path="education/students/:id" element={<StudentProfilePage />} />
+              <Route path="education/students/:id/edit" element={<EditStudentPage />} />
               <Route path="education/courses" element={<CoursesListPage />} />
               <Route path="education/exams" element={<ExamsListPage />} />
-          <Route path='education/exams/:id/results' element={<ExamResultsPage />} />
+              <Route path='education/exams/:id/results' element={<ExamResultsPage />} />
               <Route path="education/attendance" element={<AttendancePage />} />
               <Route path="education/academics" element={<AcademicsPage />} />
               <Route path="education/admissions" element={<AdmissionsPage />} />
@@ -67,8 +69,3 @@ function App() {
 }
 
 export default memo(App)
-
-
-
-
-
