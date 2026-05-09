@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { 
   Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
   Users, TrendingUp, AlertCircle, CheckCircle,
-  ChevronLeft, ChevronRight, UserPlus, X, Clock, Eye
+  ChevronLeft, ChevronRight, UserPlus, X, Eye
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -21,7 +21,6 @@ interface StudentWithData extends Student {
   fee_status?: string;
   balance?: number;
   priority?: string;
-  last_activity?: string;
   class_name?: string;
   section_name?: string;
 }
@@ -143,8 +142,7 @@ export default function StudentsListPage() {
           attendance_percentage: 0,
           fee_status: 'pending',
           balance: 0,
-          priority: 'normal',
-          last_activity: student.last_activity || student.updated_at
+          priority: 'normal'
         };
       });
       
@@ -187,15 +185,6 @@ export default function StudentsListPage() {
       console.error('Error fetching students:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getRelativeTime = (dateString: string) => {
-    if (!dateString) return 'Never';
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
-    } catch {
-      return 'Unknown';
     }
   };
 
@@ -506,7 +495,6 @@ export default function StudentsListPage() {
               <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>Attendance <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
               <th className="p-3 text-left">Fees</th>
               <th className="p-3 text-left">Priority</th>
-              <th className="p-3 text-left">Last Activity</th>
               <th className="p-3 text-left">Status</th>
               <th className="p-3 text-center">Actions</th>
             </tr>
@@ -521,7 +509,6 @@ export default function StudentsListPage() {
                 <td className="p-3"><div className="flex items-center gap-2"><span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>{student.attendance_percentage || 0}%</span>{(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}</div></td>
                 <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
                 <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>{getPriorityLabel(student.priority || 'normal')}</span></td>
-                <td className="p-3"><div className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" /><span className="text-xs text-gray-500">{student.last_activity ? getRelativeTime(student.last_activity) : "Never"}</span></div></td>
                 <td className="p-3"><Badge variant={student.is_active ? 'success' : 'secondary'}>{student.is_active ? 'Active' : 'Inactive'}</Badge></td>
                 <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1 justify-center">
