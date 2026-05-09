@@ -127,3 +127,31 @@ def update_attendance_summary(sender, instance, **kwargs):
     # This would trigger recalculation of attendance percentage
     # Implement when attendance service is ready
     pass
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
+from .models import Student
+
+@receiver(post_save, sender=Student)
+def update_last_activity_on_save(sender, instance, created, **kwargs):
+    """Update last_activity when student is saved"""
+    if instance.last_activity != timezone.now():
+        instance.last_activity = timezone.now()
+        instance.save(update_fields=['last_activity'])
+
+# Also track attendance changes
+def track_attendance_activity(sender, instance, created, **kwargs):
+    from services.education.students.models import Student
+    if instance.student:
+        student = Student.objects.filter(id=instance.student.id).first()
+        if student:
+            student.last_activity = timezone.now()
+            student.save(update_fields=['last_activity'])
+
+# Try to connect attendance signal
+try:
+    attendance_model = apps.get_model('education_attendance', 'Attendance')
+    from django.db.models.signals import post_save
+    post_save.connect(track_attendance_activity, sender=attendance_model)
+except:
+    pass
