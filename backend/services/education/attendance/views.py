@@ -1,3 +1,15 @@
+
+def update_student_last_activity(student_id):
+    """Helper to update student last_activity"""
+    from services.education.students.models import Student
+    from django.utils import timezone
+    try:
+        student = Student.objects.get(id=student_id)
+        student.last_activity = timezone.now()
+        student.save(update_fields=['last_activity'])
+        return True
+    except:
+        return False
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -117,3 +129,5 @@ def attendance_summary(request):
         })
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+

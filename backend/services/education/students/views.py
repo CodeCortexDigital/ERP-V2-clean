@@ -82,3 +82,33 @@ def student_360(request, student_id):
         return Response({'error': 'Student not found'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_student_activity(request, id):
+    """Manually update student's last_activity (called from frontend)"""
+    from django.utils import timezone
+    from .models import Student
+    try:
+        student = Student.objects.get(id=id)
+        student.last_activity = timezone.now()
+        student.save(update_fields=['last_activity'])
+        return Response({'success': True, 'last_activity': student.last_activity})
+    except Student.DoesNotExist:
+        return Response({'error': 'Student not found'}, status=404)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def force_update_activity(request, student_id):
+    """Force update last_activity for a student"""
+    from django.utils import timezone
+    from .models import Student
+    try:
+        student = Student.objects.get(id=student_id)
+        student.last_activity = timezone.now()
+        student.save(update_fields=['last_activity'])
+        return Response({'success': True, 'last_activity': student.last_activity})
+    except Student.DoesNotExist:
+        return Response({'error': 'Student not found'}, status=404)
