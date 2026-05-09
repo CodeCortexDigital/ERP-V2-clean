@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, User, Mail, Phone, Calendar, MapPin, Users, CreditCard } from 'lucide-react';
+import { ArrowLeft, Save, User, Calendar, MapPin, CreditCard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { toast } from 'sonner';
-import studentService from '@/services/student.service';
-import classService from '@/services/class.service';
+import studentService, { Student } from '@/services/student.service';
+import classService, { SchoolClass, Section } from '@/services/class.service';
 import api from '@/services/api';
 
 export default function EditStudentPage() {
@@ -45,9 +45,10 @@ export default function EditStudentPage() {
   }, [id]);
 
   const fetchStudentData = async () => {
+    if (!id) return;
     try {
       const res = await studentService.getById(id);
-      const student = res.data;
+      const student: Student = res.data;
       
       const formatDate = (dateStr) => {
         if (!dateStr) return '';
@@ -102,7 +103,7 @@ export default function EditStudentPage() {
     }
   };
 
-  const fetchSections = async (classId) => {
+  const fetchSections = async (classId: string) => {
     try {
       const res = await classService.getSections(classId);
       setSections(res.data || []);
@@ -112,7 +113,7 @@ export default function EditStudentPage() {
     }
   };
 
-  const handleClassChange = (classId) => {
+  const handleClassChange = (classId: string) => {
     setFormData({ ...formData, current_class: classId, current_section: '' });
     if (classId) {
       fetchSections(classId);

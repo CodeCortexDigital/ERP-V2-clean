@@ -62,6 +62,9 @@ const BusinessRiskPage = lazy(() => import('../pages/business/RiskPage'));
 const StudentsListPage = lazy(() => import('../pages/education/StudentsListPage'));
 const CoursesListPage = lazy(() => import('../pages/education/CoursesListPage'));
 const AcademicsPage = lazy(() => import('../pages/education/AcademicsPage'));
+const CurriculumManagement = lazy(() => import('../pages/education/curriculum/SyllabusManagement'));
+const TopicBreakdownPage = lazy(() => import('../pages/education/curriculum/TopicBreakdown'));
+const ResourceManagementPage = lazy(() => import('../pages/education/curriculum/ResourceManagement'));
 const AdmissionsPage = lazy(() => import('../pages/education/AdmissionsPage'));
 const ExamsPage = lazy(() => import('../pages/education/ExamsPage'));
 const FeesPage = lazy(() => import('../pages/education/FeesPage'));
@@ -190,6 +193,18 @@ export const routes: RouteObject[] = [
       {
         path: 'education/academics',
         element: <Suspense fallback={<PageLoader />}><AcademicsPage /></Suspense>,
+      },
+      {
+        path: 'education/curriculum',
+        element: <Suspense fallback={<PageLoader />}><CurriculumManagement /></Suspense>,
+      },
+      {
+        path: 'education/curriculum/topics',
+        element: <Suspense fallback={<PageLoader />}><TopicBreakdownPage /></Suspense>,
+      },
+      {
+        path: 'education/curriculum/resources',
+        element: <Suspense fallback={<PageLoader />}><ResourceManagementPage /></Suspense>,
       },
       {
         path: 'education/admissions',

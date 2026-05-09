@@ -1,27 +1,62 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Mail, Phone, Calendar, BookOpen, Award, Edit2, CheckCircle, XCircle, Clock, MapPin, Users, CreditCard } from 'lucide-react';
+import { 
+  ArrowLeft, User, BookOpen, Award, Edit2, CreditCard, Camera, X
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { toast } from 'sonner';
-import studentService from '@/services/student.service';
+import studentService, { Student } from '@/services/student.service';
 import attendanceService from '@/services/attendance.service';
 import examService from '@/services/exam.service';
-import financeService from '@/services/finance.service';
-import classService from '@/services/class.service';
+import classService, { SchoolClass, Section } from '@/services/class.service';
+import api from '@/services/api';
+
+interface AttendanceRecord {
+  date: string;
+  status: 'present' | 'absent' | 'late' | string;
+  status_display?: string;
+}
+
+interface ResultRecord {
+  student: string;
+  exam_title?: string;
+  subject_name?: string;
+  obtained_marks?: number;
+  total_marks?: number;
+  percentage?: number;
+  is_pass?: boolean;
+  grade?: string;
+}
+
+interface FinanceData {
+  balance_due?: number;
+  total_invoices?: number;
+  total_amount?: number;
+  total_paid?: number;
+}
+
+interface StudentProfile extends Omit<Student, 'current_class' | 'current_section'> {
+  current_class?: string;
+  current_section?: string;
+  resolved_class_name?: string;
+  resolved_section_name?: string;
+}
 
 export default function StudentProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [student, setStudent] = useState(null);
-  const [attendance, setAttendance] = useState([]);
-  const [results, setResults] = useState([]);
-  const [finance, setFinance] = useState(null);
+  const [student, setStudent] = useState<StudentProfile | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [results, setResults] = useState<ResultRecord[]>([]);
+  const [finance, setFinance] = useState<FinanceData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [classMap, setClassMap] = useState(new Map());
-  const [sectionMap, setSectionMap] = useState(new Map());
+  const [classMap, setClassMap] = useState<Map<string, string>>(new Map());
+  const [sectionMap, setSectionMap] = useState<Map<string, string>>(new Map());
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadClassMaps();
@@ -39,56 +74,45 @@ export default function StudentProfilePage() {
   const loadClassMaps = async () => {
     try {
       const res = await classService.getAll();
-      const classes = res.data || [];
-      const newClassMap = new Map();
-      const newSectionMap = new Map();
+      const classes: SchoolClass[] = res.data || [];
+      const newClassMap = new Map<string, string>();
+      const newSectionMap = new Map<string, string>();
       
-      classes.forEach(cls => {
+      classes.forEach((cls: SchoolClass) => {
         newClassMap.set(cls.id, cls.name);
       });
       
-      // Load sections for each class
       for (const cls of classes) {
         try {
           const sectionsRes = await classService.getSections(cls.id);
-          const sections = sectionsRes.data || [];
-          sections.forEach(sec => {
+          const sections: Section[] = sectionsRes.data || [];
+          sections.forEach((sec: Section) => {
             newSectionMap.set(sec.id, sec.name);
-            console.log(`Section mapping: ${sec.id} -> ${sec.name}`);
           });
-        } catch (e) {
-          console.error('Error loading sections for class:', cls.id);
-        }
+        } catch (e) {}
       }
       
       setClassMap(newClassMap);
       setSectionMap(newSectionMap);
-      console.log('Section Map size:', newSectionMap.size);
     } catch (error) {
       console.error('Error loading class maps:', error);
     }
   };
 
   const fetchStudentData = async () => {
+    if (!id) return;
     try {
       const res = await studentService.getById(id);
-      const studentData = res.data;
+      const studentData: Student = res.data;
       
-      console.log('Student data:', studentData);
-      console.log('Student current_class:', studentData.current_class);
-      console.log('Student current_section:', studentData.current_section);
-      
-      // Resolve class name
       let className = studentData.current_class_name || '';
       if (!className && studentData.current_class && classMap.has(studentData.current_class)) {
-        className = classMap.get(studentData.current_class);
+        className = classMap.get(studentData.current_class) ?? '';
       }
       
-      // Resolve section name
       let sectionName = studentData.current_section_name || '';
       if (!sectionName && studentData.current_section && sectionMap.has(studentData.current_section)) {
-        sectionName = sectionMap.get(studentData.current_section);
-        console.log(`Resolved section: ${studentData.current_section} -> ${sectionName}`);
+        sectionName = sectionMap.get(studentData.current_section) ?? '';
       }
       
       setStudent({
@@ -99,6 +123,50 @@ export default function StudentProfilePage() {
     } catch (error) {
       console.error('Error fetching student:', error);
       toast.error('Failed to load student data');
+    }
+  };
+
+  const handleProfilePictureUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size should be less than 2MB');
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('profile_picture', file);
+
+    try {
+      const response = await api.patch(`/auth/students/${id}/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setStudent(prev => prev ? { ...prev, profile_picture: response.data.profile_picture } : prev);
+      toast.success('Profile picture updated successfully!');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      toast.error('Failed to upload profile picture');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveProfilePicture = async () => {
+    try {
+      await api.patch(`/auth/students/${id}/`, { profile_picture: null });
+      setStudent(prev => prev ? { ...prev, profile_picture: null } : prev);
+      toast.success('Profile picture removed');
+    } catch (error) {
+      console.error('Error removing profile picture:', error);
+      toast.error('Failed to remove profile picture');
     }
   };
 
@@ -121,13 +189,13 @@ export default function StudentProfilePage() {
   const fetchResults = async () => {
     try {
       const res = await examService.getResults();
-      let allResults = [];
+      let allResults: ResultRecord[] = [];
       if (Array.isArray(res.data)) {
         allResults = res.data;
-      } else if (res.data?.results) {
-        allResults = res.data.results;
+      } else if ((res.data as any)?.results) {
+        allResults = (res.data as any).results;
       }
-      const studentResults = allResults.filter(r => r.student === id);
+      const studentResults = allResults.filter((r: ResultRecord) => r.student === id);
       setResults(studentResults);
     } catch (error) {
       console.error('Error fetching results:', error);
@@ -136,9 +204,10 @@ export default function StudentProfilePage() {
   };
 
   const fetchFinanceData = async () => {
+    if (!id) return;
     try {
       const res = await studentService.get360View(id);
-      setFinance(res.data?.finance);
+      setFinance(res.data?.finance || null);
     } catch (error) {
       console.error('Error fetching finance data:', error);
       setFinance(null);
@@ -165,7 +234,7 @@ export default function StudentProfilePage() {
     return attendance.filter(a => a.status === 'late').length;
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-PK');
   };
@@ -194,15 +263,67 @@ export default function StudentProfilePage() {
   const passedExams = results.filter(r => r.is_pass === true).length;
   const displayClassName = student.resolved_class_name || student.current_class_name || 'Not Assigned';
   const displaySectionName = student.resolved_section_name || student.current_section_name || '';
+  const profilePictureUrl = student.profile_picture 
+    ? `http://localhost:8000${student.profile_picture}` 
+    : null;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      {/* Header with Profile Picture */}
+      <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/education/students')} className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="w-5 h-5" />
           </button>
+          
+          {/* Profile Picture */}
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden">
+              {profilePictureUrl ? (
+                <img 
+                  src={profilePictureUrl} 
+                  alt={student.full_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl font-bold text-white">
+                  {student.full_name?.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full hover:bg-blue-700 transition-colors"
+              disabled={uploading}
+              title="Upload Profile Picture"
+            >
+              {uploading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+            </button>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePictureUpload}
+              className="hidden"
+            />
+            
+            {profilePictureUrl && (
+              <button
+                onClick={handleRemoveProfilePicture}
+                className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                title="Remove Profile Picture"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          
           <div>
             <h1 className="text-2xl font-bold">{student.full_name}</h1>
             <p className="text-gray-500">{student.student_id}</p>
@@ -240,9 +361,7 @@ export default function StudentProfilePage() {
         </div>
         <div className="bg-emerald-50 rounded-xl p-4">
           <div className="flex items-center gap-2"><User className="w-5 h-5 text-emerald-600" /></div>
-          <Badge variant={student.is_active ? 'success' : 'secondary'} className="mt-1">
-            {student.is_active ? 'Active' : 'Inactive'}
-          </Badge>
+          <Badge variant={student.is_active ? 'success' : 'secondary'}>{student.is_active ? 'Active' : 'Inactive'}</Badge>
           <p className="text-xs text-gray-600 mt-2">Status</p>
         </div>
       </div>
@@ -258,54 +377,27 @@ export default function StudentProfilePage() {
         <TabsContent value="info">
           <Card>
             <CardHeader><CardTitle>Personal Information</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Basic Information</h3>
-                <div className="grid grid-cols-2 gap-4 pl-4">
-                  <div><label className="text-sm text-gray-500">Full Name</label><p className="font-medium">{student.full_name}</p></div>
-                  <div><label className="text-sm text-gray-500">Student ID</label><p className="font-mono">{student.student_id}</p></div>
-                  <div><label className="text-sm text-gray-500">Date of Birth</label><p>{student.date_of_birth ? formatDate(student.date_of_birth) : 'N/A'}</p></div>
-                  <div><label className="text-sm text-gray-500">Gender</label><p>{student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : 'N/A'}</p></div>
-                </div>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="text-sm text-gray-500">Full Name</label><p className="font-medium">{student.full_name}</p></div>
+                <div><label className="text-sm text-gray-500">Student ID</label><p className="font-mono">{student.student_id}</p></div>
+                <div><label className="text-sm text-gray-500">Date of Birth</label><p>{student.date_of_birth ? formatDate(student.date_of_birth) : 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Gender</label><p>{student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Email</label><p>{student.email || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Phone</label><p>{student.phone || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Father's Name</label><p>{student.father_name || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Mother's Name</label><p>{student.mother_name || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Guardian Name</label><p>{student.guardian_name || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Guardian Phone</label><p>{student.guardian_phone || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Emergency Contact</label><p>{student.emergency_contact || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Admission Date</label><p>{student.admission_date ? formatDate(student.admission_date) : 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Current Class</label><p>{displayClassName}</p></div>
+                <div><label className="text-sm text-gray-500">Current Section</label><p>{displaySectionName || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Street Address</label><p>{student.address || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">City</label><p>{student.city || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">State</label><p>{student.state || 'N/A'}</p></div>
+                <div><label className="text-sm text-gray-500">Postal Code</label><p>{student.postal_code || 'N/A'}</p></div>
               </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Contact Information</h3>
-                <div className="grid grid-cols-2 gap-4 pl-4">
-                  <div><label className="text-sm text-gray-500">Email</label><p>{student.email || 'N/A'}</p></div>
-                  <div><label className="text-sm text-gray-500">Phone</label><p>{student.phone || 'N/A'}</p></div>
-                  <div><label className="text-sm text-gray-500">Guardian Phone</label><p>{student.guardian_phone || 'N/A'}</p></div>
-                  <div><label className="text-sm text-gray-500">Emergency Contact</label><p>{student.emergency_contact || 'N/A'}</p></div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Family Information</h3>
-                <div className="grid grid-cols-2 gap-4 pl-4">
-                  <div><label className="text-sm text-gray-500">Father's Name</label><p>{student.father_name || 'N/A'}</p></div>
-                  <div><label className="text-sm text-gray-500">Mother's Name</label><p>{student.mother_name || 'N/A'}</p></div>
-                  <div><label className="text-sm text-gray-500">Guardian Name</label><p>{student.guardian_name || 'N/A'}</p></div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Academic Information</h3>
-                <div className="grid grid-cols-2 gap-4 pl-4">
-                  <div><label className="text-sm text-gray-500">Current Class</label><p>{displayClassName}</p></div>
-                  <div><label className="text-sm text-gray-500">Current Section</label><p>{displaySectionName || 'N/A'}</p></div>
-                  <div><label className="text-sm text-gray-500">Admission Date</label><p>{student.admission_date ? formatDate(student.admission_date) : 'N/A'}</p></div>
-                </div>
-              </div>
-
-              {student.address && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Address</h3>
-                  <div className="pl-4">
-                    <p>{student.address}</p>
-                    {(student.city || student.state) && <p>{[student.city, student.state].filter(Boolean).join(', ')} {student.postal_code}</p>}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -320,15 +412,15 @@ export default function StudentProfilePage() {
                   <p className="text-xs text-gray-500">Total Days</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-3 text-center">
-                  <div className="flex items-center justify-center gap-1"><CheckCircle className="w-4 h-4 text-green-600" /><p className="text-2xl font-bold text-green-700">{getPresentCount()}</p></div>
+                  <p className="text-2xl font-bold text-green-700">{getPresentCount()}</p>
                   <p className="text-xs text-gray-500">Present</p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-3 text-center">
-                  <div className="flex items-center justify-center gap-1"><XCircle className="w-4 h-4 text-red-600" /><p className="text-2xl font-bold text-red-700">{getAbsentCount()}</p></div>
+                  <p className="text-2xl font-bold text-red-700">{getAbsentCount()}</p>
                   <p className="text-xs text-gray-500">Absent</p>
                 </div>
                 <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                  <div className="flex items-center justify-center gap-1"><Clock className="w-4 h-4 text-yellow-600" /><p className="text-2xl font-bold text-yellow-700">{getLateCount()}</p></div>
+                  <p className="text-2xl font-bold text-yellow-700">{getLateCount()}</p>
                   <p className="text-xs text-gray-500">Late</p>
                 </div>
               </div>
@@ -346,7 +438,7 @@ export default function StudentProfilePage() {
                         <tr key={idx} className="border-t">
                           <td className="p-2">{record.date}</td>
                           <td className="p-2">
-                            <Badge variant={record.status === 'present' ? 'success' : record.status === 'late' ? 'warning' : 'danger'}>
+                            <Badge variant={record.status === 'present' ? 'success' : record.status === 'late' ? 'warning' : 'destructive'}>
                               {record.status === 'present' ? 'Present' : record.status === 'late' ? 'Late' : 'Absent'}
                             </Badge>
                           </td>
@@ -395,7 +487,7 @@ export default function StudentProfilePage() {
                           <td className="p-2">{result.obtained_marks} / {result.total_marks || 100}</td>
                           <td className="p-2">{result.percentage}%</td>
                           <td className="p-2">
-                            <Badge variant={result.is_pass ? 'success' : 'danger'}>{result.grade}</Badge>
+                            <Badge variant={result.is_pass ? 'success' : 'destructive'}>{result.grade || 'N/A'}</Badge>
                           </td>
                         </tr>
                       ))}

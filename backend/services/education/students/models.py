@@ -23,8 +23,10 @@ class Student(models.Model):
     current_section = models.ForeignKey('education_academics.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
     is_active = models.BooleanField(default=True)
     last_activity = models.DateTimeField(null=True, blank=True)
+    profile_picture = models.ImageField(upload_to='student_photos/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.full_name} ({self.student_id})"
+

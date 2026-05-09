@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TrendingUp, Users, Calendar, Award, PieChart, BarChart3, CheckCircle, XCircle } from 'lucide-react'
+import { TrendingUp, Users, Calendar, Award, PieChart, BarChart3, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Progress } from '@/components/ui/Progress'
 import { Badge } from '@/components/ui/Badge'

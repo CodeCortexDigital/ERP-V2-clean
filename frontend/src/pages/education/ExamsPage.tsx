@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Eye, Edit, Trash2, Calendar, Clock, Award } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Search, Eye, Edit, Trash2, Calendar, Clock, Award, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -27,6 +28,7 @@ const SAMPLE_EXAMS: Exam[] = [
 ]
 
 export default function ExamsPage() {
+  const navigate = useNavigate()
   const [exams, setExams] = useState<Exam[]>(SAMPLE_EXAMS)
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -68,12 +70,44 @@ export default function ExamsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Examinations</h1>
+          <h1 className="text-2xl font-bold">Examinations</h1>
           <p className="text-gray-500">Manage exams, schedules, and results</p>
         </div>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
           Schedule Exam
+        </Button>
+      </div>
+
+      {/* Top Navigation Buttons */}
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={() => navigate('/education/exams/dashboard')} variant="outline" className="flex items-center gap-2">
+          <Eye className="w-4 h-4" />
+          Overview
+        </Button>
+        <Button onClick={() => navigate('/education/exams/analytics')} variant="outline" className="flex items-center gap-2">
+          <Award className="w-4 h-4" />
+          Analytics
+        </Button>
+        <Button onClick={() => navigate('/education/exams/schedules')} variant="outline" className="flex items-center gap-2">
+          <Calendar className="w-4 h-4" />
+          Schedules
+        </Button>
+        <Button onClick={() => navigate('/education/exams/registrations')} variant="outline" className="flex items-center gap-2">
+          <Edit className="w-4 h-4" />
+          Registrations
+        </Button>
+        <Button onClick={() => navigate('/education/exams/results-entry')} variant="outline" className="flex items-center gap-2">
+          <Clock className="w-4 h-4" />
+          Results Entry
+        </Button>
+        <Button onClick={() => navigate('/education/exams/processing')} variant="outline" className="flex items-center gap-2">
+          <Award className="w-4 h-4" />
+          Result Publication
+        </Button>
+        <Button onClick={() => navigate('/education/exams/types')} variant="outline" className="flex items-center gap-2">
+          <Settings className="w-4 h-4" />
+          Exam Types
         </Button>
       </div>
 

@@ -11,18 +11,21 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true, // Listen on all addresses
     hmr: {
-      overlay: false
-    }
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['framer-motion', 'lucide-react'],
-          'form-vendor': ['react-hook-form', 'date-fns']
-        }
+      overlay: true,
+      // Use the same port for HMR
+      clientPort: 5173,
+      protocol: 'ws',
+    },
+    watch: {
+      usePolling: true, // Helps with WSL2 file system issues
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
       }
     }
   }

@@ -1,9 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, Users, BookOpen, Calendar, FileText,
+  LayoutDashboard, Users, Calendar, FileText,
   DollarSign, MessageSquare, Settings, GraduationCap,
   ClipboardList, BarChart3, ChevronLeft, ChevronRight,
-  Menu, X
+  X
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 
@@ -12,42 +12,76 @@ interface SidebarItemProps {
   label: string;
   href: string;
   collapsed: boolean;
+  subItems?: { label: string; href: string }[];
 }
 
-function SidebarItem({ icon, label, href, collapsed }: SidebarItemProps) {
+function SidebarItem({ icon, label, href, collapsed, subItems }: SidebarItemProps) {
   const location = useLocation();
-  const isActive = location.pathname === href || location.pathname.startsWith(href + '/');
-  
+  const isActive =
+    location.pathname === href ||
+    location.pathname.startsWith(href + '/') ||
+    !!subItems?.some((sub) => location.pathname === sub.href || location.pathname.startsWith(sub.href + '/'));
+
   return (
-    <NavLink
-      to={href}
-      className={`
-        flex items-center gap-3 px-3 py-2.5 rounded-xl
-        transition-all duration-200
-        ${collapsed ? 'justify-center' : 'justify-start'}
-        ${isActive 
-          ? 'bg-blue-600 text-white shadow-md' 
-          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-        }
-      `}
-      title={collapsed ? label : undefined}
-    >
-      <div className="flex-shrink-0">
-        {icon}
-      </div>
-      {!collapsed && (
-        <span className="text-sm font-medium truncate">{label}</span>
-      )}
-    </NavLink>
+    <div className="space-y-1">
+      <NavLink
+        to={href}
+        className={`
+          flex items-center gap-3 px-3 py-2.5 rounded-xl
+          transition-all duration-200
+          ${collapsed ? 'justify-center' : 'justify-start'}
+          ${isActive 
+            ? 'bg-blue-600 text-white shadow-md' 
+            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+          }
+        `}
+        title={collapsed ? label : undefined}
+      >
+        <div className="flex-shrink-0">
+          {icon}
+        </div>
+        {!collapsed && (
+          <span className="text-sm font-medium truncate">{label}</span>
+        )}
+      </NavLink>
+      {!collapsed && subItems?.length ? (
+        <div className="ml-10 flex flex-col gap-1">
+          {subItems.map((sub) => {
+            const subIsActive = location.pathname === sub.href || location.pathname.startsWith(sub.href + '/');
+            return (
+              <NavLink
+                key={sub.href}
+                to={sub.href}
+                className={
+                  `px-3 py-2 rounded-xl text-sm transition-all duration-200 ${
+                    subIsActive ? 'bg-blue-500 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`
+                }
+              >
+                {sub.label}
+              </NavLink>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 const navItems = [
   { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/dashboard' },
   { icon: <Users className="w-5 h-5" />, label: 'Students', href: '/education/students' },
-  { icon: <GraduationCap className="w-5 h-5" />, label: 'Academics', href: '/education/academics' },
+  {
+    icon: <GraduationCap className="w-5 h-5" />,
+    label: 'Academics',
+    href: '/education/academics',
+  },
   { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/education/attendance' },
-  { icon: <FileText className="w-5 h-5" />, label: 'Exams', href: '/education/exams' },
+  {
+    icon: <FileText className="w-5 h-5" />,
+    label: 'Exams',
+    href: '/education/exams',
+  },
   { icon: <DollarSign className="w-5 h-5" />, label: 'Finance', href: '/education/finance' },
   { icon: <ClipboardList className="w-5 h-5" />, label: 'Admissions', href: '/education/admissions' },
   { icon: <MessageSquare className="w-5 h-5" />, label: 'Communication', href: '/education/communication' },
@@ -96,6 +130,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
             label={item.label}
             href={item.href}
             collapsed={sidebarCollapsed && !isMobile}
+            subItems={item.subItems}
           />
         ))}
       </div>

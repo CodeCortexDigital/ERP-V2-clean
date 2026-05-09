@@ -5,9 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Progress } from '@/components/ui/Progress'
 
+const initialPublicationQueue = [
+  { id: 'midterm-cs101', title: 'Mid Term 2024 - CS101', students: 125, status: 'unpublished' },
+  { id: 'final-cs201', title: 'Final Term 2024 - CS201', students: 118, status: 'unpublished' },
+]
+
 export default function ResultProcessing() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [publicationQueue, setPublicationQueue] = useState(initialPublicationQueue)
 
   const handleProcess = () => {
     setIsProcessing(true)
@@ -19,8 +25,16 @@ export default function ResultProcessing() {
       if (p >= 100) {
         clearInterval(interval)
         setIsProcessing(false)
+        setPublicationQueue(prev => prev.map(item => ({ ...item, status: 'published' })))
       }
     }, 500)
+  }
+
+  const togglePublication = (id: string) => {
+    setPublicationQueue(prev => prev.map(item => item.id === id ? {
+      ...item,
+      status: item.status === 'published' ? 'unpublished' : 'published'
+    } : item))
   }
 
   return (
@@ -104,24 +118,30 @@ export default function ResultProcessing() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Processing Queue</CardTitle>
+          <CardTitle>Result Publication Queue</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium">Mid Term 2024 - CS101</p>
-                <p className="text-sm text-gray-500">125 students</p>
+            {publicationQueue.map(item => (
+              <div key={item.id} className="flex flex-col gap-3 p-4 bg-gray-50 rounded-lg md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-sm text-gray-500">{item.students} students</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Badge variant={item.status === 'published' ? 'success' : 'secondary'}>
+                    {item.status === 'published' ? 'Published' : 'Unpublished'}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant={item.status === 'published' ? 'outline' : 'default'}
+                    onClick={() => togglePublication(item.id)}
+                  >
+                    {item.status === 'published' ? 'Unpublish' : 'Publish'}
+                  </Button>
+                </div>
               </div>
-              <Badge>Pending</Badge>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium">Final Term 2024 - CS201</p>
-                <p className="text-sm text-gray-500">118 students</p>
-              </div>
-              <Badge>Pending</Badge>
-            </div>
+            ))}
           </div>
         </CardContent>
       </Card>

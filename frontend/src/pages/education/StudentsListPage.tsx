@@ -1,17 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
+  Search, ArrowUpDown, Edit2, MessageCircle,
   Users, TrendingUp, AlertCircle, CheckCircle,
-  ChevronLeft, ChevronRight, UserPlus, X, Eye
+  ChevronLeft, ChevronRight, UserPlus
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import studentService, { Student } from '@/services/student.service';
 import StudentDrawer from '@/components/students/StudentDrawer';
-import api from '@/services/api';
 import classService, { SchoolClass, Section } from '@/services/class.service';
 
 interface StudentWithData extends Student {
@@ -21,6 +19,7 @@ interface StudentWithData extends Student {
   priority?: string;
   class_name?: string;
   section_name?: string;
+  class_code?: string;
 }
 
 export default function StudentsListPage() {
@@ -37,7 +36,6 @@ export default function StudentsListPage() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showBulkBar, setShowBulkBar] = useState(false);
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [classMap, setClassMap] = useState<Map<string, string>>(new Map());
   const [sectionMap, setSectionMap] = useState<Map<string, string>>(new Map());
@@ -66,29 +64,31 @@ export default function StudentsListPage() {
       setClasses(classesData);
       
       // Build class map
-      const newClassMap = new Map();
-      classesData.forEach(cls => {
+      const newClassMap = new Map<string, string>();
+      classesData.forEach((cls: SchoolClass) => {
         newClassMap.set(cls.id, cls.name);
       });
       setClassMap(newClassMap);
       
       // Also create a map for class names by code for fallback
-      classesData.forEach(cls => {
-        newClassMap.set(cls.code, cls.name);
+      classesData.forEach((cls: SchoolClass) => {
+        if (cls.code) {
+          newClassMap.set(cls.code, cls.name);
+        }
       });
       
       console.log('Classes loaded:', classesData);
       console.log('Class Map:', Array.from(newClassMap.entries()));
       
       // Build section map
-      const newSectionMap = new Map();
-      const allSections = [];
+      const newSectionMap = new Map<string, string>();
+      const allSections: Section[] = [];
       for (const cls of classesData) {
         try {
           const sectionsRes = await classService.getSections(cls.id);
-          const sectionsData = sectionsRes.data || [];
+          const sectionsData: Section[] = sectionsRes.data || [];
           allSections.push(...sectionsData);
-          sectionsData.forEach(sec => {
+          sectionsData.forEach((sec: Section) => {
             newSectionMap.set(sec.id, sec.name);
           });
         } catch (e) {
@@ -107,20 +107,14 @@ export default function StudentsListPage() {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const params: any = {};
-      if (selectedClass) params.current_class = selectedClass;
-      if (selectedSection) params.current_section = selectedSection;
-      
-      const response = await studentService.getAll(params);
-      let studentData = [];
-      if (Array.isArray(response.data)) {
-        studentData = response.data;
-      } else if (response.data && Array.isArray(response.data.results)) {
-        studentData = response.data.results;
-      }
+      const response = await studentService.getAll();
+      const responseData = Array.isArray(response.data)
+        ? response.data
+        : ((response.data as any)?.results || []);
+      const studentData: Student[] = responseData || [];
       
       // Process students to add class and section names using the loaded maps
-      const studentsWithNames = studentData.map((student) => {
+      const studentsWithNames = studentData.map((student: Student) => {
         // Try multiple ways to get class name
         let className = 'Not Assigned';
         
@@ -225,7 +219,7 @@ export default function StudentsListPage() {
       case 'pending':
         return <Badge variant="warning">Pending</Badge>;
       case 'overdue':
-        return <Badge variant="danger">Overdue</Badge>;
+        return <Badge variant="destructive">Overdue</Badge>;
       default:
         return <Badge variant="secondary">-</Badge>;
     }

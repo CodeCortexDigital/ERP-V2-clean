@@ -47,13 +47,84 @@ export default function ExamResultsEntry() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="w-6 h-6 text-blue-600" />Results Entry</h1><p className="text-gray-500">Enter student exam results</p></div>
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <FileText className="w-6 h-6 text-blue-600" />
+          Results Entry
+        </h1>
+        <p className="text-gray-500">Enter student exam results</p>
+      </div>
 
-      <Card><CardContent className="pt-6"><div className="flex gap-4"><select className="flex-1 border rounded-lg p-2" value={selectedExam} onChange={(e) => setSelectedExam(e.target.value)}><option value="">Select Exam</option>{exams.map((e) => <option key={e.id} value={e.id}>{e.code} - {e.title}</option>)}</select><Button onClick={fetchRegistrations} disabled={!selectedExam}><RefreshCw className="w-4 h-4 mr-2" />Load Students</Button></div></CardContent></Card>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <select
+              className="flex-1 border rounded-lg p-2"
+              value={selectedExam}
+              onChange={(e) => setSelectedExam(e.target.value)}
+            >
+              <option value="">Select Exam</option>
+              {exams.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.code} - {e.title}
+                </option>
+              ))}
+            </select>
+            <Button onClick={fetchRegistrations} disabled={!selectedExam}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Load Students
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {loading && <div className="text-center py-8">Loading registrations...</div>}
 
-      {registrations.length > 0 && (<Card><CardHeader><CardTitle>Enter Marks ({registrations.length} students)</CardTitle></CardHeader><CardContent><div className="space-y-4">{registrations.map((reg) => (<div key={reg.student_id} className="flex items-center justify-between p-3 bg-gray-50 rounded"><div><div className="font-medium">{reg.student_name || reg.student_id}</div><div className="text-sm text-gray-500">Roll No: {reg.roll_number || '-'}</div></div><div className="flex items-center gap-3"><Input type="number" className="w-24" placeholder="Marks" value={results[reg.student_id] || ''} onChange={(e) => setResults({...results, [reg.student_id]: parseInt(e.target.value) || 0})} /> <span>/ 100</span></div></div>))}<div className="flex justify-end pt-4"><Button onClick={handleSave}><Save className="w-4 h-4 mr-2" />Save All Results</Button></div></div></CardContent></Card>}
+      {registrations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Enter Marks ({registrations.length} students)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {registrations.map((reg) => (
+                <div
+                  key={reg.student_id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded"
+                >
+                  <div>
+                    <div className="font-medium">{reg.student_name || reg.student_id}</div>
+                    <div className="text-sm text-gray-500">
+                      Roll No: {reg.roll_number || '-'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      className="w-24"
+                      placeholder="Marks"
+                      value={results[reg.student_id] ?? ''}
+                      onChange={(e) =>
+                        setResults({
+                          ...results,
+                          [reg.student_id]: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                    <span>/ 100</span>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-end pt-4">
+                <Button onClick={handleSave}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save All Results
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

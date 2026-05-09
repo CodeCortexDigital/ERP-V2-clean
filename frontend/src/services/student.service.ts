@@ -6,17 +6,27 @@ export interface Student {
   full_name: string;
   email: string;
   phone: string;
+  date_of_birth?: string;
+  admission_date?: string;
+  gender?: string;
+  guardian_name?: string;
+  emergency_contact?: string;
   father_name?: string;
   mother_name?: string;
   guardian_phone?: string;
-  program?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
   current_class?: string;
   current_section?: string;
+  current_class_name?: string;
+  current_section_name?: string;
   is_active: boolean;
-  enrollment_date?: string;
+  last_activity?: string;
+  profile_picture?: string;
   created_at?: string;
   updated_at?: string;
-  last_activity?: string;
 }
 
 export interface Student360Data {

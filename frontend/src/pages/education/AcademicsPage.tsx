@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, GraduationCap, BookOpen, Users, Plus, Edit2, Trash2, 
   ChevronRight, ChevronDown, School, Layers, Clock, X, RefreshCw,
@@ -45,6 +46,7 @@ interface Subject {
 }
 
 export default function AcademicsPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('years');
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -194,6 +196,42 @@ export default function AcademicsPage() {
         <Button onClick={fetchAllData} variant="outline">
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
+        </Button>
+      </div>
+
+      {/* Top Navigation Buttons */}
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={() => navigate('/education/curriculum')} variant="outline" className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4" />
+          Curriculum
+        </Button>
+        <Button onClick={() => navigate('/education/timetable')} variant="outline" className="flex items-center gap-2">
+          <Calendar className="w-4 h-4" />
+          Timetable
+        </Button>
+        <Button onClick={() => navigate('/education/progress')} variant="outline" className="flex items-center gap-2">
+          <Layers className="w-4 h-4" />
+          Progress Tracking
+        </Button>
+      </div>
+
+      {/* Top Navigation Buttons */}
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={() => navigate('/education/curriculum')} variant="outline" className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4" />
+          Curriculum
+        </Button>
+        <Button onClick={() => navigate('/education/teachers')} variant="outline" className="flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          Teachers
+        </Button>
+        <Button onClick={() => navigate('/education/timetable')} variant="outline" className="flex items-center gap-2">
+          <Calendar className="w-4 h-4" />
+          Timetable
+        </Button>
+        <Button onClick={() => navigate('/education/progress')} variant="outline" className="flex items-center gap-2">
+          <GraduationCap className="w-4 h-4" />
+          Progress Tracking
         </Button>
       </div>
 
