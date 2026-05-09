@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, User, Mail, Phone, Calendar, MapPin, Users, CreditCard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
 import { toast } from 'sonner';
 import studentService from '@/services/student.service';
 import classService from '@/services/class.service';
+import api from '@/services/api';
 
 export default function EditStudentPage() {
   const { id } = useParams();
@@ -17,47 +19,75 @@ export default function EditStudentPage() {
   const [sections, setSections] = useState([]);
   const [formData, setFormData] = useState({
     full_name: '',
+    student_id: '',
     email: '',
     phone: '',
+    date_of_birth: '',
+    gender: '',
     father_name: '',
     mother_name: '',
+    guardian_name: '',
     guardian_phone: '',
+    emergency_contact: '',
     current_class: '',
     current_section: '',
+    admission_date: '',
     address: '',
+    city: '',
+    state: '',
+    postal_code: '',
     is_active: true
   });
 
   useEffect(() => {
-    fetchStudent();
+    fetchStudentData();
     fetchClasses();
   }, [id]);
 
-  useEffect(() => {
-    if (formData.current_class) {
-      fetchSections();
-    }
-  }, [formData.current_class]);
-
-  const fetchStudent = async () => {
+  const fetchStudentData = async () => {
     try {
       const res = await studentService.getById(id);
       const student = res.data;
+      
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) return '';
+          return d.toISOString().split('T')[0];
+        } catch {
+          return '';
+        }
+      };
+      
       setFormData({
         full_name: student.full_name || '',
+        student_id: student.student_id || '',
         email: student.email || '',
         phone: student.phone || '',
+        date_of_birth: formatDate(student.date_of_birth),
+        gender: student.gender || '',
         father_name: student.father_name || '',
         mother_name: student.mother_name || '',
+        guardian_name: student.guardian_name || '',
         guardian_phone: student.guardian_phone || '',
+        emergency_contact: student.emergency_contact || '',
         current_class: student.current_class || '',
         current_section: student.current_section || '',
+        admission_date: formatDate(student.admission_date),
         address: student.address || '',
-        is_active: student.is_active !== false
+        city: student.city || '',
+        state: student.state || '',
+        postal_code: student.postal_code || '',
+        is_active: student.is_active !== undefined ? student.is_active : true
       });
+      
+      if (student.current_class) {
+        fetchSections(student.current_class);
+      }
     } catch (error) {
       console.error('Error fetching student:', error);
-      toast.error('Failed to load student');
+      toast.error('Failed to load student data');
     } finally {
       setLoading(false);
     }
@@ -72,9 +102,9 @@ export default function EditStudentPage() {
     }
   };
 
-  const fetchSections = async () => {
+  const fetchSections = async (classId) => {
     try {
-      const res = await classService.getSections(formData.current_class);
+      const res = await classService.getSections(classId);
       setSections(res.data || []);
     } catch (error) {
       console.error('Error fetching sections:', error);
@@ -82,27 +112,75 @@ export default function EditStudentPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await studentService.update(id, formData);
-      toast.success('Student updated successfully');
-      navigate(`/education/students/${id}`);
-    } catch (error) {
-      console.error('Error updating student:', error);
-      toast.error('Failed to update student');
-    } finally {
-      setSaving(false);
+  const handleClassChange = (classId) => {
+    setFormData({ ...formData, current_class: classId, current_section: '' });
+    if (classId) {
+      fetchSections(classId);
+    } else {
+      setSections([]);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    
+    try {
+      // Prepare data - only send fields that exist
+      const submitData = {
+        full_name: formData.full_name,
+        student_id: formData.student_id,
+        email: formData.email || '',
+        phone: formData.phone || '',
+        father_name: formData.father_name || '',
+        mother_name: formData.mother_name || '',
+        guardian_phone: formData.guardian_phone || '',
+        address: formData.address || '',
+        city: formData.city || '',
+        state: formData.state || '',
+        postal_code: formData.postal_code || '',
+        current_class: formData.current_class || null,
+        current_section: formData.current_section || null,
+        is_active: formData.is_active
+      };
+      
+      // Only add date fields if they have values
+      if (formData.date_of_birth) {
+        submitData.date_of_birth = formData.date_of_birth;
+      }
+      if (formData.admission_date) {
+        submitData.admission_date = formData.admission_date;
+      }
+      if (formData.gender) {
+        submitData.gender = formData.gender;
+      }
+      if (formData.guardian_name) {
+        submitData.guardian_name = formData.guardian_name;
+      }
+      if (formData.emergency_contact) {
+        submitData.emergency_contact = formData.emergency_contact;
+      }
+      
+      console.log('Submitting data to backend:', submitData);
+      
+      const response = await api.patch(`/auth/students/${id}/`, submitData);
+      console.log('Backend response:', response.data);
+      
+      toast.success('Student updated successfully!');
+      setTimeout(() => {
+        navigate(`/education/students/${id}`);
+      }, 1000);
+    } catch (error) {
+      console.error('Error updating student:', error);
+      if (error.response?.data) {
+        console.error('Error details:', error.response.data);
+        toast.error(JSON.stringify(error.response.data));
+      } else {
+        toast.error('Failed to update student');
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -131,40 +209,218 @@ export default function EditStudentPage() {
         </Button>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader><CardTitle>Personal Information</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Full Name *</label><Input name="full_name" value={formData.full_name} onChange={handleChange} required /></div>
-              <div><label className="block text-sm font-medium mb-1">Email</label><Input type="email" name="email" value={formData.email} onChange={handleChange} /></div>
-              <div><label className="block text-sm font-medium mb-1">Phone</label><Input name="phone" value={formData.phone} onChange={handleChange} /></div>
-              <div><label className="block text-sm font-medium mb-1">Father's Name</label><Input name="father_name" value={formData.father_name} onChange={handleChange} /></div>
-              <div><label className="block text-sm font-medium mb-1">Mother's Name</label><Input name="mother_name" value={formData.mother_name} onChange={handleChange} /></div>
-              <div><label className="block text-sm font-medium mb-1">Guardian Phone</label><Input name="guardian_phone" value={formData.guardian_phone} onChange={handleChange} /></div>
-            </CardContent>
-          </Card>
+      <form>
+        {/* Basic Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><User className="w-5 h-5" /> Basic Information</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Full Name *</Label>
+              <Input 
+                value={formData.full_name} 
+                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                required
+              />
+            </div>
+            <div>
+              <Label>Student ID *</Label>
+              <Input 
+                value={formData.student_id} 
+                onChange={(e) => setFormData({...formData, student_id: e.target.value})}
+                required
+              />
+            </div>
+            <div>
+              <Label>Date of Birth</Label>
+              <Input 
+                type="date" 
+                value={formData.date_of_birth} 
+                onChange={(e) => setFormData({...formData, date_of_birth: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Gender</Label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={formData.gender}
+                onChange={(e) => setFormData({...formData, gender: e.target.value})}
+              >
+                <option value="">Select Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader><CardTitle>Academic Information</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Class</label>
-                <select name="current_class" value={formData.current_class} onChange={handleChange} className="w-full border rounded-lg px-3 py-2">
-                  <option value="">Select Class</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+        {/* Contact Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Mail className="w-5 h-5" /> Contact Information</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Email</Label>
+              <Input 
+                type="email" 
+                value={formData.email} 
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input 
+                value={formData.phone} 
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Guardian Phone</Label>
+              <Input 
+                value={formData.guardian_phone} 
+                onChange={(e) => setFormData({...formData, guardian_phone: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Emergency Contact</Label>
+              <Input 
+                value={formData.emergency_contact} 
+                onChange={(e) => setFormData({...formData, emergency_contact: e.target.value})}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Family Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Family Information</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Father's Name</Label>
+              <Input 
+                value={formData.father_name} 
+                onChange={(e) => setFormData({...formData, father_name: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Mother's Name</Label>
+              <Input 
+                value={formData.mother_name} 
+                onChange={(e) => setFormData({...formData, mother_name: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label>Guardian Name</Label>
+              <Input 
+                value={formData.guardian_name} 
+                onChange={(e) => setFormData({...formData, guardian_name: e.target.value})}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Academic Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Calendar className="w-5 h-5" /> Academic Information</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Class</Label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={formData.current_class}
+                onChange={(e) => handleClassChange(e.target.value)}
+              >
+                <option value="">Select Class</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Section</Label>
+              <select 
+                className="w-full border rounded-lg px-3 py-2"
+                value={formData.current_section}
+                onChange={(e) => setFormData({...formData, current_section: e.target.value})}
+                disabled={!formData.current_class}
+              >
+                <option value="">Select Section</option>
+                {sections.map(s => <option key={s.id} value={s.id}>Section {s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>Admission Date</Label>
+              <Input 
+                type="date" 
+                value={formData.admission_date} 
+                onChange={(e) => setFormData({...formData, admission_date: e.target.value})}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Address Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5" /> Address Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Street Address</Label>
+              <Input 
+                value={formData.address} 
+                onChange={(e) => setFormData({...formData, address: e.target.value})}
+                placeholder="House #, Street, Area"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>City</Label>
+                <Input 
+                  value={formData.city} 
+                  onChange={(e) => setFormData({...formData, city: e.target.value})}
+                />
               </div>
-              <div><label className="block text-sm font-medium mb-1">Section</label>
-                <select name="current_section" value={formData.current_section} onChange={handleChange} className="w-full border rounded-lg px-3 py-2" disabled={!formData.current_class}>
-                  <option value="">Select Section</option>
-                  {sections.map(s => <option key={s.id} value={s.id}>Section {s.name}</option>)}
-                </select>
+              <div>
+                <Label>State</Label>
+                <Input 
+                  value={formData.state} 
+                  onChange={(e) => setFormData({...formData, state: e.target.value})}
+                />
               </div>
-              <div><label className="block text-sm font-medium mb-1">Address</label><textarea name="address" value={formData.address} onChange={handleChange} rows={3} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div className="flex items-center gap-2"><input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} id="is_active" /><label htmlFor="is_active" className="text-sm font-medium">Active Student</label></div>
-            </CardContent>
-          </Card>
-        </div>
+              <div>
+                <Label>Postal Code</Label>
+                <Input 
+                  value={formData.postal_code} 
+                  onChange={(e) => setFormData({...formData, postal_code: e.target.value})}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5" /> Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={formData.is_active}
+                onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                className="w-4 h-4"
+              />
+              <span>Active Student</span>
+            </label>
+          </CardContent>
+        </Card>
       </form>
     </div>
   );

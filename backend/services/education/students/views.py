@@ -112,3 +112,4 @@ def force_update_activity(request, student_id):
         return Response({'success': True, 'last_activity': student.last_activity})
     except Student.DoesNotExist:
         return Response({'error': 'Student not found'}, status=404)
+

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
 import { 
   Search, ArrowUpDown, Edit2, Trash2, MessageCircle, DollarSign,
   Users, TrendingUp, AlertCircle, CheckCircle,
@@ -10,7 +9,6 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { useForm } from 'react-hook-form';
 import studentService, { Student } from '@/services/student.service';
 import StudentDrawer from '@/components/students/StudentDrawer';
 import api from '@/services/api';
@@ -23,19 +21,6 @@ interface StudentWithData extends Student {
   priority?: string;
   class_name?: string;
   section_name?: string;
-}
-
-interface StudentFormData {
-  full_name: string;
-  email: string;
-  phone: string;
-  student_id: string;
-  father_name: string;
-  mother_name: string;
-  guardian_phone: string;
-  current_class?: string;
-  current_section?: string;
-  is_active?: boolean;
 }
 
 export default function StudentsListPage() {
@@ -58,17 +43,21 @@ export default function StudentsListPage() {
   const [sectionMap, setSectionMap] = useState<Map<string, string>>(new Map());
   const [sections, setSections] = useState<Section[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const itemsPerPage = 10;
   const navigate = useNavigate();
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm<StudentFormData>();
-  const selectedClassId = watch('current_class');
-
+  // First, load classes and sections
   useEffect(() => {
     loadClassesAndSections();
   }, []);
+
+  // Then load students after classes/sections are loaded
+  useEffect(() => {
+    if (isDataLoaded) {
+      fetchStudents();
+    }
+  }, [isDataLoaded, selectedClass, selectedSection]);
 
   const loadClassesAndSections = async () => {
     try {
@@ -76,12 +65,23 @@ export default function StudentsListPage() {
       const classesData = response.data || [];
       setClasses(classesData);
       
+      // Build class map
       const newClassMap = new Map();
       classesData.forEach(cls => {
         newClassMap.set(cls.id, cls.name);
       });
       setClassMap(newClassMap);
       
+      // Also create a map for class names by code for fallback
+      classesData.forEach(cls => {
+        newClassMap.set(cls.code, cls.name);
+      });
+      
+      console.log('Classes loaded:', classesData);
+      console.log('Class Map:', Array.from(newClassMap.entries()));
+      
+      // Build section map
+      const newSectionMap = new Map();
       const allSections = [];
       for (const cls of classesData) {
         try {
@@ -89,17 +89,18 @@ export default function StudentsListPage() {
           const sectionsData = sectionsRes.data || [];
           allSections.push(...sectionsData);
           sectionsData.forEach(sec => {
-            sectionMap.set(sec.id, sec.name);
+            newSectionMap.set(sec.id, sec.name);
           });
         } catch (e) {
           console.error('Error loading sections for class:', cls.id);
         }
       }
+      setSectionMap(newSectionMap);
       setSections(allSections);
-      fetchStudents();
+      setIsDataLoaded(true);
     } catch (error) {
       console.error('Error loading classes:', error);
-      fetchStudents();
+      setIsDataLoaded(true); // Still proceed to load students
     }
   };
 
@@ -118,22 +119,34 @@ export default function StudentsListPage() {
         studentData = response.data.results;
       }
       
+      // Process students to add class and section names using the loaded maps
       const studentsWithNames = studentData.map((student) => {
+        // Try multiple ways to get class name
         let className = 'Not Assigned';
-        let sectionName = '';
         
+        // Method 1: Use classMap by ID
         if (student.current_class && classMap.has(student.current_class)) {
           className = classMap.get(student.current_class) || 'Not Assigned';
         }
-        if (student.current_class_name) {
+        // Method 2: Direct from API
+        else if (student.current_class_name) {
           className = student.current_class_name;
         }
+        // Method 3: Look up by class code
+        else if (student.class_code && classMap.has(student.class_code)) {
+          className = classMap.get(student.class_code) || 'Not Assigned';
+        }
+        
+        // Get section name
+        let sectionName = '';
         if (student.current_section && sectionMap.has(student.current_section)) {
           sectionName = sectionMap.get(student.current_section) || '';
         }
         if (student.current_section_name) {
           sectionName = student.current_section_name;
         }
+        
+        console.log(`Student ${student.full_name}: class_id=${student.current_class}, resolved_class=${className}, section=${sectionName}`);
         
         return {
           ...student,
@@ -148,6 +161,7 @@ export default function StudentsListPage() {
       
       setStudents(studentsWithNames);
       
+      // Get 360 data for attendance and fees
       const enhancedPromises = studentsWithNames.map(async (student) => {
         try {
           const dashboard = await studentService.get360View(student.id);
@@ -262,6 +276,7 @@ export default function StudentsListPage() {
     setSelectedSection('');
     setSelectedStatus('');
     setSelectedFeeStatus('');
+    setLowAttendanceOnly(false);
   };
 
   const filteredStudents = students.filter(s => {
@@ -288,7 +303,6 @@ export default function StudentsListPage() {
     return matchesSearch && matchesClass && matchesSection && matchesStatus && matchesFeeStatus && matchesLowAttendance;
   });
 
-  // Sort students by student_id ascending by default
   const sortedStudents = [...filteredStudents].sort((a, b) => {
     const idA = a.student_id || '';
     const idB = b.student_id || '';
@@ -307,67 +321,6 @@ export default function StudentsListPage() {
   useEffect(() => {
     setShowBulkBar(selectedStudents.length > 0);
   }, [selectedStudents]);
-
-  const onSubmit = async (data: StudentFormData) => {
-    try {
-      const cleanData: any = {
-        full_name: data.full_name,
-        email: data.email,
-        phone: data.phone,
-        student_id: data.student_id,
-        father_name: data.father_name,
-        mother_name: data.mother_name,
-        guardian_phone: data.guardian_phone,
-        current_class: data.current_class,
-        current_section: data.current_section,
-        is_active: data.is_active !== undefined ? data.is_active : true
-      };
-      
-      if (editingStudent) {
-        await api.patch(`/auth/students/${editingStudent.id}/`, cleanData);
-        alert('Student updated successfully!');
-      } else {
-        await api.post('/auth/students/', cleanData);
-        alert('Student created successfully!');
-      }
-      setShowForm(false);
-      setEditingStudent(null);
-      loadClassesAndSections();
-    } catch (error: any) {
-      console.error('Error saving student:', error);
-      alert(error.response?.data?.error || 'Failed to save student');
-    }
-  };
-
-  useEffect(() => {
-    if (editingStudent) {
-      reset({
-        full_name: editingStudent.full_name,
-        email: editingStudent.email,
-        phone: editingStudent.phone || '',
-        student_id: editingStudent.student_id,
-        father_name: editingStudent.father_name || '',
-        mother_name: editingStudent.mother_name || '',
-        guardian_phone: editingStudent.guardian_phone || '',
-        current_class: editingStudent.current_class || '',
-        current_section: editingStudent.current_section || '',
-        is_active: editingStudent.is_active
-      });
-    } else {
-      reset({
-        full_name: '',
-        email: '',
-        phone: '',
-        student_id: '',
-        father_name: '',
-        mother_name: '',
-        guardian_phone: '',
-        current_class: '',
-        current_section: '',
-        is_active: true
-      });
-    }
-  }, [editingStudent, reset]);
 
   if (loading) {
     return (
@@ -505,7 +458,7 @@ export default function StudentsListPage() {
                 <td className="p-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} /></td>
                 <td className="p-3 font-mono text-xs font-medium">{student.student_id}</td>
                 <td className="p-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div><div><p className="font-medium">{student.full_name}</p></div></div></td>
-                <td className="p-3">{student.class_name || '-'}{student.section_name && <span className="text-xs text-gray-400 ml-1">({student.section_name})</span>}</td>
+                <td className="p-3">{student.class_name || '-'}{student.section_name ? ` (${student.section_name})` : ''}</td>
                 <td className="p-3"><div className="flex items-center gap-2"><span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>{student.attendance_percentage || 0}%</span>{(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}</div></td>
                 <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>
                 <td className="p-3"><span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(student.priority || 'normal')}`}>{getPriorityLabel(student.priority || 'normal')}</span></td>
