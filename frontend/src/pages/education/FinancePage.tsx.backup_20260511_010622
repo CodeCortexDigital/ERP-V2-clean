@@ -1013,11 +1013,6 @@ export default function FinancePage() {
                               </button>
                             </>
                           )}
-                          {(inv.status === 'issued' || inv.status === 'overdue') && (
-                            <button onClick={() => { setFormType('payment'); setPaymentFormData({ invoice_id: inv.id, amount: inv.amount - (inv.paid_amount || 0), payment_method: 'cash', transaction_id: '', notes: '' }); setShowForm(true); }} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Record Payment">
-                              <CreditCard className="w-4 h-4" />
-                            </button>
-                          )}
                           <button onClick={() => handleEditInvoice(inv)} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Edit">
                             <Edit2 className="w-4 h-4" />
                           </button>
