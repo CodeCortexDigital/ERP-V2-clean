@@ -13,7 +13,7 @@ export default function CommunicationPage() {
             <CardTitle>WhatsApp Integration</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-500">Coming soon...</p>
+            <p className="text-gray-500">WhatsApp automation is enabled for low-attendance alerts and overdue fee reminders. Configure templates and channel settings in the admin panel.</p>
           </CardContent>
         </Card>
         <Card>
@@ -21,7 +21,7 @@ export default function CommunicationPage() {
             <CardTitle>Auto Triggers</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-500">Coming soon...</p>
+            <p className="text-gray-500">Auto triggers support attendance risk alerts and can be extended to send payment reminders and academic notifications.</p>
           </CardContent>
         </Card>
       </div>

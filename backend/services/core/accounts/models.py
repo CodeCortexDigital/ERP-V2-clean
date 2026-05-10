@@ -9,6 +9,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from .tenant_models import Tenant
 
 class UserManager(BaseUserManager):
     """Custom user manager for email-based authentication."""
@@ -80,6 +81,7 @@ class User(AbstractUser):
     
     # Account Linking (Social)
     google_id = models.CharField(max_length=255, blank=True, null=True)
+    firebase_uid = models.CharField(max_length=255, blank=True, null=True, unique=True)
     github_id = models.CharField(max_length=255, blank=True, null=True)
     microsoft_id = models.CharField(max_length=255, blank=True, null=True)
     
@@ -201,6 +203,60 @@ class User(AbstractUser):
             self.save()
             return True
         return False
+
+class School(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='schools')
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=100, unique=True)
+    address = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'accounts_school'
+        indexes = [
+            models.Index(fields=['code']),
+            models.Index(fields=['tenant']),
+        ]
+
+    def __str__(self):
+        return self.name
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    firebase_uid = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    role = models.ForeignKey('rbac_models.Role', null=True, blank=True, on_delete=models.SET_NULL, related_name='profiles')
+    school = models.ForeignKey(School, null=True, blank=True, on_delete=models.SET_NULL, related_name='profiles')
+    is_verified = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'accounts_user_profile'
+
+    def __str__(self):
+        return f'{self.user.email} profile'
+
+class OrganizationMembership(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organization_memberships')
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='organization_memberships')
+    role = models.ForeignKey('rbac_models.Role', null=True, blank=True, on_delete=models.SET_NULL, related_name='organization_memberships')
+    is_active = models.BooleanField(default=True)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = 'accounts_organization_membership'
+        unique_together = [['user', 'tenant']]
+
+    def __str__(self):
+        return f'{self.user.email} @ {self.tenant.name}'
 
 class UserActivity(models.Model):
     """Track user activities for audit and history."""

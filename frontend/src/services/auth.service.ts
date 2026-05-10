@@ -24,9 +24,9 @@ const authService = {
   demoLogin: (name?: string) => 
     api.post<LoginResponse>('/auth/demo/', { name: name || 'Demo User' }),
   
-  // Google OAuth login
+  // Firebase / Google OAuth login
   googleLogin: (token: string) => 
-    api.post<LoginResponse>('/auth/google/', { token }),
+    api.post<LoginResponse>('/auth/firebase/login/', { id_token: token }),
   
   // Get current user
   getCurrentUser: () => 

@@ -10,6 +10,7 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 import StudentsListPage from './pages/education/StudentsListPage'
 import StudentProfilePage from './pages/education/students/StudentProfilePage'
 import EditStudentPage from './pages/education/students/EditStudentPage'
+import AddStudentPage from './pages/education/students/AddStudentPage'
 import CoursesListPage from './pages/education/CoursesListPage'
 import TeachersManagementPage from './pages/education/teachers/TeachersManagement'
 import TeacherProfilePage from './pages/education/teachers/TeacherProfilePage'
@@ -67,6 +68,7 @@ function App() {
               
               {/* Education Routes */}
               <Route path="education/students" element={<StudentsListPage />} />
+              <Route path="education/students/add" element={<AddStudentPage />} />
               <Route path="education/students/:id" element={<StudentProfilePage />} />
               <Route path="education/students/:id/edit" element={<EditStudentPage />} />
               <Route path="education/courses" element={<CoursesListPage />} />
@@ -90,11 +92,11 @@ function App() {
               <Route path="education/timetable" element={<TimetableManagement />} />
               <Route path="education/timetable/view" element={<TimetableViewPage />} />
               <Route path="education/timetable/periods" element={<PeriodManagementPage />} />
-              <Route path="education/timetable/edit" element={<TimetableEditorPage />} />
+              <Route path="education/timetable/editor" element={<TimetableEditorPage />} />
               <Route path="education/progress" element={<ProgressTrackingPage />} />
               <Route path="education/progress/lesson-planner" element={<LessonPlannerPage />} />
               <Route path="education/progress/coverage" element={<CoverageDashboardPage />} />
-              <Route path="education/progress/student" element={<StudentProgressPage />} />
+              <Route path="education/progress/students" element={<StudentProgressPage />} />
               <Route path="education/admissions" element={<AdmissionsPage />} />
               <Route path="education/admissions/new" element={<NewApplicationPage />} />
               <Route path="education/finance" element={<FinancePage />} />

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice Receipt - {{ invoice.invoice_number }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .school-name { font-size: 24px; font-weight: bold; }
+        .receipt-title { font-size: 18px; margin-top: 10px; }
+        .invoice-details { margin: 20px 0; }
+        .detail-row { display: flex; margin: 5px 0; }
+        .label { font-weight: bold; width: 150px; }
+        .value { flex: 1; }
+        .amount-section { margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }
+        .payments-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .payments-table th, .payments-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .payments-table th { background-color: #f2f2f2; }
+        .total-row { font-weight: bold; background-color: #e9e9e9; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        @media print { body { margin: 0; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="school-name">{{ school_name }}</div>
+        <div class="receipt-title">INVOICE RECEIPT</div>
+    </div>
+
+    <div class="invoice-details">
+        <div class="detail-row">
+            <span class="label">Invoice Number:</span>
+            <span class="value">{{ invoice.invoice_number }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Student ID:</span>
+            <span class="value">{{ invoice.student.student_id }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Student Name:</span>
+            <span class="value">{{ invoice.student.full_name }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Class:</span>
+            <span class="value">{{ invoice.student.class_ref.name }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Issue Date:</span>
+            <span class="value">{{ invoice.issue_date|date:"M d, Y" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Due Date:</span>
+            <span class="value">{{ invoice.due_date|date:"M d, Y" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Status:</span>
+            <span class="value">{{ invoice.get_status_display }}</span>
+        </div>
+        {% if invoice.fee_structure %}
+        <div class="detail-row">
+            <span class="label">Fee Type:</span>
+            <span class="value">{{ invoice.fee_structure.fee_name }}</span>
+        </div>
+        {% endif %}
+        {% if invoice.description %}
+        <div class="detail-row">
+            <span class="label">Description:</span>
+            <span class="value">{{ invoice.description }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="amount-section">
+        <div class="detail-row">
+            <span class="label">Total Amount:</span>
+            <span class="value">${{ invoice.amount }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Amount Paid:</span>
+            <span class="value">${{ invoice.paid_amount }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="label">Balance Due:</span>
+            <span class="value">${{ invoice.balance_due }}</span>
+        </div>
+    </div>
+
+    {% if payments %}
+    <h3>Payment History</h3>
+    <table class="payments-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Transaction ID</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payment in payments %}
+            <tr>
+                <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                <td>${{ payment.amount }}</td>
+                <td>{{ payment.get_payment_method_display }}</td>
+                <td>{{ payment.transaction_id|default:"-" }}</td>
+                <td>{{ payment.notes|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <div class="footer">
+        <p>Generated on {{ generated_date|date:"M d, Y H:i" }}</p>
+        <p>This is a computer-generated receipt.</p>
+    </div>
+</body>
+</html>

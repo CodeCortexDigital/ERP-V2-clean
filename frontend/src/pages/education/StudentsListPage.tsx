@@ -34,6 +34,7 @@ export default function StudentsListPage() {
   const [sortField, setSortField] = useState('student_id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [bulkLoading, _setBulkLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showBulkBar, setShowBulkBar] = useState(false);
   const [classes, setClasses] = useState<SchoolClass[]>([]);

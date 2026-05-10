@@ -44,6 +44,15 @@ class MessageTemplate(models.Model):
     tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def render(self, context=None):
+        rendered = self.body
+        context = context or {}
+        for key, value in context.items():
+            placeholder = f'{{{{ {key} }}}}'
+            rendered = rendered.replace(placeholder, str(value))
+            rendered = rendered.replace(f'{{{key}}}', str(value))
+        return rendered
+
     def __str__(self):
         return self.name
 

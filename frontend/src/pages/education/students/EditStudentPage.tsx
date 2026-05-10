@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, User, Calendar, MapPin, CreditCard } from 'lucide-react';
+import { ArrowLeft, Save, User, Mail, MapPin, Calendar, Users, CreditCard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -15,8 +15,8 @@ export default function EditStudentPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [classes, setClasses] = useState([]);
-  const [sections, setSections] = useState([]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [formData, setFormData] = useState({
     full_name: '',
     student_id: '',
@@ -50,7 +50,7 @@ export default function EditStudentPage() {
       const res = await studentService.getById(id);
       const student: Student = res.data;
       
-      const formatDate = (dateStr) => {
+      const formatDate = (dateStr?: string | null) => {
         if (!dateStr) return '';
         try {
           const d = new Date(dateStr);
@@ -122,13 +122,12 @@ export default function EditStudentPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     
     try {
-      // Prepare data - only send fields that exist
-      const submitData = {
+      const submitData: any = {
         full_name: formData.full_name,
         student_id: formData.student_id,
         email: formData.email || '',
@@ -145,7 +144,6 @@ export default function EditStudentPage() {
         is_active: formData.is_active
       };
       
-      // Only add date fields if they have values
       if (formData.date_of_birth) {
         submitData.date_of_birth = formData.date_of_birth;
       }
@@ -171,11 +169,14 @@ export default function EditStudentPage() {
       setTimeout(() => {
         navigate(`/education/students/${id}`);
       }, 1000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating student:', error);
       if (error.response?.data) {
         console.error('Error details:', error.response.data);
-        toast.error(JSON.stringify(error.response.data));
+        const errorMsg = typeof error.response.data === 'object' 
+          ? JSON.stringify(error.response.data) 
+          : error.response.data;
+        toast.error(errorMsg);
       } else {
         toast.error('Failed to update student');
       }
@@ -210,7 +211,7 @@ export default function EditStudentPage() {
         </Button>
       </div>
 
-      <form>
+      <form onSubmit={handleSubmit}>
         {/* Basic Information */}
         <Card className="mb-6">
           <CardHeader>
@@ -339,7 +340,7 @@ export default function EditStudentPage() {
                 onChange={(e) => handleClassChange(e.target.value)}
               >
                 <option value="">Select Class</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
@@ -351,7 +352,7 @@ export default function EditStudentPage() {
                 disabled={!formData.current_class}
               >
                 <option value="">Select Section</option>
-                {sections.map(s => <option key={s.id} value={s.id}>Section {s.name}</option>)}
+                {sections.map((s: any) => <option key={s.id} value={s.id}>Section {s.name}</option>)}
               </select>
             </div>
             <div>

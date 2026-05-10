@@ -1,16 +1,45 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
-import { Mail, Lock, LogIn, Sparkles } from 'lucide-react';
+import { Mail, Lock, LogIn, Sparkles, Chrome } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@code.com');
   const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, demoLogin } = useAuth();
+  const { login, demoLogin, googleLogin } = useAuth();
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    const token = credentialResponse?.credential;
+    if (!token) {
+      setError('Google sign-in failed. Please try again.');
+      setGoogleLoading(false);
+      return;
+    }
+
+    try {
+      await googleLogin(token);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Google login failed');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const googleLoginTrigger = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => {
+      setError('Google sign-in failed. Please try again.');
+      setGoogleLoading(false);
+    },
+    flow: 'implicit',
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +94,7 @@ export default function LoginPage() {
           <button
             onClick={handleDemoLogin}
             disabled={demoLoading}
-            className="w-full mb-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-medium hover:from-green-600 hover:to-emerald-700 transition flex items-center justify-center gap-2"
+            className="w-full mb-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-medium hover:from-green-600 hover:to-emerald-700 transition flex items-center justify-center gap-2"
           >
             {demoLoading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -73,6 +102,25 @@ export default function LoginPage() {
               <>
                 <Sparkles className="w-5 h-5" />
                 Try Free Demo (No Signup)
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setGoogleLoading(true);
+              setError('');
+              googleLoginTrigger();
+            }}
+            disabled={googleLoading}
+            className="w-full mb-6 border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition flex items-center justify-center gap-2"
+          >
+            {googleLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
+            ) : (
+              <>
+                <Chrome className="w-5 h-5" />
+                Continue with Google
               </>
             )}
           </button>

@@ -141,32 +141,39 @@ class FirebaseAuthenticationBackend:
         """
         from services.core.accounts.models import User
         
-        # Try to find user by google_id or email
         email = firebase_user.email
         uid = firebase_user.uid
         
         try:
-            user = User.objects.get(google_id=uid)
+            user = User.objects.get(firebase_uid=uid)
             return user
         except User.DoesNotExist:
             pass
         
         try:
             user = User.objects.get(email=email)
-            # Link Google ID if not set
-            if not user.google_id:
-                user.google_id = uid
-                user.save(update_fields=['google_id'])
+            # Link Firebase UID if not set
+            if not user.firebase_uid:
+                user.firebase_uid = uid
+                user.save(update_fields=['firebase_uid'])
             return user
         except User.DoesNotExist:
             pass
+        
+        google_id = None
+        provider_data = getattr(firebase_user, 'provider_data', []) or []
+        for provider in provider_data:
+            if getattr(provider, 'provider_id', '') == 'google.com':
+                google_id = uid
+                break
         
         # Create new user
         user = User.objects.create_user(
             email=email,
             password=None,  # No password for OAuth users
             full_name=firebase_user.display_name or '',
-            google_id=uid,
+            firebase_uid=uid,
+            google_id=google_id,
             email_verified=firebase_user.email_verified,
             is_active=True
         )
@@ -227,14 +234,14 @@ def verify_firebase_token(token):
     backend = FirebaseAuthenticationBackend()
     return backend.verify_firebase_token(token)
 
-def get_user_from_firebase(google_id):
+def get_user_from_firebase(firebase_uid):
     """
-    Get user by Google ID
+    Get user by Firebase UID
     """
     from services.core.accounts.models import User
     
     try:
-        return User.objects.get(google_id=google_id)
+        return User.objects.get(firebase_uid=firebase_uid)
     except User.DoesNotExist:
         return None
 

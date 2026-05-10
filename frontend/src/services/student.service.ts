@@ -22,9 +22,10 @@ export interface Student {
   current_section?: string;
   current_class_name?: string;
   current_section_name?: string;
+  class_code?: string;
   is_active: boolean;
   last_activity?: string;
-  profile_picture?: string;
+  profile_picture?: string | null;
   created_at?: string;
   updated_at?: string;
 }

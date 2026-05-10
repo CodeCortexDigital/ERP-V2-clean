@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     
     # Core apps
     'services.core.accounts',
+    'services.rbac_models',
     
     # Education apps
     'services.education.academics',

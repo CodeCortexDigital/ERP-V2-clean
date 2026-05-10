@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, X, Plus, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -130,8 +130,8 @@ export default function TimetableEditorPage() {
 
                     {/* Grid rows */}
                     {PERIODS.map(period => (
-                      <>
-                        <div key={`period-${period}`} className="font-bold text-gray-600 bg-gray-50 p-2 text-center border border-gray-200">
+                      <React.Fragment key={`period-row-${period}`}>
+                        <div className="font-bold text-gray-600 bg-gray-50 p-2 text-center border border-gray-200">
                           {period}
                         </div>
                         {DAYS.map(day => {
@@ -156,7 +156,7 @@ export default function TimetableEditorPage() {
                             </div>
                           )
                         })}
-                      </>
+                      </React.Fragment>
                     ))}
                   </div>
                 </div>

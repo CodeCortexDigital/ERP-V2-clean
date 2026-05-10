@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/auth/finance/', include('services.education.finance.urls')),
     path('api/auth/academics/', include('services.education.academics.urls')),
     path('api/auth/admissions/', include('services.education.admissions.urls')),
+    path('api/auth/analytics/', include('services.analytics.urls')),
     path('api/education/', include('services.education.urls')),
 ]
 
