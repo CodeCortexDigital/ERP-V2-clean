@@ -143,6 +143,10 @@ class PaymentListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(payment_method=payment_method)
         
         return queryset.order_by('-payment_date')
+    
+    def perform_create(self, serializer):
+        """Automatically set received_by to current user"""
+        serializer.save(received_by=self.request.user)
 
 
 class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -517,7 +521,7 @@ def invoice_pdf(request, invoice_id):
         student_data = [
             ['Student ID:', invoice.student.student_id],
             ['Student Name:', invoice.student.full_name],
-            ['Class:', invoice.student.class_ref.name if invoice.student.class_ref else 'N/A'],
+            ['Class:', invoice.student.current_class.name if invoice.student.current_class else 'N/A'],
         ]
         
         student_table = Table(student_data, colWidths=[120, 200])
@@ -625,7 +629,7 @@ def defaulter_report_pdf(request):
             defaulters.append({
                 'student_id': invoice.student.student_id,
                 'student_name': invoice.student.full_name,
-                'class_name': invoice.student.class_ref.name if invoice.student.class_ref else '',
+                'class_name': invoice.student.current_class.name if invoice.student.current_class else '',
                 'invoice_number': invoice.invoice_number,
                 'amount_due': float(invoice.balance_due),
                 'days_overdue': days_overdue,
@@ -1077,8 +1081,8 @@ def send_fee_reminder(request, invoice_id):
             action='email_reminder_sent',
             user=request.user,
             details=f"Fee reminder sent to {invoice.student.email} for invoice {invoice.invoice_number}",
-            old_values={},
-            new_values={'email_sent': True}
+            old_value={},
+            new_value={'email_sent': True}
         )
         
         return Response({
@@ -1141,8 +1145,8 @@ def send_payment_confirmation(request, payment_id):
             action='email_confirmation_sent',
             user=request.user,
             details=f"Payment confirmation sent to {payment.invoice.student.email} for payment {payment.id}",
-            old_values={},
-            new_values={'email_sent': True}
+            old_value={},
+            new_value={'email_sent': True}
         )
         
         return Response({
@@ -1211,8 +1215,8 @@ def send_defaulter_notice(request, invoice_id):
             action='defaulter_notice_sent',
             user=request.user,
             details=f"Defaulter notice sent to {invoice.student.email} for invoice {invoice.invoice_number}",
-            old_values={},
-            new_values={'notice_sent': True}
+            old_value={},
+            new_value={'notice_sent': True}
         )
         
         return Response({
@@ -1276,8 +1280,8 @@ def send_defaulter_whatsapp_notice(request, invoice_id):
             action='defaulter_whatsapp_notice_queued',
             user=request.user,
             details=f"WhatsApp defaulter notice queued for {invoice.student.phone} on invoice {invoice.invoice_number}",
-            old_values={},
-            new_values={'notice_channel': 'whatsapp', 'message_id': str(whatsapp_message.id)}
+            old_value={},
+            new_value={'notice_channel': 'whatsapp', 'message_id': str(whatsapp_message.id)}
         )
 
         return Response({
@@ -1355,8 +1359,8 @@ def bulk_send_reminders(request):
                     action='bulk_email_reminder_sent',
                     user=request.user,
                     details=f"Bulk fee reminder sent to {invoice.student.email} for invoice {invoice.invoice_number}",
-                    old_values={},
-                    new_values={'email_sent': True}
+                    old_value={},
+                    new_value={'email_sent': True}
                 )
                 
                 results.append({

@@ -21,7 +21,14 @@ const financeService = {
   // Payments
   getPayments: (params?: any) => api.get('/auth/finance/payments/', { params }),
   getPayment: (id: string) => api.get(`/auth/finance/payments/${id}/`),
-  createPayment: (data: any) => api.post('/auth/finance/payments/', data),
+  createPayment: (data: any) => {
+    const payload = {
+      ...data,
+      invoice: data.invoice_id ?? data.invoice,
+    };
+    delete payload.invoice_id;
+    return api.post('/auth/finance/payments/', payload);
+  },
   deletePayment: (id: string) => api.delete(`/auth/finance/payments/${id}/`),
 
   // Payment Receipts

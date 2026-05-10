@@ -69,7 +69,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = '__all__'
-        read_only_fields = ('payment_date',)
+        read_only_fields = ('payment_date', 'received_by')
 
 
 class TransactionLogSerializer(serializers.ModelSerializer):

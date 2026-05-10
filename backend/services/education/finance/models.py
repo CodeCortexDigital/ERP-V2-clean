@@ -90,7 +90,7 @@ class Invoice(models.Model):
         # Find applicable late fee rule
         rule = LateFeeRule.objects.filter(
             is_active=True,
-            applicable_classes__in=[self.student.class_ref]
+            applicable_classes__in=[self.student.current_class]
         ).first()
         
         if not rule:
@@ -317,8 +317,8 @@ class TransactionLog(models.Model):
     model_name = models.CharField(max_length=50)
     object_id = models.CharField(max_length=100)
     object_name = models.CharField(max_length=200)
-    old_value = models.JSONField(null=True, blank=True)
-    new_value = models.JSONField(null=True, blank=True)
+    old_values = models.JSONField(null=True, blank=True)
+    new_values = models.JSONField(null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
