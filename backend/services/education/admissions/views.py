@@ -86,6 +86,12 @@ def convert_to_student(request, id):
                 {'error': f'Only approved applications can be converted. Status: {application.status}'},
                 status=400
             )
+
+        if application.converted_to_student is not None or application.status == 'enrolled':
+            return Response(
+                {'error': 'This application has already been converted to a student.'},
+                status=400
+            )
         
         applicant = application.applicant
         
@@ -100,27 +106,42 @@ def convert_to_student(request, id):
         student_id = f"STU-{uuid.uuid4().hex[:8].upper()}"
         
         with transaction.atomic():
-            # Create student - only use fields that exist in the model
+            section = None
+            if school_class and applicant.applying_for_section:
+                section = Section.objects.filter(class_ref=school_class, name=applicant.applying_for_section).first()
+
+            gender_map = {
+                'M': 'male',
+                'F': 'female',
+                'O': 'other'
+            }
+
             student = Student.objects.create(
                 student_id=student_id,
                 full_name=applicant.full_name,
                 email=applicant.email,
                 phone=applicant.phone,
-                # Note: father_name exists, father_phone may not exist
                 father_name=applicant.father_name,
                 mother_name=applicant.mother_name or '',
+                guardian_name=applicant.guardian_name or '',
+                guardian_phone=applicant.guardian_phone or '',
+                address=applicant.address or '',
                 current_class=school_class,
+                current_section=section,
+                gender=gender_map.get(applicant.gender, 'other'),
+                admission_date=timezone.now().date(),
                 is_active=True
             )
-            
-            # Update application
+
             application.status = 'enrolled'
+            application.converted_to_student = student
             application.save()
-        
+
         return Response({
             'success': True,
             'message': f'Successfully converted {applicant.full_name} to student',
-            'student_id': str(student.id),
+            'student_id': str(student.student_id),
+            'student_uuid': str(student.id),
             'student_name': student.full_name
         })
         
