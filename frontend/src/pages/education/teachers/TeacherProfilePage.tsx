@@ -20,58 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
-
-interface Teacher {
-  id: number
-  teacher_id: string
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-  department: string
-  specialization: string
-  qualification: string
-  joining_date: string
-  status: 'active' | 'on_leave' | 'inactive'
-  bio: string
-  courses: string[]
-  location: string
-}
-
-const SAMPLE_TEACHERS: Teacher[] = [
-  {
-    id: 1,
-    teacher_id: 'TCH-001',
-    first_name: 'Dr. Ahmed',
-    last_name: 'Raza',
-    email: 'ahmed.raza@edu.com',
-    phone: '+92 300 1111111',
-    department: 'Computer Science',
-    specialization: 'AI & Machine Learning',
-    qualification: 'PhD',
-    joining_date: '2020-08-15',
-    status: 'active',
-    bio: 'Experienced lecturer in artificial intelligence, machine learning, and data science with a passion for student mentoring.',
-    courses: ['CS101', 'CS202'],
-    location: 'Main Campus',
-  },
-  {
-    id: 2,
-    teacher_id: 'TCH-002',
-    first_name: 'Prof. Sara',
-    last_name: 'Khan',
-    email: 'sara.khan@edu.com',
-    phone: '+92 321 2222222',
-    department: 'Mathematics',
-    specialization: 'Calculus',
-    qualification: 'MPhil',
-    joining_date: '2019-01-10',
-    status: 'active',
-    bio: 'Dedicated mathematics instructor focused on interactive learning and practical problem solving.',
-    courses: ['MATH101', 'MATH202'],
-    location: 'Science Block',
-  },
-]
+import teacherService, { Teacher } from '@/services/teacher.service'
 
 const SUBJECT_OPTIONS = [
   'Computer Science Fundamentals',
@@ -100,29 +49,42 @@ export default function TeacherProfilePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [teacher, setTeacher] = useState<Teacher | null>(null)
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('profile')
   const [subjectToAssign, setSubjectToAssign] = useState<SubjectOption>(SUBJECT_OPTIONS[0])
   const [assignedSubjects, setAssignedSubjects] = useState<SubjectOption[]>([])
   const [availability, setAvailability] = useState<AvailabilityState>(DEFAULT_AVAILABILITY)
 
-  const teacherEmailToIdMap: Record<string, number> = {
-    'teacher@test.com': 1,
-    'teacher@erp.com': 1,
+  const teacherEmailToIdMap: Record<string, string> = {
+    'teacher@test.com': '1',
+    'teacher@erp.com': '1',
   }
 
   useEffect(() => {
     const normalizedEmail = user?.email?.toLowerCase() ?? ''
     const defaultTeacherId = teacherEmailToIdMap[normalizedEmail]
-    const teacherId = id ? Number(id) : defaultTeacherId
+    const teacherId = id || defaultTeacherId
 
-    if (!teacherId) return
-
-    const found = SAMPLE_TEACHERS.find((item) => item.id === teacherId)
-    if (found) {
-      setTeacher(found)
-      setAssignedSubjects(found.courses as SubjectOption[])
+    if (!teacherId) {
+      setLoading(false)
+      return
     }
+
+    loadTeacher(teacherId)
   }, [id, user?.email])
+
+  const loadTeacher = async (teacherId: string) => {
+    try {
+      const response = await teacherService.getById(teacherId)
+      const teacherData = response.data
+      setTeacher(teacherData)
+      setAssignedSubjects(teacherData.courses || [])
+    } catch (error) {
+      console.error('Error loading teacher:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const teacherName = useMemo(
     () => `${teacher?.first_name || ''} ${teacher?.last_name || ''}`.trim(),
@@ -151,6 +113,14 @@ export default function TeacherProfilePage() {
         [field]: value,
       },
     }))
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   if (!teacher) {

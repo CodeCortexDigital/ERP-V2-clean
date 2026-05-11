@@ -1,34 +1,31 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Eye, Edit, Trash2, Mail, Phone, BookOpen, Calendar, Award } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
-
-interface Teacher {
-  id: number
-  teacher_id: string
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-  department: string
-  specialization: string
-  qualification: string
-  joining_date: string
-  status: 'active' | 'on_leave' | 'inactive'
-  courses: string[]
-}
-
-const SAMPLE_TEACHERS: Teacher[] = [
-  { id: 1, teacher_id: 'TCH-001', first_name: 'Dr. Ahmed', last_name: 'Raza', email: 'ahmed.raza@edu.com', phone: '+92 300 1111111', department: 'Computer Science', specialization: 'AI & Machine Learning', qualification: 'PhD', joining_date: '2020-08-15', status: 'active', courses: ['CS101', 'CS202'] },
-  { id: 2, teacher_id: 'TCH-002', first_name: 'Prof. Sara', last_name: 'Khan', email: 'sara.khan@edu.com', phone: '+92 321 2222222', department: 'Mathematics', specialization: 'Calculus', qualification: 'MPhil', joining_date: '2019-01-10', status: 'active', courses: ['MATH101', 'MATH202'] },
-]
+import teacherService, { Teacher } from '@/services/teacher.service'
 
 export default function TeachersManagement() {
   const navigate = useNavigate()
-  const [teachers, setTeachers] = useState(SAMPLE_TEACHERS)
+  const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    loadTeachers()
+  }, [])
+
+  const loadTeachers = async () => {
+    try {
+      const response = await teacherService.getAll()
+      setTeachers(response.data)
+    } catch (error) {
+      console.error('Error loading teachers:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredTeachers = useMemo(() => {
     if (!searchQuery) return teachers
@@ -42,6 +39,14 @@ export default function TeachersManagement() {
     )
   }, [searchQuery, teachers])
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -49,7 +54,7 @@ export default function TeachersManagement() {
           <h1 className="text-2xl font-bold text-gray-900">Teachers Management</h1>
           <p className="text-gray-500">Manage faculty and teaching staff</p>
         </div>
-        <Button onClick={() => navigate('/education/teachers/1')}>
+        <Button onClick={() => navigate('/education/teachers/add')}>
           <Plus className="h-4 w-4 mr-2" />Add Teacher
         </Button>
       </div>

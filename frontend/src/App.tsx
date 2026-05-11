@@ -13,6 +13,7 @@ import EditStudentPage from './pages/education/students/EditStudentPage'
 import AddStudentPage from './pages/education/students/AddStudentPage'
 import CoursesListPage from './pages/education/CoursesListPage'
 import TeachersManagementPage from './pages/education/teachers/TeachersManagement'
+import AddTeacherPage from './pages/education/teachers/AddTeacherPage'
 import TeacherProfilePage from './pages/education/teachers/TeacherProfilePage'
 import ExamsPage from '@/pages/education/ExamsPage'
 import ExamsListPage from './pages/education/exams/ExamsListPage'
@@ -78,6 +79,7 @@ function App() {
               <Route path="education/students/:id/edit" element={<EditStudentPage />} />
               <Route path="education/courses" element={<CoursesListPage />} />
               <Route path="education/teachers" element={<TeachersManagementPage />} />
+              <Route path="education/teachers/add" element={<AddTeacherPage />} />
               <Route path="education/teachers/:id" element={<TeacherProfilePage />} />
               <Route path="education/exams" element={<ExamsPage />} />
               <Route path="education/exams/list" element={<ExamsListPage />} />
