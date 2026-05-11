@@ -1,9 +1,10 @@
-from django.urls import path
+from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 from . import teacher_views
 
 urlpatterns = [
+    path('notifications/', include('services.core.user_notifications.urls')),
     # Basic auth
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
@@ -19,4 +20,10 @@ urlpatterns = [
     path('teacher/attendance/mark/', teacher_views.TeacherMarkAttendanceView.as_view(), name='teacher-mark-attendance'),
     path('teacher/exam/marks/', teacher_views.TeacherExamMarksView.as_view(), name='teacher-exam-marks'),
 ]
+
+urlpatterns += [
+]
+
+
+
 

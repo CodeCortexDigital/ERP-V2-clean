@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     
     # Core apps
     'services.core.accounts',
+    'services.core.user_notifications',
     'services.rbac_models',
     
     # Education apps
@@ -143,6 +144,8 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
+
+
 
 
 

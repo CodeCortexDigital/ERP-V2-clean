@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Bell, User, LogOut, Menu } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Header() {
@@ -50,3 +51,4 @@ export default function Header() {
     </header>
   );
 }
+

@@ -103,12 +103,14 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   ];
   
   // Student Navigation
+    // Student Navigation
   const studentNavItems = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/parent' },
-    { icon: <BookOpen className="w-5 h-5" />, label: 'My Courses', href: '/parent/courses' },
+    { icon: <Users className="w-5 h-5" />, label: 'Profile', href: '/parent' },
+    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/parent/attendance' },
     { icon: <FileText className="w-5 h-5" />, label: 'Results', href: '/parent/results' },
-    { icon: <Award className="w-5 h-5" />, label: 'Attendance', href: '/parent/attendance' },
-    { icon: <DollarSign className="w-5 h-5" />, label: 'Fees', href: '/parent/fees' }
+    { icon: <DollarSign className="w-5 h-5" />, label: 'Fees', href: '/parent/fees' },
+    { icon: <Bell className="w-5 h-5" />, label: 'Notifications', href: '/parent/notifications' }
   ];
   
   // Admin Navigation
