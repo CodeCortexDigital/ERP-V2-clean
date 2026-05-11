@@ -181,3 +181,144 @@ class ParentDashboardView(generics.GenericAPIView):
         
         return Response({'error': 'No profile found'}, status=404)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_list(request):
+    """Get all students"""
+    from django.apps import apps
+    Student = apps.get_model('education_students', 'Student')
+    from .serializers import StudentSerializer
+    students = Student.objects.filter(is_active=True)
+    serializer = StudentSerializer(students, many=True)
+    return Response(serializer.data)
+
+class ClassDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
+    
+    def get_queryset(self):
+        SchoolClass = apps.get_model('education_academics', 'SchoolClass')
+        return SchoolClass.objects.filter(is_active=True)
+    
+    def get_serializer_class(self):
+        from .serializers import ClassSerializer
+        return ClassSerializer
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_count(request):
+    """Get total student count"""
+    from django.apps import apps
+    Student = apps.get_model('education_students', 'Student')
+    count = Student.objects.filter(is_active=True).count()
+    return Response({'count': count})
+
+
+# ============================================================
+# ATTENDANCE VIEWS
+# ============================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_attendance(request):
+    """Get attendance for a specific date"""
+    date = request.GET.get('date')
+    if not date:
+        return Response({'error': 'Date required'}, status=400)
+    
+    from django.apps import apps
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    
+    attendance = Attendance.objects.filter(date=date)
+    attendance_list = []
+    for record in attendance:
+        attendance_list.append({
+            'id': str(record.id),
+            'student_id': str(record.student.id),
+            'student_name': record.student.full_name,
+            'status': record.status,
+            'date': str(record.date),
+        })
+    return Response(attendance_list)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def bulk_attendance(request):
+    """Save multiple attendance records at once"""
+    data = request.data
+    records = data.get('records', [])
+    
+    from django.apps import apps
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    Student = apps.get_model('education_students', 'Student')
+    
+    created = 0
+    updated = 0
+    
+    for record in records:
+        student_id = record.get('student_id')
+        date = record.get('date')
+        status = record.get('status')
+        
+        student = Student.objects.get(id=student_id)
+        
+        attendance, is_new = Attendance.objects.update_or_create(
+            student=student,
+            date=date,
+            defaults={'status': status}
+        )
+        
+        if is_new:
+            created += 1
+        else:
+            updated += 1
+    
+    return Response({
+        'success': True,
+        'message': f'Attendance saved: {created} created, {updated} updated'
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def attendance_stats(request):
+    """Get attendance statistics for a student or class"""
+    student_id = request.GET.get('student_id')
+    class_id = request.GET.get('class_id')
+    
+    from django.apps import apps
+    from django.db.models import Count, Q
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    Student = apps.get_model('education_students', 'Student')
+    
+    if student_id:
+        student = Student.objects.get(id=student_id)
+        total = Attendance.objects.filter(student=student).count()
+        present = Attendance.objects.filter(student=student, status='present').count()
+        
+        stats = {
+            'student_name': student.full_name,
+            'total_days': total,
+            'present_days': present,
+            'percentage': round((present / total * 100) if total > 0 else 0, 1)
+        }
+        return Response(stats)
+    
+    if class_id:
+        students = Student.objects.filter(current_class_id=class_id)
+        stats = []
+        for student in students:
+            total = Attendance.objects.filter(student=student).count()
+            present = Attendance.objects.filter(student=student, status='present').count()
+            stats.append({
+                'student_id': str(student.id),
+                'student_name': student.full_name,
+                'percentage': round((present / total * 100) if total > 0 else 0, 1)
+            })
+        return Response(stats)
+    
+    return Response({'error': 'student_id or class_id required'}, status=400)
+

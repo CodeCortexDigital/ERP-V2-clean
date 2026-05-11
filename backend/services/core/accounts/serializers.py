@@ -57,3 +57,14 @@ class ClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = apps.get_model('education_academics', 'SchoolClass')
         fields = ['id', 'name', 'code', 'capacity', 'is_active']
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.full_name', read_only=True)
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    
+    class Meta:
+        from django.apps import apps
+        AttendanceRecord = apps.get_model('education_attendance', 'AttendanceRecord')
+        model = AttendanceRecord
+        fields = ['id', 'student', 'student_name', 'student_id', 'date', 'status', 'created_at']
+
