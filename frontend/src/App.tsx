@@ -44,6 +44,9 @@ import AnalyticsPage from './pages/education/AnalyticsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import NewApplicationPage from '@/pages/education/admissions/NewApplicationPage'
 
+// Portal Imports
+import ParentDashboard from './pages/portals/parent/ParentDashboard'
+
 // Auth and Error Handling
 import { AuthProvider } from './contexts/AuthContext'
 import { setupGlobalErrorHandlers, ErrorBoundary } from './utils/errorHandler'
@@ -103,6 +106,14 @@ function App() {
               <Route path="education/communication" element={<CommunicationPage />} />
               <Route path="education/analytics" element={<AnalyticsPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              
+              {/* Portal Routes */}
+              <Route path="parent" element={<ParentDashboard />} />
+              <Route path="parent/children" element={<ParentDashboard />} />
+              <Route path="parent/attendance" element={<ParentDashboard />} />
+              <Route path="parent/results" element={<ParentDashboard />} />
+              <Route path="parent/fees" element={<ParentDashboard />} />
+              <Route path="parent/notifications" element={<ParentDashboard />} />
             </Route>
           </Routes>
         </BrowserRouter>

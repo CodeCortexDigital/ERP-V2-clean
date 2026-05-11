@@ -3,9 +3,10 @@ import {
   LayoutDashboard, Users, Calendar, FileText,
   DollarSign, MessageSquare, Settings, GraduationCap,
   ClipboardList, BarChart3, ChevronLeft, ChevronRight,
-  X
+  X, UserCheck, UserCog, User, Award, Bell, BookOpen
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarItemProps {
   icon: React.ReactNode;
@@ -68,27 +69,6 @@ function SidebarItem({ icon, label, href, collapsed, subItems }: SidebarItemProp
   );
 }
 
-const navItems = [
-  { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/dashboard' },
-  { icon: <Users className="w-5 h-5" />, label: 'Students', href: '/education/students' },
-  {
-    icon: <GraduationCap className="w-5 h-5" />,
-    label: 'Academics',
-    href: '/education/academics',
-  },
-  { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/education/attendance' },
-  {
-    icon: <FileText className="w-5 h-5" />,
-    label: 'Exams',
-    href: '/education/exams',
-  },
-  { icon: <DollarSign className="w-5 h-5" />, label: 'Finance', href: '/education/finance' },
-  { icon: <ClipboardList className="w-5 h-5" />, label: 'Admissions', href: '/education/admissions' },
-  { icon: <MessageSquare className="w-5 h-5" />, label: 'Communication', href: '/education/communication' },
-  { icon: <BarChart3 className="w-5 h-5" />, label: 'Analytics', href: '/education/analytics' },
-  { icon: <Settings className="w-5 h-5" />, label: 'Settings', href: '/settings' },
-];
-
 interface SidebarProps {
   isMobile?: boolean;
   onClose?: () => void;
@@ -96,6 +76,60 @@ interface SidebarProps {
 
 export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { user } = useAuth();
+  
+  // Determine user role
+  const isParent = user?.email === 'parent@test.com' || user?.email === 'parent@erp.com';
+  const isTeacher = user?.email === 'teacher@erp.com';
+  const isStudent = user?.email === 'student@erp.com';
+  const isAdmin = !isParent && !isTeacher && !isStudent;
+  
+  // Parent Navigation
+  const parentNavItems = [
+    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/parent' },
+    { icon: <Users className="w-5 h-5" />, label: 'My Children', href: '/parent/children' },
+    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/parent/attendance' },
+    { icon: <FileText className="w-5 h-5" />, label: 'Results', href: '/parent/results' },
+    { icon: <DollarSign className="w-5 h-5" />, label: 'Fees', href: '/parent/fees' },
+    { icon: <Bell className="w-5 h-5" />, label: 'Notifications', href: '/parent/notifications' }
+  ];
+  
+  // Teacher Navigation
+  const teacherNavItems = [
+    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/teacher' },
+    { icon: <Users className="w-5 h-5" />, label: 'My Students', href: '/teacher/students' },
+    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/education/attendance' },
+    { icon: <FileText className="w-5 h-5" />, label: 'Exams', href: '/education/exams' }
+  ];
+  
+  // Student Navigation
+  const studentNavItems = [
+    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/student' },
+    { icon: <BookOpen className="w-5 h-5" />, label: 'My Courses', href: '/student/courses' },
+    { icon: <FileText className="w-5 h-5" />, label: 'Exams', href: '/student/exams' },
+    { icon: <Award className="w-5 h-5" />, label: 'Results', href: '/student/results' },
+    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/student/attendance' }
+  ];
+  
+  // Admin Navigation
+  const adminNavItems = [
+    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/dashboard' },
+    { icon: <Users className="w-5 h-5" />, label: 'Students', href: '/education/students' },
+    { icon: <GraduationCap className="w-5 h-5" />, label: 'Academics', href: '/education/academics' },
+    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/education/attendance' },
+    { icon: <FileText className="w-5 h-5" />, label: 'Exams', href: '/education/exams' },
+    { icon: <DollarSign className="w-5 h-5" />, label: 'Finance', href: '/education/finance' },
+    { icon: <ClipboardList className="w-5 h-5" />, label: 'Admissions', href: '/education/admissions' },
+    { icon: <MessageSquare className="w-5 h-5" />, label: 'Communication', href: '/education/communication' },
+    { icon: <BarChart3 className="w-5 h-5" />, label: 'Analytics', href: '/education/analytics' },
+    { icon: <Settings className="w-5 h-5" />, label: 'Settings', href: '/settings' },
+  ];
+  
+  // Select nav items based on role
+  let navItems = adminNavItems;
+  if (isParent) navItems = parentNavItems;
+  else if (isTeacher) navItems = teacherNavItems;
+  else if (isStudent) navItems = studentNavItems;
   
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -120,6 +154,27 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
           </button>
         )}
       </div>
+
+      {/* User Info */}
+      {!sidebarCollapsed && !isMobile && user && (
+        <div className="px-4 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
+              <span className="text-white font-medium text-sm">
+                {user.email?.charAt(0).toUpperCase() || 'U'}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-medium text-sm truncate">
+                {user.email?.split('@')[0] || 'User'}
+              </p>
+              <p className="text-gray-400 text-xs truncate">
+                {isParent ? 'Parent' : isTeacher ? 'Teacher' : isStudent ? 'Student' : 'Administrator'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Menu */}
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
