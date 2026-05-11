@@ -20,7 +20,7 @@ export default function DashboardPage() {
     try {
       // Get students count from the student list endpoint
       const students = await api.get('/auth/students/');
-      const classes = await api.get('/auth/classes/');
+      const classes = await api.get('/auth/academics/classes/');
       
       setStats({
         totalStudents: students.data?.length || 0,

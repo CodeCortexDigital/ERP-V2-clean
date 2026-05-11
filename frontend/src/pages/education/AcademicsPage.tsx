@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Calendar, GraduationCap, BookOpen, Users, Plus, Edit2, Trash2, 
-  ChevronRight, ChevronDown, School, Layers, Clock, X, RefreshCw,
-  CheckCircle, AlertCircle, Settings, FolderTree
+  Calendar, GraduationCap, BookOpen, Users, Plus, Trash2, 
+  X, RefreshCw
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import academicService from '@/services/academic.service';
 import studentService from '@/services/student.service';
 import { toast } from 'sonner';
@@ -64,7 +64,7 @@ export default function AcademicsPage() {
     fetchAllData();
   }, []);
 
-      const fetchAllData = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
       const [yearsRes, classesRes, subjectsRes, studentsRes] = await Promise.all([
@@ -77,7 +77,6 @@ export default function AcademicsPage() {
       setAcademicYears(yearsRes.data || []);
       setSubjects(subjectsRes.data || []);
       
-      // Extract students list
       let studentsList = [];
       if (Array.isArray(studentsRes.data)) {
         studentsList = studentsRes.data;
@@ -86,11 +85,8 @@ export default function AcademicsPage() {
       }
       
       console.log('Students loaded:', studentsList.length);
-      console.log('Sample student:', studentsList[0]);
       
-      // Calculate student counts per class
-            // Calculate student counts per class (only active students)
-      const classesWithCounts = (classesRes.data || []).map(cls => {
+      const classesWithCounts = (classesRes.data || []).map((cls: SchoolClass) => {
         const count = studentsList.filter((s: any) => {
           return s.current_class === cls.id && s.is_active === true;
         }).length;
@@ -102,10 +98,6 @@ export default function AcademicsPage() {
       });
       
       setClasses(classesWithCounts);
-      
-      // Calculate total students
-      const totalStudents = studentsList.length;
-      console.log('Total students from API:', totalStudents);
       
     } catch (error) {
       console.error('Error fetching academics data:', error);
@@ -178,6 +170,31 @@ export default function AcademicsPage() {
   const totalStudents = classes.reduce((sum, c) => sum + (c.students_count || 0), 0);
   const avgClassSize = classes.length > 0 ? Math.round(totalStudents / classes.length) : 0;
 
+  // Generate breadcrumb items based on active tab
+  const generateBreadcrumbs = () => {
+    const breadcrumbs = [
+      { 
+        label: '🏠 Home', 
+        href: '/'
+      },
+      { 
+        label: '📚 Academics', 
+        active: false,
+        onClick: () => {}
+      }
+    ];
+
+    if (activeTab === 'years') {
+      breadcrumbs.push({ label: '📅 Academic Years', active: true, onClick: () => {} });
+    } else if (activeTab === 'classes') {
+      breadcrumbs.push({ label: '🏫 Classes', active: true, onClick: () => {} });
+    } else if (activeTab === 'subjects') {
+      breadcrumbs.push({ label: '📚 Subjects', active: true, onClick: () => {} });
+    }
+
+    return breadcrumbs;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -199,23 +216,10 @@ export default function AcademicsPage() {
         </Button>
       </div>
 
-      {/* Top Navigation Buttons */}
-      <div className="flex flex-wrap gap-3">
-        <Button onClick={() => navigate('/education/curriculum')} variant="outline" className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4" />
-          Curriculum
-        </Button>
-        <Button onClick={() => navigate('/education/timetable')} variant="outline" className="flex items-center gap-2">
-          <Calendar className="w-4 h-4" />
-          Timetable
-        </Button>
-        <Button onClick={() => navigate('/education/progress')} variant="outline" className="flex items-center gap-2">
-          <Layers className="w-4 h-4" />
-          Progress Tracking
-        </Button>
-      </div>
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb items={generateBreadcrumbs()} />
 
-      {/* Top Navigation Buttons */}
+      {/* Navigation Buttons */}
       <div className="flex flex-wrap gap-3">
         <Button onClick={() => navigate('/education/curriculum')} variant="outline" className="flex items-center gap-2">
           <BookOpen className="w-4 h-4" />
@@ -235,6 +239,7 @@ export default function AcademicsPage() {
         </Button>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-blue-50 rounded-xl p-3">
           <p className="text-xs text-gray-600">Active Year</p>
@@ -272,15 +277,27 @@ export default function AcademicsPage() {
           <div className="overflow-x-auto border rounded-xl">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
-                <tr><th className="px-4 py-3 text-left">Year Name</th><th className="px-4 py-3 text-left">Start Date</th><th className="px-4 py-3 text-left">End Date</th><th className="px-4 py-3 text-center">Status</th></tr>
+                <tr>
+                  <th className="px-4 py-3 text-left">Year Name</th>
+                  <th className="px-4 py-3 text-left">Start Date</th>
+                  <th className="px-4 py-3 text-left">End Date</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                </tr>
               </thead>
               <tbody>
                 {academicYears.map((year) => (
                   <tr key={year.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{year.name}{year.is_active && <Badge className="ml-2 bg-green-100 text-green-700">Active</Badge>}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {year.name}
+                      {year.is_active && <Badge className="ml-2 bg-green-100 text-green-700">Active</Badge>}
+                    </td>
                     <td className="px-4 py-3">{year.start_date}</td>
                     <td className="px-4 py-3">{year.end_date}</td>
-                    <td className="px-4 py-3 text-center"><Badge variant={year.is_active ? 'success' : 'secondary'}>{year.is_active ? 'Active' : 'Inactive'}</Badge></td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={year.is_active ? 'success' : 'secondary'}>
+                        {year.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -344,7 +361,10 @@ export default function AcademicsPage() {
       {showYearForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold">Add Academic Year</h2><button onClick={() => setShowYearForm(false)}><X className="w-5 h-5" /></button></div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Academic Year</h2>
+              <button onClick={() => setShowYearForm(false)}><X className="w-5 h-5" /></button>
+            </div>
             <div className="space-y-4">
               <Input placeholder="Year Name (e.g., 2026-2027)" value={yearForm.name} onChange={(e) => setYearForm({...yearForm, name: e.target.value})} />
               <Input type="date" placeholder="Start Date" value={yearForm.start_date} onChange={(e) => setYearForm({...yearForm, start_date: e.target.value})} />
@@ -359,7 +379,10 @@ export default function AcademicsPage() {
       {showClassForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold">Add Class</h2><button onClick={() => setShowClassForm(false)}><X className="w-5 h-5" /></button></div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Class</h2>
+              <button onClick={() => setShowClassForm(false)}><X className="w-5 h-5" /></button>
+            </div>
             <div className="space-y-4">
               <Input placeholder="Class Name (e.g., Grade 5)" value={classForm.name} onChange={(e) => setClassForm({...classForm, name: e.target.value})} />
               <Input placeholder="Class Code (e.g., GRD5)" value={classForm.code} onChange={(e) => setClassForm({...classForm, code: e.target.value})} />
@@ -374,7 +397,10 @@ export default function AcademicsPage() {
       {showSubjectForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold">Add Subject</h2><button onClick={() => setShowSubjectForm(false)}><X className="w-5 h-5" /></button></div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Add Subject</h2>
+              <button onClick={() => setShowSubjectForm(false)}><X className="w-5 h-5" /></button>
+            </div>
             <div className="space-y-4">
               <Input placeholder="Subject Code (e.g., MATH101)" value={subjectForm.code} onChange={(e) => setSubjectForm({...subjectForm, code: e.target.value})} />
               <Input placeholder="Subject Name" value={subjectForm.name} onChange={(e) => setSubjectForm({...subjectForm, name: e.target.value})} />
@@ -388,6 +414,3 @@ export default function AcademicsPage() {
     </div>
   );
 }
-
-
-

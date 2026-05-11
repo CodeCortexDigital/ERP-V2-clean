@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Search, ArrowUpDown, Edit2, MessageCircle,
   Users, TrendingUp, AlertCircle, CheckCircle,
-  ChevronLeft, ChevronRight, UserPlus
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -332,10 +332,6 @@ export default function StudentsListPage() {
           <h1 className="text-2xl font-bold text-gray-800">Students</h1>
           <p className="text-gray-500 text-sm mt-1">Manage all students in your school</p>
         </div>
-        <Button onClick={() => navigate('/education/students/add')} className="flex items-center gap-2">
-          <UserPlus className="w-4 h-4" />
-          Add Student
-        </Button>
       </div>
 
       {attentionNeeded > 0 && (

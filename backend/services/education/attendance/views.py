@@ -17,6 +17,8 @@ from rest_framework.response import Response
 from django.apps import apps
 from django.db.models import Count, Q, Prefetch
 from datetime import datetime, date
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from .models import AttendanceRecord
 from .serializers import AttendanceRecordSerializer
 
@@ -33,11 +35,36 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
         queryset = Attendance.objects.select_related('student').all()
         date_param = self.request.query_params.get('date')
         if date_param:
-            queryset = queryset.filter(date=date_param)
+            query_date = parse_date(date_param) or timezone.localtime().date()
+        else:
+            query_date = timezone.localtime().date()
+
+        self._ensure_attendance_for_date(query_date)
+        queryset = queryset.filter(date=query_date)
+
         student_id = self.request.query_params.get('student_id')
         if student_id:
             queryset = queryset.filter(student_id=student_id)
         return queryset.order_by('-date')
+
+    def _ensure_attendance_for_date(self, query_date):
+        existing_student_ids = set(
+            Attendance.objects.filter(date=query_date).values_list('student_id', flat=True)
+        )
+        missing_students = Student.objects.filter(is_active=True).exclude(id__in=existing_student_ids)
+        records_to_create = []
+        for student in missing_students:
+            records_to_create.append(
+                Attendance(
+                    student=student,
+                    date=query_date,
+                    status='present',
+                    course_id=str(student.current_class_id) if getattr(student, 'current_class_id', None) else '',
+                    remarks='Auto-marked present for school day'
+                )
+            )
+        if records_to_create:
+            Attendance.objects.bulk_create(records_to_create)
     
     def perform_create(self, serializer):
         serializer.save()

@@ -144,11 +144,6 @@ export default function AttendancePage() {
     ));
   };
 
-  const markAllPresent = () => {
-    setStudents(prev => prev.map(s => ({ ...s, status: 'present' })));
-    toast.success(`✓ All ${students.length} students marked as Present`);
-  };
-
   const markAllAbsent = () => {
     setStudents(prev => prev.map(s => ({ ...s, status: 'absent' })));
     toast.success(`✓ All ${students.length} students marked as Absent`);
@@ -285,15 +280,6 @@ export default function AttendancePage() {
             </div>
             
             <div className="flex items-end gap-2">
-              <Button 
-                variant="outline" 
-                onClick={markAllPresent} 
-                className="flex-1 border-green-300 text-green-700 hover:bg-green-50"
-                disabled={students.length === 0}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                All Present
-              </Button>
               <Button 
                 variant="outline" 
                 onClick={markAllAbsent} 
@@ -434,13 +420,6 @@ export default function AttendancePage() {
                       <td className="px-4 py-3 font-medium">{student.full_name}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => handleStatusChange(student.id, 'present')}
-                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'present')}`}
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Present
-                          </button>
                           <button
                             onClick={() => handleStatusChange(student.id, 'absent')}
                             className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'absent')}`}

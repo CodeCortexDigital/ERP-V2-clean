@@ -95,6 +95,8 @@ export default function AdmissionsPage() {
     }
   };
 
+  const visibleApplications = applications.filter((a: any) => a.status !== 'enrolled');
+
   const stats = {
     total: applications.length,
     pending: applications.filter((a: any) => a.status === 'pending').length,
@@ -130,7 +132,7 @@ export default function AdmissionsPage() {
                 <tr><th className="p-3 text-left">App #</th><th className="p-3 text-left">Student Name</th><th className="p-3 text-left">Contact</th><th className="p-3 text-left">Applying For</th><th className="p-3 text-left">Status</th><th className="p-3 text-left">Submitted</th><th className="p-3 text-center">Actions</th></tr>
               </thead>
               <tbody>
-                {applications.map((app: any) => (
+                {visibleApplications.map((app: any) => (
                   <tr key={app.id} className="border-t hover:bg-gray-50">
                     <td className="p-3 font-mono text-xs font-medium">{app.application_no}</td>
                     <td className="p-3"><p className="font-medium">{app.applicant?.full_name || 'N/A'}</p><p className="text-xs text-gray-400">{app.applicant?.email}</p></td>
@@ -141,7 +143,7 @@ export default function AdmissionsPage() {
                     <td className="p-3 text-center">{getActionButtons(app)}</td>
                   </tr>
                 ))}
-                {applications.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-500">No applications yet. Click "New Application" to get started.</td></tr>}
+                {visibleApplications.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-500">No applications yet. Click "New Application" to get started.</td></tr>}
               </tbody>
             </table>
           </div>
