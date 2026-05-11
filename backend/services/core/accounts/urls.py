@@ -5,6 +5,7 @@ from . import views_auth
 from . import firebase_views
 
 urlpatterns = [
+    path('parent/dashboard/', views.ParentDashboardView.as_view(), name='parent-dashboard'),
     # Health check
     path('health/', views.health_check, name='health'),
     
@@ -28,3 +29,4 @@ urlpatterns = [
     path('classes/', include('services.education.academics.urls')),
     path('admissions/', include('services.education.admissions.urls')),
 ]
+

@@ -1,45 +1,17 @@
-from rest_framework.permissions import BasePermission, AllowAny
-from .rbac_models import UserRole, Permission, Module
+from rest_framework.permissions import BasePermission
 
-class HasModulePermission(BasePermission):
+class IsTeacher(BasePermission):
     def has_permission(self, request, view):
-        # Allow unauthenticated access for development
-        if not request.user or not request.user.is_authenticated:
-            return True
-            
-        user = request.user
+        return request.user.is_authenticated and hasattr(request.user, 'teacher_profile')
 
-        # 🔥 Define module from URL
-        if "accounts" in request.path:
-            module_name = "Accounts"
-        elif "hr" in request.path:
-            module_name = "HR"
-        elif "finance" in request.path:
-            module_name = "Finance"
-        else:
-            return True  # Allow by default for development
+class IsParent(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and hasattr(request.user, 'parent_profile')
 
-        user_roles = UserRole.objects.filter(user=user)
+class IsStudent(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and hasattr(request.user, 'student_profile')
 
-        for ur in user_roles:
-
-            # 🔥 SuperAdmin override
-            if ur.role.name == "SuperAdmin":
-                return True
-
-            perms = Permission.objects.filter(
-                role=ur.role,
-                module__name=module_name
-            )
-
-            for p in perms:
-                if request.method == "GET" and p.can_read:
-                    return True
-                if request.method == "POST" and p.can_create:
-                    return True
-                if request.method in ["PUT", "PATCH"] and p.can_update:
-                    return True
-                if request.method == "DELETE" and p.can_delete:
-                    return True
-
-        return False
+class IsAccountant(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'accountant'

@@ -6,6 +6,7 @@ import uuid
 import secrets
 from datetime import datetime, timedelta
 from django.db import models
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -359,4 +360,44 @@ class UserNote(models.Model):
 
 
 
+
+# Add to services/core/accounts/models.py
+class ParentProfile(models.Model):
+    RELATIONSHIP_TYPES = [
+        ('father', 'Father'),
+        ('mother', 'Mother'),
+        ('guardian', 'Guardian'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='parent_profile')
+    phone = models.CharField(max_length=20, blank=True)
+    address = models.TextField(blank=True)
+    relationship_type = models.CharField(max_length=20, choices=RELATIONSHIP_TYPES, default='guardian')
+    linked_students = models.ManyToManyField('education_students.Student', related_name='parents', blank=True)
+    is_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.user.email} - Parent"
+
+# Add to services/core/accounts/models.py
+class TeacherProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='teacher_profile')
+    employee_id = models.CharField(max_length=50, unique=True, blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    qualification = models.CharField(max_length=200, blank=True)
+    specialization = models.CharField(max_length=100, blank=True)
+    assigned_classes = models.ManyToManyField('education_academics.SchoolClass', related_name='teachers', blank=True)
+    assigned_sections = models.ManyToManyField('education_academics.Section', related_name='teachers', blank=True)
+    assigned_subjects = models.ManyToManyField('education_academics.Subject', related_name='teachers', blank=True)
+    is_active = models.BooleanField(default=True)
+    hire_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.user.email} - Teacher"
 
