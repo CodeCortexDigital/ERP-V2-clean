@@ -47,6 +47,7 @@ export default function LoginPage() {
     setError('');
 
     try {
+      console.log('Sending login with:', {email, password});
       await login(email, password);
       // Redirect based on user role
       alert('Redirecting with email: ' + email);
@@ -154,7 +155,7 @@ export default function LoginPage() {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -198,7 +199,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center text-xs text-gray-500">
-            <p>Demo: One-click trial | Admin: admin@code.com / admin123</p>
+            <p>Demo: One-click trial | Admin: admin@code.com / admin123</p>`n            <p className="text-xs text-gray-400 mt-1">Students: Use Student ID (e.g., STU-2026-0043) or Email</p>
             <p className="mt-1">Student: student43@example.com / student123</p>
           </div>
         </div>
@@ -206,3 +207,7 @@ export default function LoginPage() {
     </div>
   );
 }
+
+
+
+

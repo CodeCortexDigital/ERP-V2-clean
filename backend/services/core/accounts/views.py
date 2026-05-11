@@ -13,26 +13,40 @@ from .serializers import UserSerializer, StudentSerializer
 User = get_user_model()
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def health_check(request):
-    return JsonResponse({"status": "ok", "message": "Server is running"})
-
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    email = request.data.get('email')
+    email_or_student_id = request.data.get('email') or request.data.get('student_id')
     password = request.data.get('password')
     
-    if not email or not password:
-        return Response({'error': 'Email and password required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not email_or_student_id or not password:
+        return Response({'error': 'Email/Student ID and password required'}, status=status.HTTP_400_BAD_REQUEST)
     
+    user = None
+    
+    # Try to find user by student_id first
+    from services.education.students.models import Student
     try:
-        user_obj = User.objects.get(email=email)
-        user = authenticate(request, username=user_obj.email, password=password)
-    except User.DoesNotExist:
-        user = None
+        student = Student.objects.get(student_id=email_or_student_id)
+        # Find user by student's email
+        try:
+            user = User.objects.get(email=student.email)
+        except User.DoesNotExist:
+            pass
+    except Student.DoesNotExist:
+        pass
+    
+    # If not found by student_id, try by email
+    if not user:
+        try:
+            user_obj = User.objects.get(email=email_or_student_id)
+            user = authenticate(request, username=user_obj.email, password=password)
+        except User.DoesNotExist:
+            user = None
+    
+    # Also try direct authentication with email
+    if not user:
+        user = authenticate(request, username=email_or_student_id, password=password)
     
     if user and user.is_active:
         refresh = RefreshToken.for_user(user)
@@ -166,3 +180,4 @@ class ParentDashboardView(generics.GenericAPIView):
             return Response(data)
         
         return Response({'error': 'No profile found'}, status=404)
+
