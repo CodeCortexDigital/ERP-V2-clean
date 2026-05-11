@@ -260,7 +260,7 @@ export default function AcademicsPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue={activeTab} onChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="years">📅 Academic Years</TabsTrigger>
           <TabsTrigger value="classes">🏫 Classes</TabsTrigger>
