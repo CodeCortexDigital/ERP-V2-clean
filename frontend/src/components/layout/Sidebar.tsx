@@ -78,10 +78,10 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { user } = useAuth();
   
-  // Determine user role
+  // Determine user role - FIXED to include student43@example.com
   const isParent = user?.email === 'parent@test.com' || user?.email === 'parent@erp.com';
   const isTeacher = user?.email === 'teacher@test.com' || user?.email === 'teacher@erp.com';
-  const isStudent = user?.email === 'student@erp.com';
+  const isStudent = user?.email === 'student43@example.com' || user?.email?.includes('@student.com') || user?.email === 'student@erp.com';
   const isAdmin = !isParent && !isTeacher && !isStudent;
   
   // Parent Navigation
@@ -104,11 +104,11 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   
   // Student Navigation
   const studentNavItems = [
-    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/student' },
-    { icon: <BookOpen className="w-5 h-5" />, label: 'My Courses', href: '/student/courses' },
-    { icon: <FileText className="w-5 h-5" />, label: 'Exams', href: '/student/exams' },
-    { icon: <Award className="w-5 h-5" />, label: 'Results', href: '/student/results' },
-    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/student/attendance' }
+    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/parent' },
+    { icon: <BookOpen className="w-5 h-5" />, label: 'My Courses', href: '/parent/courses' },
+    { icon: <FileText className="w-5 h-5" />, label: 'Results', href: '/parent/results' },
+    { icon: <Award className="w-5 h-5" />, label: 'Attendance', href: '/parent/attendance' },
+    { icon: <DollarSign className="w-5 h-5" />, label: 'Fees', href: '/parent/fees' }
   ];
   
   // Admin Navigation
@@ -169,7 +169,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
                 {user.email?.split('@')[0] || 'User'}
               </p>
               <p className="text-gray-400 text-xs truncate">
-                {isParent ? 'Parent' : isTeacher ? 'Teacher' : isStudent ? 'Student' : isParent ? 'Parent' : isTeacher ? 'Teacher' : isStudent ? 'Student' : 'Administrator'}
+                {isParent ? 'Parent' : isTeacher ? 'Teacher' : isStudent ? 'Student' : 'Administrator'}
               </p>
             </div>
           </div>
@@ -213,7 +213,3 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
 
   return sidebarContent;
 }
-
-
-
-

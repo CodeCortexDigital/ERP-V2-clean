@@ -32,6 +32,60 @@ export default function ParentDashboard() {
     );
   }
 
+  // Student View
+  if (dashboardData?.is_student) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Student Portal</h1>
+          <p className="text-gray-500">Welcome back, {dashboardData?.student_name}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Class</p>
+              <p className="text-xl font-bold">{dashboardData?.class}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Section</p>
+              <p className="text-xl font-bold">{dashboardData?.section}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Student ID</p>
+              <p className="text-sm font-mono">{dashboardData?.student_id}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-gray-500">Attendance</p>
+              <p className="text-xl font-bold text-green-600">{dashboardData?.attendance_percentage}%</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Academic Progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Current GPA</p>
+                <p className="text-2xl font-bold text-blue-600">{dashboardData?.gpa}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Parent View
   return (
     <div className="space-y-6">
       <div>

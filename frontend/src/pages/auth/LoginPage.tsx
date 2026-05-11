@@ -48,15 +48,17 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-        // Redirect based on user role
-        const userRole = localStorage.getItem('user_role');
-        if (email === 'teacher@test.com') {
-          navigate('/teacher');
-        } else if (email === 'parent@test.com') {
-          navigate('/parent');
-        } else {
-          navigate('/dashboard');
-        };
+      // Redirect based on user role
+      alert('Redirecting with email: ' + email);
+      if (email === 'teacher@test.com') {
+        navigate('/teacher');
+      } else if (email === 'parent@test.com') {
+        navigate('/parent');
+      } else if (email === 'student43@example.com' || email.includes('@student.com')) {
+        navigate('/parent');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Invalid email or password');
     } finally {
@@ -197,11 +199,10 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center text-xs text-gray-500">
             <p>Demo: One-click trial | Admin: admin@code.com / admin123</p>
+            <p className="mt-1">Student: student43@example.com / student123</p>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-

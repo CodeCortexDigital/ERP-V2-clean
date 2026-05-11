@@ -119,29 +119,50 @@ class ClassListCreateView(generics.ListCreateAPIView):
         from .serializers import ClassSerializer
         return ClassSerializer
 
+
 class ParentDashboardView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        # Check if user has parent profile
-        if not hasattr(request.user, 'parent_profile'):
-            return Response({'error': 'Parent profile not found'}, status=404)
+        user = request.user
         
-        parent = request.user.parent_profile
-        students = parent.linked_students.all()
+        # FIRST: Check if user is a student
+        from services.education.students.models import Student
+        try:
+            student = Student.objects.get(email=user.email)
+            data = {
+                'is_student': True,
+                'student_name': student.full_name,
+                'class': student.current_class.name if student.current_class else None,
+                'section': student.current_section.name if student.current_section else None,
+                'student_id': student.student_id,
+                'attendance_percentage': 85,
+                'gpa': 3.8,
+            }
+            return Response(data)
+        except Student.DoesNotExist:
+            pass
         
-        data = {
-            'parent_name': request.user.full_name or request.user.email,
-            'children_count': students.count(),
-            'students': [
-                {
-                    'id': str(s.id),
-                    'name': s.full_name,
-                    'class': s.current_class.name if s.current_class else None,
-                    'attendance_percentage': 85,
-                    'fee_status': 'paid'
-                }
-                for s in students
-            ]
-        }
-        return Response(data)
+        # SECOND: Check if user is a parent
+        if hasattr(user, 'parent_profile'):
+            parent = user.parent_profile
+            students = parent.linked_students.all()
+            
+            data = {
+                'is_student': False,
+                'parent_name': user.full_name or user.email,
+                'children_count': students.count(),
+                'students': [
+                    {
+                        'id': str(s.id),
+                        'name': s.full_name,
+                        'class': s.current_class.name if s.current_class else None,
+                        'attendance_percentage': 85,
+                        'fee_status': 'paid'
+                    }
+                    for s in students
+                ]
+            }
+            return Response(data)
+        
+        return Response({'error': 'No profile found'}, status=404)
