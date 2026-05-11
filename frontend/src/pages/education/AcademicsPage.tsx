@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import academicService from '@/services/academic.service';
 import studentService from '@/services/student.service';
 import { toast } from 'sonner';
@@ -215,9 +214,6 @@ export default function AcademicsPage() {
           Refresh
         </Button>
       </div>
-
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb items={generateBreadcrumbs()} />
 
       {/* Navigation Buttons */}
       <div className="flex flex-wrap gap-3">

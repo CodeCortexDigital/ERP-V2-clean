@@ -71,6 +71,7 @@ function App() {
               <Route path="dashboard" element={<DashboardPage />} />
               
               {/* Education Routes */}
+              <Route path="education" element={<Navigate to="/education/academics" replace />} />
               <Route path="education/students" element={<StudentsListPage />} />
               <Route path="education/students/add" element={<AddStudentPage />} />
               <Route path="education/students/:id" element={<StudentProfilePage />} />
