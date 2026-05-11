@@ -80,7 +80,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   
   // Determine user role
   const isParent = user?.email === 'parent@test.com' || user?.email === 'parent@erp.com';
-  const isTeacher = user?.email === 'teacher@erp.com';
+  const isTeacher = user?.email === 'teacher@test.com' || user?.email === 'teacher@erp.com';
   const isStudent = user?.email === 'student@erp.com';
   const isAdmin = !isParent && !isTeacher && !isStudent;
   
@@ -169,7 +169,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
                 {user.email?.split('@')[0] || 'User'}
               </p>
               <p className="text-gray-400 text-xs truncate">
-                {isParent ? 'Parent' : isTeacher ? 'Teacher' : isStudent ? 'Student' : 'Administrator'}
+                {isParent ? 'Parent' : isTeacher ? 'Teacher' : isStudent ? 'Student' : isParent ? 'Parent' : isTeacher ? 'Teacher' : isStudent ? 'Student' : 'Administrator'}
               </p>
             </div>
           </div>
@@ -213,3 +213,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
 
   return sidebarContent;
 }
+
+
+
+

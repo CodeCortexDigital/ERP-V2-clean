@@ -46,6 +46,7 @@ import NewApplicationPage from '@/pages/education/admissions/NewApplicationPage'
 
 // Portal Imports
 import ParentDashboard from './pages/portals/parent/ParentDashboard'
+import TeacherDashboard from './pages/portals/teacher/TeacherDashboard'
 
 // Auth and Error Handling
 import { AuthProvider } from './contexts/AuthContext'
@@ -114,6 +115,7 @@ function App() {
               <Route path="parent/results" element={<ParentDashboard />} />
               <Route path="parent/fees" element={<ParentDashboard />} />
               <Route path="parent/notifications" element={<ParentDashboard />} />
+              <Route path="teacher" element={<TeacherDashboard />} />
             </Route>
           </Routes>
         </BrowserRouter>
@@ -124,3 +126,5 @@ function App() {
 }
 
 export default memo(App)
+
+

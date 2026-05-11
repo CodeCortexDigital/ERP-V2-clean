@@ -48,7 +48,15 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+        // Redirect based on user role
+        const userRole = localStorage.getItem('user_role');
+        if (email === 'teacher@test.com') {
+          navigate('/teacher');
+        } else if (email === 'parent@test.com') {
+          navigate('/parent');
+        } else {
+          navigate('/dashboard');
+        };
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Invalid email or password');
     } finally {
@@ -195,4 +203,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
 

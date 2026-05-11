@@ -51,21 +51,6 @@ def login_view(request):
     return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def me(request):
-    user = request.user
-    return Response({
-        'id': str(user.id),
-        'email': user.email,
-        'full_name': getattr(user, 'full_name', user.email),
-        'is_staff': user.is_staff,
-        'is_superuser': user.is_superuser
-    })
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
 def logout_view(request):
     try:
         refresh_token = request.data.get('refresh')
@@ -75,6 +60,20 @@ def logout_view(request):
         return Response({'message': 'Logged out successfully'})
     except Exception:
         return Response({'message': 'Logged out'}, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_user(request):
+    """Get current authenticated user"""
+    user = request.user
+    return Response({
+        'id': str(user.id),
+        'email': user.email,
+        'full_name': user.full_name,
+        'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser,
+    })
 
 
 class StudentListCreateView(generics.ListCreateAPIView):
@@ -120,46 +119,19 @@ class ClassListCreateView(generics.ListCreateAPIView):
         from .serializers import ClassSerializer
         return ClassSerializer
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def attendance_summary(request):
-    """Get attendance summary for dashboard"""
-    try:
-        from django.apps import apps
-        Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
-        
-        total_records = Attendance.objects.count()
-        present = Attendance.objects.filter(status='present').count()
-        absent = Attendance.objects.filter(status='absent').count()
-        late = Attendance.objects.filter(status='late').count()
-        
-        return Response({
-            'total_records': total_records,
-            'present': present,
-            'absent': absent,
-            'late': late,
-            'attendance_rate': round((present / total_records * 100), 1) if total_records > 0 else 0
-        })
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-# Add to services/core/accounts/views.py (at the end of the file)
-
-from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from .models import ParentProfile
-from .permissions import IsParent
-
 class ParentDashboardView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated, IsParent]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        # Check if user has parent profile
+        if not hasattr(request.user, 'parent_profile'):
+            return Response({'error': 'Parent profile not found'}, status=404)
+        
         parent = request.user.parent_profile
         students = parent.linked_students.all()
         
         data = {
-            'parent_name': request.user.get_full_name() or request.user.email,
+            'parent_name': request.user.full_name or request.user.email,
             'children_count': students.count(),
             'students': [
                 {
@@ -173,4 +145,3 @@ class ParentDashboardView(generics.GenericAPIView):
             ]
         }
         return Response(data)
-
