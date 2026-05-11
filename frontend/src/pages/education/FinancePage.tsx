@@ -18,27 +18,27 @@ import studentService from '@/services/student.service';
 
 export default function FinancePage() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [feeStructures, setFeeStructures] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const [feeStructures, setFeeStructures] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Advanced Features State
-  const [installmentPlans, setInstallmentPlans] = useState([]);
-  const [scholarships, setScholarships] = useState([]);
-  const [studentScholarships, setStudentScholarships] = useState([]);
-  const [lateFeeRules, setLateFeeRules] = useState([]);
-  const [transactionLogs, setTransactionLogs] = useState([]);
+  const [installmentPlans, setInstallmentPlans] = useState<any[]>([]);
+  const [scholarships, setScholarships] = useState<any[]>([]);
+  const [studentScholarships, setStudentScholarships] = useState<any[]>([]);
+  const [lateFeeRules, setLateFeeRules] = useState<any[]>([]);
+  const [transactionLogs, setTransactionLogs] = useState<any[]>([]);
 
   // Analytics State
-  const [monthlyRevenue, setMonthlyRevenue] = useState([]);
-  const [defaulters, setDefaulters] = useState([]);
-  const [classCollection, setClassCollection] = useState([]);
-  const [forecast, setForecast] = useState([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
+  const [defaulters, setDefaulters] = useState<any>(null);
+  const [classCollection, setClassCollection] = useState<any[]>([]);
+  const [forecast, setForecast] = useState<any[]>([]);
 
-  const [classes, setClasses] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
 
   // Form states
   const [showForm, setShowForm] = useState(false);
@@ -1014,7 +1014,7 @@ export default function FinancePage() {
                             </>
                           )}
                           {(inv.status === 'issued' || inv.status === 'overdue') && (
-                            <button onClick={() => { setFormType('payment'); setPaymentFormData({ invoice_id: inv.id, amount: inv.amount - (inv.paid_amount || 0), payment_method: 'cash', transaction_id: '', notes: '' }); setShowForm(true); }} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Record Payment">
+                            <button onClick={() => { setFormType('payment'); setPaymentFormData({ invoice_id: inv.id, amount: String(inv.amount - (inv.paid_amount || 0)), payment_method: 'cash', transaction_id: '', notes: '' }); setShowForm(true); }} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Record Payment">
                               <CreditCard className="w-4 h-4" />
                             </button>
                           )}

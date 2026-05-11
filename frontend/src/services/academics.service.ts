@@ -44,21 +44,21 @@ export interface Course {
 
 const academicsService = {
   // Academic Years
-  getAcademicYears: () => api.get<AcademicYear[]>('/academics/academic-years/'),
+  getAcademicYears: () => api.get<AcademicYear[] | { results: AcademicYear[] }>('/academics/academic-years/'),
   createAcademicYear: (data: Partial<AcademicYear>) => api.post('/academics/academic-years/create/', data),
   updateAcademicYear: (id: string, data: Partial<AcademicYear>) => api.put(`/academics/academic-years/${id}/`, data),
   
   // Classes
-  getClasses: () => api.get<SchoolClass[]>('/academics/classes/'),
+  getClasses: () => api.get<SchoolClass[] | { results: SchoolClass[] }>('/academics/classes/'),
   createClass: (data: Partial<SchoolClass>) => api.post('/academics/classes/create/', data),
   
   // Sections
-  getSectionsByClass: (classId: string) => api.get<Section[]>(`/academics/sections/by-class/${classId}/`),
+  getSectionsByClass: (classId: string) => api.get<Section[] | { results: Section[] }>(`/academics/sections/by-class/${classId}/`),
   createSection: (data: { class_id: string; name: string; code: string; capacity: number }) => 
     api.post('/academics/sections/create/', data),
   
   // Courses
-  getCourses: () => api.get<Course[]>('/academics/courses/'),
+  getCourses: () => api.get<Course[] | { results: Course[] }>('/academics/courses/'),
   createCourse: (data: Partial<Course>) => api.post('/academics/courses/create/', data),
   
   // Hierarchy

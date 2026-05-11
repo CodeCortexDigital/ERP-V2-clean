@@ -12,7 +12,7 @@ export function ToastNotification({ className }: ToastNotificationProps) {
 
   useEffect(() => {
     // Subscribe to toast changes
-    const unsubscribe = toastManager.subscribe((newToasts) => {
+    const unsubscribe = toastManager.subscribe((newToasts: ToastNotification[]) => {
       setToasts(newToasts);
     });
 

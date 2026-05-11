@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Edit2, Trash2, Eye, Calendar, BookOpen, 
@@ -35,8 +35,8 @@ export default function ExamsListPage() {
     description: ''
   });
   
-  const [classes, setClasses] = useState([]);
-  const [subjects, setSubjects] = useState([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export default function ExamsListPage() {
   };
 
   const getExamTypeBadge = (type: string) => {
-    const types = {
+    const types: Record<string, React.ReactNode> = {
       midterm: <Badge variant="info">📝 Mid Term</Badge>,
       final: <Badge variant="danger">🎓 Final Term</Badge>,
       quiz: <Badge variant="warning">📋 Quiz</Badge>,

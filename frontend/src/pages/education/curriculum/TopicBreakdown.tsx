@@ -29,11 +29,16 @@ export default function TopicBreakdown() {
         curriculumService.getSyllabusSubTopics(),
       ]);
 
-      setSyllabi(syllabiRes.data || []);
-      setUnits(unitsRes.data || []);
-      setTopics(topicsRes.data || []);
-      setSubTopics(subTopicsRes.data || []);
-      setSelectedSyllabus(syllabiRes.data?.[0]?.id ?? null);
+      const syllabiData = Array.isArray(syllabiRes.data) ? syllabiRes.data : syllabiRes.data?.results ?? [];
+      const unitsData = Array.isArray(unitsRes.data) ? unitsRes.data : unitsRes.data?.results ?? [];
+      const topicsData = Array.isArray(topicsRes.data) ? topicsRes.data : topicsRes.data?.results ?? [];
+      const subTopicsData = Array.isArray(subTopicsRes.data) ? subTopicsRes.data : subTopicsRes.data?.results ?? [];
+
+      setSyllabi(syllabiData);
+      setUnits(unitsData);
+      setTopics(topicsData);
+      setSubTopics(subTopicsData);
+      setSelectedSyllabus(syllabiData[0]?.id ?? null);
     } catch (error) {
       console.error('Failed to load topic breakdown', error);
     }

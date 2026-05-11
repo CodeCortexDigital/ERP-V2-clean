@@ -80,7 +80,7 @@ export default function TimetableViewPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="class" className="space-y-4" onValueChange={(v) => setViewType(v as 'class' | 'teacher')}>
+      <Tabs defaultValue="class" className="space-y-4" onValueChange={(v: string) => setViewType(v as 'class' | 'teacher')}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="class">
             <BookOpen className="h-4 w-4 mr-2" />

@@ -76,7 +76,7 @@ export interface Student360Data {
 
 const studentService = {
   // Get all students
-  getAll: () => api.get<Student[]>('/auth/students/'),
+  getAll: () => api.get<Student[] | { results: Student[] }>('/auth/students/'),
   
   // Get single student
   getById: (id: string) => api.get<Student>(`/auth/students/${id}/`),

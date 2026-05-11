@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TrendingUp, DollarSign, Users, Calendar, ArrowUp, ArrowDown } from 'lucide-react'
+import { TrendingUp, DollarSign, Users, Calendar, ArrowUp, ArrowDown, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 
 export default function BillingDashboard() {

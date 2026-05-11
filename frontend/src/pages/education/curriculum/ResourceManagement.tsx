@@ -29,8 +29,8 @@ export default function ResourceManagement() {
         curriculumService.getLearningResources(),
         curriculumService.getSyllabusTopics(),
       ]);
-      setResources(resourcesRes.data || []);
-      setTopics(topicsRes.data || []);
+      setResources(Array.isArray(resourcesRes.data) ? resourcesRes.data : resourcesRes.data?.results ?? []);
+      setTopics(Array.isArray(topicsRes.data) ? topicsRes.data : topicsRes.data?.results ?? []);
     } catch (error) {
       console.error('Failed to load resources', error);
       toast.error('Unable to load resources');

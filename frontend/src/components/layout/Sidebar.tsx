@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { ReactNode } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, FileText,
   DollarSign, MessageSquare, Settings, GraduationCap,
@@ -69,6 +70,13 @@ function SidebarItem({ icon, label, href, collapsed, subItems }: SidebarItemProp
   );
 }
 
+interface NavItem {
+  icon: ReactNode;
+  label: string;
+  href: string;
+  subItems?: { label: string; href: string }[];
+}
+
 interface SidebarProps {
   isMobile?: boolean;
   onClose?: () => void;
@@ -85,7 +93,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   const isAdmin = !isParent && !isTeacher && !isStudent;
   
   // Parent Navigation
-  const parentNavItems = [
+  const parentNavItems: NavItem[] = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/parent' },
     { icon: <Users className="w-5 h-5" />, label: 'My Children', href: '/parent/children' },
     { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/parent/attendance' },
@@ -95,7 +103,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   ];
   
   // Teacher Navigation
-  const teacherNavItems = [
+  const teacherNavItems: NavItem[] = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/teacher' },
     { icon: <Users className="w-5 h-5" />, label: 'My Students', href: '/teacher/students' },
     { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/education/attendance' },
@@ -104,7 +112,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   
   // Student Navigation
     // Student Navigation
-  const studentNavItems = [
+  const studentNavItems: NavItem[] = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/parent' },
     { icon: <Users className="w-5 h-5" />, label: 'Profile', href: '/parent' },
     { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/parent/attendance' },
@@ -114,7 +122,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   ];
   
   // Admin Navigation
-  const adminNavItems = [
+  const adminNavItems: NavItem[] = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/dashboard' },
     { icon: <Users className="w-5 h-5" />, label: 'Students', href: '/education/students' },
     { icon: <GraduationCap className="w-5 h-5" />, label: 'Academics', href: '/education/academics' },
@@ -147,7 +155,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
         )}
         {sidebarCollapsed && !isMobile && (
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
-            <span className="text-white font-bold text-xs">CC</span>
+            <span className="text-white font-bold text-xs">EDU</span>
           </div>
         )}
         {isMobile && onClose && (

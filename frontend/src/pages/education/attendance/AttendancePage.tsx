@@ -91,14 +91,14 @@ export default function AttendancePage() {
     setLoading(true);
     try {
       const response = await studentService.getAll();
-      let allStudents = [];
+      let allStudents: any[] = [];
       if (Array.isArray(response.data)) {
         allStudents = response.data;
-      } else if (response.data && Array.isArray(response.data.results)) {
-        allStudents = response.data.results;
+      } else if (response.data && Array.isArray((response.data as any).results)) {
+        allStudents = (response.data as any).results;
       }
       
-      const filtered = allStudents.filter(s => {
+      const filtered = allStudents.filter((s: any) => {
         const classMatch = !selectedClass || s.current_class === selectedClass;
         const sectionMatch = !selectedSection || s.current_section === selectedSection;
         return classMatch && sectionMatch && s.is_active === true;
