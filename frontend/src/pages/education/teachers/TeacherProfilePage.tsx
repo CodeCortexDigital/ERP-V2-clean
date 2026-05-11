@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface Teacher {
   id: number
@@ -80,7 +81,9 @@ const SUBJECT_OPTIONS = [
   'Probability & Statistics',
   'Calculus',
   'AI Ethics',
-]
+] as const
+
+type SubjectOption = (typeof SUBJECT_OPTIONS)[number]
 
 const DEFAULT_AVAILABILITY = {
   Monday: { enabled: true, from: '09:00', to: '14:00' },
@@ -88,28 +91,38 @@ const DEFAULT_AVAILABILITY = {
   Wednesday: { enabled: false, from: '09:00', to: '13:00' },
   Thursday: { enabled: true, from: '11:00', to: '16:00' },
   Friday: { enabled: true, from: '09:00', to: '13:00' },
-}
+} as const
 
 type AvailabilityState = typeof DEFAULT_AVAILABILITY
 
 export default function TeacherProfilePage() {
-  const { id } = useParams()
+  const { id } = useParams<{ id?: string }>()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [teacher, setTeacher] = useState<Teacher | null>(null)
   const [activeTab, setActiveTab] = useState('profile')
-  const [subjectToAssign, setSubjectToAssign] = useState(SUBJECT_OPTIONS[0])
-  const [assignedSubjects, setAssignedSubjects] = useState<string[]>([])
+  const [subjectToAssign, setSubjectToAssign] = useState<SubjectOption>(SUBJECT_OPTIONS[0])
+  const [assignedSubjects, setAssignedSubjects] = useState<SubjectOption[]>([])
   const [availability, setAvailability] = useState<AvailabilityState>(DEFAULT_AVAILABILITY)
 
+  const teacherEmailToIdMap: Record<string, number> = {
+    'teacher@test.com': 1,
+    'teacher@erp.com': 1,
+  }
+
   useEffect(() => {
-    if (!id) return
-    const teacherId = Number(id)
+    const normalizedEmail = user?.email?.toLowerCase() ?? ''
+    const defaultTeacherId = teacherEmailToIdMap[normalizedEmail]
+    const teacherId = id ? Number(id) : defaultTeacherId
+
+    if (!teacherId) return
+
     const found = SAMPLE_TEACHERS.find((item) => item.id === teacherId)
     if (found) {
       setTeacher(found)
-      setAssignedSubjects(found.courses)
+      setAssignedSubjects(found.courses as SubjectOption[])
     }
-  }, [id])
+  }, [id, user?.email])
 
   const teacherName = useMemo(
     () => `${teacher?.first_name || ''} ${teacher?.last_name || ''}`.trim(),
@@ -143,9 +156,14 @@ export default function TeacherProfilePage() {
   if (!teacher) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-semibold text-gray-700">Teacher not found</h2>
-        <Button className="mt-4" onClick={() => navigate('/education/teachers')}>
-          Back to Teachers
+        <h2 className="text-2xl font-semibold text-gray-700">Teacher profile unavailable</h2>
+        <p className="mt-2 text-gray-500">
+          {id
+            ? 'No teacher matches the selected profile. Please choose another teacher or contact your administrator.'
+            : 'Your teacher profile is not available yet. Please contact support if this should be active for your account.'}
+        </p>
+        <Button className="mt-4" onClick={() => navigate(id ? '/education/teachers' : '/teacher')}>
+          {id ? 'Back to Teachers' : 'Back to Dashboard'}
         </Button>
       </div>
     )
@@ -155,8 +173,11 @@ export default function TeacherProfilePage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Button variant="outline" onClick={() => navigate('/education/teachers')}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Teachers
+          <Button
+            variant="outline"
+            onClick={() => navigate(id ? '/education/teachers' : '/teacher')}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" /> {id ? 'Back to Teachers' : 'Back to Dashboard'}
           </Button>
           <h1 className="mt-4 text-3xl font-bold text-gray-900">{teacherName}</h1>
           <p className="text-gray-500">{teacher.department} • {teacher.specialization}</p>
@@ -287,7 +308,7 @@ export default function TeacherProfilePage() {
                   <div className="mt-3 space-y-3">
                     <select
                       value={subjectToAssign}
-                      onChange={(e) => setSubjectToAssign(e.target.value)}
+                      onChange={(e) => setSubjectToAssign(e.target.value as SubjectOption)}
                       className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
                       {SUBJECT_OPTIONS.map((subject) => (
