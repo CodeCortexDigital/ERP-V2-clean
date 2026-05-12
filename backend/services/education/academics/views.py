@@ -7,7 +7,7 @@ from .models import (
     AcademicYear, SchoolClass, Section, Subject, ClassSubject,
     GradeScale, AssessmentType, AssessmentWeightage,
     Syllabus, SyllabusUnit, SyllabusTopic, SyllabusSubTopic,
-    LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability,
+    LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability, TeacherDailyAvailability, TeacherAttendance,
     Period, Classroom, TimetableEntry,
     LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback
 )
@@ -16,7 +16,7 @@ from .serializers import (
     SectionSerializer, SubjectSerializer, ClassSubjectSerializer,
     GradeScaleSerializer, AssessmentTypeSerializer, AssessmentWeightageSerializer,
     SyllabusSerializer, SyllabusUnitSerializer, SyllabusTopicSerializer, SyllabusSubTopicSerializer,
-    LearningResourceSerializer, TeacherSerializer, TeacherSubjectAssignmentSerializer, TeacherAvailabilitySerializer,
+    LearningResourceSerializer, TeacherSerializer, TeacherSubjectAssignmentSerializer, TeacherAvailabilitySerializer, TeacherDailyAvailabilitySerializer, TeacherAttendanceSerializer,
     PeriodSerializer, ClassroomSerializer, TimetableEntrySerializer,
     LessonPlanSerializer, TopicCoverageSerializer, StudentTopicProgressSerializer, TeacherFeedbackSerializer
 )
@@ -337,5 +337,57 @@ def get_teacher_detail(request, pk):
     serializer = TeacherSerializer(teacher)
     return Response(serializer.data)
 
+
+
+
+class TeacherDailyAvailabilityListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TeacherDailyAvailabilitySerializer
+    
+    def get_queryset(self):
+        teacher_id = self.request.query_params.get('teacher_id')
+        year = self.request.query_params.get('year')
+        month = self.request.query_params.get('month')
+        
+        queryset = TeacherDailyAvailability.objects.all()
+        
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        if year and month:
+            queryset = queryset.filter(date__year=year, date__month=month)
+        
+        return queryset
+
+class TeacherDailyAvailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = TeacherDailyAvailability.objects.all()
+    serializer_class = TeacherDailyAvailabilitySerializer
+    lookup_field = 'id'
+
+
+
+class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TeacherAttendanceSerializer
+    
+    def get_queryset(self):
+        teacher_id = self.request.query_params.get('teacher_id')
+        year = self.request.query_params.get('year')
+        month = self.request.query_params.get('month')
+        
+        queryset = TeacherAttendance.objects.all()
+        
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        if year and month:
+            queryset = queryset.filter(date__year=year, date__month=month)
+        
+        return queryset
+
+class TeacherAttendanceDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = TeacherAttendance.objects.all()
+    serializer_class = TeacherAttendanceSerializer
+    lookup_field = 'id'
 
 

@@ -474,3 +474,43 @@ class TeacherFeedback(models.Model):
     
     def __str__(self):
         return f"{self.teacher.full_name} - {self.title} ({self.date})"
+
+# Teacher Daily Availability (Date-based)
+class TeacherDailyAvailability(models.Model):
+    """Teacher daily availability schedule"""
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='daily_availabilities')
+    date = models.DateField()
+    is_available = models.BooleanField(default=True)
+    reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['teacher', 'date']
+        ordering = ['date']
+    
+    def __str__(self):
+        status = "Available" if self.is_available else "Unavailable"
+        return f"{self.teacher.full_name} - {self.date} ({status})"
+
+class TeacherAttendance(models.Model):
+    """Teacher attendance record - respectful tracking"""
+    STATUS_CHOICES = [
+        ('present', 'Present'),
+        ('on_leave', 'On Leave'),
+        ('absent', 'Absent'),
+    ]
+    
+    teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='attendances')
+    date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='present')
+    reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['teacher', 'date']
+        ordering = ['-date']
+    
+    def __str__(self):
+        return f"{self.teacher.full_name} - {self.date} ({self.get_status_display()})"

@@ -40,6 +40,8 @@ urlpatterns = [
     path('teacher-assignments/<str:id>/', views.TeacherSubjectAssignmentDetailView.as_view(), name='teacher-assignment-detail'),
     path('teacher-availability/', views.TeacherAvailabilityListCreateView.as_view(), name='teacher-availability-list'),
     path('teacher-availability/<str:id>/', views.TeacherAvailabilityDetailView.as_view(), name='teacher-availability-detail'),
+    path('teacher-daily-availability/', views.TeacherDailyAvailabilityListCreateView.as_view(), name='teacher-daily-availability-list'),
+    path('teacher-daily-availability/<str:id>/', views.TeacherDailyAvailabilityDetailView.as_view(), name='teacher-daily-availability-detail'),
     
     # LEVEL 5: SCHEDULING & TIMETABLE
     path('periods/', views.PeriodListCreateView.as_view(), name='period-list'),
@@ -58,4 +60,10 @@ urlpatterns = [
     path('student-topic-progress/<str:id>/', views.StudentTopicProgressDetailView.as_view(), name='student-topic-progress-detail'),
     path('teacher-feedback/', views.TeacherFeedbackListCreateView.as_view(), name='teacher-feedback-list'),
     path('teacher-feedback/<str:id>/', views.TeacherFeedbackDetailView.as_view(), name='teacher-feedback-detail'),
+    path('teacher-attendance/', views.TeacherAttendanceListCreateView.as_view(), name='teacher-attendance-list'),
+    path('teacher-attendance/<str:id>/', views.TeacherAttendanceDetailView.as_view(), name='teacher-attendance-detail'),
 ]
+
+
+
+

@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from .models import (
+from .models import (TeacherAttendance,
     AcademicYear, SchoolClass, Section, Subject, ClassSubject,
     GradeScale, AssessmentType, AssessmentWeightage,
     Syllabus, SyllabusUnit, SyllabusTopic, SyllabusSubTopic,
-    LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability,
+    LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability, TeacherDailyAvailability,
     Period, Classroom, TimetableEntry,
     LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback
 )
@@ -193,3 +193,19 @@ class TeacherFeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherFeedback
         fields = '__all__'
+
+class TeacherDailyAvailabilitySerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source='teacher.full_name', read_only=True)
+    
+    class Meta:
+        model = TeacherDailyAvailability
+        fields = ['id', 'teacher', 'teacher_name', 'date', 'is_available', 'reason']
+
+
+class TeacherAttendanceSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source='teacher.full_name', read_only=True)
+    
+    class Meta:
+        model = TeacherAttendance
+        fields = ['id', 'teacher', 'teacher_name', 'date', 'status', 'reason']
+

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { TeacherAttendanceCalendar } from '@/components/calendar/TeacherAttendanceCalendar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
@@ -166,7 +167,7 @@ export default function TeacherProfilePage() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="subjects">Subject Assignment</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>          <TabsTrigger value="calendar">📅 Calendar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -341,9 +342,13 @@ export default function TeacherProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+              <TabsContent value="calendar">          <TeacherAttendanceCalendar teacherId={teacher.id} teacherName={teacher.full_name} />        </TabsContent></Tabs>
     </div>
   )
 }
+
+
+
+
 
 
