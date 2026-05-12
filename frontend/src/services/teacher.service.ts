@@ -28,6 +28,18 @@ const teacherService = {
     return response;
   },
 
+  // Create new teacher
+  create: async (data: any) => {
+    const response = await api.post('/auth/academics/teachers/', data);
+    return response;
+  },
+
+  // Update teacher
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/auth/academics/teachers/${id}/`, data);
+    return response;
+  },
+
   // Delete teacher (soft delete - set inactive)
   deleteTeacher: async (id: string) => {
     const response = await api.delete(`/auth/academics/teachers/${id}/`);
@@ -36,4 +48,3 @@ const teacherService = {
 };
 
 export default teacherService;
-

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, User, Mail, Phone, Briefcase, GraduationCap, BookOpen, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, X, User, Mail, Phone, GraduationCap, BookOpen, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -14,18 +14,20 @@ export default function EditTeacherPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [teacher, setTeacher] = useState<Teacher | null>(null);
+  const [newQualification, setNewQualification] = useState('');
+  const [newSpecialization, setNewSpecialization] = useState('');
+  
   const [formData, setFormData] = useState({
+    employee_id: '',
     full_name: '',
     email: '',
     phone: '',
-    employee_id: '',
     qualifications: [] as string[],
     specializations: [] as string[],
     experience_years: 0,
+    joining_date: '',
     is_active: true,
   });
-  const [newQualification, setNewQualification] = useState('');
-  const [newSpecialization, setNewSpecialization] = useState('');
 
   useEffect(() => {
     fetchTeacher();
@@ -36,13 +38,14 @@ export default function EditTeacherPage() {
       const response = await teacherService.getById(id!);
       setTeacher(response.data);
       setFormData({
+        employee_id: response.data.employee_id || '',
         full_name: response.data.full_name || '',
         email: response.data.email || '',
         phone: response.data.phone || '',
-        employee_id: response.data.employee_id || '',
         qualifications: response.data.qualifications || [],
         specializations: response.data.specializations || [],
         experience_years: response.data.experience_years || 0,
+        joining_date: response.data.joining_date || new Date().toISOString().split('T')[0],
         is_active: response.data.is_active !== false,
       });
     } catch (error) {
@@ -87,11 +90,11 @@ export default function EditTeacherPage() {
     });
   };
 
-      const handleDelete = async () => {
+  const handleDelete = async () => {
     if (confirm(`Are you sure you want to delete ${teacher?.full_name}? This action cannot be undone.`)) {
       setSaving(true);
       try {
-        await teacherService.deleteTeacher(id);
+        await teacherService.deleteTeacher(id!);
         toast.success('Teacher deleted successfully');
         navigate('/education/teachers');
       } catch (error) {
@@ -107,8 +110,7 @@ export default function EditTeacherPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      // In a real implementation, you would call teacherService.update
-      // For now, just show success message
+      await teacherService.update(id!, formData);
       toast.success('Teacher updated successfully!');
       navigate(`/education/teachers/${id}`);
     } catch (error) {
@@ -157,30 +159,30 @@ export default function EditTeacherPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Basic Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Basic Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Employee ID *</label>
+                <Input
+                  value={formData.employee_id}
+                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                  required
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Full Name *</label>
                 <Input
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Employee ID</label>
-                <Input
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                  placeholder="TCH-XXX"
                 />
               </div>
               <div>
@@ -197,7 +199,6 @@ export default function EditTeacherPage() {
                 <Input
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+92 XXX XXXXXXX"
                 />
               </div>
               <div>
@@ -211,6 +212,14 @@ export default function EditTeacherPage() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1">Joining Date</label>
+                <Input
+                  type="date"
+                  value={formData.joining_date}
+                  onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1">Status</label>
                 <select
                   className="w-full border rounded-lg px-3 py-2"
@@ -221,75 +230,76 @@ export default function EditTeacherPage() {
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Qualifications */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5" />
-              Qualifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add qualification (e.g., M.Sc, PhD)"
-                value={newQualification}
-                onChange={(e) => setNewQualification(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addQualification())}
-              />
-              <Button type="button" onClick={addQualification} variant="outline">Add</Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.qualifications.map((qual) => (
-                <Badge key={qual} variant="secondary" className="gap-1">
-                  {qual}
-                  <button type="button" onClick={() => removeQualification(qual)} className="ml-1 hover:text-red-500">
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+          {/* Qualifications & Specializations */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5" />
+                  Qualifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add qualification (e.g., M.Sc, PhD)"
+                    value={newQualification}
+                    onChange={(e) => setNewQualification(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addQualification())}
+                  />
+                  <Button type="button" onClick={addQualification} variant="outline">Add</Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.qualifications.map((qual) => (
+                    <Badge key={qual} variant="secondary" className="gap-1">
+                      {qual}
+                      <button type="button" onClick={() => removeQualification(qual)} className="ml-1 hover:text-red-500">×</button>
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Specializations */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5" />
-              Specializations
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add specialization (e.g., Mathematics, Physics)"
-                value={newSpecialization}
-                onChange={(e) => setNewSpecialization(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialization())}
-              />
-              <Button type="button" onClick={addSpecialization} variant="outline">Add</Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.specializations.map((spec) => (
-                <Badge key={spec} variant="outline" className="gap-1">
-                  {spec}
-                  <button type="button" onClick={() => removeSpecialization(spec)} className="ml-1 hover:text-red-500">
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5" />
+                  Specializations
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add specialization (e.g., Mathematics, Physics)"
+                    value={newSpecialization}
+                    onChange={(e) => setNewSpecialization(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialization())}
+                  />
+                  <Button type="button" onClick={addSpecialization} variant="outline">Add</Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.specializations.map((spec) => (
+                    <Badge key={spec} variant="outline" className="gap-1">
+                      {spec}
+                      <button type="button" onClick={() => removeSpecialization(spec)} className="ml-1 hover:text-red-500">×</button>
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="destructive" onClick={handleDelete} disabled={saving}><Trash2 className="w-4 h-4 mr-2" />Delete Teacher</Button><Button type="button" variant="outline" onClick={() => navigate(`/education/teachers/${id}`)}>
+          <Button type="button" variant="destructive" onClick={handleDelete} disabled={saving}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete Teacher
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate(`/education/teachers/${id}`)}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
@@ -301,6 +311,3 @@ export default function EditTeacherPage() {
     </div>
   );
 }
-
-
-

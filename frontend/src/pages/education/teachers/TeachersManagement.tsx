@@ -14,6 +14,7 @@ export default function TeachersManagement() {
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
 
   useEffect(() => {
     fetchTeachers();
@@ -31,17 +32,30 @@ export default function TeachersManagement() {
     }
   };
 
+  const activeTeachers = teachers.filter(t => t.is_active);
   const departments = [...new Set(teachers.flatMap(t => t.specializations || []))].filter(Boolean);
+  const totalExperience = activeTeachers.reduce((sum, t) => sum + (t.experience_years || 0), 0);
+  const avgExperience = activeTeachers.length > 0 ? Math.round(totalExperience / activeTeachers.length) : 0;
 
   const filteredTeachers = teachers.filter(t => {
+    // Search filter
     const matchesSearch = t.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
+    // Department filter
     const matchesDept = !selectedDepartment || (t.specializations || []).includes(selectedDepartment);
-    const matchesStatus = !selectedStatus || 
-      (selectedStatus === 'active' && t.is_active) || 
-      (selectedStatus === 'inactive' && !t.is_active);
+    
+    // Status filter
+    let matchesStatus = true;
+    if (selectedStatus === 'active') {
+      matchesStatus = t.is_active === true;
+    } else if (selectedStatus === 'inactive') {
+      matchesStatus = t.is_active === false;
+    } else if (!showInactive) {
+      // If not showing inactive, only show active teachers
+      matchesStatus = t.is_active === true;
+    }
     
     return matchesSearch && matchesDept && matchesStatus;
   });
@@ -50,6 +64,7 @@ export default function TeachersManagement() {
     setSearchTerm('');
     setSelectedDepartment('');
     setSelectedStatus('');
+    setShowInactive(false);
   };
 
   if (loading) {
@@ -77,23 +92,19 @@ export default function TeachersManagement() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-blue-50 rounded-xl p-4">
           <p className="text-sm text-gray-600">Total Teachers</p>
-          <p className="text-2xl font-bold text-blue-700">{teachers.length}</p>
+          <p className="text-2xl font-bold text-blue-700">{activeTeachers.length}</p>
         </div>
         <div className="bg-green-50 rounded-xl p-4">
           <p className="text-sm text-gray-600">Active Teachers</p>
-          <p className="text-2xl font-bold text-green-700">{teachers.filter(t => t.is_active).length}</p>
+          <p className="text-2xl font-bold text-green-700">{activeTeachers.length}</p>
         </div>
         <div className="bg-purple-50 rounded-xl p-4">
           <p className="text-sm text-gray-600">Total Experience</p>
-          <p className="text-2xl font-bold text-purple-700">
-            {teachers.reduce((sum, t) => sum + (t.experience_years || 0), 0)} yrs
-          </p>
+          <p className="text-2xl font-bold text-purple-700">{totalExperience} yrs</p>
         </div>
         <div className="bg-yellow-50 rounded-xl p-4">
           <p className="text-sm text-gray-600">Avg Experience</p>
-          <p className="text-2xl font-bold text-yellow-700">
-            {teachers.length > 0 ? Math.round(teachers.reduce((sum, t) => sum + (t.experience_years || 0), 0) / teachers.length) : 0} yrs
-          </p>
+          <p className="text-2xl font-bold text-yellow-700">{avgExperience} yrs</p>
         </div>
       </div>
 
@@ -116,7 +127,14 @@ export default function TeachersManagement() {
           Filters
         </Button>
         
-        {(searchTerm || selectedDepartment || selectedStatus) && (
+        <Button 
+          variant={showInactive ? "default" : "outline"} 
+          onClick={() => setShowInactive(!showInactive)}
+        >
+          {showInactive ? 'Hide Inactive' : 'Show Inactive'}
+        </Button>
+        
+        {(searchTerm || selectedDepartment || selectedStatus || showInactive) && (
           <Button variant="ghost" onClick={clearFilters} size="sm">
             Clear Filters
           </Button>
@@ -151,8 +169,8 @@ export default function TeachersManagement() {
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
               <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
             </select>
           </div>
         </div>
@@ -174,7 +192,10 @@ export default function TeachersManagement() {
           </thead>
           <tbody>
             {filteredTeachers.map((teacher) => (
-              <tr key={teacher.id} className="border-t hover:bg-gray-50">
+              <tr 
+                key={teacher.id} 
+                className={`border-t hover:bg-gray-50 ${!teacher.is_active ? 'bg-gray-100 opacity-75' : ''}`}
+              >
                 <td className="px-4 py-3 font-mono text-sm">{teacher.employee_id || 'N/A'}</td>
                 <td className="px-4 py-3">
                   <div>
