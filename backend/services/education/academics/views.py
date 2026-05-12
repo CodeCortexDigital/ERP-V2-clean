@@ -337,3 +337,5 @@ def get_teacher_detail(request, pk):
     serializer = TeacherSerializer(teacher)
     return Response(serializer.data)
 
+
+

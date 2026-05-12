@@ -15,9 +15,8 @@ export interface Teacher {
 }
 
 const teacherService = {
-  // Get all teachers - using CORRECT endpoint
+  // Get all teachers
   getAll: async () => {
-    // Correct URL: /api/auth/academics/teachers/
     const response = await api.get('/auth/academics/teachers/');
     console.log('Teachers API response:', response.data);
     return response;
@@ -28,6 +27,13 @@ const teacherService = {
     const response = await api.get(`/auth/academics/teachers/${id}/`);
     return response;
   },
+
+  // Delete teacher (soft delete - set inactive)
+  deleteTeacher: async (id: string) => {
+    const response = await api.delete(`/auth/academics/teachers/${id}/`);
+    return response;
+  },
 };
 
 export default teacherService;
+

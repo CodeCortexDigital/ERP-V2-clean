@@ -1,17 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft,
-  Mail,
-  Phone,
-  Calendar,
-  Award,
-  MapPin,
-  Users,
-  BookOpen,
-  Plus,
-  Check,
-  X,
+  ArrowLeft, Mail, Phone, Calendar, Award, MapPin, Users, BookOpen, Plus, Check, X, Edit2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -165,8 +155,8 @@ export default function TeacherProfilePage() {
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <p className="text-sm text-gray-500">Status</p>
-            <Badge variant={teacher.status === 'active' ? 'success' : teacher.status === 'on_leave' ? 'warning' : 'secondary'}>
-              {teacher.status.replace('_', ' ')}
+            <Badge variant={teacher.is_active ? "active" : "inactive" === 'active' ? 'success' : teacher.is_active ? "active" : "inactive" === 'on_leave' ? 'warning' : 'secondary'}>
+              {teacher.is_active ? "active" : "inactive".replace('_', ' ')}
             </Badge>
           </div>
         </div>
@@ -355,3 +345,5 @@ export default function TeacherProfilePage() {
     </div>
   )
 }
+
+

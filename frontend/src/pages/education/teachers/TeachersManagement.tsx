@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Mail, Phone } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, Eye, Mail, Phone, Edit2, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import teacherService, { Teacher } from '@/services/teacher.service';
 
 export default function TeachersManagement() {
+  const navigate = useNavigate();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchTeachers();
@@ -18,7 +23,6 @@ export default function TeachersManagement() {
     setLoading(true);
     try {
       const response = await teacherService.getAll();
-      console.log('Teachers loaded:', response.data);
       setTeachers(response.data);
     } catch (error) {
       console.error('Error fetching teachers:', error);
@@ -27,12 +31,26 @@ export default function TeachersManagement() {
     }
   };
 
+  const departments = [...new Set(teachers.flatMap(t => t.specializations || []))].filter(Boolean);
+
   const filteredTeachers = teachers.filter(t => {
     const matchesSearch = t.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    
+    const matchesDept = !selectedDepartment || (t.specializations || []).includes(selectedDepartment);
+    const matchesStatus = !selectedStatus || 
+      (selectedStatus === 'active' && t.is_active) || 
+      (selectedStatus === 'inactive' && !t.is_active);
+    
+    return matchesSearch && matchesDept && matchesStatus;
   });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedDepartment('');
+    setSelectedStatus('');
+  };
 
   if (loading) {
     return (
@@ -49,7 +67,7 @@ export default function TeachersManagement() {
           <h1 className="text-2xl font-bold text-gray-800">Teachers Management</h1>
           <p className="text-gray-500 text-sm mt-1">Manage faculty and teaching staff</p>
         </div>
-        <Button onClick={() => alert('Add Teacher - Coming Soon')}>
+        <Button onClick={() => navigate('/education/teachers/add')}>
           <Plus className="w-4 h-4 mr-2" />
           Add Teacher
         </Button>
@@ -80,7 +98,7 @@ export default function TeachersManagement() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 items-center">
         <div className="flex-1 min-w-[200px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -92,10 +110,53 @@ export default function TeachersManagement() {
             />
           </div>
         </div>
+        
+        <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+          <Filter className="w-4 h-4 mr-2" />
+          Filters
+        </Button>
+        
+        {(searchTerm || selectedDepartment || selectedStatus) && (
+          <Button variant="ghost" onClick={clearFilters} size="sm">
+            Clear Filters
+          </Button>
+        )}
+        
         <Button onClick={fetchTeachers} variant="outline" size="sm">
           Refresh
         </Button>
       </div>
+
+      {/* Advanced Filters */}
+      {showFilters && (
+        <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Department / Specialization</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2"
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+            >
+              <option value="">All Departments</option>
+              {departments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Status</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Teachers Table */}
       <div className="overflow-x-auto border rounded-xl bg-white">
@@ -148,13 +209,32 @@ export default function TeachersManagement() {
                 </td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex gap-1 justify-center">
-                    <button className="p-1.5 rounded-lg hover:bg-blue-100" title="View">
+                    <button 
+                      onClick={() => navigate(`/education/teachers/${teacher.id}`)} 
+                      className="p-1.5 rounded-lg hover:bg-blue-100" 
+                      title="View Profile"
+                    >
                       <Eye className="w-4 h-4 text-blue-600" />
                     </button>
-                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Email">
+                    <button 
+                      onClick={() => navigate(`/education/teachers/${teacher.id}/edit`)} 
+                      className="p-1.5 rounded-lg hover:bg-yellow-100" 
+                      title="Edit Teacher"
+                    >
+                      <Edit2 className="w-4 h-4 text-yellow-600" />
+                    </button>
+                    <button 
+                      onClick={() => window.location.href = `mailto:${teacher.email}`}
+                      className="p-1.5 rounded-lg hover:bg-green-100" 
+                      title="Send Email"
+                    >
                       <Mail className="w-4 h-4 text-green-600" />
                     </button>
-                    <button className="p-1.5 rounded-lg hover:bg-purple-100" title="Call">
+                    <button 
+                      onClick={() => navigator.clipboard.writeText(teacher.phone)}
+                      className="p-1.5 rounded-lg hover:bg-purple-100" 
+                      title="Copy Phone Number"
+                    >
                       <Phone className="w-4 h-4 text-purple-600" />
                     </button>
                   </div>

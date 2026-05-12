@@ -15,6 +15,7 @@ import CoursesListPage from './pages/education/CoursesListPage'
 import TeachersManagementPage from './pages/education/teachers/TeachersManagement'
 import AddTeacherPage from './pages/education/teachers/AddTeacherPage'
 import TeacherProfilePage from './pages/education/teachers/TeacherProfilePage'
+import EditTeacherPage from './pages/education/teachers/EditTeacherPage'
 import ExamsPage from '@/pages/education/ExamsPage'
 import ExamsListPage from './pages/education/exams/ExamsListPage'
 import ExamDashboard from './pages/education/exams/dashboard/ExamDashboard'
@@ -81,6 +82,7 @@ function App() {
               <Route path="education/teachers" element={<TeachersManagementPage />} />
               <Route path="education/teachers/add" element={<AddTeacherPage />} />
               <Route path="education/teachers/:id" element={<TeacherProfilePage />} />
+              <Route path="education/teachers/:id/edit" element={<EditTeacherPage />} />
               <Route path="education/exams" element={<ExamsPage />} />
               <Route path="education/exams/list" element={<ExamsListPage />} />
               <Route path="education/exams/dashboard" element={<ExamDashboard />} />
@@ -131,5 +133,3 @@ function App() {
 }
 
 export default memo(App)
-
-
