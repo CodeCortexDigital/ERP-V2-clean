@@ -6,7 +6,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { StudentAttendanceCalendar } from '@/components/calendar/StudentAttendanceCalendar';
 import { toast } from 'sonner';
 import studentService, { Student } from '@/services/student.service';
 import attendanceService from '@/services/attendance.service';
@@ -498,7 +499,9 @@ export default function StudentProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+              <TabsContent value="attendance">          <StudentAttendanceCalendar studentId={student.id} studentName={student.full_name} />        </TabsContent></Tabs>
     </div>
   );
 }
+
+

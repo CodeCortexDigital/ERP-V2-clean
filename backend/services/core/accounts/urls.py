@@ -34,5 +34,7 @@ urlpatterns = [
     path('teacher/class/<uuid:class_id>/students/', teacher_views.TeacherClassStudentsView.as_view(), name='teacher-class-students'),
     path('teacher/attendance/mark/', teacher_views.TeacherMarkAttendanceView.as_view(), name='teacher-mark-attendance'),
     path('teacher/exam/marks/', teacher_views.TeacherExamMarksView.as_view(), name='teacher-exam-marks'),
+    path('attendance/student/<uuid:student_id>/', views.student_attendance, name='student-attendance'),
 ]
+
 

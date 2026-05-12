@@ -322,3 +322,27 @@ def attendance_stats(request):
     
     return Response({'error': 'student_id or class_id required'}, status=400)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_attendance(request, student_id):
+    """Get attendance for a specific student"""
+    from django.apps import apps
+    from django.utils import timezone
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    
+    year = request.GET.get('year')
+    month = request.GET.get('month')
+    
+    attendance_records = Attendance.objects.filter(student_id=student_id)
+    if year and month:
+        attendance_records = attendance_records.filter(date__year=year, date__month=month)
+    
+    data = []
+    for record in attendance_records:
+        data.append({
+            'id': str(record.id),
+            'date': str(record.date),
+            'status': record.status,
+        })
+    return Response(data)
