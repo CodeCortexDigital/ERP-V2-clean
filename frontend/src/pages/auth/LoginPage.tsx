@@ -87,7 +87,7 @@ export default function LoginPage() {
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-3">
-            <span className="text-3xl font-bold text-white">CC</span>
+            <span className="text-3xl font-bold text-white">EDU</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Code Cortex</h1>
           <p className="text-blue-100 mt-1">School Management System</p>

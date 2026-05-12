@@ -1,127 +1,162 @@
-import { useMemo, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Eye, Edit, Trash2, Mail, Phone, BookOpen, Calendar, Award } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import teacherService, { Teacher } from '@/services/teacher.service'
+import { useState, useEffect } from 'react';
+import { Plus, Search, Eye, Mail, Phone } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import teacherService, { Teacher } from '@/services/teacher.service';
 
 export default function TeachersManagement() {
-  const navigate = useNavigate()
-  const [teachers, setTeachers] = useState<Teacher[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    loadTeachers()
-  }, [])
+    fetchTeachers();
+  }, []);
 
-  const loadTeachers = async () => {
+  const fetchTeachers = async () => {
+    setLoading(true);
     try {
-      const response = await teacherService.getAll()
-      setTeachers(response.data)
+      const response = await teacherService.getAll();
+      console.log('Teachers loaded:', response.data);
+      setTeachers(response.data);
     } catch (error) {
-      console.error('Error loading teachers:', error)
+      console.error('Error fetching teachers:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const filteredTeachers = useMemo(() => {
-    if (!searchQuery) return teachers
-    const term = searchQuery.toLowerCase()
-    return teachers.filter((teacher) =>
-      teacher.teacher_id.toLowerCase().includes(term) ||
-      teacher.first_name.toLowerCase().includes(term) ||
-      teacher.last_name.toLowerCase().includes(term) ||
-      teacher.department.toLowerCase().includes(term) ||
-      teacher.specialization.toLowerCase().includes(term)
-    )
-  }, [searchQuery, teachers])
+  const filteredTeachers = teachers.filter(t => {
+    const matchesSearch = t.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Teachers Management</h1>
-          <p className="text-gray-500">Manage faculty and teaching staff</p>
+          <h1 className="text-2xl font-bold text-gray-800">Teachers Management</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage faculty and teaching staff</p>
         </div>
-        <Button onClick={() => navigate('/education/teachers/add')}>
-          <Plus className="h-4 w-4 mr-2" />Add Teacher
+        <Button onClick={() => alert('Add Teacher - Coming Soon')}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Teacher
         </Button>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:w-1/2">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search teachers"
-            className="pl-10"
-          />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 rounded-xl p-4">
+          <p className="text-sm text-gray-600">Total Teachers</p>
+          <p className="text-2xl font-bold text-blue-700">{teachers.length}</p>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4">
+          <p className="text-sm text-gray-600">Active Teachers</p>
+          <p className="text-2xl font-bold text-green-700">{teachers.filter(t => t.is_active).length}</p>
+        </div>
+        <div className="bg-purple-50 rounded-xl p-4">
+          <p className="text-sm text-gray-600">Total Experience</p>
+          <p className="text-2xl font-bold text-purple-700">
+            {teachers.reduce((sum, t) => sum + (t.experience_years || 0), 0)} yrs
+          </p>
+        </div>
+        <div className="bg-yellow-50 rounded-xl p-4">
+          <p className="text-sm text-gray-600">Avg Experience</p>
+          <p className="text-2xl font-bold text-yellow-700">
+            {teachers.length > 0 ? Math.round(teachers.reduce((sum, t) => sum + (t.experience_years || 0), 0) / teachers.length) : 0} yrs
+          </p>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search by name, email, or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+        <Button onClick={fetchTeachers} variant="outline" size="sm">
+          Refresh
+        </Button>
+      </div>
+
+      {/* Teachers Table */}
+      <div className="overflow-x-auto border rounded-xl bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 font-medium text-gray-700">Teacher ID</th>
-              <th className="px-4 py-3 font-medium text-gray-700">Name</th>
-              <th className="px-4 py-3 font-medium text-gray-700">Department</th>
-              <th className="px-4 py-3 font-medium text-gray-700">Specialization</th>
-              <th className="px-4 py-3 font-medium text-gray-700">Qualification</th>
-              <th className="px-4 py-3 font-medium text-gray-700">Courses</th>
-              <th className="px-4 py-3 font-medium text-gray-700">Status</th>
-              <th className="px-4 py-3 font-medium text-gray-700">Actions</th>
+              <th className="px-4 py-3 text-left">Teacher ID</th>
+              <th className="px-4 py-3 text-left">Name</th>
+              <th className="px-4 py-3 text-left">Specialization</th>
+              <th className="px-4 py-3 text-left">Qualification</th>
+              <th className="px-4 py-3 text-left">Experience</th>
+              <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredTeachers.map((t) => (
-              <tr key={t.id} className="border-t hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-slate-900">{t.teacher_id}</td>
-                <td className="px-4 py-3 font-medium text-slate-900">
-                  {t.first_name} {t.last_name}
-                  <br />
-                  <span className="text-xs text-gray-500">{t.email}</span>
+            {filteredTeachers.map((teacher) => (
+              <tr key={teacher.id} className="border-t hover:bg-gray-50">
+                <td className="px-4 py-3 font-mono text-sm">{teacher.employee_id || 'N/A'}</td>
+                <td className="px-4 py-3">
+                  <div>
+                    <p className="font-medium">{teacher.full_name}</p>
+                    <p className="text-xs text-gray-500">{teacher.email}</p>
+                    <p className="text-xs text-gray-400">{teacher.phone}</p>
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-slate-900">{t.department}</td>
-                <td className="px-4 py-3 text-slate-900">{t.specialization}</td>
-                <td className="px-4 py-3 text-slate-900">{t.qualification}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
-                    {t.courses.map((c) => (
-                      <Badge key={c} variant="outline">
-                        {c}
+                    {teacher.specializations?.slice(0, 2).map((spec, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {spec}
                       </Badge>
                     ))}
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant={t.status === 'active' ? 'success' : t.status === 'on_leave' ? 'warning' : 'secondary'}>
-                    {t.status.replace('_', ' ')}
+                  <div className="flex flex-wrap gap-1">
+                    {teacher.qualifications?.slice(0, 2).map((qual, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {qual}
+                      </Badge>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-4 py-3">{teacher.experience_years || 0} years</td>
+                <td className="px-4 py-3">
+                  <Badge variant={teacher.is_active ? 'success' : 'secondary'}>
+                    {teacher.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/education/teachers/${t.id}`)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/education/teachers/${t.id}`)}>
-                      <BookOpen className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/education/teachers/${t.id}`)}>
-                      <Calendar className="h-4 w-4" />
-                    </Button>
+                <td className="px-4 py-3 text-center">
+                  <div className="flex gap-1 justify-center">
+                    <button className="p-1.5 rounded-lg hover:bg-blue-100" title="View">
+                      <Eye className="w-4 h-4 text-blue-600" />
+                    </button>
+                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Email">
+                      <Mail className="w-4 h-4 text-green-600" />
+                    </button>
+                    <button className="p-1.5 rounded-lg hover:bg-purple-100" title="Call">
+                      <Phone className="w-4 h-4 text-purple-600" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -129,6 +164,12 @@ export default function TeachersManagement() {
           </tbody>
         </table>
       </div>
+
+      {filteredTeachers.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">No teachers found</p>
+        </div>
+      )}
     </div>
-  )
+  );
 }

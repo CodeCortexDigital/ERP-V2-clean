@@ -1,3 +1,6 @@
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from .models import (
@@ -317,3 +320,20 @@ class TeacherFeedbackDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = TeacherFeedback.objects.all()
     serializer_class = TeacherFeedbackSerializer
     lookup_field = 'id'
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_teachers(request):
+    """Get all teachers from education_academics"""
+    teachers = Teacher.objects.filter(is_active=True)
+    serializer = TeacherSerializer(teachers, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_teacher_detail(request, pk):
+    """Get single teacher details"""
+    teacher = get_object_or_404(Teacher, pk=pk)
+    serializer = TeacherSerializer(teacher)
+    return Response(serializer.data)
+

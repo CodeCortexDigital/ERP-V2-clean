@@ -135,7 +135,7 @@ def executive_dashboard(request):
             'exam_performance_trends': exam_performance_trends,
             'teacher_metrics': teacher_metrics,
             'smart_insights': smart_insights,
-            'generated_at': timezone.now()
+            'generated_at': timezone.now().isoformat()
         })
 
     except Exception as e:
@@ -255,20 +255,32 @@ def _calculate_student_growth():
     today = timezone.now().date()
     Student = apps.get_model('education_students', 'Student')
 
-    # Monthly student count for last 12 months
+    # Get current total active students (for dashboard KPI)
+    current_total = Student.objects.filter(is_active=True).count()
+
+    # Monthly student count for last 12 months (based on admission dates where available)
     growth_data = []
     for i in range(12):
         month_end = today - timedelta(days=i*30)
         month_start = month_end.replace(day=1)
 
-        count = Student.objects.filter(
+        # Count students admitted by this month end, or all active if no admission date
+        admitted_count = Student.objects.filter(
             admission_date__lte=month_end,
             is_active=True
         ).count()
+        
+        # Also include students with no admission date (assume they were admitted)
+        no_date_count = Student.objects.filter(
+            admission_date__isnull=True,
+            is_active=True
+        ).count()
+        
+        total_count = admitted_count + no_date_count
 
         growth_data.append({
             'month': month_start.strftime('%Y-%m'),
-            'student_count': count,
+            'student_count': total_count,
             'month_name': month_start.strftime('%B %Y')
         })
 
@@ -282,7 +294,7 @@ def _calculate_student_growth():
 
     return {
         'monthly_growth': growth_data,
-        'current_total': growth_data[0]['student_count'] if growth_data else 0,
+        'current_total': current_total,
         'growth_rate': round(growth_rate, 1),
         'growth_direction': 'up' if growth_rate > 0 else 'down' if growth_rate < 0 else 'stable'
     }
@@ -314,13 +326,28 @@ def _calculate_exam_performance_trends():
 
 def _calculate_teacher_performance():
     """Calculate teacher performance metrics"""
-    # This would require teacher and class assignment data
-    # For now, return placeholder
+    Teacher = apps.get_model('education_academics', 'Teacher')
+    TeacherSubjectAssignment = apps.get_model('education_academics', 'TeacherSubjectAssignment')
+
+    total_teachers = Teacher.objects.filter(is_active=True).count()
+    active_assignments = TeacherSubjectAssignment.objects.filter(is_active=True).select_related('teacher')
+    assignment_count = active_assignments.count()
+    avg_assignments_per_teacher = round((assignment_count / total_teachers), 1) if total_teachers else 0
+
+    distinct_teachers = active_assignments.values('teacher__full_name').annotate(classes=Count('id')).order_by('-classes')
+
+    teacher_ratings = [
+        {'teacher_name': item['teacher__full_name'], 'assignments': item['classes']}
+        for item in distinct_teachers[:5]
+    ]
+
     return {
-        'total_teachers': 0,
-        'avg_class_performance': 0,
-        'teacher_ratings': [],
-        'note': 'Teacher performance metrics require teacher-class assignment data'
+        'total_teachers': total_teachers,
+        'active_teacher_assignments': assignment_count,
+        'average_assignments_per_teacher': avg_assignments_per_teacher,
+        'top_teachers_by_assignments': list(distinct_teachers[:3]),
+        'teacher_ratings': teacher_ratings,
+        'note': 'Teacher metrics based on active teacher assignments and current roster.'
     }
 
 def _generate_smart_insights(attendance_trends, fee_recovery_trends, exam_performance_trends):
