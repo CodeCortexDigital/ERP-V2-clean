@@ -1,4 +1,4 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -24,11 +24,9 @@ def login_view(request):
     
     user = None
     
-    # Try to find user by student_id first
     from services.education.students.models import Student
     try:
         student = Student.objects.get(student_id=email_or_student_id)
-        # Find user by student's email
         try:
             user = User.objects.get(email=student.email)
         except User.DoesNotExist:
@@ -36,7 +34,6 @@ def login_view(request):
     except Student.DoesNotExist:
         pass
     
-    # If not found by student_id, try by email
     if not user:
         try:
             user_obj = User.objects.get(email=email_or_student_id)
@@ -44,7 +41,6 @@ def login_view(request):
         except User.DoesNotExist:
             user = None
     
-    # Also try direct authentication with email
     if not user:
         user = authenticate(request, username=email_or_student_id, password=password)
     
@@ -79,7 +75,6 @@ def logout_view(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_current_user(request):
-    """Get current authenticated user"""
     user = request.user
     return Response({
         'id': str(user.id),
@@ -119,11 +114,23 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.save()
         return Response({'message': 'Student deactivated'}, status=status.HTTP_200_OK)
 
-# ============================================================
-# CLASS VIEWS
-# ============================================================
+
 class ClassListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        SchoolClass = apps.get_model('education_academics', 'SchoolClass')
+        return SchoolClass.objects.filter(is_active=True)
+    
+    def get_serializer_class(self):
+        from .serializers import ClassSerializer
+        return ClassSerializer
+
+
+class ClassDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
     
     def get_queryset(self):
         SchoolClass = apps.get_model('education_academics', 'SchoolClass')
@@ -140,7 +147,6 @@ class ParentDashboardView(generics.GenericAPIView):
     def get(self, request):
         user = request.user
         
-        # FIRST: Check if user is a student
         from services.education.students.models import Student
         try:
             student = Student.objects.get(email=user.email)
@@ -157,7 +163,6 @@ class ParentDashboardView(generics.GenericAPIView):
         except Student.DoesNotExist:
             pass
         
-        # SECOND: Check if user is a parent
         if hasattr(user, 'parent_profile'):
             parent = user.parent_profile
             students = parent.linked_students.all()
@@ -185,7 +190,6 @@ class ParentDashboardView(generics.GenericAPIView):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_list(request):
-    """Get all students"""
     from django.apps import apps
     Student = apps.get_model('education_students', 'Student')
     from .serializers import StudentSerializer
@@ -193,23 +197,10 @@ def student_list(request):
     serializer = StudentSerializer(students, many=True)
     return Response(serializer.data)
 
-class ClassDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
-    lookup_url_kwarg = 'pk'
-    
-    def get_queryset(self):
-        SchoolClass = apps.get_model('education_academics', 'SchoolClass')
-        return SchoolClass.objects.filter(is_active=True)
-    
-    def get_serializer_class(self):
-        from .serializers import ClassSerializer
-        return ClassSerializer
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_count(request):
-    """Get total student count"""
     from django.apps import apps
     Student = apps.get_model('education_students', 'Student')
     count = Student.objects.filter(is_active=True).count()
@@ -223,15 +214,20 @@ def student_count(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_attendance(request):
-    """Get attendance for a specific date"""
+    """Get attendance for a specific date or student"""
     date = request.GET.get('date')
-    if not date:
-        return Response({'error': 'Date required'}, status=400)
+    student_id = request.GET.get('student_id')
     
     from django.apps import apps
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
     
-    attendance = Attendance.objects.filter(date=date)
+    if student_id:
+        attendance = Attendance.objects.filter(student_id=student_id)
+    elif date:
+        attendance = Attendance.objects.filter(date=date)
+    else:
+        return Response({'error': 'Date or student_id required'}, status=400)
+    
     attendance_list = []
     for record in attendance:
         attendance_list.append({
@@ -247,7 +243,6 @@ def get_attendance(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_attendance(request):
-    """Save multiple attendance records at once"""
     data = request.data
     records = data.get('records', [])
     
@@ -261,14 +256,14 @@ def bulk_attendance(request):
     for record in records:
         student_id = record.get('student_id')
         date = record.get('date')
-        status = record.get('status')
+        status_val = record.get('status')
         
         student = Student.objects.get(id=student_id)
         
         attendance, is_new = Attendance.objects.update_or_create(
             student=student,
             date=date,
-            defaults={'status': status}
+            defaults={'status': status_val}
         )
         
         if is_new:
@@ -285,12 +280,10 @@ def bulk_attendance(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def attendance_stats(request):
-    """Get attendance statistics for a student or class"""
     student_id = request.GET.get('student_id')
     class_id = request.GET.get('class_id')
     
     from django.apps import apps
-    from django.db.models import Count, Q
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
     Student = apps.get_model('education_students', 'Student')
     
@@ -326,9 +319,7 @@ def attendance_stats(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_attendance(request, student_id):
-    """Get attendance for a specific student"""
     from django.apps import apps
-    from django.utils import timezone
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
     
     year = request.GET.get('year')
@@ -346,3 +337,47 @@ def student_attendance(request, student_id):
             'status': record.status,
         })
     return Response(data)
+
+
+# ============================================================
+# PDF GENERATION
+# ============================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_result_card(request, student_id):
+    """Download result card PDF"""
+    from services.pdf.pdf_generator import PDFGenerator
+    
+    from django.apps import apps
+    Student = apps.get_model('education_students', 'Student')
+    
+    try:
+        student = Student.objects.get(id=student_id)
+        generator = PDFGenerator()
+        pdf_buffer = generator.generate_result_card(student, [], None)
+        
+        response = HttpResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="result_card_{student.student_id}.pdf"'
+        return response
+    except Student.DoesNotExist:
+        return Response({'error': 'Student not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_fee_receipt(request, invoice_id):
+    """Download fee receipt PDF"""
+    from services.pdf.pdf_generator import PDFGenerator
+    
+    try:
+        generator = PDFGenerator()
+        pdf_buffer = generator.generate_fee_receipt(None, None, [])
+        
+        response = HttpResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="fee_receipt_{invoice_id}.pdf"'
+        return response
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)

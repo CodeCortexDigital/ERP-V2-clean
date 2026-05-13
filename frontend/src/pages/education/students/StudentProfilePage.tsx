@@ -331,9 +331,7 @@ export default function StudentProfilePage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/education/students/${id}/edit`)}>
-            <Edit2 className="w-4 h-4 mr-2" /> Edit
-          </Button>
+          <Button variant="outline" onClick={() => navigate(`/education/students/${id}/edit`)}><Edit2 className="w-4 h-4 mr-2" /> Edit</Button><button onClick={async () => { const pdfService = await import("@/services/pdf.service"); pdfService.default.downloadResultCard(id); }} className="ml-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">📄 Download Result Card</button>
         </div>
       </div>
 
@@ -503,5 +501,12 @@ export default function StudentProfilePage() {
     </div>
   );
 }
+
+
+
+
+
+
+
 
 

@@ -1,4 +1,3 @@
-
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
@@ -36,8 +35,7 @@ urlpatterns = [
     path('teacher/attendance/mark/', teacher_views.TeacherMarkAttendanceView.as_view(), name='teacher-mark-attendance'),
     path('teacher/exam/marks/', teacher_views.TeacherExamMarksView.as_view(), name='teacher-exam-marks'),
     path('attendance/student/<uuid:student_id>/', views.student_attendance, name='student-attendance'),
-    
-    # PDF Generation
-    path('pdf/result-card/<uuid:student_id>/', views.download_result_card, name='result-card'),
-    path('pdf/fee-receipt/<str:invoice_id>/', views.download_fee_receipt, name='fee-receipt'),
 ]
+
+
+
