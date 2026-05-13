@@ -214,7 +214,6 @@ def student_count(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_attendance(request):
-    """Get attendance for a specific date or student"""
     date = request.GET.get('date')
     student_id = request.GET.get('student_id')
     
@@ -346,7 +345,6 @@ def student_attendance(request, student_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def download_result_card(request, student_id):
-    """Download result card PDF"""
     from services.pdf.pdf_generator import PDFGenerator
     
     from django.apps import apps
@@ -369,7 +367,6 @@ def download_result_card(request, student_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def download_fee_receipt(request, invoice_id):
-    """Download fee receipt PDF"""
     from services.pdf.pdf_generator import PDFGenerator
     
     try:
@@ -381,3 +378,217 @@ def download_fee_receipt(request, invoice_id):
         return response
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+
+# ============================================================
+# TEACHER PROFILE
+# ============================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_my_teacher_profile(request):
+    from django.apps import apps
+    Teacher = apps.get_model('education_academics', 'Teacher')
+    
+    user = request.user
+    teacher = Teacher.objects.filter(email=user.email).first()
+    
+    if teacher:
+        return Response({
+            'id': str(teacher.id),
+            'full_name': teacher.full_name,
+            'email': teacher.email,
+            'employee_id': teacher.employee_id
+        })
+    return Response({'error': 'Teacher profile not found'}, status=404)
+
+
+# ============================================================
+# ANALYTICS & INSIGHTS
+# ============================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def attendance_trends(request):
+    from django.apps import apps
+    from datetime import datetime, timedelta
+    
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    trends = []
+    current_date = datetime.now()
+    
+    for i in range(5, -1, -1):
+        month_date = current_date - timedelta(days=30*i)
+        month_name = month_date.strftime('%b')
+        month_start = month_date.replace(day=1)
+        if month_date.month == 12:
+            next_month = month_date.replace(year=month_date.year+1, month=1, day=1)
+        else:
+            next_month = month_date.replace(month=month_date.month+1, day=1)
+        
+        records = Attendance.objects.filter(date__gte=month_start, date__lt=next_month)
+        total = records.count()
+        present = records.filter(status='present').count()
+        percentage = round((present / total * 100) if total > 0 else 0, 1)
+        trends.append({'month': month_name, 'present': present, 'percentage': percentage})
+    
+    return Response(trends)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def fee_trends(request):
+    from django.apps import apps
+    from datetime import datetime, timedelta
+    
+    Invoice = apps.get_model('education_finance', 'Invoice')
+    trends = []
+    current_date = datetime.now()
+    
+    for i in range(5, -1, -1):
+        month_date = current_date - timedelta(days=30*i)
+        month_name = month_date.strftime('%b')
+        month_start = month_date.replace(day=1)
+        if month_date.month == 12:
+            next_month = month_date.replace(year=month_date.year+1, month=1, day=1)
+        else:
+            next_month = month_date.replace(month=month_date.month+1, day=1)
+        
+        invoices = Invoice.objects.filter(created_at__date__gte=month_start, created_at__date__lt=next_month)
+        collected = sum(float(inv.paid_amount or 0) for inv in invoices)
+        pending = sum(float(inv.total_amount or 0) - float(inv.paid_amount or 0) for inv in invoices)
+        trends.append({'month': month_name, 'collected': collected, 'pending': pending})
+    
+    return Response(trends)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def at_risk_students(request):
+    from django.apps import apps
+    
+    Student = apps.get_model('education_students', 'Student')
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    risk_students = []
+    
+    for student in Student.objects.filter(is_active=True)[:20]:
+        attendance_records = Attendance.objects.filter(student=student)
+        total = attendance_records.count()
+        present = attendance_records.filter(status='present').count()
+        pct = round((present / total * 100) if total > 0 else 100, 1)
+        
+        if pct < 75:
+            risk_students.append({
+                'id': str(student.id),
+                'name': student.full_name,
+                'student_id': student.student_id,
+                'class': student.current_class.name if student.current_class else 'N/A',
+                'risk_level': 'high' if pct < 60 else 'medium',
+                'reason': f'Low attendance: {pct}%',
+                'attendance_percentage': pct
+            })
+    
+    return Response(risk_students)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ai_insights(request):
+    from django.apps import apps
+    from datetime import datetime, timedelta
+    
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    
+    recent = Attendance.objects.filter(date__gte=datetime.now() - timedelta(days=30))
+    total = recent.count()
+    present = recent.filter(status='present').count()
+    overall = round((present / total * 100) if total > 0 else 0, 1)
+    
+    insights = [{
+        'type': 'attendance',
+        'title': 'Attendance Overview',
+        'message': f'Overall attendance rate is {overall}% for the last 30 days.',
+        'priority': 'normal'
+    }]
+    
+    return Response(insights)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_growth(request):
+    from django.apps import apps
+    from datetime import datetime, timedelta
+
+    Student = apps.get_model('education_students', 'Student')
+    growth = []
+    current_date = datetime.now()
+    previous_count = 0
+
+    for i in range(5, -1, -1):
+        month_date = current_date - timedelta(days=30*i)
+        month_name = month_date.strftime('%b')
+
+        count = Student.objects.filter(
+            created_at__lte=month_date,
+            is_active=True
+        ).count()
+
+        growth_rate = 0
+        if previous_count > 0:
+            growth_rate = round(((count - previous_count) / previous_count * 100), 1)
+
+        growth.append({
+            'month': month_name,
+            'count': count,
+            'growth': growth_rate
+        })
+        previous_count = count
+
+    return Response(growth)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def teacher_performance(request):
+    from django.apps import apps
+    from django.db.models import Avg
+
+    Teacher = apps.get_model('education_academics', 'Teacher')
+    ExamResult = apps.get_model('education_exams', 'ExamResult')
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+
+    performance = []
+
+    for teacher in Teacher.objects.filter(is_active=True):
+        assignments = teacher.subject_assignments.filter(is_active=True)
+        subject_ids = [a.class_subject.subject.id for a in assignments]
+
+        avg_score = 0
+        if subject_ids:
+            avg_result = ExamResult.objects.filter(
+                exam__subject__id__in=subject_ids
+            ).aggregate(Avg('percentage'))
+            avg_score = round(avg_result['percentage__avg'] or 0, 1)
+
+        class_ids = [a.class_subject.class_ref.id for a in assignments]
+        attendance_rate = 0
+        if class_ids:
+            attendance_records = Attendance.objects.filter(
+                student__current_class__id__in=class_ids
+            )
+            total = attendance_records.count()
+            present = attendance_records.filter(status='present').count()
+            attendance_rate = round((present / total * 100) if total > 0 else 0, 1)
+
+        performance.append({
+            'id': str(teacher.id),
+            'name': teacher.full_name,
+            'subject_count': len(set(subject_ids)),
+            'avg_student_score': avg_score,
+            'attendance_rate': attendance_rate,
+            'class_count': len(set(class_ids))
+        })
+
+    performance.sort(key=lambda x: x['avg_student_score'], reverse=True)
+    return Response(performance[:10])

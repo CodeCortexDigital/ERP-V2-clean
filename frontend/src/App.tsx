@@ -122,7 +122,6 @@ function App() {
               <Route path="parent/notifications" element={<ParentDashboard />} />
               <Route path="teacher" element={<TeacherDashboard />} />
               <Route path="teacher/students" element={<StudentsListPage />} />
-              <Route path="teacher/profile" element={<TeacherProfilePage />} />
             </Route>
           </Routes>
         </BrowserRouter>

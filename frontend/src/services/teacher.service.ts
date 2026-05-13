@@ -15,6 +15,12 @@ export interface Teacher {
 }
 
 const teacherService = {
+  // Get current teacher's profile (for logged-in teacher)
+  getMyProfile: async () => {
+    const response = await api.get('/auth/my-teacher-profile/');
+    return response;
+  },
+
   // Get all teachers
   getAll: async () => {
     const response = await api.get('/auth/academics/teachers/');

@@ -11,6 +11,9 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('me/', views.get_current_user, name='get_current_user'),
+    path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
+    path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
+    path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # Students
@@ -37,7 +40,17 @@ urlpatterns = [
     path('teacher/exam/marks/', teacher_views.TeacherExamMarksView.as_view(), name='teacher-exam-marks'),
     path('attendance/student/<uuid:student_id>/', views.student_attendance, name='student-attendance'),
     
+    # Analytics
+    path('analytics/attendance-trends/', views.attendance_trends, name='attendance-trends'),
+    path('analytics/fee-trends/', views.fee_trends, name='fee-trends'),
+    path('analytics/at-risk-students/', views.at_risk_students, name='at-risk-students'),
+    path('analytics/ai-insights/', views.ai_insights, name='ai-insights'),
+    path('analytics/student-growth/', views.student_growth, name='student-growth'),
+    path('analytics/teacher-performance/', views.teacher_performance, name='teacher-performance'),
+    
     # PDF Generation
     path('pdf/result-card/<uuid:student_id>/', views.download_result_card, name='result-card'),
     path('pdf/fee-receipt/<str:invoice_id>/', views.download_fee_receipt, name='fee-receipt'),
 ]
+
+

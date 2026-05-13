@@ -105,7 +105,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   // Teacher Navigation
   const teacherNavItems: NavItem[] = [
     { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/teacher' },
-    { icon: <User className="w-5 h-5" />, label: 'My Profile', href: '/teacher/profile' },
+    { icon: <User className="w-5 h-5" />, label: 'My Profile', href: '/education/teachers' },
     { icon: <Users className="w-5 h-5" />, label: 'My Students', href: '/teacher/students' },
     { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/education/attendance' },
     { icon: <FileText className="w-5 h-5" />, label: 'Exams', href: '/education/exams' }
