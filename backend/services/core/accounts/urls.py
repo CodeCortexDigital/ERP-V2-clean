@@ -47,10 +47,12 @@ urlpatterns = [
     path('analytics/ai-insights/', views.ai_insights, name='ai-insights'),
     path('analytics/student-growth/', views.student_growth, name='student-growth'),
     path('analytics/teacher-performance/', views.teacher_performance, name='teacher-performance'),
+    path('analytics/executive-dashboard/', views.executive_dashboard, name='executive-dashboard'),
     
     # PDF Generation
     path('pdf/result-card/<uuid:student_id>/', views.download_result_card, name='result-card'),
     path('pdf/fee-receipt/<str:invoice_id>/', views.download_fee_receipt, name='fee-receipt'),
 ]
+
 
 

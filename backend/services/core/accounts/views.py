@@ -592,3 +592,195 @@ def teacher_performance(request):
 
     performance.sort(key=lambda x: x['avg_student_score'], reverse=True)
     return Response(performance[:10])
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def executive_dashboard(request):
+    """Get executive dashboard data with real metrics"""
+    from django.apps import apps
+    from django.db.models import Sum, Count, Avg, Q
+    from datetime import datetime, timedelta
+    
+    Student = apps.get_model('education_students', 'Student')
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    Invoice = apps.get_model('education_finance', 'Invoice')
+    ExamResult = apps.get_model('education_exams', 'ExamResult')
+    Teacher = apps.get_model('education_academics', 'Teacher')
+    SchoolClass = apps.get_model('education_academics', 'SchoolClass')
+    
+    # Student Growth (last 6 months)
+    monthly_growth = []
+    current_date = datetime.now()
+    for i in range(5, -1, -1):
+        month_date = current_date - timedelta(days=30*i)
+        month_name = month_date.strftime('%b')
+        count = Student.objects.filter(created_at__lte=month_date, is_active=True).count()
+        monthly_growth.append({'month': month_name, 'student_count': count})
+    
+    current_total = Student.objects.filter(is_active=True).count()
+    prev_total = monthly_growth[-2]['student_count'] if len(monthly_growth) > 1 else current_total
+    growth_rate = round(((current_total - prev_total) / prev_total * 100) if prev_total > 0 else 0, 1)
+    
+    # Attendance Trends
+    last_week = Attendance.objects.filter(date__gte=datetime.now() - timedelta(days=7))
+    week_before = Attendance.objects.filter(date__range=[datetime.now() - timedelta(days=14), datetime.now() - timedelta(days=7)])
+    
+    this_week_total = last_week.count()
+    this_week_present = last_week.filter(status='present').count()
+    last_week_total = week_before.count()
+    last_week_present = week_before.filter(status='present').count()
+    
+    this_week_rate = round((this_week_present / this_week_total * 100) if this_week_total > 0 else 0, 1)
+    last_week_rate = round((last_week_present / last_week_total * 100) if last_week_total > 0 else 0, 1)
+    attendance_trend = round(((this_week_rate - last_week_rate) / last_week_rate * 100) if last_week_rate > 0 else 0, 1)
+    
+    # Revenue Trends (last 6 months)
+    revenue_data = []
+    for i in range(5, -1, -1):
+        month_date = current_date - timedelta(days=30*i)
+        month_start = month_date.replace(day=1)
+        if month_date.month == 12:
+            next_month = month_date.replace(year=month_date.year+1, month=1, day=1)
+        else:
+            next_month = month_date.replace(month=month_date.month+1, day=1)
+        
+        invoices = Invoice.objects.filter(created_at__date__gte=month_start, created_at__date__lt=next_month)
+        revenue = sum(inv.paid_amount or 0 for inv in invoices)
+        revenue_data.append({'month': month_date.strftime('%b'), 'revenue': revenue})
+    
+    current_month_revenue = revenue_data[-1]['revenue'] if revenue_data else 0
+    last_month_revenue = revenue_data[-2]['revenue'] if len(revenue_data) > 1 else 0
+    revenue_trend = round(((current_month_revenue - last_month_revenue) / last_month_revenue * 100) if last_month_revenue > 0 else 0, 1)
+    
+    # Fee Recovery by Class
+    class_recovery = []
+    classes = SchoolClass.objects.filter(is_active=True)
+    for cls in classes:
+        invoices = Invoice.objects.filter(student__current_class=cls)
+        total_amount = sum(inv.total_amount or 0 for inv in invoices)
+        paid_amount = sum(inv.paid_amount or 0 for inv in invoices)
+        recovery_rate = round((paid_amount / total_amount * 100) if total_amount > 0 else 0, 1)
+        class_recovery.append({
+            'class_name': cls.name,
+            'total_invoices': invoices.count(),
+            'total_amount': total_amount,
+            'total_paid': paid_amount,
+            'recovery_rate': recovery_rate
+        })
+    
+    best_class = max(class_recovery, key=lambda x: x['recovery_rate']) if class_recovery else None
+    worst_class = min(class_recovery, key=lambda x: x['recovery_rate']) if class_recovery else None
+    
+    # Exam Performance
+    subject_performance = ExamResult.objects.values('exam__subject__name').annotate(
+        avg_percentage=Avg('percentage')
+    ).order_by('-avg_percentage')[:5]
+    
+    top_subject = subject_performance[0] if subject_performance else None
+    lowest_subject = subject_performance[-1] if subject_performance else None
+    
+    # Teacher Metrics
+    total_teachers = Teacher.objects.filter(is_active=True).count()
+    active_assignments = sum(t.subject_assignments.filter(is_active=True).count() for t in Teacher.objects.all())
+    avg_assignments = round(active_assignments / total_teachers, 1) if total_teachers > 0 else 0
+    
+    top_teachers = []
+    for teacher in Teacher.objects.filter(is_active=True)[:3]:
+        top_teachers.append({
+            'teacher__full_name': teacher.full_name,
+            'classes': teacher.subject_assignments.filter(is_active=True).count()
+        })
+    
+    # Smart Insights
+    smart_insights = []
+    
+    # Low attendance alert
+    low_attendance_students = 0
+    for student in Student.objects.filter(is_active=True)[:50]:
+        records = Attendance.objects.filter(student=student)
+        total = records.count()
+        present = records.filter(status='present').count()
+        pct = round((present / total * 100) if total > 0 else 100, 1)
+        if pct < 75:
+            low_attendance_students += 1
+    
+    if low_attendance_students > 0:
+        smart_insights.append({
+            'type': 'warning',
+            'title': 'Low Attendance Alert',
+            'description': f'{low_attendance_students} students have attendance below 75%.',
+            'priority': 'high',
+            'category': 'attendance'
+        })
+    
+    # Pending fees alert
+    pending_invoices = Invoice.objects.exclude(status='paid')
+    pending_fees = sum((inv.total_amount - inv.paid_amount) for inv in pending_invoices if inv.total_amount > inv.paid_amount)
+    if pending_fees > 50000:
+        smart_insights.append({
+            'type': 'critical',
+            'title': 'Pending Fees Alert',
+            'description': f'Total pending fees: ₹{pending_fees:,.0f}',
+            'priority': 'high',
+            'category': 'finance'
+        })
+    
+    # Teacher shortage
+    if total_teachers < 10:
+        smart_insights.append({
+            'type': 'alert',
+            'title': 'Teacher Shortage',
+            'description': f'Only {total_teachers} teachers available.',
+            'priority': 'medium',
+            'category': 'staff'
+        })
+    
+    return Response({
+        'revenue_trends': {
+            'monthly_data': revenue_data,
+            'current_month': current_month_revenue,
+            'last_month': last_month_revenue,
+            'trend_percentage': abs(revenue_trend),
+            'trend_direction': 'up' if revenue_trend >= 0 else 'down'
+        },
+        'attendance_trends': {
+            'this_week_rate': this_week_rate,
+            'last_week_rate': last_week_rate,
+            'trend_percentage': abs(attendance_trend),
+            'trend_direction': 'up' if attendance_trend >= 0 else 'down',
+            'this_week_total': this_week_total,
+            'last_week_total': last_week_total
+        },
+        'fee_recovery_trends': {
+            'class_recovery': class_recovery,
+            'worst_performing_class': worst_class,
+            'best_performing_class': best_class
+        },
+        'student_growth': {
+            'monthly_growth': monthly_growth,
+            'current_total': current_total,
+            'growth_rate': abs(growth_rate),
+            'growth_direction': 'up' if growth_rate >= 0 else 'down'
+        },
+        'exam_performance_trends': {
+            'subject_performance': list(subject_performance),
+            'class_performance': [],
+            'top_performing_subject': top_subject,
+            'lowest_performing_subject': lowest_subject
+        },
+        'teacher_metrics': {
+            'total_teachers': total_teachers,
+            'active_teacher_assignments': active_assignments,
+            'average_assignments_per_teacher': avg_assignments,
+            'top_teachers_by_assignments': top_teachers
+        },
+        'smart_insights': smart_insights,
+        'generated_at': datetime.now().isoformat()
+    })
+
+
+
+
+
+
+
+
