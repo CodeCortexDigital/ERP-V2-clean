@@ -102,20 +102,58 @@ export default function LoginPage() {
           )}
 
           {/* Demo Button - One Click Test */}
-          <button
-            onClick={handleDemoLogin}
-            disabled={demoLoading}
-            className="w-full mb-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-lg font-medium hover:from-green-600 hover:to-emerald-700 transition flex items-center justify-center gap-2"
-          >
-            {demoLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                Try Free Demo (No Signup)
-              </>
-            )}
-          </button>
+          
+          {/* Quick Login Buttons */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button
+              onClick={async () => {
+                setEmail('admin@code.com');
+                setPassword('admin123');
+                setTimeout(() => {
+                  document.querySelector('form')?.requestSubmit();
+                }, 100);
+              }}
+              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+            >
+              👑 Admin
+            </button>
+            <button
+              onClick={async () => {
+                setEmail('teacher@test.com');
+                setPassword('teacher123');
+                setTimeout(() => {
+                  document.querySelector('form')?.requestSubmit();
+                }, 100);
+              }}
+              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
+            >
+              👨‍🏫 Teacher
+            </button>
+            <button
+              onClick={async () => {
+                setEmail('parent@test.com');
+                setPassword('parent123');
+                setTimeout(() => {
+                  document.querySelector('form')?.requestSubmit();
+                }, 100);
+              }}
+              className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
+            >
+              👨‍👩‍👧 Parent
+            </button>
+            <button
+              onClick={async () => {
+                setEmail('STU-2026-0003');
+                setPassword('student123');
+                setTimeout(() => {
+                  document.querySelector('form')?.requestSubmit();
+                }, 100);
+              }}
+              className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition text-sm"
+            >
+              🎓 Student
+            </button>
+          </div>
 
           <button
             onClick={() => {
@@ -207,6 +245,7 @@ export default function LoginPage() {
     </div>
   );
 }
+
 
 
 
