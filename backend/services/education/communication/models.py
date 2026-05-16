@@ -11,6 +11,11 @@ class Message(models.Model):
     subject = models.CharField(max_length=200, blank=True)
     message = models.TextField()
     channel = models.CharField(max_length=20)
+    template_name = models.CharField(max_length=100, blank=True)
+    delivery_status = models.CharField(max_length=50, default='pending')
+    retry_count = models.PositiveSmallIntegerField(default=0)
+    external_id = models.CharField(max_length=255, blank=True)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
     is_delivered = models.BooleanField(default=False)
     delivered_at = models.DateTimeField(null=True, blank=True)
     tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
@@ -72,10 +77,14 @@ class AutoTrigger(models.Model):
 
 class WhatsAppConfig(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    api_key = models.CharField(max_length=255, blank=True)
+    phone_number_id = models.CharField(max_length=100, blank=True)
+    access_token = models.TextField(blank=True)
+    business_account_id = models.CharField(max_length=100, blank=True)
+    webhook_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     tenant_id = models.CharField(max_length=100, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return "WhatsApp Configuration"
+        return f"WhatsApp Configuration ({self.tenant_id or 'default'})"

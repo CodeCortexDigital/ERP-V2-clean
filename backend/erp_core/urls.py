@@ -1,49 +1,40 @@
-from django.contrib import admin
-from django.urls import path, include
-from django.conf import settings
-from django.conf.urls.static import static
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-from services.education.exams.views import get_exam_results
-from services.core.backup.metrics import backup_metrics_view
-from services.core.utils.cache import cache_metrics_view
-
-api_v1_patterns = [
-    path('health/', include('services.core.health.urls')),
-    path('metrics/backup/', backup_metrics_view, name='backup-metrics'),
-    path('metrics/cache/', cache_metrics_view, name='cache-metrics'),
-    path('auth/', include('services.core.accounts.urls')),
-    path('auth/students/', include('services.education.students.urls')),
-    path('auth/attendance/', include('services.education.attendance.urls')),
-    path('auth/exams/', include('services.education.exams.urls')),
-    path('auth/finance/', include('services.education.finance.urls')),
-    path('auth/academics/', include('services.education.academics.urls')),
-    path('auth/admissions/', include('services.education.admissions.urls')),
-    path('auth/analytics/', include('services.analytics.urls')),
-    path('core/audit/', include('services.core.audit.urls')),
-    path('education/', include('services.education.urls')),
-    path('exams-results/', get_exam_results, name='exams-results-direct'),
-]
-
-urlpatterns = [
-    path('api/v1/', include((api_v1_patterns, 'api'), namespace='v1')),
-    path('api/', include((api_v1_patterns, 'api'), namespace='legacy')),
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    path('admin/', admin.site.urls),
-]
-
-# Serve media files during development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-
-
-
-
-
-
-
-
-
-
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+
+from api.schema import (
+    V1RedocView,
+    V1SchemaView,
+    V1SwaggerView,
+    V2RedocView,
+    V2SchemaView,
+    V2SwaggerView,
+)
+
+urlpatterns = [
+    # Versioned APIs (canonical)
+    path('api/v1/', include(('api.v1.urls', 'api'), namespace='v1')),
+    path('api/v2/', include(('api.v2.urls', 'api'), namespace='v2')),
+    # Legacy unversioned prefix — behaves as v1
+    path('api/', include(('api.v1.urls', 'api'), namespace='legacy')),
+    # Per-version OpenAPI
+    path('api/v1/schema/', V1SchemaView.as_view(), name='schema-v1'),
+    path('api/v1/docs/', V1SwaggerView.as_view(url_name='schema-v1'), name='swagger-v1'),
+    path('api/v1/redoc/', V1RedocView.as_view(url_name='schema-v1'), name='redoc-v1'),
+    path('api/v2/schema/', V2SchemaView.as_view(), name='schema-v2'),
+    path('api/v2/docs/', V2SwaggerView.as_view(url_name='schema-v2'), name='swagger-v2'),
+    path('api/v2/redoc/', V2RedocView.as_view(url_name='schema-v2'), name='redoc-v2'),
+    # Default schema points to v1 for backward compatibility
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('admin/', admin.site.urls),
+]
+
+# Serve media files during development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+

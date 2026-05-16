@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Eye, CheckCircle, XCircle, Clock, UserPlus, RefreshCw } from 'lucide-react';
 import admissionService from '@/services/admission.service';
+import { extractListData } from '@/services/api';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function AdmissionsPage() {
@@ -20,7 +21,7 @@ export default function AdmissionsPage() {
   const fetchApplications = async () => {
     try {
       const response = await admissionService.getApplications();
-      setApplications(response.data || []);
+      setApplications(extractListData(response.data));
     } catch (error) {
       console.error('Error fetching applications:', error);
     } finally {

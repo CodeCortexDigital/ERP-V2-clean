@@ -9,17 +9,67 @@ import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
-import api from '@/services/api';
+import api, { extractListData } from '@/services/api';
+import attendanceService from '@/services/attendance.service';
 import studentService from '@/services/student.service';
 import classService, { SchoolClass, Section } from '@/services/class.service';
+
+type AttendanceStatus = 'present' | 'absent' | 'late' | 'holiday';
 
 interface AttendanceStudent {
   id: string;
   student_id: string;
   full_name: string;
-  status: 'present' | 'absent' | 'late';
-  savedStatus?: 'present' | 'absent' | 'late';
+  status: AttendanceStatus;
+  savedStatus?: AttendanceStatus;
   isSaved: boolean;
+}
+
+function localDateInputValue(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseDateOnly(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function isSunday(dateStr: string): boolean {
+  return parseDateOnly(dateStr).getDay() === 0;
+}
+
+function defaultStatusForDate(dateStr: string): AttendanceStatus {
+  return isSunday(dateStr) ? 'holiday' : 'present';
+}
+
+function matchAttendanceRecord(records: any[], student: { id: string; student_id?: string }) {
+  const sid = String(student.id);
+  const roll = student.student_id ? String(student.student_id) : '';
+  return records.find((a) => {
+    const aid = a.student_id != null ? String(a.student_id) : '';
+    return aid === sid || (roll && aid === roll);
+  });
+}
+
+/** Present on school days / holiday on Sunday; only keep absent/late if a teacher saved it. */
+function resolveStatusForMarking(
+  existing: { status?: string; marked_by_id?: string | null; marked_by_name?: string } | undefined,
+  dateStr: string,
+): AttendanceStatus {
+  const def = defaultStatusForDate(dateStr);
+  if (!existing?.status) return def;
+
+  const teacherMarked = Boolean(existing.marked_by_id || existing.marked_by_name);
+  if (!teacherMarked) return def;
+
+  const s = String(existing.status).toLowerCase();
+  if (s === 'present' || s === 'absent' || s === 'late' || s === 'holiday') {
+    return s as AttendanceStatus;
+  }
+  return def;
 }
 
 export default function AttendancePage() {
@@ -28,7 +78,7 @@ export default function AttendancePage() {
   const [selectedSection, setSelectedSection] = useState('');
   const [sections, setSections] = useState<{ id: string; name: string }[]>([]);
   const [students, setStudents] = useState<AttendanceStudent[]>([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(localDateInputValue());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasSavedData, setHasSavedData] = useState(false);
@@ -42,6 +92,8 @@ export default function AttendancePage() {
   const presentCount = students.filter(s => s.status === 'present').length;
   const absentCount = students.filter(s => s.status === 'absent').length;
   const lateCount = students.filter(s => s.status === 'late').length;
+  const holidayCount = students.filter(s => s.status === 'holiday').length;
+  const nonSchoolDay = isSunday(selectedDate);
   const attendanceRate = totalStudents > 0 ? (presentCount / totalStudents) * 100 : 0;
 
   // Filtered students based on search
@@ -107,23 +159,30 @@ export default function AttendancePage() {
       let existingAttendance: any[] = [];
       let hasExisting = false;
       try {
-        const attResponse = await api.get(`/auth/attendance/?date=${selectedDate}`);
-        existingAttendance = attResponse.data || [];
-        hasExisting = existingAttendance.length > 0;
+        const attResponse = await attendanceService.getByDate(
+          selectedDate,
+          selectedClass || undefined,
+          selectedSection || undefined,
+        );
+        existingAttendance = attResponse.data;
+        hasExisting = existingAttendance.some(
+          (a: any) => a.marked_by_id || a.marked_by_name,
+        );
       } catch (err) {
         console.log('No existing attendance found');
       }
       
-      const studentsWithStatus: AttendanceStudent[] = filtered.map(student => {
-        const existing = existingAttendance.find((a: any) => a.student_id === student.id);
-        const savedStatus = existing?.status;
+      const studentsWithStatus: AttendanceStudent[] = filtered.map((student) => {
+        const existing = matchAttendanceRecord(existingAttendance, student);
+        const status = resolveStatusForMarking(existing, selectedDate);
+        const teacherMarked = Boolean(existing?.marked_by_id || existing?.marked_by_name);
         return {
           id: student.id,
           student_id: student.student_id,
           full_name: student.full_name,
-          status: savedStatus || 'present',
-          savedStatus: savedStatus,
-          isSaved: !!existing
+          status,
+          savedStatus: teacherMarked ? (existing?.status as AttendanceStatus) : undefined,
+          isSaved: teacherMarked,
         };
       });
       
@@ -138,7 +197,7 @@ export default function AttendancePage() {
     }
   };
 
-  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late') => {
+  const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
     setStudents(prev => prev.map(s => 
       s.id === studentId ? { ...s, status: status } : s
     ));
@@ -147,6 +206,20 @@ export default function AttendancePage() {
   const markAllAbsent = () => {
     setStudents(prev => prev.map(s => ({ ...s, status: 'absent' })));
     toast.success(`✓ All ${students.length} students marked as Absent`);
+  };
+
+  const markAllPresent = () => {
+    if (nonSchoolDay) {
+      toast.info('Sunday is a non-school day — use Holiday instead');
+      return;
+    }
+    setStudents(prev => prev.map(s => ({ ...s, status: 'present' })));
+    toast.success(`✓ All ${students.length} students marked as Present`);
+  };
+
+  const markAllHoliday = () => {
+    setStudents(prev => prev.map(s => ({ ...s, status: 'holiday' })));
+    toast.success(`✓ All ${students.length} students marked as Holiday`);
   };
 
   const saveAttendance = async () => {
@@ -166,7 +239,7 @@ export default function AttendancePage() {
         section_id: selectedSection
       }));
       
-      await api.post('/auth/attendance/bulk/', { records });
+      await attendanceService.bulkSave(records);
       
       setStudents(prev => prev.map(s => ({ 
         ...s, 
@@ -189,8 +262,8 @@ export default function AttendancePage() {
   const handleViewHistory = async (student: any) => {
     setSelectedStudent(student);
     try {
-      const response = await api.get(`/auth/attendance/?student_id=${student.id}`);
-      setStudentHistory(response.data || []);
+      const response = await attendanceService.getStudentHistory(student.id);
+      setStudentHistory(response.data);
       setShowHistoryModal(true);
     } catch (error) {
       console.error('Error fetching student history:', error);
@@ -205,6 +278,7 @@ export default function AttendancePage() {
         case 'present': return 'bg-green-600 text-white border-green-600';
         case 'absent': return 'bg-red-600 text-white border-red-600';
         case 'late': return 'bg-orange-600 text-white border-orange-600';
+        case 'holiday': return 'bg-purple-600 text-white border-purple-600';
         default: return 'bg-blue-600 text-white';
       }
     }
@@ -235,6 +309,23 @@ export default function AttendancePage() {
           {hasSavedData ? 'Update Attendance' : 'Save Attendance'}
         </Button>
       </div>
+
+      {nonSchoolDay && (
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="pt-4 text-sm text-purple-900">
+            <strong>Sunday / non-school day:</strong> students are marked as Holiday by default.
+            You can still record absent or late if needed, then save.
+          </CardContent>
+        </Card>
+      )}
+
+      {!nonSchoolDay && students.length > 0 && (
+        <Card className="border-green-100 bg-green-50">
+          <CardContent className="pt-4 text-sm text-green-900">
+            All students default to <strong>Present</strong> on school days. Mark only absent or late exceptions, then save.
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>
@@ -279,15 +370,35 @@ export default function AttendancePage() {
               />
             </div>
             
-            <div className="flex items-end gap-2">
-              <Button 
-                variant="outline" 
-                onClick={markAllAbsent} 
-                className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+            <div className="flex items-end gap-2 flex-wrap">
+              {!nonSchoolDay && (
+                <Button
+                  variant="outline"
+                  onClick={markAllPresent}
+                  className="flex-1 border-green-300 text-green-700 hover:bg-green-50 min-w-[120px]"
+                  disabled={students.length === 0}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  All Present
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={markAllAbsent}
+                className="flex-1 border-red-300 text-red-700 hover:bg-red-50 min-w-[120px]"
                 disabled={students.length === 0}
               >
                 <XCircle className="w-4 h-4 mr-2" />
                 All Absent
+              </Button>
+              <Button
+                variant="outline"
+                onClick={markAllHoliday}
+                className="flex-1 border-purple-300 text-purple-700 hover:bg-purple-50 min-w-[120px]"
+                disabled={students.length === 0}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Holiday
               </Button>
             </div>
           </div>
@@ -419,7 +530,16 @@ export default function AttendancePage() {
                       <td className="px-4 py-3 font-mono text-xs">{student.student_id}</td>
                       <td className="px-4 py-3 font-medium">{student.full_name}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                          {!nonSchoolDay && (
+                            <button
+                              onClick={() => handleStatusChange(student.id, 'present')}
+                              className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'present')}`}
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Present
+                            </button>
+                          )}
                           <button
                             onClick={() => handleStatusChange(student.id, 'absent')}
                             className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'absent')}`}
@@ -433,6 +553,13 @@ export default function AttendancePage() {
                           >
                             <Clock className="w-4 h-4" />
                             Late
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'holiday')}
+                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'holiday')}`}
+                          >
+                            <Calendar className="w-4 h-4" />
+                            Holiday
                           </button>
                         </div>
                       </td>
@@ -505,18 +632,38 @@ export default function AttendancePage() {
                       <tr>
                         <th className="p-2 text-left">Date</th>
                         <th className="p-2 text-left">Status</th>
+                        <th className="p-2 text-left">Marked by</th>
                         <th className="p-2 text-left">Remarks</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {studentHistory.map((record: any, idx: number) => (
-                        <tr key={idx} className="border-t">
+                      {studentHistory.map((record: any) => (
+                        <tr key={record.id || `${record.date}-${record.status}`} className="border-t">
                           <td className="p-2">{record.date}</td>
                           <td className="p-2">
-                            <Badge variant={record.status === 'present' ? 'success' : record.status === 'absent' ? 'danger' : 'warning'}>
-                              {record.status === 'present' ? '✓ Present' : record.status === 'absent' ? '✗ Absent' : '⏰ Late'}
+                            <Badge
+                              variant={
+                                record.status === 'present'
+                                  ? 'success'
+                                  : record.status === 'absent'
+                                    ? 'danger'
+                                    : record.status === 'holiday'
+                                      ? 'secondary'
+                                      : 'warning'
+                              }
+                            >
+                              {record.status === 'present'
+                                ? '✓ Present'
+                                : record.status === 'absent'
+                                  ? '✗ Absent'
+                                  : record.status === 'late'
+                                    ? '⏰ Late'
+                                    : record.status === 'holiday'
+                                      ? '📅 Holiday'
+                                      : record.status}
                             </Badge>
                           </td>
+                          <td className="p-2 text-gray-500">{record.marked_by_name || '-'}</td>
                           <td className="p-2 text-gray-500">{record.remarks || '-'}</td>
                         </tr>
                       ))}

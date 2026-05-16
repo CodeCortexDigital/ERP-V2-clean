@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import financeService from '@/services/finance.service';
 import classService from '@/services/class.service';
 import studentService from '@/services/student.service';
+import { extractListData } from '@/services/api';
 
 export default function FinancePage() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -33,9 +34,19 @@ export default function FinancePage() {
 
   // Analytics State
   const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-  const [defaulters, setDefaulters] = useState<any>(null);
+  const [defaulters, setDefaulters] = useState<any>({
+    total_defaulters: 0,
+    total_amount_due: 0,
+    defaulters: [],
+  });
   const [classCollection, setClassCollection] = useState<any[]>([]);
   const [forecast, setForecast] = useState<any[]>([]);
+
+  const defaulterStats = defaulters ?? {
+    total_defaulters: 0,
+    total_amount_due: 0,
+    defaulters: [] as unknown[],
+  };
 
   const [classes, setClasses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -118,12 +129,7 @@ export default function FinancePage() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [
-        invoiceRes, paymentRes, summaryRes,
-        installmentRes, scholarshipRes, studentScholarshipRes,
-        lateFeeRes, logsRes, revenueRes, defaultersRes,
-        classRes, forecastRes
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         financeService.getInvoices(invoiceFilters),
         financeService.getPayments(),
         financeService.getSummary(),
@@ -135,21 +141,37 @@ export default function FinancePage() {
         financeService.getMonthlyRevenueChart(),
         financeService.getDefaulterReport(),
         financeService.getClassWiseCollection(),
-        financeService.getFinancialForecast()
+        financeService.getFinancialForecast(),
       ]);
 
-      setInvoices(invoiceRes.data || []);
-      setPayments(paymentRes.data || []);
-      setSummary(summaryRes.data);
-      setInstallmentPlans(installmentRes.data || []);
-      setScholarships(scholarshipRes.data || []);
-      setStudentScholarships(studentScholarshipRes.data || []);
-      setLateFeeRules(lateFeeRes.data || []);
-      setTransactionLogs(logsRes.data || []);
-      setMonthlyRevenue(revenueRes.data || []);
-      setDefaulters(defaultersRes.data || []);
-      setClassCollection(classRes.data || []);
-      setForecast(forecastRes.data?.forecast || []);
+      const pick = <T,>(index: number): T | undefined =>
+        results[index].status === 'fulfilled'
+          ? (results[index] as PromiseFulfilledResult<{ data: T }>).value.data
+          : undefined;
+
+      setInvoices(extractListData(pick(0)));
+      setPayments(extractListData(pick(1)));
+      setSummary(pick(2) ?? null);
+      setInstallmentPlans(extractListData(pick(3)));
+      setScholarships(extractListData(pick(4)));
+      setStudentScholarships(extractListData(pick(5)));
+      setLateFeeRules(extractListData(pick(6)));
+      setTransactionLogs(extractListData(pick(7)));
+      setMonthlyRevenue(extractListData(pick(8)));
+      const defaulterData = pick<{ total_defaulters?: number; total_amount_due?: number; defaulters?: unknown[] }>(9);
+      setDefaulters(
+        defaulterData && !Array.isArray(defaulterData)
+          ? defaulterData
+          : { total_defaulters: 0, total_amount_due: 0, defaulters: [] }
+      );
+      setClassCollection(extractListData(pick(10)));
+      const forecastData = pick<{ forecast?: unknown[] }>(11);
+      setForecast(forecastData?.forecast ?? extractListData(forecastData as unknown) ?? []);
+
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed > 0) {
+        console.warn(`Finance: ${failed} endpoint(s) failed to load`);
+      }
       await fetchFeeStructures({ search: feeSearch });
     } catch (error) {
       console.error('Error fetching finance data:', error);
@@ -162,7 +184,7 @@ export default function FinancePage() {
   const fetchClasses = async () => {
     try {
       const res = await classService.getAll();
-      setClasses(res.data || []);
+      setClasses(extractListData(res.data));
     } catch (error) {
       console.error('Error fetching classes:', error);
     }
@@ -171,7 +193,7 @@ export default function FinancePage() {
   const fetchFeeStructures = async (params = {}) => {
     try {
       const res = await financeService.getFeeStructures(params);
-      setFeeStructures(res.data || []);
+      setFeeStructures(extractListData(res.data));
     } catch (error) {
       console.error('Error fetching fee structures:', error);
     }
@@ -180,7 +202,7 @@ export default function FinancePage() {
   const fetchInvoices = async (params = {}) => {
     try {
       const res = await financeService.getInvoices(params);
-      setInvoices(res.data || []);
+      setInvoices(extractListData(res.data));
     } catch (error) {
       console.error('Error fetching invoices:', error);
     }
@@ -825,7 +847,7 @@ export default function FinancePage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Overdue:</span>
-                    <span className="font-semibold text-red-600">{defaulters.total_defaulters || 0}</span>
+                    <span className="font-semibold text-red-600">{defaulterStats.total_defaulters ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Scholarships:</span>
@@ -1337,16 +1359,16 @@ export default function FinancePage() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span>Total Defaulters:</span>
-                    <span className="font-semibold text-red-600">{defaulters.total_defaulters || 0}</span>
+                    <span className="font-semibold text-red-600">{defaulterStats.total_defaulters ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Total Amount Due:</span>
-                    <span className="font-semibold">${defaulters.total_amount_due?.toFixed(2) || 0}</span>
+                    <span className="font-semibold">${defaulterStats.total_amount_due?.toFixed(2) ?? 0}</span>
                   </div>
                   <div className="mt-4">
                     <h4 className="font-medium mb-2">Top Defaulters:</h4>
                     <div className="space-y-1">
-                      {defaulters.defaulters?.slice(0, 5).map((defaulter, index) => (
+                      {defaulterStats.defaulters?.slice(0, 5).map((defaulter, index) => (
                         <div key={index} className="flex justify-between text-sm">
                           <span>{defaulter.student_name}</span>
                           <span className="text-red-600">${defaulter.amount_due}</span>

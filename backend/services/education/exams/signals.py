@@ -1,6 +1,7 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from .models import Exam, ExamResult
+from services.core.events.dispatcher import dispatch_event
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,13 @@ def notify_on_result_creation(sender, instance, created, **kwargs):
             message,
             'exam'
         )
+        dispatch_event('result_published', {
+            'result_id': str(instance.id),
+            'student_id': str(instance.student.id),
+            'exam_id': str(instance.exam.id),
+            'grade': instance.grade,
+            'percentage': str(instance.percentage),
+        })
     except Exception as e:
         logger.error(f"Failed to create exam notifications: {e}")
 

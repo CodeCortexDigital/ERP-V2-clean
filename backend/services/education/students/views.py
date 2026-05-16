@@ -13,6 +13,7 @@ from services.core.accounts.decorators import (
     ensure_student_access,
 )
 from services.core.utils.filters import parse_status_param
+from services.core.tenants.scoping import scope_queryset, save_with_tenant
 from services.core.utils.cache import CachedListResponseMixin, CacheKeys
 import uuid
 
@@ -32,7 +33,7 @@ class StudentListCreateView(CachedListResponseMixin, generics.ListCreateAPIView)
     ordering = ['-created_at']
 
     def get_queryset(self):
-        queryset = Student.objects.all()
+        queryset = scope_queryset(Student.objects.all(), self.request)
         class_filter = self.request.query_params.get('class')
         if class_filter:
             queryset = queryset.filter(current_class__id=class_filter)
@@ -45,10 +46,10 @@ class StudentListCreateView(CachedListResponseMixin, generics.ListCreateAPIView)
         return filter_students_for_user(self.request.user, queryset)
 
     def perform_create(self, serializer):
+        extra = {}
         if not serializer.validated_data.get('student_id'):
-            serializer.save(student_id=f"STU-{uuid.uuid4().hex[:8].upper()}")
-        else:
-            serializer.save()
+            extra['student_id'] = f"STU-{uuid.uuid4().hex[:8].upper()}"
+        save_with_tenant(serializer, self.request, **extra)
 
 
 class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -58,7 +59,8 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     
     def get_queryset(self):
-        return filter_students_for_user(self.request.user, Student.objects.all())
+        qs = scope_queryset(Student.objects.all(), self.request)
+        return filter_students_for_user(self.request.user, qs)
 
 
 @api_view(['GET'])

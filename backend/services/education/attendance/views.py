@@ -29,6 +29,8 @@ from services.core.accounts.decorators import (
     ensure_student_access,
 )
 from services.core.utils.filters import parse_date_param
+from .calendar import default_status_for_date, is_school_day, parse_attendance_date
+from .services import bulk_save_attendance_records, ensure_present_for_school_day
 
 Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
 Student = apps.get_model('education_students', 'Student')
@@ -76,23 +78,7 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
         return queryset.order_by('-date')
 
     def _ensure_attendance_for_date(self, query_date):
-        existing_student_ids = set(
-            Attendance.objects.filter(date=query_date).values_list('student_id', flat=True)
-        )
-        missing_students = Student.objects.filter(is_active=True).exclude(id__in=existing_student_ids)
-        records_to_create = []
-        for student in missing_students:
-            records_to_create.append(
-                Attendance(
-                    student=student,
-                    date=query_date,
-                    status='present',
-                    course_id=str(student.current_class_id) if getattr(student, 'current_class_id', None) else '',
-                    remarks='Auto-marked present for school day'
-                )
-            )
-        if records_to_create:
-            Attendance.objects.bulk_create(records_to_create)
+        ensure_present_for_school_day(query_date)
     
     def perform_create(self, serializer):
         serializer.save()
@@ -111,72 +97,20 @@ class AttendanceDetailView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_attendance(request):
-    """Save multiple attendance records at once"""
-    role = get_user_role(request.user)
-    if role not in ['admin', 'teacher']:
-        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-
-    teacher_class_ids = []
-    if role == 'teacher' and hasattr(request.user, 'teacher_profile'):
-        teacher_class_ids = list(request.user.teacher_profile.assigned_classes.values_list('id', flat=True))
-
-    try:
-        records = request.data.get('records', [])
-        created_count = 0
-        updated_count = 0
-        errors = []
-        
-        for record in records:
-            student_id = record.get('student_id')
-            status_val = record.get('status')
-            date_str = record.get('date')
-            class_id = record.get('class_id', '')
-            
-            # Parse date
-            try:
-                record_date = datetime.strptime(date_str, '%Y-%m-%d').date() if isinstance(date_str, str) else date.today()
-            except:
-                record_date = date.today()
-            
-            # Get the student object
-            try:
-                student = Student.objects.get(id=student_id)
-            except Student.DoesNotExist:
-                errors.append(f'Student not found: {student_id}')
-                continue
-
-            if role == 'teacher' and student.current_class_id not in teacher_class_ids:
-                errors.append(f'Permission denied for student: {student_id}')
-                continue
-            
-            # Update or create attendance record
-            attendance, created = Attendance.objects.update_or_create(
-                student=student,
-                date=record_date,
-                defaults={
-                    'status': status_val,
-                    'course_id': class_id,
-                    'remarks': ''
-                }
-            )
-            
-            if created:
-                created_count += 1
-            else:
-                updated_count += 1
-        
-        return Response({
-            'message': f'Attendance saved: {created_count} created, {updated_count} updated',
-            'created': created_count,
-            'updated': updated_count,
-            'errors': errors
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    """Save multiple attendance records at once (present by default on school days)."""
+    records = request.data.get('records', [])
+    result = bulk_save_attendance_records(request.user, records)
+    if result.get('forbidden'):
+        return Response({'error': result['error']}, status=status.HTTP_403_FORBIDDEN)
+    return Response(
+        {
+            'message': result['message'],
+            'created': result['created'],
+            'updated': result['updated'],
+            'errors': result['errors'],
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(['GET'])

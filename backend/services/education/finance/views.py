@@ -1,12 +1,35 @@
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.db.models import Sum, Q, Count, Avg
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from .models import FeeStructure, Invoice, Payment, InstallmentPlan, Scholarship, StudentScholarship, LateFeeRule, TransactionLog
-from .serializers import FeeStructureSerializer, InvoiceSerializer, PaymentSerializer, InstallmentPlanSerializer, ScholarshipSerializer, StudentScholarshipSerializer, LateFeeRuleSerializer, TransactionLogSerializer
+from .models import (
+    FeeStructure,
+    Invoice,
+    Payment,
+    InstallmentPlan,
+    Scholarship,
+    StudentScholarship,
+    LateFeeRule,
+    TransactionLog,
+    PaymentGatewayConfig,
+    PaymentTransaction,
+)
+from .serializers import (
+    FeeStructureSerializer,
+    InvoiceSerializer,
+    PaymentSerializer,
+    InstallmentPlanSerializer,
+    ScholarshipSerializer,
+    StudentScholarshipSerializer,
+    LateFeeRuleSerializer,
+    TransactionLogSerializer,
+    PaymentGatewayConfigSerializer,
+    PaymentTransactionSerializer,
+)
 from django.apps import apps
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -17,6 +40,14 @@ import csv
 import io
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+from services.communication.whatsapp.tasks import send_whatsapp_message
+from .payments import (
+    generate_payment_session,
+    verify_gateway_webhook,
+    process_gateway_webhook,
+    get_active_gateway_config,
+)
 
 Student = apps.get_model('education_students', 'Student')
 SchoolClass = apps.get_model('education_academics', 'SchoolClass')
@@ -266,14 +297,108 @@ def finance_summary(request):
     total_paid = Invoice.objects.aggregate(total=Sum('paid_amount'))['total'] or 0
     balance_due = total_amount - total_paid
     collection_rate = round((total_paid / total_amount * 100), 1) if total_amount > 0 else 0
-    
     return Response({
         'total_invoices': total_invoices,
         'total_amount': float(total_amount),
         'total_paid': float(total_paid),
         'balance_due': float(balance_due),
-        'collection_rate': collection_rate
+        'collection_rate': collection_rate,
     })
+class PaymentGatewayConfigListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = PaymentGatewayConfig.objects.all()
+    serializer_class = PaymentGatewayConfigSerializer
+
+
+class PaymentGatewayConfigDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = PaymentGatewayConfig.objects.all()
+    serializer_class = PaymentGatewayConfigSerializer
+    lookup_field = 'id'
+
+
+class PaymentTransactionListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PaymentTransactionSerializer
+
+    def get_queryset(self):
+        queryset = PaymentTransaction.objects.select_related('invoice')
+        invoice_id = self.request.query_params.get('invoice')
+        if invoice_id:
+            queryset = queryset.filter(invoice_id=invoice_id)
+
+        gateway = self.request.query_params.get('gateway')
+        if gateway:
+            queryset = queryset.filter(gateway=gateway)
+
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+
+        return queryset.order_by('-created_at')
+
+
+class InvoicePaymentSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        invoice_id = request.data.get('invoice_id')
+        provider = request.data.get('provider', 'jazzcash')
+        customer_name = request.data.get('customer_name')
+        customer_phone = request.data.get('customer_phone')
+
+        if not invoice_id:
+            return Response({'error': 'Invoice ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            invoice = Invoice.objects.get(id=invoice_id)
+            transaction, checkout_url = generate_payment_session(
+                invoice,
+                provider=provider,
+                customer_name=customer_name,
+                customer_phone=customer_phone,
+            )
+
+            return Response({
+                'session_id': str(transaction.id),
+                'checkout_url': checkout_url,
+                'gateway_reference': transaction.gateway_reference,
+                'amount': float(transaction.amount),
+                'currency': transaction.currency,
+                'provider': provider,
+                'invoice_number': invoice.invoice_number,
+            })
+        except Invoice.DoesNotExist:
+            return Response({'error': 'Invoice not found'}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response({'error': f'Unable to create payment session: {str(exc)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PaymentGatewayWebhookView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, provider):
+        payload = request.data
+        headers = {k: v for k, v in request.headers.items()}
+
+        if not verify_gateway_webhook(provider, payload, headers):
+            return Response({'error': 'Invalid webhook signature or missing configuration'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            transaction = process_gateway_webhook(provider, payload)
+            return Response({
+                'message': 'Webhook processed successfully',
+                'transaction_id': str(transaction.id),
+                'gateway_reference': transaction.gateway_reference,
+                'status': transaction.status,
+            })
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as exc:
+            return Response({'error': f'Failed to process webhook: {str(exc)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 
 @api_view(['GET'])
@@ -1269,10 +1394,12 @@ def send_defaulter_whatsapp_notice(request, invoice_id):
             recipient_phone=invoice.student.phone,
             subject=f'Overdue Payment Reminder - {invoice.invoice_number}',
             message=message_text,
+            template_name='fee_reminder',
             channel='whatsapp',
             is_delivered=False,
             tenant_id=getattr(request.user, 'tenant_id', '') if getattr(request.user, 'tenant_id', None) else ''
         )
+        send_whatsapp_message.delay(str(whatsapp_message.id))
 
         TransactionLog.objects.create(
             model_name='Invoice',

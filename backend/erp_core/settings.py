@@ -24,6 +24,7 @@ ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,6 +38,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'django_filters',
+    'channels',
+    'storages',
     
     # Core apps
     'services.core.accounts',
@@ -44,6 +47,10 @@ INSTALLED_APPS = [
     'services.rbac_models',
     'services.core.audit',
     'services.core.backup',
+    'services.core.db',
+    'services.core.storage',
+    'services.core.tenants',
+    'services.core.features',
     
     # Education apps
     'services.education.academics',
@@ -62,12 +69,16 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'api.versioning.APIVersionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'services.core.tenants.middleware.TenantMiddleware',
+    'services.core.features.middleware.FeatureFlagMiddleware',
     'services.core.accounts.middleware.AuditMiddleware',
     'services.core.audit.middleware.AuditMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'services.core.db.monitoring.SlowQueryLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'erp_core.urls'
@@ -101,6 +112,7 @@ if _use_sqlite:
         }
     }
 else:
+    _use_pgbouncer = os.environ.get('USE_PGBOUNCER', '').lower() in ('1', 'true', 'yes')
     DATABASES = {
         'default': {
             'ENGINE': os.environ.get(
@@ -110,13 +122,57 @@ else:
             'USER': os.environ.get('DB_USER', 'postgres'),
             'PASSWORD': os.environ.get('DB_PASSWORD', ''),
             'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
+            'PORT': os.environ.get('DB_PORT', '6432' if _use_pgbouncer else '5432'),
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '0')),
+            'CONN_HEALTH_CHECKS': True,
+            'OPTIONS': {
+                'connect_timeout': int(os.environ.get('DB_CONNECT_TIMEOUT', '10')),
+            },
         }
     }
+    if _use_pgbouncer:
+        DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
+        DATABASES['default']['CONN_MAX_AGE'] = 0
+    _stmt_timeout = os.environ.get('DB_STATEMENT_TIMEOUT_MS', '30000')
+    if _stmt_timeout and 'postgresql' in DATABASES['default']['ENGINE']:
+        DATABASES['default']['OPTIONS']['options'] = (
+            f"-c statement_timeout={_stmt_timeout}"
+        )
+
+# Database scalability & monitoring
+DB_SLOW_QUERY_MS = int(os.environ.get('DB_SLOW_QUERY_MS', '200'))
+DB_QUERY_MONITORING = os.environ.get('DB_QUERY_MONITORING', 'true').lower() in ('1', 'true', 'yes')
+DB_ARCHIVAL_ENABLED = os.environ.get('DB_ARCHIVAL_ENABLED', 'true').lower() in ('1', 'true', 'yes')
+DB_ARCHIVE_BATCH_SIZE = int(os.environ.get('DB_ARCHIVE_BATCH_SIZE', '1000'))
+DB_ARCHIVE_ATTENDANCE_YEARS = int(os.environ.get('DB_ARCHIVE_ATTENDANCE_YEARS', '2'))
+DB_ARCHIVE_NOTIFICATION_DAYS = int(os.environ.get('DB_ARCHIVE_NOTIFICATION_DAYS', '90'))
+DB_ARCHIVE_AUDIT_DAYS = int(os.environ.get('DB_ARCHIVE_AUDIT_DAYS', '90'))
 
 # Redis / cache
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
 CACHE_URL = os.environ.get('CACHE_URL', 'redis://127.0.0.1:6379/1')
+CHANNEL_REDIS_URL = os.environ.get('CHANNEL_REDIS_URL', REDIS_URL)
+
+# WebSockets (Django Channels) — InMemory fallback when USE_INMEMORY_CHANNELS=true or Redis unavailable
+_use_inmemory_channels = os.environ.get('USE_INMEMORY_CHANNELS', '').lower() in ('1', 'true', 'yes')
+if not _use_inmemory_channels:
+    try:
+        import channels_redis  # noqa: F401
+    except ImportError:
+        _use_inmemory_channels = True
+if _use_inmemory_channels:
+    CHANNEL_LAYERS = {
+        'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {'hosts': [CHANNEL_REDIS_URL]},
+        },
+    }
+
+ASGI_APPLICATION = 'services.core.routing.application'
 
 # Per-strategy TTLs (seconds)
 CACHE_TIMEOUTS = {
@@ -131,7 +187,17 @@ _REDIS_POOL_MAX = int(os.environ.get('REDIS_POOL_MAX_CONNECTIONS', 50))
 _REDIS_CONNECT_TIMEOUT = int(os.environ.get('REDIS_SOCKET_CONNECT_TIMEOUT', 5))
 _REDIS_SOCKET_TIMEOUT = int(os.environ.get('REDIS_SOCKET_TIMEOUT', 5))
 
-if CACHE_URL.startswith('redis://'):
+def _redis_available(url: str) -> bool:
+    try:
+        import redis
+        client = redis.from_url(url, socket_connect_timeout=2, socket_timeout=2)
+        client.ping()
+        return True
+    except Exception:
+        return False
+
+
+if CACHE_URL.startswith('redis://') and _redis_available(CACHE_URL):
     try:
         import django_redis  # noqa: F401
         CACHES = {
@@ -156,17 +222,9 @@ if CACHE_URL.startswith('redis://'):
     except ImportError:
         CACHES = {
             'default': {
-                'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-                'LOCATION': CACHE_URL,
+                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                'LOCATION': 'erp-redis-fallback',
                 'TIMEOUT': CACHE_TIMEOUTS['student_list'],
-                'KEY_PREFIX': os.environ.get('CACHE_KEY_PREFIX', 'erp'),
-                'OPTIONS': {
-                    'pool_class': 'redis.connection.BlockingConnectionPool',
-                    'pool_class_kwargs': {
-                        'max_connections': _REDIS_POOL_MAX,
-                        'timeout': _REDIS_SOCKET_TIMEOUT,
-                    },
-                },
             }
         }
 else:
@@ -220,6 +278,53 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Object storage (AWS S3 / Cloudflare R2)
+USE_S3_STORAGE = os.environ.get('USE_S3_STORAGE', '').lower() in ('1', 'true', 'yes')
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', '')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'erp-media')
+AWS_MEDIA_BUCKET_NAME = os.environ.get('AWS_MEDIA_BUCKET_NAME', AWS_STORAGE_BUCKET_NAME)
+AWS_BACKUP_BUCKET_NAME = os.environ.get('AWS_BACKUP_BUCKET_NAME', os.environ.get('BACKUP_S3_BUCKET', 'erp-backups'))
+AWS_REPORTS_BUCKET_NAME = os.environ.get('AWS_REPORTS_BUCKET_NAME', 'erp-reports')
+AWS_PUBLIC_BUCKET_NAME = os.environ.get('AWS_PUBLIC_BUCKET_NAME', 'erp-public')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'auto')
+AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', '')  # R2: https://<account>.r2.cloudflarestorage.com
+AWS_S3_SIGNATURE_VERSION = os.environ.get('AWS_S3_SIGNATURE_VERSION', 's3v4')
+AWS_S3_ADDRESSING_STYLE = os.environ.get('AWS_S3_ADDRESSING_STYLE', 'auto')
+AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', '')
+AWS_DEFAULT_ACL = None
+AWS_QUERYSTRING_AUTH = True
+AWS_S3_FILE_OVERWRITE = False
+
+STORAGE_SIGNED_URL_EXPIRY = int(os.environ.get('STORAGE_SIGNED_URL_EXPIRY', '3600'))
+STORAGE_MAX_IMAGE_BYTES = int(os.environ.get('STORAGE_MAX_IMAGE_BYTES', str(10 * 1024 * 1024)))
+STORAGE_MAX_PDF_BYTES = int(os.environ.get('STORAGE_MAX_PDF_BYTES', str(5 * 1024 * 1024)))
+STORAGE_TEMP_MAX_AGE_HOURS = int(os.environ.get('STORAGE_TEMP_MAX_AGE_HOURS', '24'))
+DEFAULT_TENANT_CODE = os.environ.get('DEFAULT_TENANT_CODE', 'DEF')
+TENANT_BASE_DOMAIN = os.environ.get('TENANT_BASE_DOMAIN', 'erp.com')
+CLAMAV_ENABLED = os.environ.get('CLAMAV_ENABLED', '').lower() in ('1', 'true', 'yes')
+CLAMAV_BIN = os.environ.get('CLAMAV_BIN', 'clamscan')
+
+if USE_S3_STORAGE:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'services.core.storage.backends.MediaStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+else:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+            'OPTIONS': {'location': MEDIA_ROOT, 'base_url': MEDIA_URL},
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -252,7 +357,7 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.URLPathVersioning',
     'DEFAULT_VERSION': 'v1',
-    'ALLOWED_VERSIONS': ['v1'],
+    'ALLOWED_VERSIONS': ['v1', 'v2'],
     'VERSION_PARAM': 'version',
 }
 
@@ -273,5 +378,37 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
+
+# Celery — archival & partition maintenance (requires redis broker)
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL)
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', REDIS_URL)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TRACK_STARTED = True
+
+try:
+    from celery.schedules import crontab
+
+    CELERY_BEAT_SCHEDULE = {
+        'db-archive-nightly': {
+            'task': 'services.core.db.archive_tasks.run_all_archival',
+            'schedule': crontab(hour=2, minute=30),
+        },
+        'db-ensure-partitions-weekly': {
+            'task': 'services.core.db.archive_tasks.ensure_partitions',
+            'schedule': crontab(hour=3, minute=0, day_of_week='sun'),
+        },
+        'storage-cleanup-temp-daily': {
+            'task': 'services.core.storage.tasks.cleanup_temp_files',
+            'schedule': crontab(hour=4, minute=0),
+        },
+    }
+except ImportError:
+    CELERY_BEAT_SCHEDULE = {}
 
 

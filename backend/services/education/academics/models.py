@@ -17,6 +17,14 @@ class AcademicYear(models.Model):
 
 
 class SchoolClass(models.Model):
+    tenant = models.ForeignKey(
+        'core_tenants.School',
+        on_delete=models.CASCADE,
+        related_name='classes',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
     code = models.CharField(max_length=20)
@@ -32,6 +40,14 @@ class SchoolClass(models.Model):
 
 
 class Section(models.Model):
+    tenant = models.ForeignKey(
+        'core_tenants.School',
+        on_delete=models.CASCADE,
+        related_name='sections',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     class_ref = models.ForeignKey(SchoolClass, on_delete=models.CASCADE, related_name='sections')
     name = models.CharField(max_length=20)
@@ -232,6 +248,14 @@ class LearningResource(models.Model):
 # LEVEL 4: TEACHER MANAGEMENT
 class Teacher(models.Model):
     """Teacher profile and information"""
+    tenant = models.ForeignKey(
+        'core_tenants.School',
+        on_delete=models.CASCADE,
+        related_name='teachers',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     employee_id = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=255)

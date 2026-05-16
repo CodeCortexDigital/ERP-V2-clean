@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from .models import Payment, TransactionLog
 from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
+from services.core.events.dispatcher import dispatch_event
 
 
 def log_transaction(user, action, model_name, object_id, object_name, old_value=None, new_value=None):
@@ -57,6 +58,13 @@ def log_invoice_audit(sender, instance, created, **kwargs):
                 parent_user = getattr(parent_profile, 'user', None)
                 if parent_user:
                     create_user_notification(parent_user, title, message, 'finance')
+            dispatch_event('invoice_created', {
+                'invoice_id': str(instance.id),
+                'invoice_number': instance.invoice_number,
+                'student_id': str(instance.student_id),
+                'amount': str(instance.total_amount),
+                'due_date': str(instance.due_date),
+            })
     except Exception:
         pass
 

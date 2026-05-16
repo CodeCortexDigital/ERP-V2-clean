@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import teacherService, { Teacher } from '@/services/teacher.service';
+import { extractListData } from '@/services/api';
 
 export default function TeachersManagement() {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ export default function TeachersManagement() {
     setLoading(true);
     try {
       const response = await teacherService.getAll();
-      setTeachers(response.data);
+      setTeachers(extractListData<Teacher>(response.data));
     } catch (error) {
       console.error('Error fetching teachers:', error);
     } finally {

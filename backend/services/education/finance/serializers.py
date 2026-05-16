@@ -1,5 +1,16 @@
 from rest_framework import serializers
-from .models import FeeStructure, Invoice, Payment, InstallmentPlan, Scholarship, StudentScholarship, LateFeeRule, TransactionLog
+from .models import (
+    FeeStructure,
+    Invoice,
+    Payment,
+    InstallmentPlan,
+    Scholarship,
+    StudentScholarship,
+    LateFeeRule,
+    TransactionLog,
+    PaymentGatewayConfig,
+    PaymentTransaction,
+)
 
 
 class FeeStructureSerializer(serializers.ModelSerializer):
@@ -70,6 +81,25 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = '__all__'
         read_only_fields = ('payment_date', 'received_by')
+
+
+class PaymentGatewayConfigSerializer(serializers.ModelSerializer):
+    provider_display = serializers.CharField(source='get_provider_display', read_only=True)
+
+    class Meta:
+        model = PaymentGatewayConfig
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+
+
+class PaymentTransactionSerializer(serializers.ModelSerializer):
+    invoice_number = serializers.CharField(source='invoice.invoice_number', read_only=True)
+    gateway_display = serializers.CharField(source='get_gateway_display', read_only=True)
+
+    class Meta:
+        model = PaymentTransaction
+        fields = '__all__'
+        read_only_fields = ('gateway_reference', 'status', 'is_confirmed', 'created_at', 'updated_at')
 
 
 class TransactionLogSerializer(serializers.ModelSerializer):

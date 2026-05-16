@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { User, Bell, Shield, Palette, Globe, Save } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { User, Bell, Shield, Palette, Globe, Save, Flag } from 'lucide-react'
+import FeatureFlagsPage from './FeatureFlagsPage'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -7,6 +9,8 @@ import { toast } from 'sonner'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
+  const { user } = useAuth()
+  const isAdmin = Boolean(user?.is_staff || user?.is_superuser)
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -14,6 +18,7 @@ export default function SettingsPage() {
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'general', label: 'General', icon: Globe },
+    ...(isAdmin ? [{ id: 'features' as const, label: 'Feature Flags', icon: Flag }] : []),
   ]
 
   return (
@@ -55,6 +60,7 @@ export default function SettingsPage() {
           {activeTab === 'security' && <SecuritySettings />}
           {activeTab === 'appearance' && <AppearanceSettings />}
           {activeTab === 'general' && <GeneralSettings />}
+          {activeTab === 'features' && <FeatureFlagsPage />}
         </div>
       </div>
     </div>

@@ -3,8 +3,19 @@ from functools import cached_property
 from django.db import models
 import uuid
 
+from services.core.db.softdelete import SoftDeleteModel
+from services.core.storage.utils import student_profile_upload_to
 
-class Student(models.Model):
+
+class Student(SoftDeleteModel):
+    tenant = models.ForeignKey(
+        'core_tenants.School',
+        on_delete=models.CASCADE,
+        related_name='students',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student_id = models.CharField(max_length=50, unique=True)
     full_name = models.CharField(max_length=255)
@@ -22,13 +33,37 @@ class Student(models.Model):
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     postal_code = models.CharField(max_length=20, blank=True)
-    current_class = models.ForeignKey('education_academics.SchoolClass', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
-    current_section = models.ForeignKey('education_academics.Section', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    current_class = models.ForeignKey(
+        'education_academics.SchoolClass',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='students',
+        db_index=True,
+    )
+    current_section = models.ForeignKey(
+        'education_academics.Section',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='students',
+    )
     is_active = models.BooleanField(default=True)
     last_activity = models.DateTimeField(null=True, blank=True)
-    profile_picture = models.ImageField(upload_to='student_photos/', null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    profile_picture = models.ImageField(
+        upload_to=student_profile_upload_to,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['student_id']),
+            models.Index(fields=['current_class', 'is_active']),
+            models.Index(fields=['created_at']),
+        ]
 
     def __str__(self):
         return self.display_label

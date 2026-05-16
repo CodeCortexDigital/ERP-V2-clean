@@ -31,6 +31,9 @@ class AuditLog(models.Model):
             models.Index(fields=['resource_type']),
             models.Index(fields=['resource_id']),
             models.Index(fields=['user']),
+            models.Index(fields=['timestamp']),
+            models.Index(fields=['user', 'timestamp']),
+            models.Index(fields=['resource_type', 'timestamp']),
         ]
 
     def __str__(self):

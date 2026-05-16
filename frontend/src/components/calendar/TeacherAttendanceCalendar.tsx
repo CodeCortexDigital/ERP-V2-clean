@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, CheckCircle, Calendar as LeaveIcon, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import api from '@/services/api';
+import api, { extractListData } from '@/services/api';
 
 interface AttendanceRecord {
   id: string;
@@ -42,7 +42,7 @@ export function TeacherAttendanceCalendar({ teacherId, teacherName }: TeacherAtt
     try {
       const response = await api.get(`/auth/academics/teacher-attendance/?teacher_id=${teacherId}&year=${currentYear}&month=${currentMonth + 1}`);
       const attendanceMap = new Map();
-      response.data.forEach((item: AttendanceRecord) => {
+      extractListData<AttendanceRecord>(response.data).forEach((item) => {
         attendanceMap.set(item.date, item);
       });
       setAttendanceRecords(attendanceMap);

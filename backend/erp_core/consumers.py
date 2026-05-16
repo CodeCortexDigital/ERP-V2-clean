@@ -5,6 +5,8 @@ Provides real-time updates for analytics and notifications
 
 import json
 import asyncio
+from datetime import datetime
+
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -215,6 +217,3 @@ class AnalyticsConsumer(AsyncWebsocketConsumer):
     async def analytics_update(self, event):
         """Handle analytics update messages"""
         await self.send(text_data=json.dumps(event['data']))
-
-
-from datetime import datetime

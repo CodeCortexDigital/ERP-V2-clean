@@ -8,6 +8,11 @@ urlpatterns = [
     path('invoices/<str:id>/', views.InvoiceDetailView.as_view(), name='invoice-detail'),
     path('payments/', views.PaymentListCreateView.as_view(), name='payment-list'),
     path('payments/<str:id>/', views.PaymentDetailView.as_view(), name='payment-detail'),
+    path('payments/session/', views.InvoicePaymentSessionView.as_view(), name='payment-session'),
+    path('payments/webhook/<str:provider>/', views.PaymentGatewayWebhookView.as_view(), name='payment-webhook'),
+    path('payment-gateways/', views.PaymentGatewayConfigListCreateView.as_view(), name='payment-gateway-list'),
+    path('payment-gateways/<str:id>/', views.PaymentGatewayConfigDetailView.as_view(), name='payment-gateway-detail'),
+    path('payment-transactions/', views.PaymentTransactionListView.as_view(), name='payment-transaction-list'),
     path('summary/', views.finance_summary, name='finance-summary'),
     
     # New features

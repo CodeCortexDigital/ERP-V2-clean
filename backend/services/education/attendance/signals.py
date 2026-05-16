@@ -1,12 +1,23 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import AttendanceRecord
+from services.core.events.dispatcher import dispatch_event
 
 @receiver(post_save, sender=AttendanceRecord)
 def attendance_automation(sender, instance, created, **kwargs):
     """Trigger automation when attendance is marked"""
     if not created:
         return
+
+    try:
+        dispatch_event('attendance_marked', {
+            'attendance_id': str(instance.id),
+            'student_id': str(instance.student_id),
+            'status': instance.status,
+            'date': str(instance.date),
+        })
+    except Exception as exc:
+        print(f"Attendance dispatch error: {exc}")
 
     try:
         from services.education.students.models import Student
@@ -34,18 +45,23 @@ def attendance_automation(sender, instance, created, **kwargs):
             if rate < 75:
                 # Trigger low attendance alert
                 triggers = AutoTrigger.objects.filter(trigger_event='attendance_low', is_active=True)
+                from services.communication.whatsapp.tasks import send_whatsapp_message
+
                 for trigger in triggers:
                     notification_text = trigger.template.render({
                         'student_name': student.full_name,
                         'attendance_rate': rate
                     })
-                    Message.objects.create(
+                    msg = Message.objects.create(
                         sender='ERP System',
                         recipient=student.full_name,
                         recipient_phone=student.phone,
                         subject='Low Attendance Alert',
                         message=notification_text,
+                        template_name='attendance_absent',
                         channel=trigger.channel
                     )
+                    if trigger.channel == 'whatsapp':
+                        send_whatsapp_message.delay(str(msg.id))
     except Exception as e:
         print(f"Attendance automation error: {e}")

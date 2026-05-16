@@ -2,6 +2,8 @@ from django.db import models
 from django.utils import timezone
 import uuid
 
+from services.core.db.softdelete import SoftDeleteModel
+
 class FeeStructure(models.Model):
     """Fee structure for classes"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -23,7 +25,15 @@ class FeeStructure(models.Model):
         ordering = ['-due_date']
 
 
-class Invoice(models.Model):
+class Invoice(SoftDeleteModel):
+    tenant = models.ForeignKey(
+        'core_tenants.School',
+        on_delete=models.CASCADE,
+        related_name='invoices',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('issued', 'Issued'),
@@ -34,7 +44,12 @@ class Invoice(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     invoice_number = models.CharField(max_length=50, unique=True, editable=False)
-    student = models.ForeignKey('education_students.Student', on_delete=models.CASCADE, related_name='invoices')
+    student = models.ForeignKey(
+        'education_students.Student',
+        on_delete=models.CASCADE,
+        related_name='invoices',
+        db_index=True,
+    )
     fee_structure = models.ForeignKey(FeeStructure, on_delete=models.SET_NULL, null=True, blank=True)
     installment_plan = models.ForeignKey('InstallmentPlan', on_delete=models.SET_NULL, null=True, blank=True)
     scholarship = models.ForeignKey('StudentScholarship', on_delete=models.SET_NULL, null=True, blank=True)
@@ -42,16 +57,25 @@ class Invoice(models.Model):
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     late_fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    due_date = models.DateField()
-    issue_date = models.DateField(auto_now_add=True)
+    due_date = models.DateField(db_index=True)
+    issue_date = models.DateField(auto_now_add=True, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='issued')
     description = models.TextField(blank=True)
     is_installment = models.BooleanField(default=False)
     installment_number = models.PositiveIntegerField(null=True, blank=True)
     parent_invoice = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='installments')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    class Meta:
+        ordering = ['-due_date']
+        indexes = [
+            models.Index(fields=['student', 'due_date']),
+            models.Index(fields=['status', 'due_date']),
+            models.Index(fields=['issue_date']),
+            models.Index(fields=['created_at']),
+        ]
+
     def save(self, *args, **kwargs):
         if not self.invoice_number:
             year = timezone.now().year
@@ -166,9 +190,6 @@ class Invoice(models.Model):
     
     def __str__(self):
         return f"{self.invoice_number} - {self.student.full_name} - ${self.amount}"
-    
-    class Meta:
-        ordering = ['-due_date']
 
 
 class Payment(models.Model):
@@ -206,6 +227,62 @@ class Payment(models.Model):
     
     class Meta:
         ordering = ['-payment_date']
+
+
+class PaymentGatewayConfig(models.Model):
+    GATEWAY_PROVIDERS = [
+        ('jazzcash', 'JazzCash'),
+        ('easypaisa', 'Easypaisa'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    provider = models.CharField(max_length=30, choices=GATEWAY_PROVIDERS)
+    name = models.CharField(max_length=100, blank=True)
+    merchant_id = models.CharField(max_length=200, blank=True)
+    api_key = models.CharField(max_length=200, blank=True)
+    api_secret = models.CharField(max_length=200, blank=True)
+    api_url = models.URLField(blank=True)
+    webhook_secret = models.CharField(max_length=200, blank=True)
+    callback_url = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name or f"{self.get_provider_display()} Configuration"
+
+    class Meta:
+        unique_together = ('provider', 'merchant_id')
+        ordering = ['provider']
+
+
+class PaymentTransaction(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='payment_transactions')
+    gateway = models.CharField(max_length=30, choices=PaymentGatewayConfig.GATEWAY_PROVIDERS)
+    config = models.ForeignKey(PaymentGatewayConfig, on_delete=models.SET_NULL, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=10, default='PKR')
+    gateway_reference = models.CharField(max_length=128, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    request_payload = models.JSONField(null=True, blank=True)
+    response_payload = models.JSONField(null=True, blank=True)
+    is_confirmed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.get_gateway_display()} transaction for {self.invoice.invoice_number}"
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class InstallmentPlan(models.Model):

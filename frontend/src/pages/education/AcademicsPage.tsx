@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import academicService from '@/services/academic.service';
 import studentService from '@/services/student.service';
+import { extractListData } from '@/services/api';
 import { toast } from 'sonner';
 
 interface AcademicYear {
@@ -73,19 +74,15 @@ export default function AcademicsPage() {
         studentService.getAll()
       ]);
       
-      setAcademicYears(yearsRes.data || []);
-      setSubjects(subjectsRes.data || []);
-      
-      let studentsList = [];
-      if (Array.isArray(studentsRes.data)) {
-        studentsList = studentsRes.data;
-      } else if (studentsRes.data?.results) {
-        studentsList = studentsRes.data.results;
-      }
-      
-      console.log('Students loaded:', studentsList.length);
-      
-      const classesWithCounts = (classesRes.data || []).map((cls: SchoolClass) => {
+      const yearsList = extractListData<AcademicYear>(yearsRes.data);
+      const subjectsList = extractListData<Subject>(subjectsRes.data);
+      const classesList = extractListData<SchoolClass>(classesRes.data);
+      const studentsList = extractListData<Record<string, unknown>>(studentsRes.data);
+
+      setAcademicYears(yearsList);
+      setSubjects(subjectsList);
+
+      const classesWithCounts = classesList.map((cls: SchoolClass) => {
         const count = studentsList.filter((s: any) => {
           return s.current_class === cls.id && s.is_active === true;
         }).length;

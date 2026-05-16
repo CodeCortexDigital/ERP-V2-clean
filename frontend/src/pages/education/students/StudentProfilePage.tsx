@@ -14,6 +14,7 @@ import attendanceService from '@/services/attendance.service';
 import examService from '@/services/exam.service';
 import classService, { SchoolClass, Section } from '@/services/class.service';
 import api from '@/services/api';
+import { uploadStudentProfile, resolveMediaUrl, validateFileClient } from '@/utils/fileUpload';
 
 interface AttendanceRecord {
   date: string;
@@ -57,6 +58,7 @@ export default function StudentProfilePage() {
   const [classMap, setClassMap] = useState<Map<string, string>>(new Map());
   const [sectionMap, setSectionMap] = useState<Map<string, string>>(new Map());
   const [uploading, setUploading] = useState(false);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -71,6 +73,17 @@ export default function StudentProfilePage() {
       fetchFinanceData();
     }
   }, [id, classMap]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const url = await resolveMediaUrl(student?.profile_picture);
+      if (active) setProfilePictureUrl(url);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [student?.profile_picture]);
 
   const loadClassMaps = async () => {
     try {
@@ -131,26 +144,19 @@ export default function StudentProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
+    const validationError = validateFileClient(file);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image size should be less than 2MB');
-      return;
-    }
+    if (!id) return;
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append('profile_picture', file);
-
     try {
-      const response = await api.patch(`/auth/students/${id}/`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      setStudent(prev => prev ? { ...prev, profile_picture: response.data.profile_picture } : prev);
+      const result = await uploadStudentProfile(id, file);
+      const picturePath = result.profile_picture ?? result.storage_key;
+      setStudent(prev => (prev ? { ...prev, profile_picture: picturePath } : prev));
       toast.success('Profile picture updated successfully!');
     } catch (error) {
       console.error('Error uploading profile picture:', error);
@@ -264,10 +270,6 @@ export default function StudentProfilePage() {
   const passedExams = results.filter(r => r.is_pass === true).length;
   const displayClassName = student.resolved_class_name || student.current_class_name || 'Not Assigned';
   const displaySectionName = student.resolved_section_name || student.current_section_name || '';
-  const profilePictureUrl = student.profile_picture 
-    ? `http://localhost:8000${student.profile_picture}` 
-    : null;
-
   return (
     <div className="space-y-6">
       {/* Header with Profile Picture */}

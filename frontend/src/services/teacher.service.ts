@@ -1,4 +1,4 @@
-import api from './api';
+import api, { extractListData } from './api';
 
 export interface Teacher {
   id: string;
@@ -24,8 +24,7 @@ const teacherService = {
   // Get all teachers
   getAll: async () => {
     const response = await api.get('/auth/academics/teachers/');
-    console.log('Teachers API response:', response.data);
-    return response;
+    return { ...response, data: extractListData<Teacher>(response.data) };
   },
 
   // Get single teacher

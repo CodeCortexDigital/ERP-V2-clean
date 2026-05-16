@@ -27,4 +27,8 @@ export const queryKeys = {
     unread: () => [...queryKeys.notifications.all, 'unread'] as const,
   },
   dropdown: (type: string) => ['dropdown', type] as const,
+  features: {
+    all: ['features'] as const,
+    admin: (scope: string) => ['features', 'admin', scope] as const,
+  },
 };

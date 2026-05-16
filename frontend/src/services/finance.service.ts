@@ -1,4 +1,10 @@
-import api from './api';
+import api, { extractListData } from './api';
+
+const EMPTY_DEFAULTERS = {
+  total_defaulters: 0,
+  total_amount_due: 0,
+  defaulters: [] as unknown[],
+};
 
 const financeService = {
   // Fee Structures
@@ -18,8 +24,21 @@ const financeService = {
   // Invoice Receipts
   getInvoiceReceipt: (invoiceId: string) => api.get(`/auth/finance/invoices/${invoiceId}/receipt/`),
 
-  // Payments
-  getPayments: (params?: any) => api.get('/auth/finance/payments/', { params }),
+  // Payments (list/create — not gated; session/webhook are online-payment features)
+  getPayments: async (params?: any) => {
+    try {
+      const response = await api.get('/auth/finance/payments/', { params });
+      return { ...response, data: extractListData(response.data) };
+    } catch (error: unknown) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        return { data: [], status: 200, statusText: 'OK', headers: {}, config: {} } as Awaited<
+          ReturnType<typeof api.get>
+        >;
+      }
+      throw error;
+    }
+  },
   getPayment: (id: string) => api.get(`/auth/finance/payments/${id}/`),
   createPayment: (data: any) => {
     const payload = {
@@ -33,6 +52,11 @@ const financeService = {
 
   // Payment Receipts
   getPaymentReceipt: (paymentId: string) => api.get(`/auth/finance/payments/${paymentId}/receipt/`),
+
+  createOnlinePaymentSession: (invoiceId: string, data: any) => api.post(`/auth/finance/payments/session/`, { invoice_id: invoiceId, ...data }),
+
+  getPaymentGateways: () => api.get('/auth/finance/payment-gateways/'),
+  getPaymentTransactions: (params?: any) => api.get('/auth/finance/payment-transactions/', { params }),
 
   // Summary
   getSummary: () => api.get('/auth/finance/summary/'),
@@ -76,7 +100,15 @@ const financeService = {
 
   // Analytics
   getMonthlyRevenueChart: (params?: any) => api.get('/auth/finance/analytics/monthly-revenue/', { params }),
-  getDefaulterReport: (params?: any) => api.get('/auth/finance/analytics/defaulters/', { params }),
+  getDefaulterReport: async (params?: any) => {
+    try {
+      return await api.get('/auth/finance/analytics/defaulters/', { params });
+    } catch {
+      return { data: EMPTY_DEFAULTERS, status: 200, statusText: 'OK', headers: {}, config: {} } as Awaited<
+        ReturnType<typeof api.get>
+      >;
+    }
+  },
   getClassWiseCollection: (params?: any) => api.get('/auth/finance/analytics/class-collection/', { params }),
   getFinancialForecast: (params?: any) => api.get('/auth/finance/analytics/forecast/', { params }),
 

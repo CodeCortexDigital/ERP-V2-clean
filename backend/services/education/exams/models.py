@@ -3,6 +3,14 @@ from django.utils import timezone
 import uuid
 
 class Exam(models.Model):
+    tenant = models.ForeignKey(
+        'core_tenants.School',
+        on_delete=models.CASCADE,
+        related_name='exams',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     EXAM_TYPES = [
         ('midterm', 'Mid Term Examination'),
         ('final', 'Final Term Examination'),
@@ -62,6 +70,14 @@ class Exam(models.Model):
 
 
 class ExamResult(models.Model):
+    tenant = models.ForeignKey(
+        'core_tenants.School',
+        on_delete=models.CASCADE,
+        related_name='exam_results',
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     GRADE_CHOICES = [
         ('A+', 'A+ (90-100%)'), ('A', 'A (80-89%)'), ('B+', 'B+ (70-79%)'),
         ('B', 'B (60-69%)'), ('C+', 'C+ (50-59%)'), ('C', 'C (40-49%)'),

@@ -51,8 +51,18 @@ def login_view(request):
             user.account_status = 'active'
             user.save(update_fields=['account_status'])
 
+        from services.core.tenants.utils import (
+            resolve_tenant_for_user,
+            set_session_tenant,
+        )
+        from services.core.tenants.serializers import SchoolSerializer
+
         refresh = RefreshToken.for_user(user)
-        return Response({
+        tenant = resolve_tenant_for_user(user)
+        if tenant:
+            set_session_tenant(request, tenant)
+
+        payload = {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
             'user': {
@@ -60,9 +70,12 @@ def login_view(request):
                 'email': user.email,
                 'full_name': getattr(user, 'full_name', user.email),
                 'is_staff': user.is_staff,
-                'is_superuser': user.is_superuser
-            }
-        })
+                'is_superuser': user.is_superuser,
+            },
+        }
+        if tenant:
+            payload['tenant'] = SchoolSerializer(tenant).data
+        return Response(payload)
     
     return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -237,59 +250,62 @@ def get_attendance(request):
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
     
     if student_id:
-        attendance = Attendance.objects.filter(student_id=student_id)
+        from services.education.attendance.services import serialize_attendance_record
+
+        attendance = (
+            Attendance.objects.filter(student_id=student_id)
+            .select_related('student', 'marked_by')
+            .order_by('-date')
+        )
+        return Response([serialize_attendance_record(r) for r in attendance])
     elif date:
-        attendance = Attendance.objects.filter(date=date)
+        from services.education.attendance.services import ensure_defaults_for_date, _students_queryset
+        from services.education.attendance.calendar import parse_attendance_date, is_school_day
+
+        query_date = parse_attendance_date(date)
+        class_id = request.GET.get('class_id')
+        section_id = request.GET.get('section_id')
+        ensure_defaults_for_date(query_date, class_id=class_id, section_id=section_id)
+
+        student_ids = None
+        if class_id or section_id:
+            student_ids = list(
+                _students_queryset(class_id, section_id).values_list('id', flat=True)
+            )
+
+        attendance = Attendance.objects.filter(date=query_date)
+        if student_ids is not None:
+            attendance = attendance.filter(student_id__in=student_ids)
+        if not is_school_day(query_date):
+            attendance = attendance.filter(status='holiday')
     else:
         return Response({'error': 'Date or student_id required'}, status=400)
     
-    attendance_list = []
-    for record in attendance:
-        attendance_list.append({
-            'id': str(record.id),
-            'student_id': str(record.student.id),
-            'student_name': record.student.full_name,
-            'status': record.status,
-            'date': str(record.date),
-        })
-    return Response(attendance_list)
+    from services.education.attendance.services import serialize_attendance_record
+
+    attendance = attendance.select_related('student', 'marked_by').order_by('student__full_name')
+    return Response([serialize_attendance_record(r) for r in attendance])
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_attendance(request):
-    data = request.data
-    records = data.get('records', [])
-    
-    from django.apps import apps
-    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
-    Student = apps.get_model('education_students', 'Student')
-    
-    created = 0
-    updated = 0
-    
-    for record in records:
-        student_id = record.get('student_id')
-        date = record.get('date')
-        status_val = record.get('status')
-        
-        student = Student.objects.get(id=student_id)
-        
-        attendance, is_new = Attendance.objects.update_or_create(
-            student=student,
-            date=date,
-            defaults={'status': status_val}
-        )
-        
-        if is_new:
-            created += 1
-        else:
-            updated += 1
-    
-    return Response({
-        'success': True,
-        'message': f'Attendance saved: {created} created, {updated} updated'
-    })
+    from services.education.attendance.services import bulk_save_attendance_records
+
+    records = request.data.get('records', [])
+    result = bulk_save_attendance_records(request.user, records)
+    if result.get('forbidden'):
+        return Response({'error': result['error']}, status=status.HTTP_403_FORBIDDEN)
+    return Response(
+        {
+            'success': True,
+            'message': result['message'],
+            'created': result['created'],
+            'updated': result['updated'],
+            'errors': result['errors'],
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(['GET'])
@@ -340,18 +356,17 @@ def student_attendance(request, student_id):
     year = request.GET.get('year')
     month = request.GET.get('month')
     
-    attendance_records = Attendance.objects.filter(student_id=student_id)
+    from services.education.attendance.services import serialize_attendance_record
+
+    attendance_records = (
+        Attendance.objects.filter(student_id=student_id)
+        .select_related('student', 'marked_by')
+        .order_by('-date')
+    )
     if year and month:
         attendance_records = attendance_records.filter(date__year=year, date__month=month)
-    
-    data = []
-    for record in attendance_records:
-        data.append({
-            'id': str(record.id),
-            'date': str(record.date),
-            'status': record.status,
-        })
-    return Response(data)
+
+    return Response([serialize_attendance_record(r) for r in attendance_records])
 
 
 # ============================================================

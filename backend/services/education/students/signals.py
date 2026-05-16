@@ -2,6 +2,7 @@ from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from .models import Student, Enrollment, Document, Note
+from services.core.events.dispatcher import dispatch_event
 import logging
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,16 @@ def update_enrollment_counts(sender, instance, created, **kwargs):
     """Update enrollment counts when enrollment changes"""
     if created:
         logger.info(f"New enrollment created: {instance.student.student_id} - Course {instance.course_id}")
+        try:
+            dispatch_event('student_enrolled', {
+                'enrollment_id': str(instance.id),
+                'student_id': str(instance.student.id),
+                'student_name': instance.student.get_full_name(),
+                'course_id': str(instance.course_id),
+                'email': getattr(getattr(instance.student, 'user', None), 'email', None),
+            })
+        except Exception as exc:
+            logger.error(f"Student enrollment dispatch failed: {exc}")
 
 @receiver(post_save, sender=Document)
 def track_document_uploads(sender, instance, created, **kwargs):

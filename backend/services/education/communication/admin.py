@@ -3,9 +3,18 @@ from .models import Message, AutoTrigger, MessageTemplate, WhatsAppConfig, Notif
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'recipient', 'channel', 'is_delivered', 'created_at')
-    list_filter = ('channel', 'is_delivered')
-    search_fields = ('sender', 'recipient', 'message')
+    list_display = (
+        'sender',
+        'recipient',
+        'channel',
+        'template_name',
+        'delivery_status',
+        'is_delivered',
+        'retry_count',
+        'created_at',
+    )
+    list_filter = ('channel', 'is_delivered', 'delivery_status')
+    search_fields = ('sender', 'recipient', 'message', 'template_name')
 
 @admin.register(AutoTrigger)
 class AutoTriggerAdmin(admin.ModelAdmin):
@@ -20,7 +29,16 @@ class MessageTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(WhatsAppConfig)
 class WhatsAppConfigAdmin(admin.ModelAdmin):
-    list_display = ('is_active', 'updated_at')
+    list_display = (
+        'business_account_id',
+        'phone_number_id',
+        'webhook_verified',
+        'is_active',
+        'tenant_id',
+        'updated_at',
+    )
+    list_filter = ('is_active', 'webhook_verified')
+    search_fields = ('phone_number_id', 'business_account_id', 'tenant_id')
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
