@@ -7,6 +7,7 @@ class AuditLog(models.Model):
         ('update', 'Update'),
         ('delete', 'Delete'),
         ('view', 'View'),
+        ('permission_denied', 'Permission Denied'),
         ('login', 'Login'),
         ('logout', 'Logout'),
         ('payment', 'Payment'),

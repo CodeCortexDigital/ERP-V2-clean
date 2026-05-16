@@ -44,6 +44,22 @@ def log_payment_audit(sender, instance, created, **kwargs):
 @receiver(post_save, sender='education_finance.Invoice')
 def log_invoice_audit(sender, instance, created, **kwargs):
     """Log invoice creation/update"""
+    try:
+        from services.core.user_notifications.utils import create_user_notification
+
+        if created:
+            title = f"New Invoice Issued: {instance.invoice_number}"
+            message = (
+                f"A new fee invoice of ${instance.total_amount:.2f} has been issued for "
+                f"{instance.student.full_name}. Due date: {instance.due_date}."
+            )
+            for parent_profile in instance.student.parents.all():
+                parent_user = getattr(parent_profile, 'user', None)
+                if parent_user:
+                    create_user_notification(parent_user, title, message, 'finance')
+    except Exception:
+        pass
+
     action = 'create' if created else 'update'
     log_transaction(
         user=getattr(instance, '_user', None),

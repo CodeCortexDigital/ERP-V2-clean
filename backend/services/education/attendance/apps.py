@@ -7,4 +7,4 @@ class EducationAttendanceConfig(AppConfig):
     verbose_name = 'Attendance'
 
     def ready(self):
-        pass
+        import services.education.attendance.signals  # noqa: F401

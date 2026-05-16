@@ -7,4 +7,4 @@ class FinanceConfig(AppConfig):
     verbose_name = 'Finance'
 
     def ready(self):
-        pass
+        import services.education.finance.signals  # noqa: F401

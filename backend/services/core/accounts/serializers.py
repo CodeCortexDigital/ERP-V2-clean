@@ -56,7 +56,7 @@ class StudentSerializer(serializers.ModelSerializer):
 class ClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = apps.get_model('education_academics', 'SchoolClass')
-        fields = ['id', 'name', 'code', 'capacity', 'is_active']
+        fields = ['id', 'name', 'code', 'teacher_name', 'academic_year']
 
 class AttendanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)

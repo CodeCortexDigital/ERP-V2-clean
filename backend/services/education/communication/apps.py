@@ -7,4 +7,4 @@ class CommunicationConfig(AppConfig):
     verbose_name = 'Communication'
 
     def ready(self):
-        pass
+        import services.education.communication.signals  # noqa: F401

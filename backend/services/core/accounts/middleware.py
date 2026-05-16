@@ -9,7 +9,7 @@ class AuditMiddleware(MiddlewareMixin):
         return None
     
     def process_response(self, request, response):
-        # Log login/logout actions
+        # Log login actions
         if request.path == '/api/auth/login/' and response.status_code == 200:
             if hasattr(request, 'user') and request.user.is_authenticated:
                 log_action(
@@ -18,4 +18,17 @@ class AuditMiddleware(MiddlewareMixin):
                     module='auth',
                     request=request
                 )
+
+        # Log denied access attempts
+        if response.status_code == 403 and hasattr(request, 'user') and request.user.is_authenticated:
+            module_name = request.path.strip('/').split('/')[0] if request.path else 'unknown'
+            log_action(
+                user=request.user,
+                action='permission_denied',
+                module=module_name,
+                object_id='',
+                object_name=request.path,
+                request=request
+            )
+
         return response

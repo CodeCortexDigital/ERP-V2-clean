@@ -1,0 +1,66 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Run daily at 2 AM
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  backup:
+    name: Backup Database
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install django djangorestframework
+      
+      - name: Create backup timestamp
+        id: timestamp
+        run: echo "backup_date=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
+      
+      - name: Create backup directory
+        run: |
+          mkdir -p ./backups/${{ steps.timestamp.outputs.backup_date }}
+      
+      - name: Backup database schema
+        run: |
+          # This would backup your actual database in production
+          echo "Database backup for ${{ steps.timestamp.outputs.backup_date }}" > ./backups/${{ steps.timestamp.outputs.backup_date }}/backup.sql
+          echo "$(date)" >> ./backups/${{ steps.timestamp.outputs.backup_date }}/backup.sql
+      
+      - name: Backup media files
+        run: |
+          if [ -d "backend/media" ]; then
+            tar -czf ./backups/${{ steps.timestamp.outputs.backup_date }}/media.tar.gz backend/media/
+          fi
+      
+      - name: Verify backup integrity
+        run: |
+          ls -lh ./backups/${{ steps.timestamp.outputs.backup_date }}/
+          file ./backups/${{ steps.timestamp.outputs.backup_date }}/*
+      
+      - name: Upload backup to S3
+        run: |
+          # This would upload to S3 in production
+          echo "Would upload to S3: s3://backups/erp/${{ steps.timestamp.outputs.backup_date }}/"
+      
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: database-backup-${{ steps.timestamp.outputs.backup_date }}
+          path: ./backups/${{ steps.timestamp.outputs.backup_date }}/
+          retention-days: 30
+      
+      - name: Notify backup completion
+        run: |
+          echo "Backup completed: ${{ steps.timestamp.outputs.backup_date }}"

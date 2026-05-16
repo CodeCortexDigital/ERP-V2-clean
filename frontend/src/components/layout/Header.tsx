@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { User, LogOut, Menu, Bell } from 'lucide-react';
+import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import NotificationBell from '@/components/notifications/NotificationBell';
 
 interface BreadcrumbItem {
   label: string;
@@ -145,10 +146,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-gray-600 hover:text-gray-800 relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <NotificationBell />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                 <User className="w-4 h-4 text-white" />

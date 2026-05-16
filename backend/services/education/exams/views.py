@@ -8,6 +8,14 @@ from django.db.models import Avg, Max, Min, Count
 from .models import Exam, ExamResult
 from .serializers import ExamSerializer, ExamResultSerializer
 from django.apps import apps
+from services.core.accounts.decorators import (
+    get_user_role,
+    deny_accountant_exam_access,
+    filter_exam_results_for_user,
+    filter_exams_for_user,
+    ensure_teacher_or_admin_for_exam_action,
+)
+from services.core.utils.pagination import StandardResultsSetPagination
 
 Student = apps.get_model('education_students', 'Student')
 
@@ -21,6 +29,7 @@ class ExamListCreateView(generics.ListCreateAPIView):
         class_filter = self.request.query_params.get('class')
         if class_filter:
             queryset = queryset.filter(class_ref_id=class_filter)
+        queryset = filter_exams_for_user(self.request.user, queryset)
         return queryset
 
 
@@ -36,10 +45,19 @@ class ExamDetailView(generics.RetrieveUpdateDestroyAPIView):
 @permission_classes([IsAuthenticated])
 def get_exam_results(request):
     """Get all exam results"""
-    results = ExamResult.objects.select_related('exam', 'student').all()
-    data = []
-    for result in results:
-        data.append({
+    if deny_accountant_exam_access(request.user):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    queryset = filter_exam_results_for_user(
+        request.user,
+        ExamResult.objects.select_related('exam', 'student').all()
+    )
+    paginator = StandardResultsSetPagination()
+    page = paginator.paginate_queryset(queryset, request)
+
+    results = []
+    for result in (page if page is not None else queryset):
+        results.append({
             'id': str(result.id),
             'exam': str(result.exam.id),
             'exam_title': result.exam.title,
@@ -52,7 +70,11 @@ def get_exam_results(request):
             'is_pass': result.is_pass,
             'remarks': result.remarks,
         })
-    return Response(data)
+
+    if page is not None:
+        return paginator.get_paginated_response(results)
+
+    return Response(results)
 
 
 @api_view(['POST'])
@@ -65,6 +87,9 @@ def create_exam_result(request):
         obtained_marks = request.data.get('obtained_marks')
         
         exam = get_object_or_404(Exam, id=exam_id)
+        if not ensure_teacher_or_admin_for_exam_action(request.user, exam):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
         student = get_object_or_404(Student, id=student_id)
         
         result, created = ExamResult.objects.update_or_create(
@@ -89,6 +114,8 @@ def delete_exam_result(request, result_id):
     """Delete an exam result"""
     try:
         result = get_object_or_404(ExamResult, id=result_id)
+        if not ensure_teacher_or_admin_for_exam_action(request.user, result.exam):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         result.delete()
         return Response({'message': 'Result deleted'}, status=status.HTTP_200_OK)
     except Exception as e:
@@ -101,6 +128,9 @@ def bulk_enter_results(request, exam_id):
     """Bulk enter results for all students in an exam"""
     try:
         exam = Exam.objects.get(id=exam_id)
+        if not ensure_teacher_or_admin_for_exam_action(request.user, exam):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
         results_data = request.data.get('results', [])
         
         created_count = 0
@@ -141,6 +171,9 @@ def exam_summary(request, exam_id):
     """Get summary statistics for an exam"""
     try:
         exam = Exam.objects.get(id=exam_id)
+        if not ensure_teacher_or_admin_for_exam_action(request.user, exam):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
         results = ExamResult.objects.filter(exam=exam)
         
         total_students = results.count()

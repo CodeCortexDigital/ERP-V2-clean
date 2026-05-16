@@ -1,0 +1,1125 @@
+# 🚀 CODE CORTEX ERP - COMPLETE EXECUTION SEQUENCE (21 Scripts in Order)
+
+Below is the **complete implementation sequence** - one script at a time, in the correct order, with verification after each.
+
+---
+
+## 📋 HOW TO USE THIS SEQUENCE
+
+1. **Copy Script 0** → Paste into Copilot Chat → Run
+2. **Run Post-Implementation Check** → Verify everything works
+3. **Commit to Git** → Save progress
+4. **Move to Next Script**
+
+---
+
+# 🟢 PHASE 1: FOUNDATION (Scripts 0-4, D)
+*Estimated Time: 5 hours*
+
+---
+=============================================================================================
+## 📋 SCRIPT 0: TESTING & SAFETY FOUNDATION
+
+```text
+I need to create a testing and stability foundation for my ERP before adding more features.
+
+Please help me implement:
+
+1. Backend testing setup:
+   - Install pytest, pytest-django, pytest-cov
+   - Factory Boy for test data generation
+   - API integration tests for all endpoints
+   - Role permission tests (Parent/Teacher/Student/Admin)
+   - Tenant isolation tests
+
+2. Frontend testing:
+   - Vitest configuration
+   - React Testing Library setup
+   - Component tests for portals
+   - API mock setup
+
+3. CI/CD pipeline:
+   - GitHub Actions workflow
+   - Auto test on push to main/staging
+   - Lint checks (flake8, prettier)
+   - Build verification
+   - Migration safety check
+
+4. Database safety:
+   - Automatic backup command (python manage.py dbbackup)
+   - Migration rollback strategy document
+   - Pre-migration validation script
+
+5. Error tracking:
+   - Sentry integration for backend
+   - Sentry integration for frontend
+   - Error alerting configuration
+
+6. Create test structure:
+   backend/tests/
+   ├── conftest.py (fixtures)
+   ├── test_auth.py
+   ├── test_permissions.py
+   ├── test_students.py
+   ├── test_attendance.py
+   ├── test_finance.py
+   └── integration/
+   
+   frontend/tests/
+   ├── setupTests.ts
+   ├── test_login.tsx
+   ├── test_parent_portal.tsx
+   └── test_teacher_portal.tsx
+
+7. Health check endpoint: /api/health/ with database, redis, celery status
+
+Project stack: Django DRF + React TypeScript + PostgreSQL
+Current modules: Students, Teachers, Attendance, Exams, Finance, Notifications
+```
+
+action by copilot
+Optimized tool selection
+
+Created [](file:///d%3A/Code%20Cortex/03_Projects/Current/8_ERP-V2-clean/scripts/validate_migrations.sh)
+=============================================================================================
+
+
+
+
+## 📋 SCRIPT 1: NOTIFICATION CENTER
+
+```text
+I need a complete Notification Center for my ERP.
+
+Please help me create:
+
+1. Backend:
+   - Notification model (if not exists)
+   - GET /api/auth/notifications/
+   - GET /api/auth/notifications/unread-count/
+   - POST /api/auth/notifications/mark-read/{id}/
+   - POST /api/auth/notifications/mark-all-read/
+   - Django signals to auto-create notifications on events
+
+2. Frontend:
+   - components/notifications/NotificationBell.tsx
+   - Dropdown with notification list
+   - Unread count badge
+   - Mark as read on click
+   - Mark all read button
+   - 30-second auto-refresh
+
+3. Event triggers:
+   - When attendance marked absent → notify parent
+   - When fee invoice created → notify parent
+   - When exam result published → notify student & parent
+   - When announcement created → notify all relevant users
+
+File paths:
+- backend/services/core/notifications/models.py
+- backend/services/core/notifications/views.py
+- backend/services/core/notifications/signals.py
+- frontend/src/components/notifications/NotificationBell.tsx
+- frontend/src/hooks/useNotifications.ts
+
+Use existing User model for recipient. Add is_read, created_at, notification_type fields.
+```===============================================================================================
+
+
+
+## 📋 SCRIPT 2: PERMISSION HARDENING
+
+```text
+I need to harden role-based permissions for production safety.
+
+Please help me create:
+
+1. Permission middleware that validates:
+   - Parent: can only see linked_students
+   - Teacher: can only access assigned_classes
+   - Student: can only access own data
+   - Accountant: cannot access exams or student personal data
+
+2. Role-aware queryset filters for all modules:
+   - Student list (admin=all, teacher=assigned class only)
+   - Attendance records (teacher=own class only)
+   - Exam results (student=own, parent=linked child)
+   - Finance (accountant=all finance, teacher=none)
+
+3. Audit logging:
+   - Login attempts (success/failure)
+   - Permission denied events
+   - Data access logs for sensitive endpoints
+
+4. Permission decorators:
+   - @require_teacher
+   - @require_parent
+   - @require_student
+   - @require_accountant
+
+5. Tests for all permission scenarios
+
+File paths:
+- backend/services/core/accounts/permissions.py
+- backend/services/core/accounts/middleware.py
+- backend/services/core/accounts/decorators.py
+- backend/services/core/audit/models.py
+
+Current roles: Super Admin, School Admin, Teacher, Parent, Student, Accountant
+```
+
+---
+================================================================================================
+
+
+
+
+
+
+## 📋 SCRIPT 3: API STANDARDIZATION
+
+```text
+I need to standardize all APIs with DRF Spectacular.
+
+Please help me:
+
+1. Configure drf-spectacular for OpenAPI 3.0:
+   - /api/schema/ (JSON schema)
+   - /api/docs/ (Swagger UI)
+   - /api/redoc/ (ReDoc)
+
+2. Create standard response wrapper:
+   {
+     "success": true,
+     "data": {...},
+     "message": "Success",
+     "errors": [],
+     "pagination": {...}
+   }
+
+3. Add pagination to all list endpoints:
+   - page, page_size (default 20, max 100)
+   - next, previous, total_pages in response
+
+4. Add filtering support:
+   - /api/auth/students/?class=5&status=active&search=Ali
+   - /api/auth/attendance/?date_from=2026-01-01&date_to=2026-12-31
+
+5. Add sorting:
+   - /api/auth/students/?ordering=-created_at
+
+6. API versioning preparation:
+   - Current endpoints become /api/v1/
+   - Keep backward compatibility
+
+File paths:
+- backend/erp_core/settings.py
+- backend/services/core/utils/response.py
+- backend/services/core/utils/pagination.py
+- backend/services/core/utils/filters.py
+```
+
+---
+
+## 📋 SCRIPT 4: AUDIT & COMPLIANCE
+
+```text
+I need audit logging for school compliance.
+
+Please help me:
+
+1. Create AuditLog model:
+   - user (ForeignKey)
+   - action (LOGIN, LOGOUT, CREATE, UPDATE, DELETE, VIEW)
+   - resource_type (Student, Teacher, Attendance, Invoice)
+   - resource_id (UUID)
+   - old_data (JSON, nullable)
+   - new_data (JSON, nullable)
+   - ip_address (GenericIPAddressField)
+   - user_agent (CharField)
+   - timestamp (auto_now_add)
+
+2. Audit middleware:
+   - Log all authenticated API requests
+   - Log all modifications to critical models
+   - Skip logging for non-sensitive endpoints
+
+3. Admin views for audit:
+   - Login history table
+   - Activity timeline with filters
+   - Export audit logs to CSV
+   - Retention policy (90 days auto-delete)
+
+4. Compliance features:
+   - GDPR data export endpoint
+   - Right-to-be-forgotten (anonymize user)
+   - Data retention configuration
+
+File paths:
+- backend/services/core/audit/models.py
+- backend/services/core/audit/middleware.py
+- backend/services/core/audit/views.py
+- backend/services/core/audit/admin.py
+```
+
+---
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+## 📋 SCRIPT D: BACKUP & DISASTER RECOVERY
+
+```text
+I need backup and disaster recovery planning for production.
+
+Please help me implement:
+
+1. Automated backup strategy:
+   - PostgreSQL daily backup (2 AM)
+   - Media files backup (daily incremental)
+   - Redis backup (daily)
+   - Configuration backup (.env, settings)
+
+2. Backup storage:
+   - AWS S3 bucket with lifecycle policy
+   - Glacier for long-term retention
+   - Encrypted backups (AES-256)
+   - Retention: 30 daily, 12 monthly, 7 yearly
+
+3. Backup verification:
+   - Automated test restore weekly
+   - Backup integrity checks (md5)
+   - Backup size monitoring
+   - Failed backup alerts
+
+4. Restore procedures:
+   - Full database restore script
+   - Point-in-time recovery (WAL archiving)
+   - Single tenant restore
+   - Media file restore
+
+5. Disaster recovery plan:
+   - Recovery Time Objective (RTO): 4 hours
+   - Recovery Point Objective (RPO): 24 hours
+   - Failover to standby region
+   - Step-by-step recovery checklist
+
+6. Backup monitoring:
+   - Prometheus metrics for backup age
+   - Alert on backup failure
+   - Backup size trends
+
+File paths:
+- scripts/backup.sh
+- scripts/backup_db.sh
+- scripts/backup_media.sh
+- scripts/restore.sh
+- scripts/restore_db.sh
+- scripts/verify_backup.sh
+- backend/services/core/backup/__init__.py
+- backend/services/core/backup/monitoring.py
+- backend/services/core/management/commands/backup.py
+- backend/services/core/management/commands/restore.py
+- .github/workflows/backup.yml (scheduled)
+```
+
+---
+
+# 🟡 PHASE 2: STABILITY (Scripts 5-6, A, B)
+*Estimated Time: 4 hours*
+
+---
+
+## 📋 SCRIPT 5: REDIS CACHING
+
+```text
+I need Redis caching for performance.
+
+Please help me:
+
+1. Configure Redis as cache backend:
+   - CACHES setting with Redis
+   - Connection pooling
+   - Timeout configurations
+
+2. Cache strategies:
+   - Student list: cache 5 minutes, invalidate on change
+   - Class list: cache 1 hour
+   - Dashboard stats: cache 1 minute
+   - Analytics data: cache 15 minutes
+   - Dropdown/select options: cache 1 day
+
+3. Cache decorators:
+   - @cache_page(60*15) for views
+   - @cached_property for model methods
+
+4. Cache invalidation signals:
+   - Clear student cache when Student saved/deleted
+   - Clear class cache when Class modified
+
+5. Redis monitoring:
+   - Cache hit/miss metrics
+   - Memory usage monitoring
+
+File paths:
+- backend/erp_core/settings.py
+- backend/services/core/utils/cache.py
+- backend/services/core/signals/cache_invalidation.py
+```
+
+---
+
+## 📋 SCRIPT 6: FRONTEND STATE MANAGEMENT
+
+```text
+I need Zustand for frontend state management.
+
+Please help me:
+
+1. Create stores:
+   - authStore.ts (user, token, login, logout, role)
+   - notificationStore.ts (notifications, unreadCount, markRead)
+   - appStore.ts (sidebarCollapsed, theme, loading)
+
+2. Custom hooks:
+   - useAuth() - authentication state
+   - useNotifications() - notification management with WebSocket
+   - useApi() - API calls with loading/error states
+   - useDebounce() - search debouncing
+   - useLocalStorage() - persistence
+
+3. React Query setup:
+   - QueryClient configuration
+   - useQuery for data fetching
+   - useMutation for data mutations
+   - Cache invalidation on mutations
+
+4. Error handling:
+   - Global ErrorBoundary component
+   - API error interceptor with toast notifications
+   - Fallback UI for component errors
+
+File paths:
+- frontend/src/store/authStore.ts
+- frontend/src/store/notificationStore.ts
+- frontend/src/hooks/useAuth.ts
+- frontend/src/hooks/useApi.ts
+- frontend/src/hooks/useNotifications.ts
+- frontend/src/utils/errorHandler.tsx
+
+Current stack: React 18, TypeScript, Axios, TailwindCSS
+```
+
+---
+
+## 📋 SCRIPT A: DATABASE SCALABILITY
+
+```text
+I need database scalability optimization for enterprise SaaS growth.
+
+Please help me implement:
+
+1. PostgreSQL optimization:
+   - UUID primary keys for all large tables (already using)
+   - Proper indexes for foreign keys: student_id, class_id, school_id
+   - Proper indexes for date fields: created_at, date, due_date
+   - Connection pooling with pgBouncer configuration
+   - Query performance logging and slow query detection
+
+2. Table partitioning for growth tables:
+   - AttendanceRecord partitioned by month/year
+   - Notifications partitioned by month
+   - AuditLogs partitioned by month
+   - Invoice partitioned by year
+
+3. Archival system:
+   - Move attendance older than 2 years to archive table
+   - Archive notifications after 90 days
+   - Archive audit logs after retention period (90 days)
+   - Scheduled archival jobs with Celery Beat
+
+4. Soft delete strategy:
+   - Add deleted_at timestamp field
+   - Add restore functionality
+   - Exclude soft-deleted records from default querysets
+
+5. Database monitoring:
+   - Slow query detection (>200ms)
+   - Index usage analysis
+   - Connection pool monitoring
+
+6. Performance optimizations:
+   - Bulk insert/update utilities for attendance
+   - select_related/prefetch_related optimization guidelines
+   - QuerySet caching for repeated queries
+
+File paths:
+- backend/services/core/db/optimization.py
+- backend/services/core/db/partitioning.py
+- backend/services/core/db/archive_tasks.py
+- backend/services/core/db/softdelete.py
+- backend/services/core/db/monitoring.py
+- backend/services/core/management/commands/archive_old_data.py
+```
+
+---
+
+## 📋 SCRIPT B: FILE STORAGE MANAGEMENT
+
+```text
+I need enterprise media and file storage management.
+
+Please help me implement:
+
+1. Cloud storage configuration:
+   - AWS S3 or Cloudflare R2 integration
+   - Separate buckets: media, backups, reports
+   - Private vs public file access
+   - Signed URLs for secure downloads (expiring links)
+
+2. File organization structure:
+   - tenant/{tenant_code}/students/{student_id}/profile.jpg
+   - tenant/{tenant_code}/invoices/{year}/{invoice_id}.pdf
+   - tenant/{tenant_code}/reports/{month}/report.pdf
+
+3. File validation:
+   - Allowed file types: pdf, jpg, png, docx, xlsx
+   - Max upload size: 10MB for images, 5MB for PDFs
+   - Virus scanning hook (ClamAV integration)
+
+4. Image optimization:
+   - Profile photos: resize to 200x200, compress to 80%
+   - Thumbnail generation (50x50 for avatars)
+   - WebP format conversion
+
+5. Secure access control:
+   - Role-based file access
+   - Expiring download links (1 hour expiry)
+   - Audit logs for file downloads
+
+6. File cleanup:
+   - Orphan file cleanup (files without database reference)
+   - Temp directory cleanup daily
+
+File paths:
+- backend/services/core/storage/storage.py
+- backend/services/core/storage/backends.py
+- backend/services/core/storage/utils.py
+- backend/services/core/storage/permissions.py
+- backend/services/core/management/commands/cleanup_orphaned_files.py
+- frontend/src/utils/fileUpload.ts
+```
+
+---
+
+# 🟠 PHASE 3: SAAS CORE (Scripts 7, 14, 15)
+*Estimated Time: 3 hours*
+
+---
+
+## 📋 SCRIPT 7: TENANT ISOLATION
+
+```text
+I need full multi-tenant isolation for SaaS.
+
+Please help me:
+
+1. Create School/Tenant model:
+   - tenant_code (3-letter unique: SPR, GRD, RIV)
+   - school_id (auto: SPR-001)
+   - name, subdomain, email_domain
+   - is_active, created_at
+
+2. Tenant identification middleware:
+   - Extract from subdomain (school.erp.com)
+   - Or from request header X-Tenant-ID
+   - Or from user session after login
+
+3. Add tenant_id to all core models:
+   - Student, Teacher, Class, Section
+   - AttendanceRecord, ExamResult
+   - Invoice, Notification
+   - All queries must filter by tenant
+
+4. Tenant-aware user membership:
+   - User can belong to multiple schools
+   - Role per tenant
+   - Switch tenant functionality
+
+5. Migration strategy:
+   - Add tenant_id nullable initially
+   - Backfill for existing data
+   - Make non-nullable after backfill
+
+File paths:
+- backend/services/core/tenants/models.py
+- backend/services/core/tenants/middleware.py
+- backend/services/core/tenants/views.py
+- backend/services/core/tenants/migrations/
+```
+
+---
+
+## 📋 SCRIPT 14: FEATURE FLAGS
+
+```text
+I need a feature flag system for safe rollout.
+
+Please help me:
+
+1. FeatureFlag model:
+   - name (unique)
+   - is_enabled (boolean)
+   - tenant (ForeignKey, nullable)
+   - rollout_percentage (0-100)
+   - description
+
+2. Feature flag middleware:
+   - Add feature availability to request
+   - 404 for disabled features
+
+3. Frontend hook:
+   - useFeatureFlag('whatsapp_integration')
+   - Conditionally render components
+
+4. Admin UI:
+   - List all features with toggles
+   - Per-tenant override
+
+5. Initial features:
+   - whatsapp_integration
+   - online_payments
+   - ai_insights
+   - realtime_notifications
+   - advanced_analytics
+
+File paths:
+- backend/services/core/features/models.py
+- backend/services/core/features/middleware.py
+- backend/services/core/features/admin.py
+- frontend/src/hooks/useFeatureFlag.ts
+```
+
+---
+
+## 📋 SCRIPT 15: API VERSIONING
+
+```text
+I need API versioning for long-term stability.
+
+Please help me:
+
+1. URL structure:
+   - /api/v1/auth/login/
+   - /api/v1/students/
+   - /api/v2/students/ (with new fields)
+
+2. Versioning strategy:
+   - URL path versioning (recommended)
+   - Keep v1 stable
+   - Deprecate v1 after 6 months
+
+3. Backward compatibility:
+   - New fields added, never removed
+   - Old fields marked deprecated
+
+4. Documentation:
+   - Separate docs for each version
+   - Deprecation schedule
+
+5. Version middleware:
+   - Set request.version
+   - Select appropriate serializer
+
+File paths:
+- backend/api/v1/urls.py
+- backend/api/v1/views.py
+- backend/api/v1/serializers.py
+- backend/api/v2/urls.py
+- backend/api/v2/views.py
+- backend/api/v2/serializers.py
+- backend/api/versioning.py
+```
+
+---
+
+# 🔴 PHASE 4: AUTOMATION (Scripts 8, 9, 10, 11)
+*Estimated Time: 4 hours*
+
+---
+
+## 📋 SCRIPT 8: WHATSAPP INTEGRATION
+
+```text
+I need WhatsApp integration for auto alerts.
+
+Please help me:
+
+1. WhatsApp service using Meta Cloud API:
+   - send_message(phone, template, variables)
+   - Templates: attendance_absent, fee_reminder, result_published
+
+2. WhatsApp config model:
+   - phone_number_id, access_token, business_account_id
+   - webhook_verified, is_active
+
+3. Auto-triggers:
+   - Student absent → WhatsApp to parent
+   - Fee overdue (5th of month) → reminder
+   - Result published → result card link
+
+4. Webhook handler for delivery status:
+   - Update message delivery status
+   - Retry on failure
+   - Rate limiting
+
+5. Queue system:
+   - Celery tasks for sending
+   - Retry with exponential backoff
+
+File paths:
+- backend/services/communication/whatsapp/service.py
+- backend/services/communication/whatsapp/views.py
+- backend/services/communication/whatsapp/tasks.py
+- backend/services/communication/models.py
+```
+
+---
+
+## 📋 SCRIPT 9: ONLINE PAYMENTS
+
+```text
+I need online payments integration.
+
+Please help me:
+
+1. Payment gateway interface supporting:
+   - JazzCash (Pakistan)
+   - Easypaisa (Pakistan)
+
+2. Payment flow:
+   - Generate payment link from invoice
+   - Create payment transaction record
+   - Handle webhook callbacks
+   - Update invoice status on success
+   - Generate receipt PDF after payment
+
+3. Payment models:
+   - PaymentTransaction: invoice, amount, gateway, transaction_id, status, metadata
+   - PaymentGatewayConfig: gateway, merchant_id, password, hash_key, is_active
+
+4. Frontend payment button in:
+   - Parent Portal → Fees section
+   - Student Portal → Fees section
+   - Finance module → Invoice list
+
+5. Security:
+   - Hash verification for webhooks
+   - Idempotency keys
+   - Payment audit log
+
+File paths:
+- backend/services/finance/payments/gateways.py
+- backend/services/finance/payments/views.py
+- backend/services/finance/payments/webhooks.py
+- backend/services/finance/models.py
+- frontend/src/components/payments/PaymentButton.tsx
+```
+
+---
+
+## 📋 SCRIPT 10: EVENT-DRIVEN ARCHITECTURE
+
+```text
+I need event-driven architecture with background jobs.
+
+Please help me:
+
+1. Celery configuration:
+   - celery.py with Redis broker
+   - Task registration
+   - Beat scheduler for periodic tasks
+
+2. Event dispatcher:
+   - attendance_marked → send notification
+   - invoice_created → generate PDF
+   - result_published → send WhatsApp
+   - student_enrolled → welcome email
+
+3. Background tasks:
+   - Bulk PDF generation
+   - Bulk WhatsApp sending
+   - Analytics aggregation
+   - Daily/weekly report generation
+
+4. Retry handling:
+   - Exponential backoff (1s, 2s, 4s, 8s, 16s)
+   - Dead letter queue
+   - Max retries (5)
+
+5. Task monitoring:
+   - Flower for Celery monitoring
+   - Task success/failure logging
+
+File paths:
+- backend/erp_core/celery.py
+- backend/services/core/events/dispatcher.py
+- backend/services/core/tasks/__init__.py
+- backend/services/core/tasks/notification_tasks.py
+- backend/services/core/tasks/analytics_tasks.py
+```
+
+---
+
+## 📋 SCRIPT 11: REAL-TIME NOTIFICATIONS
+
+```text
+I need real-time WebSocket notifications.
+
+Please help me:
+
+1. Django Channels setup:
+   - ASGI configuration
+   - Redis channel layer
+
+2. WebSocket consumers:
+   - NotificationConsumer (user-specific group)
+   - DashboardConsumer (live updates for admin)
+
+3. Real-time events:
+   - New notification → push to user's WebSocket
+   - Attendance marked → update teacher dashboard
+   - Fee paid → update finance dashboard
+
+4. Frontend WebSocket integration:
+   - useWebSocket hook
+   - Auto-reconnect on disconnect
+   - Toast notification for real-time alerts
+
+5. Fallback: Polling if WebSocket fails
+
+File paths:
+- backend/erp_core/asgi.py
+- backend/services/core/consumers/notification_consumer.py
+- backend/services/core/routing.py
+- frontend/src/hooks/useWebSocket.ts
+- frontend/src/contexts/WebSocketContext.tsx
+```
+
+---
+
+# 🟣 PHASE 5: REPORTING (Script C)
+*Estimated Time: 2 hours*
+
+---
+
+## 📋 SCRIPT C: REPORT BUILDER & EXPORT
+
+```text
+I need a dynamic reporting and export engine for school reports.
+
+Please help me create:
+
+1. Dynamic report builder with templates:
+   - Attendance Summary Report (daily/weekly/monthly)
+   - Fee Collection Report (by class, by payment status)
+   - Student Performance Report (exam results, grades)
+   - Teacher Performance Report (student outcomes)
+   - Financial Summary Report (revenue, expenses, pending)
+
+2. Report parameters:
+   - Date range (from, to)
+   - Class/Section filter
+   - Student/Teacher filter
+   - Status filter (paid/unpaid, present/absent)
+   - Group by (class, month, teacher)
+
+3. Export formats:
+   - PDF (with school branding)
+   - Excel (.xlsx) with multiple sheets
+   - CSV for data analysis
+   - JSON for API integration
+
+4. Scheduled reports:
+   - Daily attendance summary (8 AM)
+   - Weekly finance summary (Monday 9 AM)
+   - Monthly analytics reports (1st day of month)
+   - Email reports to specified recipients
+
+5. Async report generation:
+   - Large reports via Celery
+   - Download link with expiration
+   - Email notification when ready
+
+6. Report permissions:
+   - Admin: all reports
+   - Teacher: class-specific reports
+   - Parent: child-specific reports
+   - Student: own reports only
+
+File paths:
+- backend/services/reports/generator.py
+- backend/services/reports/exporters/pdf_exporter.py
+- backend/services/reports/exporters/excel_exporter.py
+- backend/services/reports/tasks.py
+- backend/services/reports/views.py
+- backend/services/reports/models.py
+- frontend/src/pages/reports/ReportBuilder.tsx
+```
+
+---
+
+# 🔵 PHASE 6: PRODUCTION (Scripts 12, 13)
+*Estimated Time: 3 hours*
+
+---
+
+## 📋 SCRIPT 12: PRODUCTION DEPLOYMENT
+
+```text
+I need production deployment preparation.
+
+Please help me:
+
+1. Environment configuration:
+   - .env.example with all required variables
+   - Separate settings for dev/staging/prod
+
+2. Docker setup:
+   - Dockerfile for Django (multi-stage)
+   - Dockerfile for React (nginx)
+   - Dockerfile for Celery worker
+   - Dockerfile for Celery beat
+   - docker-compose.yml with all services
+
+3. Security hardening:
+   - HTTPS enforcement (Let's Encrypt)
+   - Security headers (HSTS, CSP)
+   - Rate limiting (django-ratelimit)
+
+4. Static & media files:
+   - WhiteNoise for static files
+   - S3/R2 for media uploads
+
+5. Logging:
+   - File logging with rotation
+   - Error logging to Sentry
+   - Access logs for nginx
+
+6. Health checks:
+   - /api/health/ endpoint
+   - Database connection check
+   - Redis connection check
+   - Celery worker health
+
+File paths:
+- Dockerfile, docker-compose.yml
+- backend/requirements-production.txt
+- .env.example
+- nginx/nginx.conf
+```
+
+---
+
+## 📋 SCRIPT 13: MONITORING & OBSERVABILITY
+
+```text
+I need enterprise monitoring.
+
+Please help me:
+
+1. Prometheus metrics:
+   - Request count, duration, errors
+   - Database query metrics
+   - Cache hit/miss ratio
+   - Celery task metrics
+
+2. Grafana dashboard:
+   - API latency heatmap
+   - Error rate by endpoint
+   - Database connection pool
+   - Tenant usage analytics
+
+3. Health monitoring:
+   - /api/health/ (database, redis, celery)
+   - /api/health/ready/ (k8s readiness)
+   - /api/health/live/ (k8s liveness)
+
+4. Alerting:
+   - Error rate > 1% → Slack alert
+   - API latency > 1s → PagerDuty
+   - Database connections > 80% → email
+
+5. Log aggregation:
+   - Structured JSON logging
+   - ELK stack ready
+
+File paths:
+- backend/services/core/monitoring/metrics.py
+- backend/services/core/monitoring/views.py
+- backend/services/core/monitoring/middleware.py
+```
+
+---
+
+# 🟢 PHASE 7: MOBILE READY (Script E)
+*Estimated Time: 2 hours*
+
+---
+
+## 📋 SCRIPT E: MOBILE APP READINESS
+
+```text
+I need mobile app readiness for future Android/iOS apps.
+
+Please help me prepare backend for mobile apps:
+
+1. Mobile-optimized API endpoints:
+   - /api/mobile/auth/ (lightweight auth)
+   - /api/mobile/dashboard/ (summary data)
+   - /api/mobile/students/ (paginated)
+   - /api/mobile/attendance/ (recent only)
+   - /api/mobile/notifications/ (latest 50)
+
+2. Token management:
+   - JWT with refresh rotation
+   - Longer access token for mobile (24 hours)
+   - Refresh token with sliding expiration
+
+3. Device registration:
+   - Device model: device_id, device_name, os, app_version
+   - One user, multiple devices
+   - Remote logout from device
+
+4. Push notifications:
+   - Firebase Cloud Messaging integration
+   - APNS for iOS
+   - Notification preferences per device
+
+5. Offline sync preparation:
+   - Last sync timestamp per device
+   - Delta endpoints: /api/mobile/sync/students?since=timestamp
+   - Conflict resolution strategy (server wins)
+
+6. Mobile-specific optimizations:
+   - Smaller payloads (exclude large fields)
+   - Gzip compression
+   - Image thumbnails (150x150)
+   - Batch API requests support
+
+File paths:
+- backend/api/mobile/urls.py
+- backend/api/mobile/views.py
+- backend/api/mobile/serializers.py
+- backend/api/mobile/sync.py
+- backend/services/mobile/devices.py
+- backend/services/mobile/push.py
+- backend/services/mobile/sync_service.py
+- backend/services/notifications/fcm.py
+```
+
+---
+
+# 🟣 PHASE 8: AI FUTURE (Script 16)
+*Estimated Time: 2 hours*
+
+---
+
+## 📋 SCRIPT 16: AI COMMAND CENTER
+
+```text
+I need an AI Command Center for natural language ERP control.
+
+Please help me:
+
+1. OpenAI/Gemini integration:
+   - API key configuration
+   - Prompt engineering for ERP commands
+
+2. AI parser:
+   - Intent detection (query, generate, notify, export)
+   - Entity extraction (student, class, date range)
+   - Action mapping to API endpoints
+
+3. Command examples:
+   - "Show students with low attendance" → GET /students/?attendance_below=75
+   - "Generate fee defaulters report" → POST /reports/fee-defaulters/
+   - "Notify parents of failed students" → POST /notifications/bulk/
+
+4. Conversation memory:
+   - Store last 5 commands for context
+   - "Send WhatsApp to them" → use previous context
+
+5. Admin interface:
+   - Chat-like interface for AI commands
+   - Command history
+   - Approved actions log
+
+File paths:
+- backend/services/ai/command_center.py
+- backend/services/ai/intent_parser.py
+- backend/services/ai/views.py
+- frontend/src/pages/ai/CommandCenter.tsx
+
+Use OpenAI API or Google Gemini API
+```
+
+---
+
+# ✅ POST-IMPLEMENTATION CHECK SCRIPT (USE AFTER EVERY SCRIPT)
+
+```text
+Please verify the recently implemented feature completely.
+
+Perform:
+
+1. Architecture validation - no breaking changes
+2. Import validation - no circular imports
+3. URL routing validation - all endpoints accessible
+4. Migration validation - no conflicts
+5. API endpoint validation - returns expected data
+6. Permission validation - role checks work
+7. Tenant isolation validation - data scoped correctly
+8. Frontend integration - component renders
+9. React build - no TypeScript errors
+10. Django check - python manage.py check passes
+
+Also verify existing modules still work:
+- Parent Portal dashboard loads
+- Teacher Portal dashboard loads
+- Student Portal dashboard loads
+- Finance module calculations correct
+- Attendance marking works
+- PDF generation works
+
+Finally provide:
+- Files changed
+- APIs added/modified
+- Risks identified
+- Missing integrations
+- Performance concerns
+- Security concerns
+- Production readiness score (1-10)
+```
+
+---
+
+# 📊 EXECUTION SUMMARY
+
+| Phase | Scripts | Duration | Status |
+|-------|---------|----------|--------|
+| **Foundation** | 0-4, D | 5 hours | ⏳ |
+| **Stability** | 5-6, A, B | 4 hours | ⏳ |
+| **SaaS Core** | 7, 14, 15 | 3 hours | ⏳ |
+| **Automation** | 8, 9, 10, 11 | 4 hours | ⏳ |
+| **Reporting** | C | 2 hours | ⏳ |
+| **Production** | 12, 13 | 3 hours | ⏳ |
+| **Mobile Ready** | E | 2 hours | ⏳ |
+| **AI Future** | 16 | 2 hours | ⏳ |
+
+**Total: ~25 hours**
+
+---
+
+## 🏁 START HERE
+
+**Copy Script 0** → Paste into Copilot Chat → Run → Use Check Script → Commit → Move to Script 1
+
+🚀 **Your ERP is now ready for enterprise SaaS production!**

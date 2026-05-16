@@ -1,0 +1,316 @@
+"""
+Global pytest configuration and fixtures for ERP testing.
+"""
+import os
+import django
+from django.conf import settings
+import pytest
+from django.test import Client
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
+import factory
+from faker import Faker
+
+
+# Configure Django settings
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'erp_core.settings')
+django.setup()
+
+
+fake = Faker()
+
+
+# ============================================================================
+# FACTORY DEFINITIONS
+# ============================================================================
+
+class UserFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test User objects."""
+    class Meta:
+        model = 'auth.User'
+    
+    username = factory.Sequence(lambda n: f'user_{n}_{fake.user_name()}')
+    email = factory.Faker('email')
+    first_name = factory.Faker('first_name')
+    last_name = factory.Faker('last_name')
+    is_active = True
+    
+    @classmethod
+    def create(cls, **kwargs):
+        """Override to set password if provided."""
+        password = kwargs.pop('password', 'testpass123')
+        user = super().create(**kwargs)
+        user.set_password(password)
+        user.save()
+        return user
+
+
+class AccountFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Account objects."""
+    class Meta:
+        model = 'accounts.Account'
+    
+    user = factory.SubFactory(UserFactory)
+    phone = factory.Faker('phone_number')
+    address = factory.Faker('address')
+    city = factory.Faker('city')
+    state = factory.Faker('state')
+    postal_code = factory.Faker('postcode')
+    country = 'Pakistan'
+    profile_pic = None
+    role = factory.fuzzy.FuzzyChoice(['Super Admin', 'School Admin', 'Teacher', 'Parent', 'Student', 'Accountant'])
+
+
+class SchoolFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test School objects."""
+    class Meta:
+        model = 'students.School'
+    
+    name = factory.Faker('company')
+    code = factory.Sequence(lambda n: f'SCH{n:03d}')
+    email = factory.Faker('email')
+    phone = factory.Faker('phone_number')
+    address = factory.Faker('address')
+    city = factory.Faker('city')
+    state = factory.Faker('state')
+    postal_code = factory.Faker('postcode')
+    country = 'Pakistan'
+    is_active = True
+
+
+class ClassFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Class objects."""
+    class Meta:
+        model = 'students.Class'
+    
+    name = factory.Sequence(lambda n: f'Class {n + 1}')
+    code = factory.Sequence(lambda n: f'CLS{n:03d}')
+    school = factory.SubFactory(SchoolFactory)
+    is_active = True
+
+
+class SectionFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Section objects."""
+    class Meta:
+        model = 'students.Section'
+    
+    name = factory.Sequence(lambda n: f'Section {chr(65 + n)}')  # A, B, C...
+    code = factory.Sequence(lambda n: chr(65 + n))
+    class_obj = factory.SubFactory(ClassFactory)
+    is_active = True
+
+
+class StudentFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Student objects."""
+    class Meta:
+        model = 'students.Student'
+    
+    user = factory.SubFactory(UserFactory)
+    school = factory.SubFactory(SchoolFactory)
+    class_obj = factory.SubFactory(ClassFactory, school=factory.SelfAttribute('..school'))
+    section = factory.SubFactory(SectionFactory, class_obj=factory.SelfAttribute('..class_obj'))
+    enrollment_number = factory.Sequence(lambda n: f'STU{n:06d}')
+    date_of_birth = factory.Faker('date_of_birth', minimum_age=5, maximum_age=18)
+    admission_date = factory.Faker('date_this_decade')
+    status = 'active'
+    is_active = True
+
+
+class TeacherFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Teacher objects."""
+    class Meta:
+        model = 'students.Teacher'
+    
+    user = factory.SubFactory(UserFactory)
+    school = factory.SubFactory(SchoolFactory)
+    employee_id = factory.Sequence(lambda n: f'TEA{n:05d}')
+    qualification = 'Bachelor'
+    experience_years = factory.fuzzy.FuzzyInteger(0, 20)
+    joining_date = factory.Faker('date_this_decade')
+    status = 'active'
+    is_active = True
+
+
+class AttendanceRecordFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test AttendanceRecord objects."""
+    class Meta:
+        model = 'attendance.AttendanceRecord'
+    
+    student = factory.SubFactory(StudentFactory)
+    date = factory.Faker('date_this_month')
+    status = factory.fuzzy.FuzzyChoice(['present', 'absent', 'leave'])
+    marked_by = factory.SubFactory(TeacherFactory)
+    remarks = ''
+
+
+class ExamFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Exam objects."""
+    class Meta:
+        model = 'exams.Exam'
+    
+    name = factory.Faker('word')
+    school = factory.SubFactory(SchoolFactory)
+    class_obj = factory.SubFactory(ClassFactory, school=factory.SelfAttribute('..school'))
+    exam_type = factory.fuzzy.FuzzyChoice(['midterm', 'final', 'quiz', 'assignment'])
+    start_date = factory.Faker('date_this_month')
+    end_date = factory.Faker('date_this_month')
+    is_active = True
+
+
+class ExamResultFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test ExamResult objects."""
+    class Meta:
+        model = 'exams.ExamResult'
+    
+    exam = factory.SubFactory(ExamFactory)
+    student = factory.SubFactory(StudentFactory)
+    total_marks = 100
+    obtained_marks = factory.fuzzy.FuzzyInteger(0, 100)
+    percentage = factory.LazyAttribute(lambda o: (o.obtained_marks / o.total_marks * 100))
+    grade = factory.fuzzy.FuzzyChoice(['A', 'B', 'C', 'D', 'F'])
+    status = 'published'
+    remarks = ''
+
+
+class InvoiceFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Invoice objects."""
+    class Meta:
+        model = 'finance.Invoice'
+    
+    student = factory.SubFactory(StudentFactory)
+    invoice_number = factory.Sequence(lambda n: f'INV{n:06d}')
+    invoice_date = factory.Faker('date_this_month')
+    due_date = factory.Faker('date_this_month')
+    amount = factory.fuzzy.FuzzyDecimal(1000, 50000)
+    paid_amount = 0
+    status = factory.fuzzy.FuzzyChoice(['pending', 'partial', 'paid', 'overdue'])
+    description = 'Monthly tuition fee'
+    is_active = True
+
+
+class NotificationFactory(factory.django.DjangoModelFactory):
+    """Factory for creating test Notification objects."""
+    class Meta:
+        model = 'user_notifications.Notification'
+    
+    recipient = factory.SubFactory(UserFactory)
+    title = factory.Faker('sentence', nb_words=4)
+    message = factory.Faker('text', max_nb_chars=200)
+    notification_type = factory.fuzzy.FuzzyChoice(['attendance', 'fee', 'exam', 'announcement'])
+    is_read = False
+    created_at = factory.Faker('date_time_this_month')
+
+
+# ============================================================================
+# PYTEST FIXTURES
+# ============================================================================
+
+@pytest.fixture
+def api_client():
+    """Fixture to provide API client."""
+    return APIClient()
+
+
+@pytest.fixture
+def authenticated_api_client():
+    """Fixture to provide authenticated API client."""
+    client = APIClient()
+    user = UserFactory()
+    refresh = RefreshToken.for_user(user)
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+    return client, user
+
+
+@pytest.fixture
+def test_user():
+    """Fixture to provide a test user."""
+    return UserFactory(username='testuser', password='testpass123')
+
+
+@pytest.fixture
+def test_school():
+    """Fixture to provide a test school."""
+    return SchoolFactory()
+
+
+@pytest.fixture
+def test_class(test_school):
+    """Fixture to provide a test class."""
+    return ClassFactory(school=test_school)
+
+
+@pytest.fixture
+def test_section(test_class):
+    """Fixture to provide a test section."""
+    return SectionFactory(class_obj=test_class)
+
+
+@pytest.fixture
+def test_student(test_user, test_school, test_class, test_section):
+    """Fixture to provide a test student."""
+    return StudentFactory(
+        user=test_user,
+        school=test_school,
+        class_obj=test_class,
+        section=test_section
+    )
+
+
+@pytest.fixture
+def test_teacher(test_school):
+    """Fixture to provide a test teacher."""
+    return TeacherFactory(school=test_school)
+
+
+@pytest.fixture
+def test_exam(test_school, test_class):
+    """Fixture to provide a test exam."""
+    return ExamFactory(school=test_school, class_obj=test_class)
+
+
+@pytest.fixture
+def test_exam_result(test_exam, test_student):
+    """Fixture to provide a test exam result."""
+    return ExamResultFactory(exam=test_exam, student=test_student)
+
+
+@pytest.fixture
+def test_invoice(test_student):
+    """Fixture to provide a test invoice."""
+    return InvoiceFactory(student=test_student)
+
+
+@pytest.fixture
+def test_attendance_record(test_student, test_teacher):
+    """Fixture to provide a test attendance record."""
+    return AttendanceRecordFactory(student=test_student, marked_by=test_teacher)
+
+
+@pytest.fixture
+def test_notification(test_user):
+    """Fixture to provide a test notification."""
+    return NotificationFactory(recipient=test_user)
+
+
+# ============================================================================
+# PYTEST CONFIGURATION
+# ============================================================================
+
+@pytest.fixture(scope="session")
+def django_db_setup(django_db_setup, django_db_blocker):
+    """Configure database for tests."""
+    with django_db_blocker.unblock():
+        pass
+
+
+@pytest.fixture(scope="session")
+def django_db_modify_db_settings():
+    """Modify database settings for tests."""
+    settings.DATABASES['default']['NAME'] = 'test_erp_db'
+
+
+def pytest_configure(config):
+    """Configure pytest."""
+    settings.DEBUG = False
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    settings.CELERY_TASK_EAGER_PROPAGATES = True

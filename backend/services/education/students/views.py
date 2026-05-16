@@ -2,10 +2,17 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from django.apps import apps
 from django.db import models
 from .models import Student
 from .serializers import StudentSerializer
+from services.core.accounts.decorators import (
+    filter_students_for_user,
+    ensure_student_access,
+)
+from services.core.utils.filters import parse_status_param
 import uuid
 
 # Get other models dynamically
@@ -16,14 +23,24 @@ class StudentListCreateView(generics.ListCreateAPIView):
     """List all students (both active and inactive) or create a new student"""
     permission_classes = [IsAuthenticated]
     serializer_class = StudentSerializer
-    
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['full_name', 'student_id', 'email']
+    ordering_fields = ['created_at', 'full_name', 'student_id']
+    ordering = ['-created_at']
+
     def get_queryset(self):
         queryset = Student.objects.all()
         class_filter = self.request.query_params.get('class')
         if class_filter:
             queryset = queryset.filter(current_class__id=class_filter)
-        return queryset
-    
+
+        status_param = self.request.query_params.get('status')
+        status_bool = parse_status_param(status_param)
+        if status_bool is not None:
+            queryset = queryset.filter(is_active=status_bool)
+
+        return filter_students_for_user(self.request.user, queryset)
+
     def perform_create(self, serializer):
         if not serializer.validated_data.get('student_id'):
             serializer.save(student_id=f"STU-{uuid.uuid4().hex[:8].upper()}")
@@ -38,7 +55,7 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     
     def get_queryset(self):
-        return Student.objects.all()
+        return filter_students_for_user(self.request.user, Student.objects.all())
 
 
 @api_view(['GET'])
@@ -47,6 +64,8 @@ def get_student_by_id(request, student_id):
     """Get student by their student_id field"""
     try:
         student = Student.objects.get(student_id=student_id)
+        if not ensure_student_access(request.user, student):
+            return Response({'error': 'Permission denied'}, status=403)
         serializer = StudentSerializer(student)
         return Response(serializer.data)
     except Student.DoesNotExist:
@@ -59,6 +78,8 @@ def student_360(request, student_id):
     """Get complete student 360 data including attendance"""
     try:
         student = Student.objects.get(id=student_id)
+        if not ensure_student_access(request.user, student):
+            return Response({'error': 'Permission denied'}, status=403)
         
         # Get attendance data
         Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
@@ -92,6 +113,8 @@ def update_student_activity(request, id):
     from .models import Student
     try:
         student = Student.objects.get(id=id)
+        if not ensure_student_access(request.user, student):
+            return Response({'error': 'Permission denied'}, status=403)
         student.last_activity = timezone.now()
         student.save(update_fields=['last_activity'])
         return Response({'success': True, 'last_activity': student.last_activity})
@@ -107,6 +130,8 @@ def force_update_activity(request, student_id):
     from .models import Student
     try:
         student = Student.objects.get(id=student_id)
+        if not ensure_student_access(request.user, student):
+            return Response({'error': 'Permission denied'}, status=403)
         student.last_activity = timezone.now()
         student.save(update_fields=['last_activity'])
         return Response({'success': True, 'last_activity': student.last_activity})

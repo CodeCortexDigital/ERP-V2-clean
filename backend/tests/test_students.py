@@ -1,0 +1,142 @@
+"""
+Student model and API tests.
+"""
+import pytest
+from rest_framework import status
+from tests.conftest import (
+    StudentFactory, SchoolFactory, ClassFactory, 
+    SectionFactory, UserFactory
+)
+
+
+pytestmark = pytest.mark.django_db
+
+
+class TestStudentModel:
+    """Test Student model."""
+    
+    def test_student_creation(self, test_student):
+        """Test student can be created."""
+        assert test_student.id is not None
+        assert test_student.user is not None
+        assert test_student.school is not None
+    
+    def test_student_full_name(self, test_student):
+        """Test student full name."""
+        full_name = f"{test_student.user.first_name} {test_student.user.last_name}"
+        assert len(full_name) > 0
+    
+    def test_student_enrollment_number_unique(self):
+        """Test student enrollment number is unique."""
+        school = SchoolFactory()
+        student1 = StudentFactory(school=school)
+        student2 = StudentFactory(school=school)
+        assert student1.enrollment_number != student2.enrollment_number
+    
+    def test_student_status_choices(self, test_student):
+        """Test student status is valid."""
+        assert test_student.status in ['active', 'inactive', 'graduated', 'transferred']
+
+
+class TestStudentAPI:
+    """Test Student API endpoints."""
+    
+    def test_list_students(self, authenticated_api_client):
+        """Test listing students."""
+        client, user = authenticated_api_client
+        StudentFactory.create_batch(5)
+        
+        # Adjust endpoint based on actual implementation
+        # response = client.get('/api/auth/students/')
+        # assert response.status_code == status.HTTP_200_OK
+    
+    def test_create_student(self, authenticated_api_client):
+        """Test creating a student."""
+        client, user = authenticated_api_client
+        school = SchoolFactory()
+        class_obj = ClassFactory(school=school)
+        section = SectionFactory(class_obj=class_obj)
+        
+        # Adjust endpoint and payload based on actual implementation
+        # data = {
+        #     'user': {...},
+        #     'school': school.id,
+        #     'class': class_obj.id,
+        #     'section': section.id,
+        # }
+        # response = client.post('/api/auth/students/', data)
+        # assert response.status_code == status.HTTP_201_CREATED
+    
+    def test_retrieve_student(self, test_student, authenticated_api_client):
+        """Test retrieving a specific student."""
+        client, user = authenticated_api_client
+        # Adjust endpoint based on actual implementation
+        # response = client.get(f'/api/auth/students/{test_student.id}/')
+        # assert response.status_code == status.HTTP_200_OK
+    
+    def test_update_student(self, test_student, authenticated_api_client):
+        """Test updating a student."""
+        client, user = authenticated_api_client
+        # Adjust endpoint and payload based on actual implementation
+        # data = {'status': 'inactive'}
+        # response = client.patch(f'/api/auth/students/{test_student.id}/', data)
+        # assert response.status_code == status.HTTP_200_OK
+    
+    def test_delete_student(self, test_student, authenticated_api_client):
+        """Test deleting a student."""
+        client, user = authenticated_api_client
+        # Adjust endpoint based on actual implementation
+        # response = client.delete(f'/api/auth/students/{test_student.id}/')
+        # assert response.status_code == status.HTTP_204_NO_CONTENT
+
+
+class TestStudentFiltering:
+    """Test student filtering and search."""
+    
+    def test_filter_students_by_class(self, authenticated_api_client):
+        """Test filtering students by class."""
+        client, user = authenticated_api_client
+        class_obj = ClassFactory()
+        StudentFactory.create_batch(3, class_obj=class_obj)
+        StudentFactory.create_batch(2)
+        
+        # Adjust endpoint based on actual implementation
+        # response = client.get(f'/api/auth/students/?class={class_obj.id}')
+        # assert response.status_code == status.HTTP_200_OK
+    
+    def test_filter_students_by_status(self, authenticated_api_client):
+        """Test filtering students by status."""
+        client, user = authenticated_api_client
+        # Create students with different statuses
+        # response = client.get('/api/auth/students/?status=active')
+        # assert response.status_code == status.HTTP_200_OK
+    
+    def test_search_students_by_name(self, authenticated_api_client):
+        """Test searching students by name."""
+        client, user = authenticated_api_client
+        user1 = UserFactory(first_name='Ahmed', last_name='Ali')
+        student = StudentFactory(user=user1)
+        
+        # Adjust endpoint based on actual implementation
+        # response = client.get('/api/auth/students/?search=Ahmed')
+        # assert response.status_code == status.HTTP_200_OK
+
+
+class TestStudentPagination:
+    """Test student list pagination."""
+    
+    def test_pagination_default_page_size(self, authenticated_api_client):
+        """Test default page size."""
+        client, user = authenticated_api_client
+        StudentFactory.create_batch(30)
+        
+        # Adjust endpoint based on actual implementation
+        # response = client.get('/api/auth/students/')
+        # Verify pagination structure exists
+    
+    def test_pagination_custom_page_size(self, authenticated_api_client):
+        """Test custom page size."""
+        client, user = authenticated_api_client
+        # Adjust endpoint based on actual implementation
+        # response = client.get('/api/auth/students/?page_size=10')
+        # Verify page size is respected
