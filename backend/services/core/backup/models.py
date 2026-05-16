@@ -3,7 +3,6 @@ Backup tracking models for disaster recovery logging.
 """
 import uuid
 from django.db import models
-from django.contrib.postgres.fields import JSONField
 from django.utils import timezone
 
 
@@ -12,8 +11,11 @@ class BackupLog(models.Model):
     
     BACKUP_TYPE_CHOICES = [
         ('full', 'Full Backup'),
+        ('database', 'Database Only'),
+        ('media', 'Media Only'),
+        ('config', 'Configuration Only'),
+        ('redis', 'Redis Only'),
         ('incremental', 'Incremental Backup'),
-        ('differential', 'Differential Backup'),
     ]
     
     STATUS_CHOICES = [

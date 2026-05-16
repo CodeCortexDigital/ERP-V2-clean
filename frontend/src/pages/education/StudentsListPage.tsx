@@ -111,7 +111,7 @@ export default function StudentsListPage() {
       const response = await studentService.getAll();
       const responseData = Array.isArray(response.data)
         ? response.data
-        : ((response.data as any)?.results || []);
+        : (response.data as { results?: Student[] })?.results ?? [];
       const studentData: Student[] = responseData || [];
       
       // Process students to add class and section names using the loaded maps

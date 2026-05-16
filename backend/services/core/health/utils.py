@@ -77,6 +77,20 @@ def check_celery():
         }
 
 
+def check_backups():
+    """Check backup subsystem health (RPO: 24h)."""
+    try:
+        from services.core.backup.monitoring import BackupHealthCheck
+        ok, message = BackupHealthCheck.is_healthy(max_age_hours=getattr(settings, 'BACKUP_RPO_HOURS', 24) + 24)
+        return {
+            'status': 'healthy' if ok else 'unhealthy',
+            'message': message,
+        }
+    except Exception as e:
+        logger.warning('Backup health check skipped: %s', e)
+        return {'status': 'unknown', 'message': str(e)}
+
+
 def get_system_health():
     """Get overall system health status."""
     health_status = {
@@ -86,6 +100,7 @@ def get_system_health():
             'database': check_database(),
             'redis': check_redis(),
             'celery': check_celery(),
+            'backups': check_backups(),
         }
     }
     

@@ -273,7 +273,12 @@ COMMUNICATION:
   [ ] 22. Document what was restored and when
   [ ] 23. Update incident report/postmortem
 
-For further assistance, refer to DISASTER_RECOVERY_PLAN.md
+For further assistance, refer to docs/DISASTER_RECOVERY_PLAN.md
+
+FAILOVER (standby region):
+  [ ] 24. Promote RDS/read replica or restore latest S3 backup in standby region
+  [ ] 25. Update DNS / load balancer to standby (TARGET: RTO 4 hours)
+  [ ] 26. Verify BACKUP_STANDBY_REGION endpoint connectivity
 
 EOF
 
@@ -360,7 +365,10 @@ if [ $# -eq 0 ]; then
     echo "  $0 2026/05/16"
     echo ""
     echo "  # Restore database only"
-    echo "  $0 2026/05/16 database"
+    echo "  $0 backup_2026-05-16_02-00-00 database"
+    echo ""
+    echo "  # Single-tenant restore (requires restore_tenant.sh)"
+    echo "  ./restore_tenant.sh <tenant-uuid> <database_backup.sql.gz>"
     echo ""
 fi
 

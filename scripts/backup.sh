@@ -1,89 +1,57 @@
 #!/bin/bash
-
 ################################################################################
 # Master Backup Script
-# Purpose: Daily backup of PostgreSQL, media, Redis, and configuration
-# Usage: ./backup.sh [output_directory] [retention_days]
+# Schedule: daily at 02:00 (cron: 0 2 * * *)
+# Components: PostgreSQL, media (incremental via backup_media.sh), Redis, config
 ################################################################################
 
-set -e
+set -euo pipefail
 
-# Configuration
-OUTPUT_DIR="${1:-/backups}"
-RETENTION_DAYS="${2:-30}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/backup_common.sh
+source "$SCRIPT_DIR/lib/backup_common.sh"
+
+OUTPUT_DIR="${1:-${BACKUP_OUTPUT_DIR:-/backups}}"
+RETENTION_DAYS="${2:-${BACKUP_RETENTION_DAYS:-30}}"
 TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
 BACKUP_DIR="$OUTPUT_DIR/backup_$TIMESTAMP"
-LOG_FILE="/var/log/erp_backup.log"
+LOG_FILE="${BACKUP_LOG_FILE:-/var/log/erp_backup.log}"
 
 DB_NAME="${DB_NAME:-erp_core}"
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
-DB_SCHEMA="${DB_SCHEMA:-public}"
 MEDIA_ROOT="${MEDIA_ROOT:-backend/media}"
 STATIC_ROOT="${STATIC_ROOT:-backend/staticfiles}"
 REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT="${REDIS_PORT:-6379}"
-REDIS_DUMP_FILE="${REDIS_DUMP_FILE:-/var/lib/redis/dump.rdb}"
-AWS_S3_BUCKET="${AWS_S3_BUCKET:-}"
-AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
-SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
 
-# Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-################################################################################
-# Helper Functions
-################################################################################
-
-log_info() {
-  echo -e "${GREEN}[INFO]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-log_warning() {
-  echo -e "${YELLOW}[WARNING]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-log_error() {
-  echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-send_slack_notification() {
-  local status="$1"
-  local message="$2"
-
-  if [ -z "$SLACK_WEBHOOK_URL" ]; then
-    return
-  fi
-
-  local color="good"
-  if [ "$status" != "success" ]; then
-    color="danger"
-  fi
-
-  curl -s -X POST "$SLACK_WEBHOOK_URL" \
-    -H 'Content-Type: application/json' \
-    -d "{\"attachments\":[{\"color\":\"$color\",\"title\":\"Backup $status\",\"text\":\"$message\"}]}" > /dev/null || true
-}
+log_info() { echo -e "${GREEN}[INFO]${NC} $1" | tee -a "$LOG_FILE"; }
+log_warning() { echo -e "${YELLOW}[WARN]${NC} $1" | tee -a "$LOG_FILE"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"; }
 
 create_backup_directory() {
-  log_info "Creating backup directory: $BACKUP_DIR"
   mkdir -p "$BACKUP_DIR"
-  touch "$LOG_FILE"
+  touch "$LOG_FILE" 2>/dev/null || LOG_FILE="/tmp/erp_backup.log"
+  log_info "Backup directory: $BACKUP_DIR"
 }
 
 backup_database() {
-  log_info "Starting PostgreSQL backup..."
+  log_info "PostgreSQL backup..."
   local backup_file="$BACKUP_DIR/database_$TIMESTAMP.sql.gz"
-  local export_cmd="PGPASSWORD=$DB_PASSWORD pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME"
+  export PGPASSWORD="$DB_PASSWORD"
 
-  if eval "$export_cmd" 2>/dev/null | gzip > "$backup_file"; then
-    log_info "Database backup completed: $backup_file"
-    sha256sum "$backup_file" > "$backup_file.sha256"
+  if pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+    --no-owner --no-acl 2>>"$LOG_FILE" | gzip > "$backup_file"; then
+    write_checksums "$backup_file"
+    echo "database_size=$(stat -c%s "$backup_file" 2>/dev/null || stat -f%z "$backup_file")" > "$backup_file.meta"
+    log_info "Database backup OK: $backup_file"
   else
     log_error "Database backup failed"
     return 1
@@ -91,209 +59,106 @@ backup_database() {
 }
 
 backup_media_files() {
-  log_info "Backing up media files..."
-
-  if [ ! -d "$MEDIA_ROOT" ]; then
-    log_warning "Media directory not found: $MEDIA_ROOT"
+  if [ -x "$SCRIPT_DIR/backup_media.sh" ]; then
+    BACKUP_DIR_MEDIA="$BACKUP_DIR/media"
+    mkdir -p "$BACKUP_DIR_MEDIA"
+  export MEDIA_ROOT
+    "$SCRIPT_DIR/backup_media.sh" "$BACKUP_DIR_MEDIA" "$RETENTION_DAYS" "$LOG_FILE" || return 1
     return 0
   fi
 
+  log_info "Media backup (inline)..."
+  [ -d "$MEDIA_ROOT" ] || { log_warning "Media not found: $MEDIA_ROOT"; return 0; }
   local media_backup="$BACKUP_DIR/media_$TIMESTAMP.tar.gz"
-  if tar -czf "$media_backup" -C "$(dirname "$MEDIA_ROOT")" "$(basename "$MEDIA_ROOT")" 2>>"$LOG_FILE"; then
-    log_info "Media backup completed: $media_backup"
-    sha256sum "$media_backup" > "$media_backup.sha256"
-  else
-    log_error "Media backup failed"
-    return 1
-  fi
-}
-
-backup_static_files() {
-  log_info "Backing up static files..."
-
-  if [ ! -d "$STATIC_ROOT" ]; then
-    log_warning "Static files directory not found: $STATIC_ROOT"
-    return 0
-  fi
-
-  local static_backup="$BACKUP_DIR/static_$TIMESTAMP.tar.gz"
-  if tar -czf "$static_backup" -C "$(dirname "$STATIC_ROOT")" "$(basename "$STATIC_ROOT")" 2>>"$LOG_FILE"; then
-    log_info "Static files backup completed: $static_backup"
-    sha256sum "$static_backup" > "$static_backup.sha256"
-  else
-    log_error "Static files backup failed"
-    return 1
-  fi
+  tar -czf "$media_backup" -C "$(dirname "$MEDIA_ROOT")" "$(basename "$MEDIA_ROOT")" 2>>"$LOG_FILE"
+  write_checksums "$media_backup"
 }
 
 backup_config_files() {
-  log_info "Backing up configuration files..."
-
+  log_info "Configuration backup..."
   local config_backup="$BACKUP_DIR/config_$TIMESTAMP.tar.gz"
   local config_files=()
-
   [ -f ".env" ] && config_files+=(".env")
   [ -f ".env.production" ] && config_files+=(".env.production")
   [ -f "backend/erp_core/settings.py" ] && config_files+=("backend/erp_core/settings.py")
 
   if [ ${#config_files[@]} -eq 0 ]; then
-    log_warning "No configuration files found to back up"
+    log_warning "No config files found"
     return 0
   fi
 
-  if tar -czf "$config_backup" "${config_files[@]}" 2>>"$LOG_FILE"; then
-    log_info "Configuration backup completed: $config_backup"
-    sha256sum "$config_backup" > "$config_backup.sha256"
-  else
-    log_error "Configuration backup failed"
-    return 1
-  fi
+  tar -czf "$config_backup" "${config_files[@]}" 2>>"$LOG_FILE"
+  write_checksums "$config_backup"
 }
 
 backup_redis() {
-  log_info "Backing up Redis data..."
+  log_info "Redis backup..."
   local redis_backup="$BACKUP_DIR/redis_$TIMESTAMP.rdb"
 
-  if command -v redis-cli >/dev/null 2>&1; then
-    if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" --rdb "$redis_backup" 2>/dev/null; then
-      gzip "$redis_backup"
-      log_info "Redis backup completed: $redis_backup.gz"
-      sha256sum "$redis_backup.gz" > "$redis_backup.gz.sha256"
-    else
-      log_warning "Redis backup failed or Redis unavailable"
-      return 0
-    fi
+  if ! command -v redis-cli >/dev/null 2>&1; then
+    log_warning "redis-cli not found, skipping Redis"
+    return 0
+  fi
+
+  if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" --rdb "$redis_backup" 2>>"$LOG_FILE"; then
+    gzip -f "$redis_backup"
+    write_checksums "$redis_backup.gz"
+    log_info "Redis backup OK"
   else
-    log_warning "redis-cli not installed, skipping Redis backup"
+    log_warning "Redis backup skipped (service unavailable)"
   fi
 }
 
 verify_backups() {
-  log_info "Verifying backup integrity..."
+  log_info "Verifying checksums and sizes..."
+  verify_checksums "$BACKUP_DIR" || return 1
 
-  local failed=0
-  for checksum in "$BACKUP_DIR"/*.sha256; do
-    [ -e "$checksum" ] || continue
-    if ! sha256sum -c "$checksum" >/dev/null 2>&1; then
-      log_error "Checksum failed: $checksum"
-      failed=1
-    fi
-  done
-
-  local size_ok=0
+  local small=0
   for file in "$BACKUP_DIR"/*; do
     [ -f "$file" ] || continue
-    if [ $(stat -c%s "$file") -lt 1024 ]; then
-      log_warning "Backup file too small: $file"
-      size_ok=1
+    [[ "$file" == *.md5 || "$file" == *.sha256 || "$file" == *.meta ]] && continue
+    local sz
+    sz=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
+    if [ "$sz" -lt 1024 ]; then
+      log_warning "Suspiciously small file: $file ($sz bytes)"
+      small=1
     fi
   done
-
-  if [ $failed -ne 0 ] || [ $size_ok -ne 0 ]; then
-    return 1
-  fi
-
-  log_info "All backup files verified"
-  return 0
-}
-
-upload_to_s3() {
-  if [ -z "$AWS_S3_BUCKET" ]; then
-    log_warning "AWS_S3_BUCKET not configured, skipping S3 upload"
-    return 0
-  fi
-
-  if ! command -v aws >/dev/null 2>&1; then
-    log_warning "AWS CLI not installed, skipping S3 upload"
-    return 0
-  fi
-
-  log_info "Uploading backups to S3 bucket: $AWS_S3_BUCKET"
-  aws s3 sync "$BACKUP_DIR" "s3://$AWS_S3_BUCKET/backups/$(date +%Y/%m/%d)/" \
-    --region "$AWS_DEFAULT_REGION" \
-    --sse AES256 \
-    --only-show-errors || {
-      log_error "S3 upload failed"
-      return 1
-    }
-
-  log_info "S3 upload completed"
+  [ "$small" -eq 0 ]
 }
 
 cleanup_old_backups() {
-  log_info "Cleaning up backups older than $RETENTION_DAYS days..."
-  find "$OUTPUT_DIR" -maxdepth 1 -type d -name 'backup_*' -mtime +$RETENTION_DAYS -exec rm -rf {} +
-  log_info "Old backups cleanup completed"
-}
-
-monitor_backup_storage() {
-  log_info "Monitoring backup storage usage..."
-  local usage=$(df -h "$OUTPUT_DIR" | awk 'NR==2 {print $5}')
-  local available=$(df -h "$OUTPUT_DIR" | awk 'NR==2 {print $4}')
-  log_info "Backup volume usage: $usage available: $available"
+  log_info "Local retention: ${RETENTION_DAYS} days"
+  find "$OUTPUT_DIR" -maxdepth 1 -type d -name 'backup_*' -mtime +"$RETENTION_DAYS" -exec rm -rf {} + 2>/dev/null || true
 }
 
 print_summary() {
-  echo "" | tee -a "$LOG_FILE"
   echo "========================================" | tee -a "$LOG_FILE"
-  echo "Backup Summary" | tee -a "$LOG_FILE"
-  echo "Timestamp: $TIMESTAMP" | tee -a "$LOG_FILE"
-  echo "Directory: $BACKUP_DIR" | tee -a "$LOG_FILE"
-  echo "Total Size: $(du -sh "$BACKUP_DIR" | cut -f1)" | tee -a "$LOG_FILE"
+  echo "Backup: $TIMESTAMP | Dir: $BACKUP_DIR" | tee -a "$LOG_FILE"
+  echo "Size: $(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)" | tee -a "$LOG_FILE"
   echo "========================================" | tee -a "$LOG_FILE"
 }
 
 main() {
   create_backup_directory
-
   local failed=0
 
   backup_database || failed=1
   backup_media_files || failed=1
-  backup_static_files || failed=1
   backup_config_files || failed=1
   backup_redis || true
 
-  if ! verify_backups; then
-    failed=1
-  fi
-
-  upload_to_s3 || failed=1
+  verify_backups || failed=1
+  upload_backup_to_s3 "$BACKUP_DIR" || failed=1
   cleanup_old_backups
-  monitor_backup_storage
   print_summary
 
-  if [ $failed -eq 0 ]; then
-    log_info "Backup completed successfully"
-    send_slack_notification "success" "Backup completed successfully for $TIMESTAMP"
+  if [ "$failed" -eq 0 ]; then
+    send_slack_notification "success" "ERP backup $TIMESTAMP completed"
     exit 0
-  else
-    log_error "Backup completed with errors"
-    send_slack_notification "failure" "Backup completed with errors for $TIMESTAMP"
-    exit 1
   fi
-}
-
-main "$@"
-  
-  if ! backup_database; then
-    log_error "Backup failed at database backup stage"
-    exit 1
-  fi
-  
-  backup_media_files
-  backup_static_files
-  backup_config_files
-  
-  if ! verify_backup; then
-    log_error "Backup verification failed"
-    exit 1
-  fi
-  
-  cleanup_old_backups
-  
-  print_backup_summary
-  log_info "Backup completed successfully"
+  send_slack_notification "failure" "ERP backup $TIMESTAMP failed — check $LOG_FILE"
+  exit 1
 }
 
 main "$@"

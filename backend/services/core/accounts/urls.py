@@ -3,12 +3,16 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 from . import teacher_views
+from . import views_auth
+from .firebase_views import FirebaseLoginView
 
 urlpatterns = [
     path('notifications/', include('services.core.user_notifications.urls')),
     
     # Basic auth
     path('login/', views.login_view, name='login'),
+    path('demo/', views_auth.demo_login, name='demo-login'),
+    path('firebase/login/', FirebaseLoginView.as_view(), name='firebase-login'),
     path('logout/', views.logout_view, name='logout'),
     path('me/', views.get_current_user, name='get_current_user'),
     path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
@@ -24,6 +28,7 @@ urlpatterns = [
     # Classes
     path('classes/', views.ClassListCreateView.as_view(), name='class-list'),
     path('classes/<uuid:pk>/', views.ClassDetailView.as_view(), name='class-detail'),
+    path('select-options/<str:option_type>/', views.select_options, name='select-options'),
     
     # Attendance
     path('attendance/', views.get_attendance, name='get-attendance'),

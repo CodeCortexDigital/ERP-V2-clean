@@ -1,8 +1,10 @@
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
+from services.core.utils.cache import get_timeout
 from .models import (
     AcademicYear, SchoolClass, Section, Subject, ClassSubject,
     GradeScale, AssessmentType, AssessmentWeightage,
@@ -28,6 +30,7 @@ class AcademicYearListCreateView(generics.ListCreateAPIView):
     serializer_class = AcademicYearSerializer
 
 
+@method_decorator(cache_page(get_timeout('class_list')), name='get')
 class SchoolClassListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = SchoolClass.objects.all()

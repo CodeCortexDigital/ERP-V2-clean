@@ -5,7 +5,10 @@
 # Usage: ./backup_media.sh [backup_dir] [keep_days]
 ##############################################################################
 
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/backup_common.sh"
 
 BACKUP_DIR="${1:-/backups/media}"
 KEEP_DAYS="${2:-30}"
@@ -61,8 +64,7 @@ backup_full() {
         
         log_info "Full media backup completed: $size ($file_count files)"
         
-        # Generate checksum
-        sha256sum "$backup_file" > "$backup_file.sha256"
+        write_checksums "$backup_file"
         
         # Store reference for incremental backups
         find "$MEDIA_ROOT" -type f -printf '%T@ %p\n' | sort -rn > "$SNAPSHOT_DIR/files_${TIMESTAMP}.snapshot"
@@ -130,8 +132,7 @@ backup_incremental() {
         local size=$(du -h "$backup_file" | cut -f1)
         log_info "Incremental backup completed: $size ($file_count changed files)"
         
-        # Generate checksum
-        sha256sum "$backup_file" > "$backup_file.sha256"
+        write_checksums "$backup_file"
         
         # Update snapshot
         find "$MEDIA_ROOT" -type f -printf '%T@ %p\n' | sort -rn > "$SNAPSHOT_DIR/files_${TIMESTAMP}.snapshot"

@@ -1,78 +1,97 @@
-import { useCallback, useEffect, useState } from 'react'
-import { api } from '@/lib/api'
+import { useCallback, useEffect } from 'react';
+import { useNotificationStore } from '@/store/notificationStore';
+import { useAuthStore } from '@/store/authStore';
+import { websocketService } from '@/services/websocket.service';
+import type { NotificationItem } from '@/store/notificationStore';
 
-export type NotificationItem = {
-  id: string
-  title: string
-  message: string
-  notification_type: string
-  is_read: boolean
-  created_at: string
-}
+const POLL_MS = 30_000;
 
-export function useNotifications(pollIntervalMs = 30000) {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([])
-  const [unreadCount, setUnreadCount] = useState<number>(0)
-  const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
-  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false)
+/**
+ * Notification state + polling + WebSocket push (when VITE_WS_URL is set).
+ */
+export function useNotifications(pollIntervalMs = POLL_MS) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const accessToken = useAuthStore((s) => s.accessToken);
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const response = await api.get('/api/auth/notifications/unread-count/')
-      setUnreadCount(response.data?.unread_count ?? 0)
-      setError(null)
-    } catch (err) {
-      setError('Unable to load unread notifications')
-    }
-  }, [])
+  const notifications = useNotificationStore((s) => s.notifications);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const loading = useNotificationStore((s) => s.loading);
+  const error = useNotificationStore((s) => s.error);
+  const dropdownOpen = useNotificationStore((s) => s.dropdownOpen);
+  const wsConnected = useNotificationStore((s) => s.wsConnected);
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await api.get('/api/auth/notifications/')
-      setNotifications(response.data || [])
-      setError(null)
-    } catch (err) {
-      setError('Unable to load notifications')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
+  const fetchUnreadCount = useNotificationStore((s) => s.fetchUnreadCount);
+  const markAsRead = useNotificationStore((s) => s.markRead);
+  const markAllAsRead = useNotificationStore((s) => s.markAllRead);
+  const setDropdownOpen = useNotificationStore((s) => s.setDropdownOpen);
+  const pushNotification = useNotificationStore((s) => s.pushNotification);
+  const setWsConnected = useNotificationStore((s) => s.setWsConnected);
+  const reset = useNotificationStore((s) => s.reset);
 
-  const markAsRead = useCallback(async (id: string) => {
-    try {
-      await api.post(`/api/auth/notifications/mark-read/${id}/`)
-      setNotifications((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, is_read: true } : item
-        )
-      )
-      setUnreadCount((count) => Math.max(0, count - 1))
-      setError(null)
-    } catch (err) {
-      setError('Unable to mark notification as read')
-    }
-  }, [])
-
-  const markAllAsRead = useCallback(async () => {
-    try {
-      await api.post('/api/auth/notifications/mark-all-read/')
-      setNotifications((current) =>
-        current.map((item) => ({ ...item, is_read: true }))
-      )
-      setUnreadCount(0)
-      setError(null)
-    } catch (err) {
-      setError('Unable to mark all notifications as read')
-    }
-  }, [])
-
+  // WebSocket: real-time notification push
   useEffect(() => {
-    fetchUnreadCount()
-    const interval = setInterval(fetchUnreadCount, pollIntervalMs)
-    return () => clearInterval(interval)
-  }, [fetchUnreadCount, pollIntervalMs])
+    if (!isAuthenticated || !accessToken) {
+      websocketService.disconnect();
+      setWsConnected(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const connect = async () => {
+      try {
+        await websocketService.connect(accessToken);
+        if (!cancelled) setWsConnected(true);
+      } catch {
+        if (!cancelled) setWsConnected(false);
+      }
+    };
+
+    connect();
+
+    const unsubMessage = websocketService.subscribe(
+      'notification',
+      (message) => {
+        const item = message.data as NotificationItem;
+        if (item?.id) pushNotification(item);
+        else fetchUnreadCount();
+      }
+    );
+
+    const unsubConn = websocketService.onConnectionChange((connected) => {
+      setWsConnected(connected);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubMessage();
+      unsubConn();
+      websocketService.disconnect();
+    };
+  }, [
+    isAuthenticated,
+    accessToken,
+    pushNotification,
+    fetchUnreadCount,
+    setWsConnected,
+  ]);
+
+  // Polling fallback
+  useEffect(() => {
+    if (!isAuthenticated) {
+      reset();
+      return;
+    }
+
+    fetchUnreadCount();
+    const interval = window.setInterval(fetchUnreadCount, pollIntervalMs);
+    return () => window.clearInterval(interval);
+  }, [isAuthenticated, fetchUnreadCount, pollIntervalMs, reset]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([fetchNotifications(), fetchUnreadCount()]);
+  }, [fetchNotifications, fetchUnreadCount]);
 
   return {
     notifications,
@@ -80,10 +99,12 @@ export function useNotifications(pollIntervalMs = 30000) {
     loading,
     error,
     dropdownOpen,
+    wsConnected,
     setDropdownOpen,
     fetchNotifications,
     fetchUnreadCount,
     markAsRead,
     markAllAsRead,
-  }
+    refresh,
+  };
 }

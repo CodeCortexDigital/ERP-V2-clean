@@ -13,16 +13,19 @@ from services.core.accounts.decorators import (
     ensure_student_access,
 )
 from services.core.utils.filters import parse_status_param
+from services.core.utils.cache import CachedListResponseMixin, CacheKeys
 import uuid
 
 # Get other models dynamically
 Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
 
 
-class StudentListCreateView(generics.ListCreateAPIView):
+class StudentListCreateView(CachedListResponseMixin, generics.ListCreateAPIView):
     """List all students (both active and inactive) or create a new student"""
     permission_classes = [IsAuthenticated]
     serializer_class = StudentSerializer
+    cache_type = 'student_list'
+    cache_key_prefix = CacheKeys.STUDENT_LIST
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['full_name', 'student_id', 'email']
     ordering_fields = ['created_at', 'full_name', 'student_id']

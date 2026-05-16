@@ -9,9 +9,11 @@ from datetime import timedelta
 from decimal import Decimal
 from .engine import InsightsEngine
 from .models import StudentRisk, Recommendation
+from services.core.utils.cache import cached_api_view
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='analytics')
 def student_insights(request, student_id):
     """Get AI-powered insights for a student"""
     try:
@@ -96,6 +98,7 @@ def batch_risk_assessment(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='dashboard')
 def executive_dashboard(request):
     """Get executive dashboard with smart insights and trends"""
     try:

@@ -5,3 +5,7 @@ class EducationStudentsConfig(AppConfig):
     name = 'services.education.students'
     label = 'education_students'
     verbose_name = 'Students'
+
+    def ready(self):
+        from services.core.signals.cache_invalidation import connect_cache_invalidation_signals
+        connect_cache_invalidation_signals()

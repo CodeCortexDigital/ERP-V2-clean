@@ -49,8 +49,6 @@ export default function LoginPage() {
     try {
       console.log('Sending login with:', {email, password});
       await login(email, password);
-      // Redirect based on user role
-      alert('Redirecting with email: ' + email);
       if (email === 'teacher@test.com') {
         navigate('/teacher');
       } else if (email === 'parent@test.com') {
@@ -143,7 +141,7 @@ export default function LoginPage() {
             </button>
             <button
               onClick={async () => {
-                setEmail('STU-2026-0003');
+                setEmail('student43@example.com');
                 setPassword('student123');
                 setTimeout(() => {
                   document.querySelector('form')?.requestSubmit();

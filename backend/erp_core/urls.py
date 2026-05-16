@@ -4,9 +4,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from services.education.exams.views import get_exam_results
+from services.core.backup.metrics import backup_metrics_view
+from services.core.utils.cache import cache_metrics_view
 
 api_v1_patterns = [
     path('health/', include('services.core.health.urls')),
+    path('metrics/backup/', backup_metrics_view, name='backup-metrics'),
+    path('metrics/cache/', cache_metrics_view, name='cache-metrics'),
     path('auth/', include('services.core.accounts.urls')),
     path('auth/students/', include('services.education.students.urls')),
     path('auth/attendance/', include('services.education.attendance.urls')),

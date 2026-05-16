@@ -363,7 +363,7 @@ File paths:
 - backend/services/core/utils/cache.py
 - backend/services/core/signals/cache_invalidation.py
 ```
-
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ---
 
 ## 📋 SCRIPT 6: FRONTEND STATE MANAGEMENT
@@ -407,7 +407,8 @@ File paths:
 Current stack: React 18, TypeScript, Axios, TailwindCSS
 ```
 
----
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
 
 ## 📋 SCRIPT A: DATABASE SCALABILITY
 

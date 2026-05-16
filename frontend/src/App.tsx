@@ -51,7 +51,8 @@ import ParentDashboard from './pages/portals/parent/ParentDashboard'
 import TeacherDashboard from './pages/portals/teacher/TeacherDashboard'
 
 // Auth and Error Handling
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthInitializer } from './providers/AuthInitializer'
+import { QueryProvider } from './providers/QueryProvider'
 import { setupGlobalErrorHandlers, ErrorBoundary } from './utils/errorHandler'
 
 const AppToaster = memo(() => <Toaster position="top-right" />)
@@ -64,7 +65,8 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
+      <QueryProvider>
+        <AuthInitializer>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -126,7 +128,8 @@ function App() {
           </Routes>
         </BrowserRouter>
         <AppToaster />
-      </AuthProvider>
+        </AuthInitializer>
+      </QueryProvider>
     </ErrorBoundary>
   )
 }

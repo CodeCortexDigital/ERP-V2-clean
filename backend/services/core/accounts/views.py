@@ -9,6 +9,13 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics
 from django.apps import apps
 from .serializers import UserSerializer, StudentSerializer
+from services.core.utils.cache import (
+    cached_api_view,
+    get_dropdown_options,
+    get_timeout,
+)
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 User = get_user_model()
 
@@ -23,28 +30,27 @@ def login_view(request):
         return Response({'error': 'Email/Student ID and password required'}, status=status.HTTP_400_BAD_REQUEST)
     
     user = None
-    
+    login_username = email_or_student_id
+
     from services.education.students.models import Student
     try:
         student = Student.objects.get(student_id=email_or_student_id)
-        try:
-            user = User.objects.get(email=student.email)
-        except User.DoesNotExist:
-            pass
+        login_username = student.email
     except Student.DoesNotExist:
         pass
-    
-    if not user:
-        try:
-            user_obj = User.objects.get(email=email_or_student_id)
-            user = authenticate(request, username=user_obj.email, password=password)
-        except User.DoesNotExist:
-            user = None
-    
-    if not user:
-        user = authenticate(request, username=email_or_student_id, password=password)
+
+    try:
+        user_obj = User.objects.get(email=login_username)
+        user = authenticate(request, username=user_obj.email, password=password)
+    except User.DoesNotExist:
+        user = authenticate(request, username=login_username, password=password)
     
     if user and user.is_active:
+        # Activate pending accounts on first successful login
+        if getattr(user, 'account_status', None) == 'pending':
+            user.account_status = 'active'
+            user.save(update_fields=['account_status'])
+
         refresh = RefreshToken.for_user(user)
         return Response({
             'access': str(refresh.access_token),
@@ -115,13 +121,14 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Response({'message': 'Student deactivated'}, status=status.HTTP_200_OK)
 
 
+@method_decorator(cache_page(get_timeout('class_list')), name='get')
 class ClassListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         SchoolClass = apps.get_model('education_academics', 'SchoolClass')
-        return SchoolClass.objects.all()  # Remove is_active filter since SchoolClass doesn't have this field
-    
+        return SchoolClass.objects.all()
+
     def get_serializer_class(self):
         from .serializers import ClassSerializer
         return ClassSerializer
@@ -189,6 +196,15 @@ class ParentDashboardView(generics.GenericAPIView):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def select_options(request, option_type):
+    """Cached dropdown options (classes, sections, subjects, academic_years) — TTL 1 day."""
+    data = get_dropdown_options(option_type)
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@cached_api_view(timeout=get_timeout('student_list'), cache_type='student_list')
 def student_list(request):
     from django.apps import apps
     Student = apps.get_model('education_students', 'Student')
@@ -409,6 +425,7 @@ def get_my_teacher_profile(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='analytics')
 def attendance_trends(request):
     from django.apps import apps
     from datetime import datetime, timedelta
@@ -437,6 +454,7 @@ def attendance_trends(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='analytics')
 def fee_trends(request):
     from django.apps import apps
     from datetime import datetime, timedelta
@@ -464,6 +482,7 @@ def fee_trends(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='analytics')
 def at_risk_students(request):
     from django.apps import apps
     
@@ -493,6 +512,7 @@ def at_risk_students(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='analytics')
 def ai_insights(request):
     from django.apps import apps
     from datetime import datetime, timedelta
@@ -516,6 +536,7 @@ def ai_insights(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='analytics')
 def student_growth(request):
     from django.apps import apps
     from datetime import datetime, timedelta
@@ -550,6 +571,7 @@ def student_growth(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='analytics')
 def teacher_performance(request):
     from django.apps import apps
     from django.db.models import Avg
@@ -594,6 +616,7 @@ def teacher_performance(request):
     return Response(performance[:10])
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cached_api_view(cache_type='dashboard')
 def executive_dashboard(request):
     """Get executive dashboard data with real metrics"""
     try:
@@ -791,6 +814,7 @@ def executive_dashboard(request):
             'error': 'Internal server error occurred while generating dashboard data',
             'details': str(e) if settings.DEBUG else 'Please contact administrator'
         }, status=500)
+
 
 
 

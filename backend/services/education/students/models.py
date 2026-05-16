@@ -1,5 +1,8 @@
+from functools import cached_property
+
 from django.db import models
 import uuid
+
 
 class Student(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -28,5 +31,14 @@ class Student(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.full_name} ({self.student_id})"
+        return self.display_label
+
+    @cached_property
+    def display_label(self) -> str:
+        """Cached per-instance label for serializers and admin (avoids repeated string formatting)."""
+        class_name = self.current_class.name if self.current_class_id else ''
+        section_name = self.current_section.name if self.current_section_id else ''
+        if class_name and section_name:
+            return f'{self.full_name} ({self.student_id}) — {class_name}-{section_name}'
+        return f'{self.full_name} ({self.student_id})'
 

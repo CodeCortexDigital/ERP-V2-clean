@@ -1,66 +1,98 @@
-name: Database Backup
+name: Production Backup
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Run daily at 2 AM
-  workflow_dispatch:  # Allow manual trigger
+    - cron: '0 2 * * *'  # Daily 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      backup_type:
+        description: 'Backup type'
+        required: false
+        default: 'full'
+
+env:
+  BACKUP_OUTPUT_DIR: ./backups
+  BACKUP_RETENTION_DAYS: 30
 
 jobs:
   backup:
-    name: Backup Database
+    name: ERP Backup
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 120
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: erp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
+
+      - name: Install PostgreSQL client & AWS CLI
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client redis-tools
+          pip install awscli
+
+      - name: Run database backup script
+        env:
+          DB_NAME: erp_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+        run: |
+          chmod +x scripts/*.sh scripts/lib/*.sh
+          ./scripts/backup_db.sh "${{ env.BACKUP_OUTPUT_DIR }}/database" "${{ env.BACKUP_RETENTION_DAYS }}"
+
+      - name: Run master backup (config stub / media)
+        env:
+          DB_NAME: erp_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          MEDIA_ROOT: backend/media
+        run: |
+          mkdir -p backend/media
+          ./scripts/backup.sh "${{ env.BACKUP_OUTPUT_DIR }}" "${{ env.BACKUP_RETENTION_DAYS }}" || true
+
+      - name: Verify backups
+        run: ./scripts/verify_backup.sh "${{ env.BACKUP_OUTPUT_DIR }}"
+
+      - name: Upload to S3 (production)
+        if: env.BACKUP_S3_BUCKET != ''
+        env:
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+        run: |
+          aws s3 sync "${{ env.BACKUP_OUTPUT_DIR }}" \
+            "s3://${BACKUP_S3_BUCKET}/backups/$(date +%Y/%m/%d)/" \
+            --sse AES256 --only-show-errors
+
+      - name: Upload artifact (fallback)
+        uses: actions/upload-artifact@v4
         with:
-          python-version: '3.11'
-      
-      - name: Install dependencies
-        run: |
-          cd backend
-          python -m pip install --upgrade pip
-          pip install django djangorestframework
-      
-      - name: Create backup timestamp
-        id: timestamp
-        run: echo "backup_date=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
-      
-      - name: Create backup directory
-        run: |
-          mkdir -p ./backups/${{ steps.timestamp.outputs.backup_date }}
-      
-      - name: Backup database schema
-        run: |
-          # This would backup your actual database in production
-          echo "Database backup for ${{ steps.timestamp.outputs.backup_date }}" > ./backups/${{ steps.timestamp.outputs.backup_date }}/backup.sql
-          echo "$(date)" >> ./backups/${{ steps.timestamp.outputs.backup_date }}/backup.sql
-      
-      - name: Backup media files
-        run: |
-          if [ -d "backend/media" ]; then
-            tar -czf ./backups/${{ steps.timestamp.outputs.backup_date }}/media.tar.gz backend/media/
-          fi
-      
-      - name: Verify backup integrity
-        run: |
-          ls -lh ./backups/${{ steps.timestamp.outputs.backup_date }}/
-          file ./backups/${{ steps.timestamp.outputs.backup_date }}/*
-      
-      - name: Upload backup to S3
-        run: |
-          # This would upload to S3 in production
-          echo "Would upload to S3: s3://backups/erp/${{ steps.timestamp.outputs.backup_date }}/"
-      
-      - name: Upload as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: database-backup-${{ steps.timestamp.outputs.backup_date }}
-          path: ./backups/${{ steps.timestamp.outputs.backup_date }}/
+          name: erp-backup-${{ github.run_id }}
+          path: ${{ env.BACKUP_OUTPUT_DIR }}/
           retention-days: 30
-      
-      - name: Notify backup completion
+
+      - name: Notify on failure
+        if: failure() && secrets.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          echo "Backup completed: ${{ steps.timestamp.outputs.backup_date }}"
+          curl -X POST "$SLACK_WEBHOOK_URL" -H 'Content-Type: application/json' \
+            -d '{"text":"❌ GitHub backup workflow failed for '"${{ github.repository }}"'"}'
