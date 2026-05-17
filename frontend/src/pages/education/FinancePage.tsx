@@ -170,7 +170,7 @@ export default function FinancePage() {
 
       const failed = results.filter((r) => r.status === 'rejected').length;
       if (failed > 0) {
-        console.warn(`Finance: ${failed} endpoint(s) failed to load`);
+        console.warn(`Finance: {failed} endpoint(s) failed to load`);
       }
       await fetchFeeStructures({ search: feeSearch });
     } catch (error) {
@@ -351,7 +351,7 @@ export default function FinancePage() {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `invoices_export_${new Date().toISOString().slice(0,10)}.csv`);
+      link.setAttribute('download', `invoices_export_{new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -367,7 +367,7 @@ export default function FinancePage() {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `payments_export_${new Date().toISOString().slice(0,10)}.csv`);
+      link.setAttribute('download', `payments_export_{new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -660,7 +660,7 @@ export default function FinancePage() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `invoice_${invoiceId}.pdf`);
+      link.setAttribute('download', `invoice_{invoiceId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -747,7 +747,7 @@ export default function FinancePage() {
     }
     try {
       await financeService.bulkSendReminders({ invoice_ids: overdueInvoices });
-      toast.success(`Reminders sent to ${overdueInvoices.length} students`);
+      toast.success(`Reminders sent to {overdueInvoices.length} students`);
     } catch (error) {
       toast.error('Failed to send bulk reminders');
     }
@@ -774,11 +774,11 @@ export default function FinancePage() {
   };
 
   const getDiscountTypeBadge = (type) => {
-    return type === 'percentage' ? <Badge variant="info">📊 %</Badge> : <Badge variant="success">💵 $</Badge>;
+    return type === 'percentage' ? <Badge variant="info">📊 %</Badge> : <Badge variant="success">💵 </Badge>;
   };
 
   const getFeeTypeBadge = (type) => {
-    return type === 'percentage' ? <Badge variant="warning">📈 %</Badge> : <Badge variant="danger">💰 $</Badge>;
+    return type === 'percentage' ? <Badge variant="warning">📈 %</Badge> : <Badge variant="danger">💰 </Badge>;
   };
 
   if (loading) {
@@ -814,15 +814,15 @@ export default function FinancePage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-blue-50 rounded-xl p-3">
             <div className="flex items-center gap-2"><DollarSign className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total Amount</span></div>
-            <p className="text-xl font-bold text-blue-700">${summary.total_amount?.toFixed(2) || 0}</p>
+            <p className="text-xl font-bold text-blue-700">{summary.total_amount?.toFixed(2) || 0}</p>
           </div>
           <div className="bg-green-50 rounded-xl p-3">
             <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Collected</span></div>
-            <p className="text-xl font-bold text-green-700">${summary.total_paid?.toFixed(2) || 0}</p>
+            <p className="text-xl font-bold text-green-700">{summary.total_paid?.toFixed(2) || 0}</p>
           </div>
           <div className="bg-red-50 rounded-xl p-3">
             <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Balance Due</span></div>
-            <p className="text-xl font-bold text-red-700">${summary.balance_due?.toFixed(2) || 0}</p>
+            <p className="text-xl font-bold text-red-700">{summary.balance_due?.toFixed(2) || 0}</p>
           </div>
           <div className="bg-purple-50 rounded-xl p-3">
             <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-purple-600" /><span className="text-xs text-gray-600">Collection Rate</span></div>
@@ -892,7 +892,7 @@ export default function FinancePage() {
                   {monthlyRevenue.slice(-3).map((month, index) => (
                     <div key={index} className="flex justify-between text-sm">
                       <span>{month.month}</span>
-                      <span className="font-semibold">${month.revenue}</span>
+                      <span className="font-semibold">{month.revenue}</span>
                     </div>
                   ))}
                 </div>
@@ -959,9 +959,9 @@ export default function FinancePage() {
                     <tr key={fee.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-medium">{fee.fee_name}</td>
                       <td className="p-3">{fee.class_name || fee.class_ref}</td>
-                      <td className="p-3 font-semibold text-green-600">${fee.amount}</td>
+                      <td className="p-3 font-semibold text-green-600">{fee.amount}</td>
                       <td className="p-3">{fee.due_date}</td>
-                      <td className="p-3">{fee.is_recurring ? `✅ ${fee.frequency}` : '❌ No'}</td>
+                      <td className="p-3">{fee.is_recurring ? `✅ {fee.frequency}` : '❌ No'}</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={() => handleEditFeeStructure(fee)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Edit">
@@ -1036,8 +1036,8 @@ export default function FinancePage() {
                     <tr key={inv.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-mono text-xs">{inv.invoice_number}</td>
                       <td className="p-3">{inv.student_name}</td>
-                      <td className="p-3">${inv.amount}</td>
-                      <td className="p-3">${inv.paid_amount || 0}</td>
+                      <td className="p-3">{inv.amount}</td>
+                      <td className="p-3">{inv.paid_amount || 0}</td>
                       <td className="p-3">{inv.due_date}</td>
                       <td className="p-3">{getStatusBadge(inv.status)}</td>
                       <td className="p-3 text-center">
@@ -1107,7 +1107,7 @@ export default function FinancePage() {
                     <tr key={payment.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-mono text-xs">{payment.invoice_number}</td>
                       <td className="p-3">{payment.student_name}</td>
-                      <td className="p-3 font-semibold text-green-600">${payment.amount}</td>
+                      <td className="p-3 font-semibold text-green-600">{payment.amount}</td>
                       <td className="p-3">{payment.payment_date}</td>
                       <td className="p-3">{getPaymentMethodBadge(payment.payment_method)}</td>
                       <td className="p-3 text-center">
@@ -1155,7 +1155,7 @@ export default function FinancePage() {
                   installmentPlans.map((plan) => (
                     <tr key={plan.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-medium">{plan.name}</td>
-                      <td className="p-3 font-semibold text-green-600">${plan.total_amount}</td>
+                      <td className="p-3 font-semibold text-green-600">{plan.total_amount}</td>
                       <td className="p-3">{plan.number_of_installments}</td>
                       <td className="p-3">{plan.frequency}</td>
                       <td className="p-3">{plan.start_date}</td>
@@ -1204,7 +1204,7 @@ export default function FinancePage() {
                         <div className="flex items-center gap-2 mt-2">
                           {getDiscountTypeBadge(scholarship.discount_type)}
                           <span className="text-sm font-semibold">
-                            {scholarship.discount_type === 'percentage' ? `${scholarship.discount_value}%` : `$${scholarship.discount_value}`}
+                            {scholarship.discount_type === 'percentage' ? `{scholarship.discount_value}%` : `{scholarship.discount_value}`}
                           </span>
                         </div>
                       </div>
@@ -1280,8 +1280,8 @@ export default function FinancePage() {
                       <td className="p-3 font-medium">{rule.name}</td>
                       <td className="p-3">{rule.grace_period_days} days</td>
                       <td className="p-3">{getFeeTypeBadge(rule.fee_type)}</td>
-                      <td className="p-3">{rule.fee_type === 'percentage' ? `${rule.fee_value}%` : `$${rule.fee_value}`}</td>
-                      <td className="p-3">{rule.max_fee_amount ? `$${rule.max_fee_amount}` : '-'}</td>
+                      <td className="p-3">{rule.fee_type === 'percentage' ? `{rule.fee_value}%` : `{rule.fee_value}`}</td>
+                      <td className="p-3">{rule.max_fee_amount ? `{rule.max_fee_amount}` : '-'}</td>
                       <td className="p-3">{rule.is_active ? '✅' : '❌'}</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-1 justify-center">
@@ -1318,9 +1318,9 @@ export default function FinancePage() {
                       <span className="text-sm">{month.month}</span>
                       <div className="flex items-center gap-2">
                         <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{width: `${Math.min((month.revenue / 10000) * 100, 100)}%`}}></div>
+                          <div className="bg-blue-600 h-2 rounded-full" style={{width: `{Math.min((month.revenue / 10000) * 100, 100)}%`}}></div>
                         </div>
-                        <span className="text-sm font-semibold">${month.revenue}</span>
+                        <span className="text-sm font-semibold">{month.revenue}</span>
                       </div>
                     </div>
                   ))}
@@ -1342,7 +1342,7 @@ export default function FinancePage() {
                       <span className="text-sm">{cls.class_name}</span>
                       <div className="flex items-center gap-2">
                         <div className="w-20 bg-gray-200 rounded-full h-2">
-                          <div className="bg-green-600 h-2 rounded-full" style={{width: `${cls.collection_rate}%`}}></div>
+                          <div className="bg-green-600 h-2 rounded-full" style={{width: `{cls.collection_rate}%`}}></div>
                         </div>
                         <span className="text-sm font-semibold">{cls.collection_rate}%</span>
                       </div>
@@ -1364,7 +1364,7 @@ export default function FinancePage() {
                   {forecast.map((f) => (
                     <div key={f.month} className="flex justify-between items-center">
                       <span className="text-sm">{f.month}</span>
-                      <span className="text-sm font-semibold text-blue-600">${f.forecasted_revenue}</span>
+                      <span className="text-sm font-semibold text-blue-600">{f.forecasted_revenue}</span>
                     </div>
                   ))}
                 </div>
@@ -1386,7 +1386,7 @@ export default function FinancePage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Total Amount Due:</span>
-                    <span className="font-semibold">${defaulterStats.total_amount_due?.toFixed(2) ?? 0}</span>
+                    <span className="font-semibold">{defaulterStats.total_amount_due?.toFixed(2) ?? 0}</span>
                   </div>
                   <div className="mt-4">
                     <h4 className="font-medium mb-2">Top Defaulters:</h4>
@@ -1394,7 +1394,7 @@ export default function FinancePage() {
                       {defaulterStats.defaulters?.slice(0, 5).map((defaulter, index) => (
                         <div key={index} className="flex justify-between text-sm">
                           <span>{defaulter.student_name}</span>
-                          <span className="text-red-600">${defaulter.amount_due}</span>
+                          <span className="text-red-600">{defaulter.amount_due}</span>
                         </div>
                       ))}
                     </div>
@@ -1699,7 +1699,7 @@ export default function FinancePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <select className="w-full border rounded-lg px-3 py-2" value={paymentFormData.invoice_id} onChange={(e) => setPaymentFormData({...paymentFormData, invoice_id: e.target.value})}>
                     <option value="">Select Invoice *</option>
-                    {invoices.filter(i => i.status !== 'paid').map(i => <option key={i.id} value={i.id}>{i.invoice_number} - ${i.amount} ({i.student_name})</option>)}
+                    {invoices.filter(i => i.status !== 'paid').map(i => <option key={i.id} value={i.id}>{i.invoice_number} - {i.amount} ({i.student_name})</option>)}
                   </select>
                   <Input type="number" placeholder="Amount *" value={paymentFormData.amount} onChange={(e) => setPaymentFormData({...paymentFormData, amount: e.target.value})} />
                 </div>
@@ -1750,7 +1750,7 @@ export default function FinancePage() {
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input type="number" placeholder={`Discount Value * (${scholarshipForm.discount_type === 'percentage' ? '%' : '$'})`} value={scholarshipForm.discount_value} onChange={(e) => setScholarshipForm({...scholarshipForm, discount_value: e.target.value})} />
+                  <Input type="number" placeholder={`Discount Value * ({scholarshipForm.discount_type === 'percentage' ? '%' : ''})`} value={scholarshipForm.discount_value} onChange={(e) => setScholarshipForm({...scholarshipForm, discount_value: e.target.value})} />
                   <Input type="number" placeholder="Max Students" value={scholarshipForm.max_students} onChange={(e) => setScholarshipForm({...scholarshipForm, max_students: e.target.value})} />
                 </div>
                 <textarea placeholder="Eligibility Criteria" className="w-full border rounded-lg px-3 py-2" rows={2} value={scholarshipForm.eligibility_criteria} onChange={(e) => setScholarshipForm({...scholarshipForm, eligibility_criteria: e.target.value})} />
@@ -1773,7 +1773,7 @@ export default function FinancePage() {
                   </select>
                   <select className="w-full border rounded-lg px-3 py-2" value={studentScholarshipForm.scholarship_id} onChange={(e) => setStudentScholarshipForm({...studentScholarshipForm, scholarship_id: e.target.value})}>
                     <option value="">Select Scholarship *</option>
-                    {scholarships.filter(s => s.is_active).map(s => <option key={s.id} value={s.id}>{s.name} ({s.discount_type === 'percentage' ? `${s.discount_value}%` : `$${s.discount_value}`})</option>)}
+                    {scholarships.filter(s => s.is_active).map(s => <option key={s.id} value={s.id}>{s.name} ({s.discount_type === 'percentage' ? `{s.discount_value}%` : `{s.discount_value}`})</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1797,10 +1797,10 @@ export default function FinancePage() {
                     <option value="percentage">Percentage Fee</option>
                     <option value="fixed">Fixed Amount</option>
                   </select>
-                  <Input type="number" placeholder={`Fee Value * (${lateFeeRuleForm.fee_type === 'percentage' ? '%' : '$'})`} value={lateFeeRuleForm.fee_value} onChange={(e) => setLateFeeRuleForm({...lateFeeRuleForm, fee_value: e.target.value})} />
+                  <Input type="number" placeholder={`Fee Value * ({lateFeeRuleForm.fee_type === 'percentage' ? '%' : ''})`} value={lateFeeRuleForm.fee_value} onChange={(e) => setLateFeeRuleForm({...lateFeeRuleForm, fee_value: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input type="number" placeholder="Max Fee Amount ($)" value={lateFeeRuleForm.max_fee_amount} onChange={(e) => setLateFeeRuleForm({...lateFeeRuleForm, max_fee_amount: e.target.value})} />
+                  <Input type="number" placeholder="Max Fee Amount ()" value={lateFeeRuleForm.max_fee_amount} onChange={(e) => setLateFeeRuleForm({...lateFeeRuleForm, max_fee_amount: e.target.value})} />
                   <div></div>
                 </div>
                 <label className="flex items-center gap-2">
