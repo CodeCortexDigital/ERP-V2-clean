@@ -40,6 +40,8 @@ class ScholarshipSerializer(serializers.ModelSerializer):
 
 class StudentScholarshipSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    class_name = serializers.CharField(source='student.current_class.name', read_only=True)
     scholarship_name = serializers.CharField(source='scholarship.name', read_only=True)
     scholarship_type = serializers.CharField(source='scholarship.scholarship_type', read_only=True)
     scholarship_value = serializers.CharField(source='scholarship.value', read_only=True)
@@ -62,6 +64,8 @@ class LateFeeRuleSerializer(serializers.ModelSerializer):
 
 class InvoiceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    class_name = serializers.CharField(source='student.current_class.name', read_only=True)
     student_id = serializers.CharField(source='student.student_id', read_only=True)
     installment_plan_name = serializers.CharField(source='installment_plan.name', read_only=True)
     scholarship_name = serializers.CharField(source='scholarship.scholarship.name', read_only=True)

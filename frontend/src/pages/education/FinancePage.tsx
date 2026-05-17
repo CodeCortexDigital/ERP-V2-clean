@@ -199,12 +199,22 @@ export default function FinancePage() {
     }
   };
 
-  const fetchInvoices = async (params = {}) => {
+  const fetchInvoices = async (filters: any = {}) => {
     try {
-      const res = await financeService.getInvoices(params);
-      setInvoices(extractListData(res.data));
+      console.log("Sending filters:", filters);
+
+      const response = await financeService.getInvoices(filters);
+
+      console.log("API Response:", response.data);
+
+      const invoiceData = Array.isArray(response.data)
+        ? response.data
+        : (response.data?.results || []);
+
+      setInvoices([...invoiceData]);
+
     } catch (error) {
-      console.error('Error fetching invoices:', error);
+      console.error("Invoice fetch error:", error);
     }
   };
 
@@ -321,12 +331,22 @@ export default function FinancePage() {
     }
   };
 
-  const handleInvoiceFilterChange = (field, value) => {
-    setInvoiceFilters(prev => ({ ...prev, [field]: value }));
+  const handleInvoiceFilterChange = (field: string, value: string) => {
+    setInvoiceFilters((prev) => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const applyInvoiceFilters = async () => {
-    await fetchInvoices(invoiceFilters);
+    const currentFilters = {
+      ...invoiceFilters,
+      search: invoiceSearch
+    };
+
+    setInvoiceFilters(currentFilters);
+
+    await fetchInvoices(currentFilters);
   };
 
   const clearInvoiceFilters = async () => {
@@ -341,8 +361,14 @@ export default function FinancePage() {
   };
 
   const handleInvoiceSearch = async () => {
-    setInvoiceFilters(prev => ({ ...prev, search: invoiceSearch }));
-    await fetchInvoices({ ...invoiceFilters, search: invoiceSearch });
+    const updatedFilters = {
+      ...invoiceFilters,
+      search: invoiceSearch
+    };
+
+    setInvoiceFilters(updatedFilters);
+
+    await fetchInvoices(updatedFilters);
   };
 
   const handleExportInvoicesCSV = async () => {
@@ -754,13 +780,23 @@ export default function FinancePage() {
   };
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'paid': return <Badge variant="success"><CheckCircle className="w-3 h-3 mr-1" /> Paid</Badge>;
-      case 'overdue': return <Badge variant="danger"><AlertCircle className="w-3 h-3 mr-1" /> Overdue</Badge>;
-      case 'issued': return <Badge variant="warning">Issued</Badge>;
-      default: return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+  switch (status) {
+    case 'paid':
+      return <Badge variant="success">Paid</Badge>;
+
+    case 'partial':
+      return <Badge variant="info">Partial</Badge>;
+
+    case 'overdue':
+      return <Badge variant="danger">Overdue</Badge>;
+
+    case 'issued':
+      return <Badge variant="warning">Issued</Badge>;
+
+    default:
+      return <Badge variant="secondary">{status}</Badge>;
+  }
+};
 
   const getPaymentMethodBadge = (method) => {
     const methods = {
@@ -866,7 +902,7 @@ export default function FinancePage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Active Invoices:</span>
-                    <span className="font-semibold">{invoices.filter(i => i.status !== 'paid').length}</span>
+                    <span className="font-semibold">{invoices.filter(i => i.status === 'issued' || i.status === 'partial' || i.status === 'overdue').length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Overdue:</span>
@@ -999,6 +1035,7 @@ export default function FinancePage() {
               <select className="border rounded-lg px-3 py-2" value={invoiceFilters.status} onChange={(e) => handleInvoiceFilterChange('status', e.target.value)}>
                 <option value="">All Statuses</option>
                 <option value="issued">Issued</option>
+                <option value="partial">Partial</option>
                 <option value="paid">Paid</option>
                 <option value="overdue">Overdue</option>
               </select>
@@ -1020,8 +1057,11 @@ export default function FinancePage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="p-3 text-left">Invoice #</th>
+                  <th className="p-3 text-left">Student ID</th>
                   <th className="p-3 text-left">Student</th>
+                  <th className="p-3 text-left">Class</th>
                   <th className="p-3 text-left">Amount</th>
+                  <th className="p-3 text-left">Remaining</th>
                   <th className="p-3 text-left">Paid</th>
                   <th className="p-3 text-left">Due Date</th>
                   <th className="p-3 text-left">Status</th>
@@ -1035,8 +1075,13 @@ export default function FinancePage() {
                   invoices.map((inv) => (
                     <tr key={inv.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-mono text-xs">{inv.invoice_number}</td>
+                      <td className="p-3">{inv.student_id || "-"}</td>
                       <td className="p-3">{inv.student_name}</td>
+                      <td className="p-3">{inv.class_name || inv.student_class || "-"}</td>
                       <td className="p-3">{inv.amount}</td>
+                      <td className="p-3 font-semibold text-red-600">
+                        {(Number(inv.amount) - Number(inv.paid_amount || 0)).toFixed(2)}
+                      </td>
                       <td className="p-3">{inv.paid_amount || 0}</td>
                       <td className="p-3">{inv.due_date}</td>
                       <td className="p-3">{getStatusBadge(inv.status)}</td>
@@ -1058,7 +1103,11 @@ export default function FinancePage() {
                               </button>
                             </>
                           )}
-                          {(inv.status === 'issued' || inv.status === 'overdue') && (
+                          {(
+  inv.status === 'issued' ||
+  inv.status === 'partial' ||
+  inv.status === 'overdue'
+) && (
                             <button onClick={() => { setFormType('payment'); setPaymentFormData({ invoice_id: inv.id, amount: String(inv.amount - (inv.paid_amount || 0)), payment_method: 'cash', transaction_id: '', notes: '' }); setShowForm(true); }} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Record Payment">
                               <CreditCard className="w-4 h-4" />
                             </button>
@@ -1092,7 +1141,9 @@ export default function FinancePage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="p-3 text-left">Invoice</th>
+                  <th className="p-3 text-left">Student ID</th>
                   <th className="p-3 text-left">Student</th>
+                  <th className="p-3 text-left">Class</th>
                   <th className="p-3 text-left">Amount</th>
                   <th className="p-3 text-left">Date</th>
                   <th className="p-3 text-left">Method</th>
@@ -1699,7 +1750,7 @@ export default function FinancePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <select className="w-full border rounded-lg px-3 py-2" value={paymentFormData.invoice_id} onChange={(e) => setPaymentFormData({...paymentFormData, invoice_id: e.target.value})}>
                     <option value="">Select Invoice *</option>
-                    {invoices.filter(i => i.status !== 'paid').map(i => <option key={i.id} value={i.id}>{i.invoice_number} - {i.amount} ({i.student_name})</option>)}
+                    {invoices.filter(i => i.status === 'issued' || i.status === 'partial' || i.status === 'overdue').map(i => <option key={i.id} value={i.id}>{i.invoice_number} - {i.amount} ({i.student_name})</option>)}
                   </select>
                   <Input type="number" placeholder="Amount *" value={paymentFormData.amount} onChange={(e) => setPaymentFormData({...paymentFormData, amount: e.target.value})} />
                 </div>
@@ -1815,7 +1866,7 @@ export default function FinancePage() {
       )}
 
       {/* Quick Add Payment Button */}
-      {activeTab === 'invoices' && invoices.filter(i => i.status !== 'paid').length > 0 && (
+      {activeTab === 'invoices' && invoices.filter(i => i.status === 'issued' || i.status === 'partial' || i.status === 'overdue').length > 0 && (
         <div className="fixed bottom-6 right-6">
           <Button onClick={() => { setFormType('payment'); setShowForm(true); }} className="bg-green-600 hover:bg-green-700 rounded-full shadow-lg">
             <CreditCard className="w-5 h-5 mr-2" /> Record Payment

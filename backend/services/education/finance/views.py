@@ -65,9 +65,7 @@ class FeeStructureListCreateView(generics.ListCreateAPIView):
 
         class_id = self.request.query_params.get('class_id')
         if class_id:
-            queryset = queryset.filter(
-                class_ref_id=class_id
-            )
+            queryset = queryset.filter(class_ref_id=class_id)
 
         search = self.request.query_params.get('search')
         if search:
@@ -79,10 +77,7 @@ class FeeStructureListCreateView(generics.ListCreateAPIView):
         return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
-        serializer.save(
-            received_by=self.request.user
-        )
-        
+        serializer.save()        
 
 class FeeStructureDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -101,53 +96,54 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
     serializer_class = InvoiceSerializer
 
     def get_queryset(self):
+        from django.db.models import Q
+        from django.utils import timezone
+
         queryset = Invoice.objects.select_related(
-            'student',
-            'fee_structure'
+            "student",
+            "student__current_class"
         )
 
-        # Status filters
-        status = self.request.query_params.get('status')
+        # Status filter
+        status = self.request.query_params.get("status")
         if status:
-            if status == 'overdue':
+            if status == "overdue":
                 queryset = queryset.filter(
                     due_date__lt=timezone.now().date(),
-                    status__in=['issued', 'overdue']
+                    status__in=["issued", "partial", "overdue"]
                 )
             else:
                 queryset = queryset.filter(status=status)
 
         # Class filter
-        class_id = self.request.query_params.get('class_id')
+        class_id = self.request.query_params.get("class_id")
         if class_id:
             queryset = queryset.filter(
-                student__class_id=class_id
+                student__current_class_id=class_id
             )
 
         # Date filters
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
-
+        start_date = self.request.query_params.get("start_date")
         if start_date:
             queryset = queryset.filter(
                 due_date__gte=start_date
             )
 
+        end_date = self.request.query_params.get("end_date")
         if end_date:
             queryset = queryset.filter(
                 due_date__lte=end_date
             )
 
         # Search
-        search = self.request.query_params.get('search')
+        search = self.request.query_params.get("search")
         if search:
             queryset = queryset.filter(
                 Q(invoice_number__icontains=search) |
-                Q(student__full_name__icontains=search) |
-                Q(student__student_id__icontains=search)
+                Q(student__full_name__icontains=search)
             )
 
-        return queryset.order_by('-due_date')
+        return queryset.order_by("-created_at")
 
     def perform_create(self, serializer):
         student_id = self.request.data.get("student")
@@ -216,10 +212,32 @@ class PaymentListCreateView(generics.ListCreateAPIView):
         return queryset.order_by('-payment_date')
 
     def perform_create(self, serializer):
-        serializer.save(
+
+        payment = serializer.save(
             received_by=self.request.user
         )
 
+        invoice = payment.invoice
+
+        # Calculate all payments made for this invoice
+        total_paid = invoice.payments.aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+        invoice.paid_amount = total_paid
+
+        # Finance status logic
+        if total_paid >= invoice.amount:
+            invoice.status = 'paid'
+
+        elif total_paid > 0:
+            invoice.status = 'partial'
+
+        else:
+            invoice.status = 'issued'
+
+        invoice.save()
+        
 class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Payment.objects.all()
@@ -241,7 +259,7 @@ class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
             if total_paid >= updated_instance.invoice.amount:
                 updated_instance.invoice.status = 'paid'
             elif total_paid > 0:
-                updated_instance.invoice.status = 'issued'
+                updated_instance.invoice.status = 'partial'
             else:
                 updated_instance.invoice.status = 'issued'
             updated_instance.invoice.save()
@@ -498,13 +516,13 @@ def export_invoices_csv(request):
     status = request.query_params.get('status')
     if status:
         if status == 'overdue':
-            queryset = queryset.filter(due_date__lt=timezone.now().date(), status__in=['issued', 'overdue'])
+            queryset = queryset.filter(due_date__lt=timezone.now().date(), status__in=['issued', 'partial', 'overdue'])
         else:
             queryset = queryset.filter(status=status)
     
     class_id = request.query_params.get('class_id')
     if class_id:
-        queryset = queryset.filter(student__class_id=class_id)
+        queryset = queryset.filter(student__current_class_id=class_id)
     
     start_date = request.query_params.get('start_date')
     end_date = request.query_params.get('end_date')
@@ -924,7 +942,7 @@ def monthly_finance_report_pdf(request):
         
         # Outstanding balances
         outstanding = Invoice.objects.filter(
-            status__in=['issued', 'overdue']
+            status__in=['issued', 'partial', 'overdue']
         ).aggregate(total=Sum('balance_due'))['total'] or 0
         
         buffer = io.BytesIO()
