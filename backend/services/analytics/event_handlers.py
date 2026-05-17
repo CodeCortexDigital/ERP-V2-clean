@@ -1,5 +1,6 @@
 import logging
 from django.apps import apps
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -7,52 +8,56 @@ logger = logging.getLogger(__name__)
 
 # Avoid circular imports - use apps.get_model inside receivers
 
+def _run_attendance_automation(instance):
+    try:
+        AutoTrigger = apps.get_model('education_communication', 'AutoTrigger')
+        Message = apps.get_model('education_communication', 'Message')
+        Student = apps.get_model('education_students', 'Student')
+        Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+        
+        student = instance.student
+        
+        # Calculate attendance rate
+        attendance_records = Attendance.objects.filter(student=student)
+        total = attendance_records.count()
+        present = attendance_records.filter(status='present').count()
+        rate = (present / total * 100) if total > 0 else 100
+        
+        triggers = AutoTrigger.objects.filter(trigger_event='attendance_low', is_active=True)
+        
+        if rate < 75 and triggers.exists():
+            from services.communication.whatsapp.tasks import send_whatsapp_message
+
+            for trigger in triggers:
+                if trigger.template:
+                    message = trigger.template.render({
+                        'student_name': student.full_name,
+                        'attendance_rate': round(rate, 1),
+                        'class_name': student.current_class.name if student.current_class else 'N/A'
+                    })
+                    
+                    msg = Message.objects.create(
+                        sender='ERP System',
+                        recipient=student.full_name,
+                        recipient_phone=getattr(student, 'guardian_phone', student.phone),
+                        subject='Low Attendance Alert',
+                        message=message,
+                        template_name='attendance_absent',
+                        channel=trigger.channel
+                    )
+                    if trigger.channel == 'whatsapp':
+                        send_whatsapp_message.delay(str(msg.id))
+                    logger.info(f"Attendance alert sent for {student.full_name}")
+                    
+    except Exception as e:
+        logger.error(f"Attendance automation error: {e}")
+
+
 @receiver(post_save, sender='education_attendance.AttendanceRecord')
 def attendance_automation(sender, instance, created, **kwargs):
     """Trigger automation when attendance is marked"""
     if created:
-        try:
-            AutoTrigger = apps.get_model('education_communication', 'AutoTrigger')
-            Message = apps.get_model('education_communication', 'Message')
-            Student = apps.get_model('education_students', 'Student')
-            Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
-            
-            student = instance.student
-            
-            # Calculate attendance rate
-            attendance_records = Attendance.objects.filter(student=student)
-            total = attendance_records.count()
-            present = attendance_records.filter(status='present').count()
-            rate = (present / total * 100) if total > 0 else 100
-            
-            triggers = AutoTrigger.objects.filter(trigger_event='attendance_low', is_active=True)
-            
-            if rate < 75 and triggers.exists():
-                from services.communication.whatsapp.tasks import send_whatsapp_message
-
-                for trigger in triggers:
-                    if trigger.template:
-                        message = trigger.template.render({
-                            'student_name': student.full_name,
-                            'attendance_rate': round(rate, 1),
-                            'class_name': student.current_class.name if student.current_class else 'N/A'
-                        })
-                        
-                        msg = Message.objects.create(
-                            sender='ERP System',
-                            recipient=student.full_name,
-                            recipient_phone=getattr(student, 'guardian_phone', student.phone),
-                            subject='Low Attendance Alert',
-                            message=message,
-                            template_name='attendance_absent',
-                            channel=trigger.channel
-                        )
-                        if trigger.channel == 'whatsapp':
-                            send_whatsapp_message.delay(str(msg.id))
-                        logger.info(f"Attendance alert sent for {student.full_name}")
-                        
-        except Exception as e:
-            logger.error(f"Attendance automation error: {e}")
+        transaction.on_commit(lambda: _run_attendance_automation(instance))
 
 
 @receiver(post_save, sender='education_finance.Invoice')

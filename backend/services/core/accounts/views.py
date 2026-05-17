@@ -16,6 +16,9 @@ from services.core.utils.cache import (
 )
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+import logging
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -154,7 +157,7 @@ class ClassDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         SchoolClass = apps.get_model('education_academics', 'SchoolClass')
-        return SchoolClass.objects.all()  # Remove is_active filter since SchoolClass doesn't have this field
+        return SchoolClass.objects.all()
     
     def get_serializer_class(self):
         from .serializers import ClassSerializer
@@ -237,12 +240,13 @@ def student_count(request):
 
 
 # ============================================================
-# ATTENDANCE VIEWS
+# ATTENDANCE VIEWS (FIXED)
 # ============================================================
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_attendance(request):
+    """Get attendance records with proper debugging and filtering"""
     date = request.GET.get('date')
     student_id = request.GET.get('student_id')
     
@@ -258,33 +262,50 @@ def get_attendance(request):
             .order_by('-date')
         )
         return Response([serialize_attendance_record(r) for r in attendance])
+    
     elif date:
         from services.education.attendance.services import ensure_defaults_for_date, _students_queryset
-        from services.education.attendance.calendar import parse_attendance_date, is_school_day
+        from services.education.attendance.calendar import parse_attendance_date
 
         query_date = parse_attendance_date(date)
         class_id = request.GET.get('class_id')
         section_id = request.GET.get('section_id')
-        ensure_defaults_for_date(query_date, class_id=class_id, section_id=section_id)
-
-        student_ids = None
+        
+        # Debug logging
+        logger.info(f"ATTENDANCE QUERY - Date: {query_date}, Class: {class_id}, Section: {section_id}")
+        
+        # Get students for this class/section
         if class_id or section_id:
             student_ids = list(
                 _students_queryset(class_id, section_id).values_list('id', flat=True)
             )
-
+            logger.info(f"Found {len(student_ids)} students for class={class_id}, section={section_id}")
+        else:
+            student_ids = None
+            logger.info("No class/section filter applied")
+        
+        # Ensure default attendance records exist
+        ensure_defaults_for_date(query_date, class_id=class_id, section_id=section_id)
+        
+        # Get attendance records
         attendance = Attendance.objects.filter(date=query_date)
         if student_ids is not None:
             attendance = attendance.filter(student_id__in=student_ids)
-        if not is_school_day(query_date):
-            attendance = attendance.filter(status='holiday')
+            logger.info(f"Filtered attendance to {attendance.count()} records")
+        
+        # FIX: Keep actual saved attendance records.
+        # Do not overwrite/filter records on holidays.
+        logger.info("Returning actual saved attendance records")
+        
     else:
         return Response({'error': 'Date or student_id required'}, status=400)
     
     from services.education.attendance.services import serialize_attendance_record
 
     attendance = attendance.select_related('student', 'marked_by').order_by('student__full_name')
-    return Response([serialize_attendance_record(r) for r in attendance])
+    serialized_data = [serialize_attendance_record(r) for r in attendance]
+    
+    return Response(serialized_data)
 
 
 @api_view(['POST'])
@@ -293,9 +314,16 @@ def bulk_attendance(request):
     from services.education.attendance.services import bulk_save_attendance_records
 
     records = request.data.get('records', [])
+    logger.info(f"Bulk attendance save - {len(records)} records received")
+    
     result = bulk_save_attendance_records(request.user, records)
+    
     if result.get('forbidden'):
+        logger.warning(f"Bulk attendance forbidden: {result.get('error')}")
         return Response({'error': result['error']}, status=status.HTTP_403_FORBIDDEN)
+    
+    logger.info(f"Bulk attendance result - created: {result.get('created')}, updated: {result.get('updated')}")
+    
     return Response(
         {
             'success': True,
@@ -319,20 +347,24 @@ def attendance_stats(request):
     Student = apps.get_model('education_students', 'Student')
     
     if student_id:
-        student = Student.objects.get(id=student_id)
-        total = Attendance.objects.filter(student=student).count()
-        present = Attendance.objects.filter(student=student, status='present').count()
-        
-        stats = {
-            'student_name': student.full_name,
-            'total_days': total,
-            'present_days': present,
-            'percentage': round((present / total * 100) if total > 0 else 0, 1)
-        }
-        return Response(stats)
+        try:
+            student = Student.objects.get(id=student_id)
+            total = Attendance.objects.filter(student=student).count()
+            present = Attendance.objects.filter(student=student, status='present').count()
+            
+            stats = {
+                'student_name': student.full_name,
+                'student_id': student.student_id,
+                'total_days': total,
+                'present_days': present,
+                'percentage': round((present / total * 100) if total > 0 else 0, 1)
+            }
+            return Response(stats)
+        except Student.DoesNotExist:
+            return Response({'error': 'Student not found'}, status=404)
     
     if class_id:
-        students = Student.objects.filter(current_class_id=class_id)
+        students = Student.objects.filter(current_class_id=class_id, is_active=True)
         stats = []
         for student in students:
             total = Attendance.objects.filter(student=student).count()
@@ -363,9 +395,12 @@ def student_attendance(request, student_id):
         .select_related('student', 'marked_by')
         .order_by('-date')
     )
+    
     if year and month:
         attendance_records = attendance_records.filter(date__year=year, date__month=month)
-
+    
+    logger.info(f"Student attendance history - Student: {student_id}, Records: {attendance_records.count()}")
+    
     return Response([serialize_attendance_record(r) for r in attendance_records])
 
 
@@ -392,6 +427,7 @@ def download_result_card(request, student_id):
     except Student.DoesNotExist:
         return Response({'error': 'Student not found'}, status=404)
     except Exception as e:
+        logger.error(f"Error generating result card: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -408,6 +444,7 @@ def download_fee_receipt(request, invoice_id):
         response['Content-Disposition'] = f'attachment; filename="fee_receipt_{invoice_id}.pdf"'
         return response
     except Exception as e:
+        logger.error(f"Error generating fee receipt: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -505,24 +542,25 @@ def at_risk_students(request):
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
     risk_students = []
     
-    for student in Student.objects.filter(is_active=True)[:20]:
+    for student in Student.objects.filter(is_active=True):
         attendance_records = Attendance.objects.filter(student=student)
         total = attendance_records.count()
-        present = attendance_records.filter(status='present').count()
-        pct = round((present / total * 100) if total > 0 else 100, 1)
-        
-        if pct < 75:
-            risk_students.append({
-                'id': str(student.id),
-                'name': student.full_name,
-                'student_id': student.student_id,
-                'class': student.current_class.name if student.current_class else 'N/A',
-                'risk_level': 'high' if pct < 60 else 'medium',
-                'reason': f'Low attendance: {pct}%',
-                'attendance_percentage': pct
-            })
+        if total > 0:
+            present = attendance_records.filter(status='present').count()
+            pct = round((present / total * 100), 1)
+            
+            if pct < 75:
+                risk_students.append({
+                    'id': str(student.id),
+                    'name': student.full_name,
+                    'student_id': student.student_id,
+                    'class': student.current_class.name if student.current_class else 'N/A',
+                    'risk_level': 'high' if pct < 60 else 'medium',
+                    'reason': f'Low attendance: {pct}%',
+                    'attendance_percentage': pct
+                })
     
-    return Response(risk_students)
+    return Response(risk_students[:20])
 
 
 @api_view(['GET'])
@@ -533,18 +571,43 @@ def ai_insights(request):
     from datetime import datetime, timedelta
     
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    Student = apps.get_model('education_students', 'Student')
+    Invoice = apps.get_model('education_finance', 'Invoice')
     
+    insights = []
+    
+    # Attendance insights
     recent = Attendance.objects.filter(date__gte=datetime.now() - timedelta(days=30))
     total = recent.count()
     present = recent.filter(status='present').count()
     overall = round((present / total * 100) if total > 0 else 0, 1)
     
-    insights = [{
+    insights.append({
         'type': 'attendance',
         'title': 'Attendance Overview',
         'message': f'Overall attendance rate is {overall}% for the last 30 days.',
         'priority': 'normal'
-    }]
+    })
+    
+    # Low attendance warning
+    if overall < 75:
+        insights.append({
+            'type': 'warning',
+            'title': 'Low Attendance Alert',
+            'message': f'Attendance rate ({overall}%) is below the recommended 75% threshold.',
+            'priority': 'high'
+        })
+    
+    # Financial insights
+    pending_invoices = Invoice.objects.filter(status__in=['issued', 'partial'])
+    total_pending = sum((inv.total_amount - inv.paid_amount) for inv in pending_invoices if inv.total_amount and inv.paid_amount)
+    if total_pending > 100000:
+        insights.append({
+            'type': 'financial',
+            'title': 'High Pending Fees',
+            'message': f'Total pending fees: ₹{total_pending:,.0f}. Consider sending reminders.',
+            'priority': 'high'
+        })
     
     return Response(insights)
 
@@ -629,6 +692,8 @@ def teacher_performance(request):
 
     performance.sort(key=lambda x: x['avg_student_score'], reverse=True)
     return Response(performance[:10])
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @cached_api_view(cache_type='dashboard')
@@ -693,7 +758,7 @@ def executive_dashboard(request):
     
         # Fee Recovery by Class
         class_recovery = []
-        classes = SchoolClass.objects.all()  # Remove is_active filter since SchoolClass doesn't have this field
+        classes = SchoolClass.objects.all()
         for cls in classes:
             invoices = Invoice.objects.filter(student__current_class=cls)
             total_amount = sum(inv.total_amount or 0 for inv in invoices)
@@ -736,13 +801,14 @@ def executive_dashboard(request):
         
         # Low attendance alert
         low_attendance_students = 0
-        for student in Student.objects.filter(is_active=True)[:50]:
+        for student in Student.objects.filter(is_active=True):
             records = Attendance.objects.filter(student=student)
             total = records.count()
-            present = records.filter(status='present').count()
-            pct = round((present / total * 100) if total > 0 else 100, 1)
-            if pct < 75:
-                low_attendance_students += 1
+            if total > 0:
+                present = records.filter(status='present').count()
+                pct = round((present / total * 100), 1)
+                if pct < 75:
+                    low_attendance_students += 1
         
         if low_attendance_students > 0:
             smart_insights.append({
@@ -755,7 +821,7 @@ def executive_dashboard(request):
         
         # Pending fees alert
         pending_invoices = Invoice.objects.exclude(status='paid')
-        pending_fees = sum((inv.total_amount - inv.paid_amount) for inv in pending_invoices if inv.total_amount > inv.paid_amount)
+        pending_fees = sum((inv.total_amount - inv.paid_amount) for inv in pending_invoices if inv.total_amount and inv.paid_amount and inv.total_amount > inv.paid_amount)
         if pending_fees > 50000:
             smart_insights.append({
                 'type': 'critical',
@@ -824,17 +890,8 @@ def executive_dashboard(request):
             'traceback': traceback.format_exc(),
             'type': type(e).__name__
         }
-        print(f"Executive Dashboard Error: {error_details}")
+        logger.error(f"Executive Dashboard Error: {error_details}")
         return Response({
             'error': 'Internal server error occurred while generating dashboard data',
             'details': str(e) if settings.DEBUG else 'Please contact administrator'
         }, status=500)
-
-
-
-
-
-
-
-
-

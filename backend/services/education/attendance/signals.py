@@ -1,14 +1,11 @@
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import AttendanceRecord
 from services.core.events.dispatcher import dispatch_event
 
-@receiver(post_save, sender=AttendanceRecord)
-def attendance_automation(sender, instance, created, **kwargs):
-    """Trigger automation when attendance is marked"""
-    if not created:
-        return
 
+def _run_attendance_automation(instance: AttendanceRecord):
     try:
         dispatch_event('attendance_marked', {
             'attendance_id': str(instance.id),
@@ -65,3 +62,12 @@ def attendance_automation(sender, instance, created, **kwargs):
                         send_whatsapp_message.delay(str(msg.id))
     except Exception as e:
         print(f"Attendance automation error: {e}")
+
+
+@receiver(post_save, sender=AttendanceRecord)
+def attendance_automation(sender, instance, created, **kwargs):
+    """Trigger automation when attendance is marked"""
+    if not created:
+        return
+
+    transaction.on_commit(lambda: _run_attendance_automation(instance))

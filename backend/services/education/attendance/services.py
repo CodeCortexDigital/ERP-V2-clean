@@ -6,7 +6,7 @@ import logging
 from datetime import date
 
 from django.apps import apps
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from services.core.accounts.decorators import get_user_role
 from .calendar import (
@@ -42,28 +42,46 @@ def upsert_attendance_record(
 ) -> bool:
     """Create or update one row (includes soft-deleted). Returns True if created."""
     status = normalize_status_for_date(record_date, status)
-    defaults = {
-        'status': status,
-        'course_id': course_id or '',
-        'remarks': remarks or '',
-        'deleted_at': None,
-    }
-    if marked_by is not None:
-        defaults['marked_by'] = marked_by
-    obj, created = Attendance.all_objects.update_or_create(
-        student=student,
-        date=record_date,
-        defaults=defaults,
-    )
-    if not created and obj.deleted_at:
-        obj.restore()
-        obj.status = status
-        obj.course_id = defaults['course_id']
-        obj.remarks = defaults['remarks']
+    course_id = course_id or ''
+    remarks = remarks or ''
+
+    attendance = Attendance.all_objects.filter(student=student, date=record_date).first()
+    if attendance:
+        created = False
+        if attendance.deleted_at:
+            attendance.restore()
+        attendance.status = status
+        attendance.course_id = course_id
+        attendance.remarks = remarks
         if marked_by is not None:
-            obj.marked_by = marked_by
-        obj.save(update_fields=['status', 'course_id', 'remarks', 'deleted_at', 'marked_by', 'updated_at'])
-    return created
+            attendance.marked_by = marked_by
+        attendance.save(update_fields=['status', 'course_id', 'remarks', 'marked_by', 'deleted_at', 'updated_at'])
+        return created
+
+    try:
+        Attendance.all_objects.create(
+            student=student,
+            date=record_date,
+            status=status,
+            course_id=course_id,
+            remarks=remarks,
+            marked_by=marked_by,
+            deleted_at=None,
+        )
+        return True
+    except IntegrityError:
+        attendance = Attendance.all_objects.filter(student=student, date=record_date).first()
+        if attendance:
+            if attendance.deleted_at:
+                attendance.restore()
+            attendance.status = status
+            attendance.course_id = course_id
+            attendance.remarks = remarks
+            if marked_by is not None:
+                attendance.marked_by = marked_by
+            attendance.save(update_fields=['status', 'course_id', 'remarks', 'marked_by', 'deleted_at', 'updated_at'])
+            return False
+        raise
 
 
 def _students_queryset(class_id=None, section_id=None):

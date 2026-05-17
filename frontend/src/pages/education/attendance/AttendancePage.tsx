@@ -124,18 +124,50 @@ export default function AttendancePage() {
       setClasses(response.data || []);
     } catch (error) {
       console.error('Error fetching classes:', error);
+      toast.error('Failed to load classes');
     }
   };
 
+  // FIXED: Properly handle the sections API response format
   const fetchSections = async (classId: string) => {
     try {
       const response = await classService.getSections(classId);
-      setSections(response.data || []);
-      if (response.data?.length > 0) {
-        setSelectedSection(response.data[0].id);
+      
+      console.log("SECTIONS API RESPONSE:", response.data);
+      
+      // Handle the backend response format: { type: "sections", options: [...] }
+      let sectionList = [];
+      
+      if (response.data?.options && Array.isArray(response.data.options)) {
+        // Format: { type: "sections", options: [...] }
+        sectionList = response.data.options;
+      } else if (response.data?.results && Array.isArray(response.data.results)) {
+        // Alternative format with results array
+        sectionList = response.data.results;
+      } else if (Array.isArray(response.data)) {
+        // Direct array format
+        sectionList = response.data;
+      } else {
+        // Fallback: try to extract any array property
+        sectionList = [];
+        console.warn('Unexpected sections API response format:', response.data);
       }
+      
+      setSections(sectionList);
+      
+      // Auto-select first section if available
+      if (sectionList.length > 0) {
+        setSelectedSection(sectionList[0].id);
+      } else {
+        setSelectedSection('');
+        toast.info('No sections found for this class');
+      }
+      
     } catch (error) {
       console.error('Error fetching sections:', error);
+      setSections([]);
+      setSelectedSection('');
+      toast.error('Failed to load sections');
     }
   };
 
@@ -148,14 +180,25 @@ export default function AttendancePage() {
         allStudents = response.data;
       } else if (response.data && Array.isArray((response.data as any).results)) {
         allStudents = (response.data as any).results;
+      } else if (response.data && Array.isArray((response.data as any).data)) {
+        allStudents = (response.data as any).data;
       }
       
       const filtered = allStudents.filter((s: any) => {
-        const classMatch = !selectedClass || s.current_class === selectedClass;
-        const sectionMatch = !selectedSection || s.current_section === selectedSection;
-        return classMatch && sectionMatch && s.is_active === true;
-      });
-      
+  const studentClass =
+    s.current_class || s.class_id || s.class_ref;
+
+  const studentSection =
+    s.current_section || s.section_id || s.section_ref;
+
+  const classMatch =
+    !selectedClass || studentClass === selectedClass;
+
+  const sectionMatch =
+    !selectedSection || studentSection === selectedSection;
+
+  return classMatch && sectionMatch && s.is_active === true;
+});
       let existingAttendance: any[] = [];
       let hasExisting = false;
       try {
@@ -173,9 +216,10 @@ export default function AttendancePage() {
       }
       
       const studentsWithStatus: AttendanceStudent[] = filtered.map((student) => {
+        console.log("BACKEND RECORDS:", existingAttendance);
         const existing = matchAttendanceRecord(existingAttendance, student);
         const status = resolveStatusForMarking(existing, selectedDate);
-        const teacherMarked = Boolean(existing?.marked_by_id || existing?.marked_by_name);
+        const teacherMarked = Boolean(existing?.marked_by_id || existing?.marked_by_name || existing?.marked_by);
         return {
           id: student.id,
           student_id: student.student_id,
@@ -228,6 +272,11 @@ export default function AttendancePage() {
       return;
     }
 
+    if (!selectedClass || !selectedSection) {
+      toast.error('Please select both class and section');
+      return;
+    }
+
     setSaving(true);
     
     try {
@@ -238,6 +287,8 @@ export default function AttendancePage() {
         class_id: selectedClass,
         section_id: selectedSection
       }));
+      
+      console.log('Saving attendance records:', records);
       
       await attendanceService.bulkSave(records);
       
@@ -253,7 +304,7 @@ export default function AttendancePage() {
       
     } catch (error: any) {
       console.error('Error saving attendance:', error);
-      toast.error(error.response?.data?.error || 'Failed to save attendance');
+      toast.error(error.response?.data?.error || error.response?.data?.message || 'Failed to save attendance');
     } finally {
       setSaving(false);
     }
@@ -263,12 +314,13 @@ export default function AttendancePage() {
     setSelectedStudent(student);
     try {
       const response = await attendanceService.getStudentHistory(student.id);
-      setStudentHistory(response.data);
+      setStudentHistory(response.data || []);
       setShowHistoryModal(true);
     } catch (error) {
       console.error('Error fetching student history:', error);
       setStudentHistory([]);
       setShowHistoryModal(true);
+      toast.error('Failed to load attendance history');
     }
   };
 
@@ -302,7 +354,7 @@ export default function AttendancePage() {
         </div>
         <Button 
           onClick={saveAttendance} 
-          disabled={saving || students.length === 0}
+          disabled={saving || students.length === 0 || !selectedClass || !selectedSection}
           className="bg-green-600 hover:bg-green-700"
         >
           {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
@@ -637,8 +689,8 @@ export default function AttendancePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {studentHistory.map((record: any) => (
-                        <tr key={record.id || `${record.date}-${record.status}`} className="border-t">
+                      {studentHistory.map((record: any, index: number) => (
+                        <tr key={record.id || `${record.date}-${index}`} className="border-t">
                           <td className="p-2">{record.date}</td>
                           <td className="p-2">
                             <Badge
@@ -646,7 +698,7 @@ export default function AttendancePage() {
                                 record.status === 'present'
                                   ? 'success'
                                   : record.status === 'absent'
-                                    ? 'danger'
+                                    ? 'destructive'
                                     : record.status === 'holiday'
                                       ? 'secondary'
                                       : 'warning'

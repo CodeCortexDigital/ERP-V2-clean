@@ -6,7 +6,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { StudentAttendanceCalendar } from '@/components/calendar/StudentAttendanceCalendar';
 import { toast } from 'sonner';
 import studentService, { Student } from '@/services/student.service';
@@ -103,13 +103,16 @@ export default function StudentProfilePage() {
           sections.forEach((sec: Section) => {
             newSectionMap.set(sec.id, sec.name);
           });
-        } catch (e) {}
+        } catch (e) {
+          console.error(`Error loading sections for class ${cls.id}:`, e);
+        }
       }
       
       setClassMap(newClassMap);
       setSectionMap(newSectionMap);
     } catch (error) {
       console.error('Error loading class maps:', error);
+      toast.error('Failed to load class data');
     }
   };
 
@@ -167,6 +170,7 @@ export default function StudentProfilePage() {
   };
 
   const handleRemoveProfilePicture = async () => {
+    if (!id) return;
     try {
       await api.patch(`/auth/students/${id}/`, { profile_picture: null });
       setStudent(prev => prev ? { ...prev, profile_picture: null } : prev);
@@ -178,9 +182,10 @@ export default function StudentProfilePage() {
   };
 
   const fetchAttendance = async () => {
+    if (!id) return;
     try {
       const res = await attendanceService.getAttendance({ student_id: id });
-      let attendanceData = [];
+      let attendanceData: AttendanceRecord[] = [];
       if (Array.isArray(res.data)) {
         attendanceData = res.data;
       } else if (res.data?.results) {
@@ -190,6 +195,7 @@ export default function StudentProfilePage() {
     } catch (error) {
       console.error('Error fetching attendance:', error);
       setAttendance([]);
+      toast.error('Failed to load attendance data');
     }
   };
 
@@ -199,14 +205,15 @@ export default function StudentProfilePage() {
       let allResults: ResultRecord[] = [];
       if (Array.isArray(res.data)) {
         allResults = res.data;
-      } else if ((res.data as any)?.results) {
-        allResults = (res.data as any).results;
+      } else if (res.data?.results) {
+        allResults = res.data.results;
       }
       const studentResults = allResults.filter((r: ResultRecord) => r.student === id);
       setResults(studentResults);
     } catch (error) {
       console.error('Error fetching results:', error);
       setResults([]);
+      toast.error('Failed to load exam results');
     }
   };
 
@@ -270,12 +277,17 @@ export default function StudentProfilePage() {
   const passedExams = results.filter(r => r.is_pass === true).length;
   const displayClassName = student.resolved_class_name || student.current_class_name || 'Not Assigned';
   const displaySectionName = student.resolved_section_name || student.current_section_name || '';
+
   return (
     <div className="space-y-6">
       {/* Header with Profile Picture */}
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/education/students')} className="text-gray-500 hover:text-gray-700">
+          <button 
+            onClick={() => navigate('/education/students')} 
+            className="text-gray-500 hover:text-gray-700 transition-colors"
+            aria-label="Go back"
+          >
             <ArrowLeft className="w-5 h-5" />
           </button>
           
@@ -332,37 +344,72 @@ export default function StudentProfilePage() {
             <p className="text-gray-500">{student.student_id}</p>
           </div>
         </div>
+        
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/education/students/${id}/edit`)}><Edit2 className="w-4 h-4 mr-2" /> Edit</Button><button onClick={async () => { const pdfService = await import("@/services/pdf.service"); pdfService.default.downloadResultCard(id); }} className="ml-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">📄 Download Result Card</button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/education/students/${id}/edit`)}
+          >
+            <Edit2 className="w-4 h-4 mr-2" /> 
+            Edit
+          </Button>
+          
+          <button 
+            onClick={async () => { 
+              const pdfService = await import("@/services/pdf.service"); 
+              pdfService.default.downloadResultCard(id); 
+            }} 
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+          >
+            📄 Download Result Card
+          </button>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-blue-50 rounded-xl p-4">
-          <div className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /></div>
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-blue-600" />
+          </div>
           <p className="text-2xl font-bold text-blue-700">{displayClassName}</p>
           <p className="text-xs text-gray-600">Current Class</p>
-          {displaySectionName && <p className="text-xs text-gray-500 mt-1">Section: {displaySectionName}</p>}
+          {displaySectionName && (
+            <p className="text-xs text-gray-500 mt-1">Section: {displaySectionName}</p>
+          )}
         </div>
+        
         <div className="bg-green-50 rounded-xl p-4">
-          <div className="flex items-center gap-2"><Award className="w-5 h-5 text-green-600" /></div>
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-green-600" />
+          </div>
           <p className="text-2xl font-bold text-green-700">{attendanceRate}%</p>
           <p className="text-xs text-gray-600">Attendance Rate</p>
         </div>
+        
         <div className="bg-purple-50 rounded-xl p-4">
-          <div className="flex items-center gap-2"><Award className="w-5 h-5 text-purple-600" /></div>
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-purple-600" />
+          </div>
           <p className="text-2xl font-bold text-purple-700">{examsTaken}</p>
           <p className="text-xs text-gray-600">Exams Taken</p>
         </div>
+        
         <div className="bg-yellow-50 rounded-xl p-4">
-          <div className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-yellow-600" /></div>
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-yellow-600" />
+          </div>
           <p className="text-2xl font-bold text-yellow-700">${finance?.balance_due || 0}</p>
           <p className="text-xs text-gray-600">Balance Due</p>
         </div>
+        
         <div className="bg-emerald-50 rounded-xl p-4">
-          <div className="flex items-center gap-2"><User className="w-5 h-5 text-emerald-600" /></div>
-          <Badge variant={student.is_active ? 'success' : 'secondary'}>{student.is_active ? 'Active' : 'Inactive'}</Badge>
+          <div className="flex items-center gap-2">
+            <User className="w-5 h-5 text-emerald-600" />
+          </div>
+          <Badge variant={student.is_active ? 'success' : 'secondary'}>
+            {student.is_active ? 'Active' : 'Inactive'}
+          </Badge>
           <p className="text-xs text-gray-600 mt-2">Status</p>
         </div>
       </div>
@@ -377,27 +424,83 @@ export default function StudentProfilePage() {
 
         <TabsContent value="info">
           <Card>
-            <CardHeader><CardTitle>Personal Information</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Personal Information</CardTitle>
+            </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-sm text-gray-500">Full Name</label><p className="font-medium">{student.full_name}</p></div>
-                <div><label className="text-sm text-gray-500">Student ID</label><p className="font-mono">{student.student_id}</p></div>
-                <div><label className="text-sm text-gray-500">Date of Birth</label><p>{student.date_of_birth ? formatDate(student.date_of_birth) : 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Gender</label><p>{student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Email</label><p>{student.email || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Phone</label><p>{student.phone || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Father's Name</label><p>{student.father_name || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Mother's Name</label><p>{student.mother_name || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Guardian Name</label><p>{student.guardian_name || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Guardian Phone</label><p>{student.guardian_phone || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Emergency Contact</label><p>{student.emergency_contact || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Admission Date</label><p>{student.admission_date ? formatDate(student.admission_date) : 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Current Class</label><p>{displayClassName}</p></div>
-                <div><label className="text-sm text-gray-500">Current Section</label><p>{displaySectionName || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Street Address</label><p>{student.address || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">City</label><p>{student.city || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">State</label><p>{student.state || 'N/A'}</p></div>
-                <div><label className="text-sm text-gray-500">Postal Code</label><p>{student.postal_code || 'N/A'}</p></div>
+                <div>
+                  <label className="text-sm text-gray-500">Full Name</label>
+                  <p className="font-medium">{student.full_name}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Student ID</label>
+                  <p className="font-mono">{student.student_id}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Date of Birth</label>
+                  <p>{student.date_of_birth ? formatDate(student.date_of_birth) : 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Gender</label>
+                  <p>{student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Email</label>
+                  <p>{student.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Phone</label>
+                  <p>{student.phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Father's Name</label>
+                  <p>{student.father_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Mother's Name</label>
+                  <p>{student.mother_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Guardian Name</label>
+                  <p>{student.guardian_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Guardian Phone</label>
+                  <p>{student.guardian_phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Emergency Contact</label>
+                  <p>{student.emergency_contact || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Admission Date</label>
+                  <p>{student.admission_date ? formatDate(student.admission_date) : 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Current Class</label>
+                  <p>{displayClassName}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Current Section</label>
+                  <p>{displaySectionName || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Street Address</label>
+                  <p>{student.address || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">City</label>
+                  <p>{student.city || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">State</label>
+                  <p>{student.state || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Postal Code</label>
+                  <p>{student.postal_code || 'N/A'}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -405,8 +508,11 @@ export default function StudentProfilePage() {
 
         <TabsContent value="attendance">
           <Card>
-            <CardHeader><CardTitle>Attendance Records</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Attendance Records</CardTitle>
+            </CardHeader>
             <CardContent>
+              {/* Attendance Summary Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 <div className="bg-gray-50 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-gray-700">{attendance.length}</p>
@@ -426,28 +532,52 @@ export default function StudentProfilePage() {
                 </div>
               </div>
 
+              {/* Calendar View */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4">Attendance Calendar</h3>
+                <StudentAttendanceCalendar 
+                  studentId={student.id} 
+                  studentName={student.full_name} 
+                />
+              </div>
+
+              {/* Detailed Records Table */}
               {attendance.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">No attendance records found</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr><th className="p-2 text-left">Date</th><th className="p-2 text-left">Status</th></tr>
-                    </thead>
-                    <tbody>
-                      {attendance.slice(0, 50).map((record, idx) => (
-                        <tr key={idx} className="border-t">
-                          <td className="p-2">{record.date}</td>
-                          <td className="p-2">
-                            <Badge variant={record.status === 'present' ? 'success' : record.status === 'late' ? 'warning' : 'destructive'}>
-                              {record.status === 'present' ? 'Present' : record.status === 'late' ? 'Late' : 'Absent'}
-                            </Badge>
-                          </td>
+                <>
+                  <h3 className="text-lg font-semibold mb-4">Detailed Records</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="p-2 text-left">Date</th>
+                          <th className="p-2 text-left">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {attendance.slice(0, 50).map((record, idx) => (
+                          <tr key={idx} className="border-t">
+                            <td className="p-2">{record.date}</td>
+                            <td className="p-2">
+                              <Badge 
+                                variant={
+                                  record.status === 'present' ? 'success' : 
+                                  record.status === 'late' ? 'warning' : 
+                                  'destructive'
+                                }
+                              >
+                                {record.status === 'present' ? 'Present' : 
+                                 record.status === 'late' ? 'Late' : 
+                                 'Absent'}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -455,7 +585,9 @@ export default function StudentProfilePage() {
 
         <TabsContent value="results">
           <Card>
-            <CardHeader><CardTitle>Exam Results</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Exam Results</CardTitle>
+            </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
                 <div className="bg-gray-50 rounded-lg p-3 text-center">
@@ -478,7 +610,13 @@ export default function StudentProfilePage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
-                      <tr><th className="p-2">Exam</th><th className="p-2">Subject</th><th className="p-2">Marks</th><th className="p-2">Percentage</th><th className="p-2">Grade</th></tr>
+                      <tr>
+                        <th className="p-2 text-left">Exam</th>
+                        <th className="p-2 text-left">Subject</th>
+                        <th className="p-2 text-left">Marks</th>
+                        <th className="p-2 text-left">Percentage</th>
+                        <th className="p-2 text-left">Grade</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {results.map((result, idx) => (
@@ -488,7 +626,9 @@ export default function StudentProfilePage() {
                           <td className="p-2">{result.obtained_marks} / {result.total_marks || 100}</td>
                           <td className="p-2">{result.percentage}%</td>
                           <td className="p-2">
-                            <Badge variant={result.is_pass ? 'success' : 'destructive'}>{result.grade || 'N/A'}</Badge>
+                            <Badge variant={result.is_pass ? 'success' : 'destructive'}>
+                              {result.grade || 'N/A'}
+                            </Badge>
                           </td>
                         </tr>
                       ))}
@@ -499,16 +639,7 @@ export default function StudentProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
-              <TabsContent value="attendance">          <StudentAttendanceCalendar studentId={student.id} studentName={student.full_name} />        </TabsContent></Tabs>
+      </Tabs>
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
