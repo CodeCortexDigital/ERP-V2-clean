@@ -379,20 +379,43 @@ export default function FinancePage() {
 
   // Payment CRUD
   const handleRecordPayment = async () => {
-    if (!paymentFormData.invoice_id || !paymentFormData.amount) {
-      toast.error('Please select invoice and enter amount');
-      return;
-    }
-    try {
-      await financeService.createPayment(paymentFormData);
-      toast.success('Payment recorded');
-      setShowForm(false);
-      setPaymentFormData({ invoice_id: '', amount: '', payment_method: 'cash', transaction_id: '', notes: '' });
-      fetchAllData();
-    } catch (error) {
-      toast.error('Failed to record payment');
-    }
-  };
+  if (!paymentFormData.invoice_id || !paymentFormData.amount) {
+    toast.error('Please select invoice and enter amount');
+    return;
+  }
+
+  try {
+    // Create payment
+    await financeService.createPayment(paymentFormData);
+
+    // Refresh payment list immediately
+    const paymentRes = await financeService.getPayments();
+    setPayments(extractListData(paymentRes.data));
+
+    // Refresh invoices so paid amount updates instantly
+    await fetchInvoices(invoiceFilters);
+
+    // Refresh summary dashboard
+    const summaryRes = await financeService.getSummary();
+    setSummary(summaryRes.data);
+
+    toast.success('Payment recorded successfully');
+
+    setShowForm(false);
+
+    setPaymentFormData({
+      invoice_id: '',
+      amount: '',
+      payment_method: 'cash',
+      transaction_id: '',
+      notes: ''
+    });
+
+  } catch (error) {
+    console.error('Payment error:', error);
+    toast.error('Failed to record payment');
+  }
+};
 
   const handleDeletePayment = async (id) => {
     if (!confirm('Delete this payment record?')) return;
