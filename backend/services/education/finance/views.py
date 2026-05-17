@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from django.db.models import Sum, Q, Count, Avg
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from services.education.students.models import Student
 from .models import (
     FeeStructure,
     Invoice,
@@ -52,26 +53,36 @@ from .payments import (
 Student = apps.get_model('education_students', 'Student')
 SchoolClass = apps.get_model('education_academics', 'SchoolClass')
 
-
 class FeeStructureListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = FeeStructureSerializer
-    
+
     def get_queryset(self):
-        queryset = FeeStructure.objects.select_related('class_ref', 'section')
+        queryset = FeeStructure.objects.select_related(
+            'class_ref',
+            'section'
+        )
+
         class_id = self.request.query_params.get('class_id')
         if class_id:
-            queryset = queryset.filter(class_ref_id=class_id)
-        
+            queryset = queryset.filter(
+                class_ref_id=class_id
+            )
+
         search = self.request.query_params.get('search')
         if search:
             queryset = queryset.filter(
                 Q(fee_name__icontains=search) |
                 Q(class_ref__name__icontains=search)
             )
-        
+
         return queryset.order_by('-created_at')
 
+    def perform_create(self, serializer):
+        serializer.save(
+            received_by=self.request.user
+        )
+        
 
 class FeeStructureDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -85,35 +96,48 @@ class FeeStructureDetailView(generics.RetrieveUpdateDestroyAPIView):
         # Add any business logic for fee structure updates here
         return super().update(request, *args, **kwargs)
 
-
 class InvoiceListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = InvoiceSerializer
-    
+
     def get_queryset(self):
-        queryset = Invoice.objects.select_related('student', 'fee_structure')
-        
+        queryset = Invoice.objects.select_related(
+            'student',
+            'fee_structure'
+        )
+
         # Status filters
         status = self.request.query_params.get('status')
         if status:
             if status == 'overdue':
-                queryset = queryset.filter(due_date__lt=timezone.now().date(), status__in=['issued', 'overdue'])
+                queryset = queryset.filter(
+                    due_date__lt=timezone.now().date(),
+                    status__in=['issued', 'overdue']
+                )
             else:
                 queryset = queryset.filter(status=status)
-        
+
         # Class filter
         class_id = self.request.query_params.get('class_id')
         if class_id:
-            queryset = queryset.filter(student__class_id=class_id)
-        
-        # Date range filters
+            queryset = queryset.filter(
+                student__class_id=class_id
+            )
+
+        # Date filters
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
+
         if start_date:
-            queryset = queryset.filter(due_date__gte=start_date)
+            queryset = queryset.filter(
+                due_date__gte=start_date
+            )
+
         if end_date:
-            queryset = queryset.filter(due_date__lte=end_date)
-        
+            queryset = queryset.filter(
+                due_date__lte=end_date
+            )
+
         # Search
         search = self.request.query_params.get('search')
         if search:
@@ -122,8 +146,16 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
                 Q(student__full_name__icontains=search) |
                 Q(student__student_id__icontains=search)
             )
-        
+
         return queryset.order_by('-due_date')
+
+    def perform_create(self, serializer):
+        student_id = self.request.data.get("student")
+        student = Student.objects.get(id=student_id)
+
+        serializer.save(
+            tenant=student.tenant
+        )
 
 
 class InvoiceDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -148,37 +180,45 @@ class InvoiceDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         return response
 
-
 class PaymentListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PaymentSerializer
-    
+
     def get_queryset(self):
-        queryset = Payment.objects.select_related('invoice__student')
-        
+        queryset = Payment.objects.select_related(
+            'invoice__student'
+        )
+
         invoice_id = self.request.query_params.get('invoice')
         if invoice_id:
-            queryset = queryset.filter(invoice_id=invoice_id)
-        
-        # Date range filters
+            queryset = queryset.filter(
+                invoice_id=invoice_id
+            )
+
         start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
         if start_date:
-            queryset = queryset.filter(payment_date__gte=start_date)
+            queryset = queryset.filter(
+                payment_date__gte=start_date
+            )
+
+        end_date = self.request.query_params.get('end_date')
         if end_date:
-            queryset = queryset.filter(payment_date__lte=end_date)
-        
-        # Payment method filter
+            queryset = queryset.filter(
+                payment_date__lte=end_date
+            )
+
         payment_method = self.request.query_params.get('payment_method')
         if payment_method:
-            queryset = queryset.filter(payment_method=payment_method)
-        
-        return queryset.order_by('-payment_date')
-    
-    def perform_create(self, serializer):
-        """Automatically set received_by to current user"""
-        serializer.save(received_by=self.request.user)
+            queryset = queryset.filter(
+                payment_method=payment_method
+            )
 
+        return queryset.order_by('-payment_date')
+
+    def perform_create(self, serializer):
+        serializer.save(
+            received_by=self.request.user
+        )
 
 class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -291,12 +331,18 @@ class TransactionLogListView(generics.ListAPIView):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def finance_summary(request):
-    """Get finance summary for dashboard"""
+    """Get finance summary for dashboard using correct balance calculation"""
     total_invoices = Invoice.objects.count()
     total_amount = Invoice.objects.aggregate(total=Sum('amount'))['total'] or 0
+    
+    # FIXED: Use sum of balance_due property instead of simple subtraction
+    # This properly accounts for discounts and late fees
+    all_invoices = Invoice.objects.all()
+    balance_due = sum(invoice.balance_due for invoice in all_invoices)
+    
     total_paid = Invoice.objects.aggregate(total=Sum('paid_amount'))['total'] or 0
-    balance_due = total_amount - total_paid
     collection_rate = round((total_paid / total_amount * 100), 1) if total_amount > 0 else 0
+    
     return Response({
         'total_invoices': total_invoices,
         'total_amount': float(total_amount),
@@ -304,6 +350,7 @@ def finance_summary(request):
         'balance_due': float(balance_due),
         'collection_rate': collection_rate,
     })
+
 class PaymentGatewayConfigListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = PaymentGatewayConfig.objects.all()

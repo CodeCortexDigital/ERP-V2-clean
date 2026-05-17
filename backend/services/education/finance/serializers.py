@@ -66,6 +66,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
     installment_plan_name = serializers.CharField(source='installment_plan.name', read_only=True)
     scholarship_name = serializers.CharField(source='scholarship.scholarship.name', read_only=True)
     total_amount = serializers.ReadOnlyField()
+    balance_due = serializers.ReadOnlyField()
     
     class Meta:
         model = Invoice
@@ -81,6 +82,30 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = '__all__'
         read_only_fields = ('payment_date', 'received_by')
+    
+    def validate(self, attrs):
+        """Validate payment amount against remaining balance"""
+        invoice = attrs.get('invoice')
+        amount = attrs.get('amount')
+        
+        # Skip validation if no invoice or amount
+        if not invoice or not amount:
+            return attrs
+        
+        # Use the invoice's balance_due property (accounts for discounts & late fees)
+        remaining_balance = invoice.balance_due
+        
+        if amount > remaining_balance:
+            raise serializers.ValidationError({
+                'amount': f'Payment amount (${amount}) exceeds remaining balance (${remaining_balance}). Please enter a valid amount.'
+            })
+        
+        if amount <= 0:
+            raise serializers.ValidationError({
+                'amount': 'Payment amount must be greater than zero.'
+            })
+        
+        return attrs
 
 
 class PaymentGatewayConfigSerializer(serializers.ModelSerializer):

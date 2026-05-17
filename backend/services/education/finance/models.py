@@ -43,7 +43,7 @@ class Invoice(SoftDeleteModel):
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    invoice_number = models.CharField(max_length=50, unique=True, editable=False)
+    invoice_number = models.CharField(max_length=50, unique=True, blank=True, editable=False)
     student = models.ForeignKey(
         'education_students.Student',
         on_delete=models.CASCADE,
@@ -77,15 +77,10 @@ class Invoice(SoftDeleteModel):
         ]
 
     def save(self, *args, **kwargs):
+        """Generate invoice number if not exists"""
         if not self.invoice_number:
-            year = timezone.now().year
-            last_invoice = Invoice.objects.filter(invoice_number__startswith=f'INV-{year}').order_by('-invoice_number').first()
-            if last_invoice:
-                last_num = int(last_invoice.invoice_number.split('-')[-1])
-                new_num = last_num + 1
-            else:
-                new_num = 1
-            self.invoice_number = f'INV-{year}-{str(new_num).zfill(4)}'
+            # Generate unique invoice number using UUID
+            self.invoice_number = f"INV-{uuid.uuid4().hex[:8].upper()}"
         
         # Calculate late fees if overdue
         if self.due_date < timezone.now().date() and self.status not in ['paid', 'cancelled']:
@@ -95,7 +90,10 @@ class Invoice(SoftDeleteModel):
     
     @property
     def balance_due(self):
-        return (self.amount - self.discount_amount + self.late_fee_amount) - self.paid_amount
+        """Calculate correct balance due including discounts and late fees"""
+        total_due = self.amount - self.discount_amount + self.late_fee_amount
+        balance = total_due - self.paid_amount
+        return max(balance, 0)  # Never return negative
     
     @property
     def total_amount(self):
@@ -167,9 +165,20 @@ class Invoice(SoftDeleteModel):
         for i in range(1, plan.number_of_installments + 1):
             due_date = self.due_date
             if plan.frequency == 'monthly':
-                due_date = self.due_date.replace(month=self.due_date.month + i - 1)
+                # Handle month overflow
+                month = self.due_date.month + i - 1
+                year = self.due_date.year
+                while month > 12:
+                    month -= 12
+                    year += 1
+                due_date = self.due_date.replace(year=year, month=month)
             elif plan.frequency == 'quarterly':
-                due_date = self.due_date.replace(month=self.due_date.month + (i-1)*3)
+                month = self.due_date.month + (i-1)*3
+                year = self.due_date.year
+                while month > 12:
+                    month -= 12
+                    year += 1
+                due_date = self.due_date.replace(year=year, month=month)
             elif plan.frequency == 'yearly':
                 due_date = self.due_date.replace(year=self.due_date.year + i - 1)
             
@@ -212,14 +221,36 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def save(self, *args, **kwargs):
+        # Validate amount is positive
+        if self.amount <= 0:
+            raise ValueError(f"Payment amount (${self.amount}) must be greater than zero.")
+        
+        # Validate overpayment before saving
+        if self.invoice:
+            # Use the correct balance_due property that accounts for discounts & late fees
+            remaining_balance = self.invoice.balance_due
+            
+            if self.amount > remaining_balance:
+                raise ValueError(
+                    f"Payment amount (${self.amount}) exceeds remaining balance (${remaining_balance}). "
+                    f"Please enter a valid amount."
+                )
+        
         super().save(*args, **kwargs)
-        # Update invoice paid amount
-        total_paid = self.invoice.payments.aggregate(total=models.Sum('amount'))['total'] or 0
+        
+        # Update invoice paid amount using correct total_amount
+        from django.db.models import Sum
+        total_paid = self.invoice.payments.aggregate(total=Sum('amount'))['total'] or 0
         self.invoice.paid_amount = total_paid
-        if total_paid >= self.invoice.amount:
+        
+        # Update invoice status based on correct total_amount
+        if total_paid >= self.invoice.total_amount:
             self.invoice.status = 'paid'
         elif total_paid > 0:
             self.invoice.status = 'issued'
+        else:
+            self.invoice.status = 'issued'
+        
         self.invoice.save()
     
     def __str__(self):

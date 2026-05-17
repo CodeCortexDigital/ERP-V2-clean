@@ -1,0 +1,22 @@
+
+Traceback (most recent call last):
+[1] Logging in...
+
+===== LOGIN =====
+{
+  "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc5MTAwMTE5LCJpYXQiOjE3NzkwMTM3MTksImp0aSI6IjM5MDhjOTM5NGFhNzQxZjk4MzkxMWM1MjUyZTI3ZWJhIiwidXNlcl9pZCI6IjZjYWQ5NTU0LTc1NDMtNGZjOC1hOTkyLTcyNjBhMTU2ZjE2MyJ9.VhupvdLvqlMLG2G963MAlXz7kGIaP3HnJ0uNepWkGPA",
+  "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3OTYxODUxOSwiaWF0IjoxNzc5MDEzNzE5LCJqdGkiOiJjYjBkODQ5ZTk0Y2I0MzdlOGFhYmM5MmIzNThjZjcxMiIsInVzZXJfaWQiOiI2Y2FkOTU1NC03NTQzLTRmYzgtYTk5Mi03MjYwYTE1NmYxNjMifQ.rE_vaRgfdF7ZyNdWCgT5qsl3RCp-s6K5Vl5qkRVnInU",
+  "user": {
+    "id": "6cad9554-7543-4fc8-a992-7260a156f163",
+    "email": "admin@code.com",
+    "full_name": "admin",
+    "is_staff": true,
+    "is_superuser": true
+  }
+}
+
+[2] Fetching students...
+  File "D:\Code Cortex\03_Projects\Current\8_ERP-V2-clean\backend\finance_audit.py", line 54, in <module>
+    student_id = student["id"]
+                 ^^^^^^^
+NameError: name 'student' is not defined
