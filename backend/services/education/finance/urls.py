@@ -53,5 +53,9 @@ urlpatterns = [
     path('communication/confirmation/<str:payment_id>/', views.send_payment_confirmation, name='send-payment-confirmation'),
     path('communication/defaulter-notice/<str:invoice_id>/', views.send_defaulter_notice, name='send-defaulter-notice'),
     path('communication/defaulter-whatsapp/<str:invoice_id>/', views.send_defaulter_whatsapp_notice, name='send-defaulter-whatsapp-notice'),
+    
     path('communication/bulk-reminders/', views.bulk_send_reminders, name='bulk-send-reminders'),
 ]
+
+
+# BULK_ROUTE_LOADED

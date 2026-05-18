@@ -84,7 +84,38 @@
         </div>
     </div>
 
-    {% if payments %}
+    
+{% if previous_invoices %}
+<h3>Previous Fee History</h3>
+
+<table class="payments-table">
+    <thead>
+        <tr>
+            <th>Invoice</th>
+            <th>Month</th>
+            <th>Amount</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for old_invoice in previous_invoices %}
+        <tr>
+            <td>{{ old_invoice.invoice_number }}</td>
+            <td>{{ old_invoice.issue_date|date:"M Y" }}</td>
+            <td>${{ old_invoice.amount }}</td>
+            <td>${{ old_invoice.paid_amount }}</td>
+            <td>${{ old_invoice.balance_due }}</td>
+            <td>{{ old_invoice.get_status_display }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<br>
+{% endif %}
+
+{% if payments %}
     <h3>Payment History</h3>
     <table class="payments-table">
         <thead>

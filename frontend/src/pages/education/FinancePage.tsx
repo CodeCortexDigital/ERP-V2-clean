@@ -765,15 +765,57 @@ export default function FinancePage() {
     }
   };
 
-  const handleBulkSendReminders = async () => {
-    const overdueInvoices = invoices.filter(inv => inv.status === 'overdue').map(inv => inv.id);
+  
+const openInvoiceReceipt = async (invoiceId: string) => {
+  try {
+    const response = await financeService.getInvoiceReceipt(invoiceId);
+
+    const printWindow = window.open('', '_blank');
+
+    if (printWindow) {
+      printWindow.document.write(response.data.html_content);
+      printWindow.document.close();
+    }
+  } catch (error) {
+    console.error('Invoice receipt open failed:', error);
+  }
+};
+
+const openPaymentReceipt = async (paymentId: string) => {
+  try {
+    const response = await financeService.getPaymentReceipt(paymentId);
+
+    const printWindow = window.open('', '_blank');
+
+    if (printWindow) {
+      printWindow.document.write(response.data.html_content);
+      printWindow.document.close();
+    }
+  } catch (error) {
+    console.error('Payment receipt open failed:', error);
+  }
+};
+
+const handleBulkSendReminders = async () => {
+    const overdueInvoices =
+      defaulterStats.defaulters?.map((d) => d.invoice_id) || [];
+
     if (overdueInvoices.length === 0) {
       toast.error('No overdue invoices found');
       return;
     }
+
     try {
-      await financeService.bulkSendReminders({ invoice_ids: overdueInvoices });
-      toast.success(`Reminders sent to {overdueInvoices.length} students`);
+      await financeService.bulkSendReminders({
+        invoice_ids: overdueInvoices,
+      });
+
+      toast.success(
+        `Reminders sent to ${overdueInvoices.length} students`
+      );
+
+      fetchAllData();
+
     } catch (error) {
       toast.error('Failed to send bulk reminders');
     }
@@ -1087,6 +1129,10 @@ export default function FinancePage() {
                       <td className="p-3">{getStatusBadge(inv.status)}</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-1 justify-center">
+                          <button onClick={() => openInvoiceReceipt(inv.id)} className="p-1 text-indigo-600 hover:bg-indigo-100 rounded" title="Receipt">
+                            <Receipt className="w-4 h-4" />
+                          </button>
+
                           <button onClick={() => handleGenerateInvoicePDF(inv.id)} className="p-1 text-purple-600 hover:bg-purple-100 rounded" title="Download PDF">
                             <FileDown className="w-4 h-4" />
                           </button>
@@ -1163,6 +1209,10 @@ export default function FinancePage() {
                       <td className="p-3">{getPaymentMethodBadge(payment.payment_method)}</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-1 justify-center">
+                          <button onClick={() => openPaymentReceipt(payment.id)} className="p-1 text-indigo-600 hover:bg-indigo-100 rounded" title="Receipt">
+                            <Receipt className="w-4 h-4" />
+                          </button>
+
                           <button onClick={() => handleSendPaymentConfirmation(payment.id)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Send Confirmation">
                             <Mail className="w-4 h-4" />
                           </button>

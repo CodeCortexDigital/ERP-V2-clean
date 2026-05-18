@@ -126,7 +126,7 @@ const financeService = {
   sendPaymentConfirmation: (paymentId: string) => api.post(`/auth/finance/communication/confirmation/${paymentId}/`),
   sendDefaulterNotice: (invoiceId: string) => api.post(`/auth/finance/communication/defaulter-notice/${invoiceId}/`),
   sendDefaulterWhatsAppNotice: (invoiceId: string) => api.post(`/auth/finance/communication/defaulter-whatsapp/${invoiceId}/`),
-  bulkSendReminders: (data: any) => api.post('/auth/finance/communication/bulk-reminders/', data),
+  bulkSendReminders: (data: any) => api.post('/v1/auth/finance/communication/bulk-reminders/', data),
 };
 
 export default financeService;

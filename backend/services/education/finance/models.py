@@ -247,7 +247,7 @@ class Payment(models.Model):
         if total_paid >= self.invoice.total_amount:
             self.invoice.status = 'paid'
         elif total_paid > 0:
-            self.invoice.status = 'issued'
+            self.invoice.status = 'partial'
         else:
             self.invoice.status = 'issued'
         
