@@ -1103,7 +1103,8 @@ const handleBulkSendReminders = async () => {
                   <th className="p-3 text-left">Student</th>
                   <th className="p-3 text-left">Class</th>
                   <th className="p-3 text-left">Amount</th>
-                  <th className="p-3 text-left">Remaining</th>
+                  <th className="p-3 text-left">Late Fee</th>
+                  <th className="p-3 text-left">Net Payable</th>
                   <th className="p-3 text-left">Paid</th>
                   <th className="p-3 text-left">Due Date</th>
                   <th className="p-3 text-left">Status</th>
@@ -1121,10 +1122,22 @@ const handleBulkSendReminders = async () => {
                       <td className="p-3">{inv.student_name}</td>
                       <td className="p-3">{inv.class_name || inv.student_class || "-"}</td>
                       <td className="p-3">{inv.amount}</td>
-                      <td className="p-3 font-semibold text-red-600">
-                        {(Number(inv.amount) - Number(inv.paid_amount || 0)).toFixed(2)}
+
+                      <td className="p-3 text-orange-600 font-semibold">
+                        {Number(inv.late_fee_amount || 0).toFixed(2)}
                       </td>
-                      <td className="p-3">{inv.paid_amount || 0}</td>
+
+                      <td className="p-3 font-semibold text-red-600">
+                        {(
+                          Number(inv.amount || 0) +
+                          Number(inv.late_fee_amount || 0) -
+                          Number(inv.paid_amount || 0)
+                        ).toFixed(2)}
+                      </td>
+
+                      <td className="p-3">
+                        {Number(inv.paid_amount || 0).toFixed(2)}
+                      </td>
                       <td className="p-3">{inv.due_date}</td>
                       <td className="p-3">{getStatusBadge(inv.status)}</td>
                       <td className="p-3 text-center">
