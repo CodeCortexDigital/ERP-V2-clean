@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -18,6 +18,7 @@ from .models import (
     TransactionLog,
     PaymentGatewayConfig,
     PaymentTransaction,
+    FinanceSettings,
 )
 from .serializers import (
     FeeStructureSerializer,
@@ -28,6 +29,7 @@ from .serializers import (
     StudentScholarshipSerializer,
     LateFeeRuleSerializer,
     TransactionLogSerializer,
+    FinanceSettingsSerializer,
     PaymentGatewayConfigSerializer,
     PaymentTransactionSerializer,
 )
@@ -1186,7 +1188,10 @@ def financial_forecast(request):
         last_value = monthly_revenue[-1]
         
         for i in range(months_ahead):
-            forecast_value = last_value * 1.05  # 5% growth assumption
+            forecast_value = max(
+                last_value,
+                avg_growth
+            )
             forecast.append({
                 'month': (end_date + timedelta(days=30*(i+1))).strftime('%Y-%m'),
                 'forecasted_revenue': round(forecast_value, 2)
@@ -1216,7 +1221,19 @@ def create_installment_invoice(request, invoice_id):
             return Response({'error': 'This is already an installment invoice'}, status=400)
         
         invoice.create_installments()
-        
+
+        # Immediately sync overdue child installments with defaulter logic
+        child_installments = Invoice.objects.filter(
+            parent_invoice=invoice,
+            due_date__lt=timezone.now().date(),
+            status__in=['issued', 'partial']
+        )
+
+        if child_installments.exists():
+            child_installments.update(status='overdue')
+            invoice.status = 'overdue'
+            invoice.save(update_fields=['status'])
+
         return Response({'message': 'Installment invoices created successfully'})
     except Invoice.DoesNotExist:
         return Response({'error': 'Invoice not found'}, status=404)
@@ -1523,3 +1540,14 @@ def bulk_send_reminders(request):
         "message": "Bulk reminders processed successfully",
         "count": len(invoice_ids)
     })
+
+
+class FinanceSettingsView(generics.RetrieveUpdateAPIView):
+    serializer_class = FinanceSettingsSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        obj, _ = FinanceSettings.objects.get_or_create(
+            id='00000000-0000-0000-0000-000000000001'
+        )
+        return obj

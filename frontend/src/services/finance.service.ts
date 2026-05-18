@@ -112,6 +112,11 @@ const financeService = {
   getClassWiseCollection: (params?: any) => api.get('/auth/finance/analytics/class-collection/', { params }),
   getFinancialForecast: (params?: any) => api.get('/auth/finance/analytics/forecast/', { params }),
 
+
+  // Finance Settings
+  getSettings: () => api.get('/auth/finance/settings/'),
+  updateSettings: (data: any) => api.put('/auth/finance/settings/', data),
+
   // Actions
   createInstallmentInvoice: (invoiceId: string) => api.post(`/auth/finance/invoices/${invoiceId}/create-installments/`),
   applyScholarshipToInvoice: (invoiceId: string, data: any) => api.post(`/auth/finance/invoices/${invoiceId}/apply-scholarship/`, data),

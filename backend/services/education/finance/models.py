@@ -26,14 +26,6 @@ class FeeStructure(models.Model):
 
 
 class Invoice(SoftDeleteModel):
-    tenant = models.ForeignKey(
-        'core_tenants.School',
-        on_delete=models.CASCADE,
-        related_name='invoices',
-        null=True,
-        blank=True,
-        db_index=True,
-    )
     STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('issued', 'Issued'),
@@ -440,3 +432,48 @@ class TransactionLog(models.Model):
             models.Index(fields=['model_name', 'object_id']),
             models.Index(fields=['user', 'timestamp']),
         ]
+
+
+
+
+class FinanceSettings(models.Model):
+    """Tenant-level finance system settings"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    school_name = models.CharField(max_length=255, default='School Management System')
+    grace_period_days = models.PositiveIntegerField(default=7)
+
+    auto_send_reminders = models.CharField(
+        max_length=30,
+        choices=[
+            ('disabled', 'Disabled'),
+            ('7_days_before', '7 Days Before'),
+            ('3_days_before', '3 Days Before'),
+            ('on_due_date', 'On Due Date'),
+        ],
+        default='disabled'
+    )
+
+    default_late_fee = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=2.50
+    )
+
+    academic_year = models.CharField(
+        max_length=20,
+        default='2026-2027'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.school_name} Settings"
+    
+
+
+    

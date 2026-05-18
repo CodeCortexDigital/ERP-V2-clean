@@ -41,6 +41,13 @@ export default function FinancePage() {
   });
   const [classCollection, setClassCollection] = useState<any[]>([]);
   const [forecast, setForecast] = useState<any[]>([]);
+  const [financeSettings, setFinanceSettings] = useState({
+    school_name: '',
+    grace_period_days: 7,
+    auto_send_reminders: 'disabled',
+    default_late_fee: 2.5,
+    academic_year: '2026-2027'
+  });
 
   const defaulterStats = defaulters ?? {
     total_defaulters: 0,
@@ -142,6 +149,7 @@ export default function FinancePage() {
         financeService.getDefaulterReport(),
         financeService.getClassWiseCollection(),
         financeService.getFinancialForecast(),
+        financeService.getSettings(),
       ]);
 
       const pick = <T,>(index: number): T | undefined =>
@@ -166,6 +174,8 @@ export default function FinancePage() {
       );
       setClassCollection(extractListData(pick(10)));
       const forecastData = pick<{ forecast?: unknown[] }>(11);
+      const settingsData = pick<any>(12);
+      if (settingsData) setFinanceSettings(settingsData);
       setForecast(forecastData?.forecast ?? extractListData(forecastData as unknown) ?? []);
 
       const failed = results.filter((r) => r.status === 'rejected').length;
@@ -467,7 +477,12 @@ export default function FinancePage() {
         await financeService.updateInstallmentPlan(editingItem.id, installmentPlanForm);
         toast.success('Installment plan updated');
       } else {
-        await financeService.createInstallmentPlan(installmentPlanForm);
+        await financeService.createInstallmentPlan({
+          ...installmentPlanForm,
+          installment_amount:
+            Number(installmentPlanForm.total_amount || 0) /
+            Number(installmentPlanForm.number_of_installments || 1)
+        });
         toast.success('Installment plan created');
       }
       setShowForm(false);
@@ -518,7 +533,12 @@ export default function FinancePage() {
         await financeService.updateScholarship(editingItem.id, scholarshipForm);
         toast.success('Scholarship updated');
       } else {
-        await financeService.createScholarship(scholarshipForm);
+        await financeService.createScholarship({
+          ...scholarshipForm,
+          value: scholarshipForm.discount_value,
+          valid_from: new Date().toISOString().split('T')[0],
+          max_students: scholarshipForm.max_students || null
+        });
         toast.success('Scholarship created');
       }
       setShowForm(false);
@@ -540,7 +560,7 @@ export default function FinancePage() {
       name: scholarship.name,
       description: scholarship.description,
       discount_type: scholarship.discount_type,
-      discount_value: scholarship.discount_value,
+      discount_value: scholarship.value,
       eligibility_criteria: scholarship.eligibility_criteria,
       max_students: scholarship.max_students,
       is_active: scholarship.is_active
@@ -570,7 +590,10 @@ export default function FinancePage() {
         await financeService.updateStudentScholarship(editingItem.id, studentScholarshipForm);
         toast.success('Student scholarship updated');
       } else {
-        await financeService.createStudentScholarship(studentScholarshipForm);
+        await financeService.createStudentScholarship({
+        student: studentScholarshipForm.student_id,
+        scholarship: studentScholarshipForm.scholarship_id
+      });
         toast.success('Student scholarship created');
       }
       setShowForm(false);
@@ -796,6 +819,17 @@ const openPaymentReceipt = async (paymentId: string) => {
   }
 };
 
+const handleSaveFinanceSettings = async () => {
+  try {
+    console.log('Saving finance settings:', financeSettings);
+    const response = await financeService.updateSettings(financeSettings);
+    console.log('Finance settings response:', response);
+    toast.success('Finance settings saved');
+  } catch {
+    toast.error('Failed to save settings');
+  }
+};
+
 const handleBulkSendReminders = async () => {
     const overdueInvoices =
       defaulterStats.defaulters?.map((d) => d.invoice_id) || [];
@@ -995,6 +1029,14 @@ const handleBulkSendReminders = async () => {
                 </div>
               </CardContent>
             </Card>
+
+            <div className="md:col-span-2 flex justify-end">
+              <Button onClick={handleSaveFinanceSettings}>
+                <Save className="w-4 h-4 mr-2" />
+                Save Settings
+              </Button>
+            </div>
+
           </div>
         </TabsContent>
 
@@ -1318,7 +1360,7 @@ const handleBulkSendReminders = async () => {
                         <div className="flex items-center gap-2 mt-2">
                           {getDiscountTypeBadge(scholarship.discount_type)}
                           <span className="text-sm font-semibold">
-                            {scholarship.discount_type === 'percentage' ? `{scholarship.discount_value}%` : `{scholarship.discount_value}`}
+                            {scholarship.discount_type === 'percentage' ? `{scholarship.value}%` : `{scholarship.value}`}
                           </span>
                         </div>
                       </div>
@@ -1736,6 +1778,14 @@ const handleBulkSendReminders = async () => {
               </CardContent>
             </Card>
           </div>
+
+          <div className="mt-6 flex justify-end">
+            <Button onClick={handleSaveFinanceSettings}>
+              <Save className="w-4 h-4 mr-2" />
+              Save Settings
+            </Button>
+          </div>
+
         </TabsContent>
       </Tabs>
 

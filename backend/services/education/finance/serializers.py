@@ -10,6 +10,7 @@ from .models import (
     TransactionLog,
     PaymentGatewayConfig,
     PaymentTransaction,
+    FinanceSettings,
 )
 
 
@@ -136,4 +137,9 @@ class TransactionLogSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = TransactionLog
+        fields = '__all__'
+
+class FinanceSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinanceSettings
         fields = '__all__'
