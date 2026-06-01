@@ -152,8 +152,8 @@ class InsightsEngine:
         
         # Finance
         invoices = Invoice.objects.filter(student=self.student)
-        total_amount = sum(float(i.amount) for i in invoices)
-        total_paid = sum(float(i.paid_amount) for i in invoices)
+        total_amount = sum(float(i.amount or 0) for i in invoices)
+        total_paid = sum(float(i.paid_amount or 0) for i in invoices)
         self.finance_data = {
             'total_amount': total_amount,
             'total_paid': total_paid,

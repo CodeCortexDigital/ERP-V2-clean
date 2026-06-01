@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -12,7 +14,7 @@ class Role(models.Model):
         PARENT = 'parent', _('Parent')
         STAFF = 'staff', _('Staff')
 
-    id = models.UUIDField(primary_key=True, default=models.UUIDField().default, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, unique=True)
     role_type = models.CharField(
         max_length=20,

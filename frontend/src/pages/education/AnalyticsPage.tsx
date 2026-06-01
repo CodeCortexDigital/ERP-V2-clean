@@ -8,42 +8,128 @@ import analyticsService from '@/services/analytics.service';
 
 const COLORS = ['#22c55e', '#ef4444', '#eab308', '#3b82f6'];
 
+type StatusType = 'success' | 'error' | 'info';
+interface StatusMessage {
+  type: StatusType;
+  message: string;
+}
+interface AttendanceTrend {
+  month: string;
+  present: number;
+  absent: number;
+  late: number;
+  percentage: number;
+}
+interface FeeTrend {
+  month: string;
+  collected: number;
+  pending: number;
+  total: number;
+}
+interface StudentGrowthPoint {
+  month: string;
+  count: number;
+}
+interface TeacherPerformanceItem {
+  id: string | number;
+  name: string;
+  subject_count: number;
+  class_count: number;
+  avg_student_score: number;
+  attendance_rate: number;
+}
+interface AtRiskStudent {
+  id: string | number;
+  name: string;
+  student_id: string;
+  class: string;
+  risk_level: string;
+  reason: string;
+}
+interface AiInsight {
+  title: string;
+  message: string;
+  priority: 'high' | 'medium' | 'low' | string;
+}
+
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
-  const [attendanceTrends, setAttendanceTrends] = useState([]);
-  const [feeTrends, setFeeTrends] = useState([]);
-  const [atRiskStudents, setAtRiskStudents] = useState([]);
-  const [aiInsights, setAiInsights] = useState([]);
-  const [studentGrowth, setStudentGrowth] = useState([]);
-  const [teacherPerformance, setTeacherPerformance] = useState([]);
+  const [attendanceTrends, setAttendanceTrends] = useState<AttendanceTrend[]>([]);
+  const [feeTrends, setFeeTrends] = useState<FeeTrend[]>([]);
+  const [atRiskStudents, setAtRiskStudents] = useState<AtRiskStudent[]>([]);
+  const [aiInsights, setAiInsights] = useState<AiInsight[]>([]);
+  const [studentGrowth, setStudentGrowth] = useState<StudentGrowthPoint[]>([]);
+  const [teacherPerformance, setTeacherPerformance] = useState<TeacherPerformanceItem[]>([]);
+  const [status, setStatus] = useState<StatusMessage | null>(null);
+
+  const handleRunRiskScan = async () => {
+    try {
+      setStatus({ type: 'info', message: 'Running AI risk scan...' });
+      await analyticsService.runBatchRiskAssessment();
+      await fetchData();
+      setStatus({ type: 'success', message: 'AI risk scan completed.' });
+    } catch (error) {
+      console.error(error);
+      setStatus({ type: 'error', message: 'Risk scan failed. Please try again.' });
+    }
+  };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  
+const fetchData = async () => {
+  try {
     setLoading(true);
-    try {
-      const [attendanceRes, feeRes, riskRes, insightsRes, growthRes, teacherRes] = await Promise.all([
-        analyticsService.getAttendanceTrends(),
-        analyticsService.getFeeTrends(),
-        analyticsService.getAtRiskStudents(),
-        analyticsService.getAIInsights(),
-        analyticsService.getStudentGrowth(),
-        analyticsService.getTeacherPerformance()
-      ]);
-      setAttendanceTrends(attendanceRes.data || []);
-      setFeeTrends(feeRes.data || []);
-      setAtRiskStudents(riskRes.data || []);
-      setAiInsights(insightsRes.data || []);
-      setStudentGrowth(growthRes.data || []);
-      setTeacherPerformance(teacherRes.data || []);
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+
+    const dashboardRes =
+      await analyticsService.getExecutiveDashboard();
+
+    const data = dashboardRes.data || {};
+
+    setAttendanceTrends([
+      {
+        month: "Current",
+        present: data.attendance_trends?.this_week_total || 0,
+        absent: 0,
+        late: 0,
+        percentage:
+          data.attendance_trends?.this_week_rate || 0
+      }
+    ]);
+
+    const feeRecovery = data.fee_recovery_trends?.class_recovery || [];
+    setFeeTrends(
+      feeRecovery.map((c: any) => ({
+        month: c.class_name,
+        collected: Number(c.total_paid || 0),
+        pending: Number(c.total_amount || 0) - Number(c.total_paid || 0),
+        total: Number(c.total_amount || 0),
+      }))
+    );
+
+    setStudentGrowth(
+      data.student_growth?.monthly_growth || []
+    );
+
+    setTeacherPerformance(
+      data.teacher_metrics?.teacher_ratings || []
+    );
+
+    setAiInsights(
+      data.smart_insights || []
+    );
+
+    setAtRiskStudents([]);
+
+  } catch(err){
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const totalStudents = studentGrowth[studentGrowth.length - 1]?.count || 48;
   const totalCollected = feeTrends.reduce((sum, t) => sum + (t.collected || 0), 0);
@@ -60,12 +146,31 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
+
+        <button
+          onClick={handleRunRiskScan}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Run AI Risk Scan
+        </button>
       <div>
         <h1 className="text-2xl font-bold">Analytics & Insights</h1>
         <p className="text-gray-500">Data-driven insights for better decision making</p>
       </div>
+      {status && (
+        <div
+          className={`rounded-xl p-4 border text-sm ${
+            status.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : status.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-blue-50 border-blue-200 text-blue-700'
+          }`}
+        >
+          {status.message}
+        </div>
+      )}
 
-      {/* AI Insights */}
       {aiInsights.length > 0 && (
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-200">
           <div className="flex items-center gap-2 mb-2">

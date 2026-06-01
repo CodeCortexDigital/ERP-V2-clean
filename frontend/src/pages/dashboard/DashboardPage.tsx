@@ -18,8 +18,25 @@ import {
   Lightbulb,
   Trophy,
   BarChart3,
-  Activity
+  Activity,
+  PieChart
 } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart as RechartsPie,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ComposedChart
+} from 'recharts';
 import api from '@/services/api';
 
 interface DashboardData {
@@ -96,6 +113,20 @@ interface DashboardData {
   }>;
   generated_at: string;
 }
+
+// Format percentage to 2 decimal points
+const formatPercent = (value: number): string => {
+  if (typeof value !== 'number' || isNaN(value)) return '0.00%';
+  return `${Math.abs(value).toFixed(2)}%`;
+};
+
+// Format currency
+const formatCurrency = (value: number): string => {
+  if (typeof value !== 'number' || isNaN(value)) return '₹0';
+  return `₹${Math.round(value).toLocaleString()}`;
+};
+
+const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
 
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -262,7 +293,7 @@ export default function DashboardPage() {
                 <div className="flex items-center mt-2">
                   {getTrendIcon(data.student_growth.growth_direction)}
                   <span className={`text-sm ml-1 ${getTrendColor(data.student_growth.growth_direction)}`}>
-                    {Math.abs(data.student_growth.growth_rate)}% from last month
+                    {formatPercent(data.student_growth.growth_rate)} from last month
                   </span>
                 </div>
               </div>
@@ -279,11 +310,11 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Attendance Rate</p>
-                <p className="text-3xl font-bold text-gray-900">{data.attendance_trends.this_week_rate}%</p>
+                <p className="text-3xl font-bold text-gray-900">{formatPercent(data.attendance_trends.this_week_rate).replace('%', '')}</p>
                 <div className="flex items-center mt-2">
                   {getTrendIcon(data.attendance_trends.trend_direction)}
                   <span className={`text-sm ml-1 ${getTrendColor(data.attendance_trends.trend_direction)}`}>
-                    {Math.abs(data.attendance_trends.trend_percentage)}% from last week
+                    {formatPercent(data.attendance_trends.trend_percentage)} from last week
                   </span>
                 </div>
               </div>
@@ -300,11 +331,11 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
-                <p className="text-3xl font-bold text-gray-900">₹{data.revenue_trends.current_month.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-gray-900">{formatCurrency(data.revenue_trends.current_month)}</p>
                 <div className="flex items-center mt-2">
                   {getTrendIcon(data.revenue_trends.trend_direction)}
                   <span className={`text-sm ml-1 ${getTrendColor(data.revenue_trends.trend_direction)}`}>
-                    {Math.abs(data.revenue_trends.trend_percentage)}% from last month
+                    {formatPercent(data.revenue_trends.trend_percentage)} from last month
                   </span>
                 </div>
               </div>
@@ -331,12 +362,275 @@ export default function DashboardPage() {
                     <span>{data.teacher_metrics.active_teacher_assignments} active assignments</span>
                   )}
                   {data.teacher_metrics.average_assignments_per_teacher !== undefined && (
-                    <span>{data.teacher_metrics.average_assignments_per_teacher} avg assignments / teacher</span>
+                    <span>{data.teacher_metrics.average_assignments_per_teacher?.toFixed(1)} avg/teacher</span>
                   )}
                 </div>
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
                 <BookOpen className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Advanced Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trends Chart */}
+        {data.revenue_trends.monthly_data && data.revenue_trends.monthly_data.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <TrendingUp className="w-5 h-5 mr-2 text-yellow-500" />
+                Revenue Trends (Monthly)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data.revenue_trends.monthly_data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month_name" fontSize={12} />
+                  <YAxis fontSize={12} />
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#f59e0b" 
+                    dot={{ fill: '#f59e0b' }}
+                    strokeWidth={2}
+                    name="Revenue"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  Current Month: <span className="font-bold text-yellow-600">{formatCurrency(data.revenue_trends.current_month)}</span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Trend: <span className={`font-bold ${data.revenue_trends.trend_direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatPercent(data.revenue_trends.trend_percentage)}
+                  </span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Student Growth Chart */}
+        {data.student_growth.monthly_growth && data.student_growth.monthly_growth.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Users className="w-5 h-5 mr-2 text-blue-500" />
+                Student Growth (Monthly)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data.student_growth.monthly_growth}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month_name" fontSize={12} />
+                  <YAxis fontSize={12} />
+                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }} />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="student_count" 
+                    stroke="#3b82f6" 
+                    dot={{ fill: '#3b82f6' }}
+                    strokeWidth={2}
+                    name="Students"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  Total Students: <span className="font-bold text-blue-600">{data.student_growth.current_total}</span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Growth Rate: <span className={`font-bold ${data.student_growth.growth_direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatPercent(data.student_growth.growth_rate)}
+                  </span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Exam Performance & Fee Recovery */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Subject Performance Chart */}
+        {data.exam_performance_trends.subject_performance && data.exam_performance_trends.subject_performance.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Award className="w-5 h-5 mr-2 text-purple-500" />
+                Subject Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data.exam_performance_trends.subject_performance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="exam__subject__name" 
+                    fontSize={11}
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                  />
+                  <YAxis fontSize={12} label={{ value: 'Avg %', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip 
+                    formatter={(value: number) => formatPercent(value)}
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
+                  />
+                  <Bar dataKey="avg_percentage" fill="#8b5cf6" radius={[8, 8, 0, 0]} name="Avg Score %" />
+                </BarChart>
+              </ResponsiveContainer>
+              {data.exam_performance_trends.top_performing_subject && (
+                <div className="mt-4 p-3 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    Top Subject: <span className="font-bold text-purple-600">{data.exam_performance_trends.top_performing_subject.exam__subject__name}</span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Average Score: <span className="font-bold text-purple-600">{formatPercent(data.exam_performance_trends.top_performing_subject.avg_percentage)}</span>
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Fee Recovery by Class Chart */}
+        {data.fee_recovery_trends.class_recovery && data.fee_recovery_trends.class_recovery.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <DollarSign className="w-5 h-5 mr-2 text-green-500" />
+                Fee Recovery Rate by Class
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data.fee_recovery_trends.class_recovery}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="class_name" 
+                    fontSize={11}
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                  />
+                  <YAxis fontSize={12} label={{ value: 'Recovery %', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip 
+                    formatter={(value: number) => formatPercent(value)}
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
+                  />
+                  <Bar dataKey="recovery_rate" fill="#10b981" radius={[8, 8, 0, 0]} name="Recovery %" />
+                </BarChart>
+              </ResponsiveContainer>
+              {data.fee_recovery_trends.best_performing_class && (
+                <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    Best Recovery: <span className="font-bold text-green-600">{data.fee_recovery_trends.best_performing_class.class_name}</span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Rate: <span className="font-bold text-green-600">{formatPercent(data.fee_recovery_trends.best_performing_class.recovery_rate)}</span>
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Class Performance & Attendance Analysis */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Class Performance Chart */}
+        {data.exam_performance_trends.class_performance && data.exam_performance_trends.class_performance.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart3 className="w-5 h-5 mr-2 text-indigo-500" />
+                Class Performance Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data.exam_performance_trends.class_performance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="student__current_class__name" 
+                    fontSize={11}
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                  />
+                  <YAxis fontSize={12} label={{ value: 'Avg %', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip 
+                    formatter={(value: number) => formatPercent(value)}
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
+                  />
+                  <Bar dataKey="avg_percentage" fill="#6366f1" radius={[8, 8, 0, 0]} name="Avg Score %" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Attendance Trends Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Calendar className="w-5 h-5 mr-2 text-green-500" />
+              Weekly Attendance Trends
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">This Week</p>
+                  <div className="flex items-center mt-1">
+                    <p className="text-2xl font-bold text-green-600">{formatPercent(data.attendance_trends.this_week_rate).replace('%', '')}</p>
+                    <span className="text-sm text-gray-500 ml-2">({data.attendance_trends.this_week_total} present)</span>
+                  </div>
+                </div>
+                <div className="p-3 bg-green-100 rounded-full">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Last Week</p>
+                    <div className="flex items-center mt-1">
+                      <p className="text-2xl font-bold text-blue-600">{formatPercent(data.attendance_trends.last_week_rate).replace('%', '')}</p>
+                      <span className="text-sm text-gray-500 ml-2">({data.attendance_trends.last_week_total} present)</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <Calendar className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 bg-blue-50 p-3 rounded-lg">
+                <div className="flex items-center">
+                  {getTrendIcon(data.attendance_trends.trend_direction)}
+                  <span className="ml-2 font-semibold">
+                    <span className={getTrendColor(data.attendance_trends.trend_direction)}>
+                      {formatPercent(data.attendance_trends.trend_percentage)}
+                    </span>
+                    <span className="text-gray-600 ml-1">improvement from last week</span>
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -425,7 +719,7 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium">Attendance Rate</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-sm font-bold mr-2">{data.attendance_trends.this_week_rate}%</span>
+                  <span className="text-sm font-bold mr-2">{formatPercent(data.attendance_trends.this_week_rate)}</span>
                   {getTrendIcon(data.attendance_trends.trend_direction)}
                 </div>
               </div>
@@ -438,7 +732,7 @@ export default function DashboardPage() {
                     <span className="text-sm font-medium">Best Fee Recovery</span>
                   </div>
                   <span className="text-sm font-bold">
-                    {data.fee_recovery_trends.best_performing_class.class_name}: {data.fee_recovery_trends.best_performing_class.recovery_rate}%
+                    {data.fee_recovery_trends.best_performing_class.class_name}: {formatPercent(data.fee_recovery_trends.best_performing_class.recovery_rate)}
                   </span>
                 </div>
               )}
@@ -451,7 +745,7 @@ export default function DashboardPage() {
                     <span className="text-sm font-medium">Top Subject</span>
                   </div>
                   <span className="text-sm font-bold">
-                    {data.exam_performance_trends.top_performing_subject.exam__subject__name}: {data.exam_performance_trends.top_performing_subject.avg_percentage}%
+                    {data.exam_performance_trends.top_performing_subject.exam__subject__name}: {formatPercent(data.exam_performance_trends.top_performing_subject.avg_percentage)}
                   </span>
                 </div>
               )}
@@ -463,7 +757,7 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium">Student Growth</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-sm font-bold mr-2">{data.student_growth.growth_rate}%</span>
+                  <span className="text-sm font-bold mr-2">{formatPercent(data.student_growth.growth_rate)}</span>
                   {getTrendIcon(data.student_growth.growth_direction)}
                 </div>
               </div>

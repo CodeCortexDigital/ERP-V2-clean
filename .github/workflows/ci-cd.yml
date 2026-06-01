@@ -39,7 +39,7 @@ jobs:
         run: |
           cd backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt || pip install django djangorestframework pytest pytest-django pytest-cov factory-boy faker
+          pip install -r requirements.txt
       
       - name: Run Django checks
         run: |
@@ -87,7 +87,7 @@ jobs:
         run: |
           cd backend
           pip install mypy django-stubs
-          mypy --ignore-missing-imports . || true
+          mypy --ignore-missing-imports .
 
   frontend-tests:
     name: Frontend Tests

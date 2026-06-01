@@ -1,10 +1,3 @@
-```powershell
-cd "D:\Code Cortex\03_Projects\Current\8_ERP-V2-clean"
-
-Write-Host "📝 CREATING PROFESSIONAL README.md FILE..." -ForegroundColor Cyan
-Write-Host ""
-
-$readmeContent = @'
 # 🎓 ERP V2 - Complete School Management System
 
 [![Django](https://img.shields.io/badge/Django-6.0.4-092E20?logo=django)](https://www.djangoproject.com/)
@@ -15,130 +8,54 @@ $readmeContent = @'
 
 ## 🚀 Overview
 
-**ERP V2** is a production-ready, multi-tenant School Management System built with Django REST Framework and React. It provides a complete solution for managing students, academics, attendance, examinations, finance, admissions, and communication - all integrated with WhatsApp automation.
+**ERP V2** is a production-ready, multi-tenant school management platform built with Django REST Framework and React. It supports student management, academics, attendance, exams, finance, admissions, notifications, analytics, and automation.
 
 ## ✨ Key Features
 
-### 🎓 Student Management
-- **Student 360° Dashboard** - Complete student profile with attendance, exams, finance
-- **Student Central Hub** - All modules connected to student entity
-- **Bulk operations** - Import/Export students via CSV
+- Multi-tenant student lifecycle management
+- Attendance tracking, notifications, and low-attendance alerts
+- Exam management, results publishing, and performance analytics
+- Fee management, invoices, payments, and overdue workflows
+- WhatsApp integration for parent communication
+- AI-powered insights and risk scoring
+- Role-based access control and JWT authentication
+- Production-ready environment configuration and security hardening
 
-### 📚 Academics
-- Academic Years, Programs, Courses
-- Classes & Sections management
-- Subject allocation and scheduling
+## 🔒 Production Hardening & Security Improvements
 
-### 📅 Attendance Tracking
-- Daily attendance marking
-- Automated low attendance alerts (<75%)
-- Class-wise and date-wise reports
-- Parent notifications via WhatsApp
+This repository has been updated to remove insecure defaults and hard-coded credentials, and to support a secure production deployment.
 
-### 📝 Examinations
-- Exam scheduling and management
-- Automated result calculation (percentage, grade)
-- Result publishing with instant parent notifications
-- Performance analytics
+Key security improvements:
+- Environment-driven configuration for secrets and credentials
+- All users now authenticate with `user_id`/UUID rather than email-based login
+- `DEBUG=False` enforced in production
+- `SECRET_KEY` must be provided through `.env`
+- `ALLOWED_HOSTS` must list real deployment hostnames
+- Removed frontend demo credentials and insecure alert patterns
+- Replaced hard-coded audit/verification credentials in scripts with env variables
+- Support for admin password reset via `ADMIN_PASSWORD_RESET_KEY` if the admin account is forgotten
+- Frontend `.env.example` updated with production API/WebSocket endpoints and `VITE_APP_ENV=production`
+- `backend/services/education/academics/.env.example` updated with production-ready placeholders
+- CI gating tightened to ensure security and quality checks fail correctly
 
-### 💰 Finance Management
-- Fee structure configuration
-- Invoice generation and tracking
-- Payment processing
-- Automated fee reminders and overdue alerts
-
-### 📢 Communication & Automation
-- **WhatsApp Integration** - Two-way messaging
-- **Auto Triggers** - Event-driven notifications
-  - Low attendance → Alert parent
-  - Fee overdue → Reminder
-  - Result published → Notification
-- Message templates with variables
-- Email and SMS support
-
-### 🎯 Smart Insights (AI Layer)
-- Student risk assessment (Low/Medium/High/Critical)
-- Academic performance prediction
-- Automated recommendations
-- Early warning system for at-risk students
-
-### 🔐 Security & Access Control
-- JWT authentication
-- Role-based access control (Admin, Teacher, Parent, Student)
-- Multi-tenant data isolation
-- API rate limiting
-
-## 🏗️ System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     React Frontend                          │
-│                   (TypeScript + Tailwind)                   │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Django REST API                          │
-│                  (JWT Authentication)                       │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  Students    │    │  Academics   │    │  Attendance  │
-├──────────────┤    ├──────────────┤    ├──────────────┤
-│  Exams       │    │  Finance     │    │  Admissions  │
-├──────────────┤    ├──────────────┤    ├──────────────┤
-│Communication │    │  Analytics   │    │    Users     │
-└──────────────┘    └──────────────┘    └──────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Event-Driven Automation                  │
-│         (Attendance, Fee, Exam Result Triggers)            │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   WhatsApp Integration                      │
-│                   (2-way Messaging)                         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 📊 Database Schema
-
-All 9 core models have `tenant_id` for multi-tenant SaaS support:
-
-| Model | Fields | tenant_id |
-|-------|--------|-----------|
-| Student | 20 fields | ✅ |
-| AttendanceRecord | 9 fields | ✅ |
-| Exam | 14 fields | ✅ |
-| ExamResult | 13 fields | ✅ |
-| Invoice | 9 fields | ✅ |
-| Payment | 10 fields | ✅ |
-| Message | 13 fields | ✅ |
-| Course | 11 fields | ✅ |
-| SchoolClass | 10 fields | ✅ |
+> Important: never commit `.env` files or real secrets. Use your deployment platform’s secret store for production credentials.
 
 ## 🛠️ Technology Stack
 
 ### Backend
-- **Framework**: Django 6.0.4
-- **DRF**: Django REST Framework
-- **Authentication**: Simple JWT
-- **Database**: SQLite (dev) / PostgreSQL (production)
-- **Task Queue**: Celery + Redis
-- **API Documentation**: DRF YASG
+- Django 6.x
+- Django REST Framework
+- Simple JWT
+- PostgreSQL (production) / SQLite (development)
+- Celery + Redis
+- DRF API documentation
 
 ### Frontend
-- **Framework**: React 18.2.0
-- **Language**: TypeScript 5.0.0
-- **Build Tool**: Vite 5.4.21
-- **Styling**: Tailwind CSS 3.4.0
-- **Routing**: React Router DOM 6.20.0
-- **HTTP Client**: Axios 1.6.0
-- **Icons**: Lucide React
+- React 18 + TypeScript
+- Vite
+- Tailwind CSS
+- Axios
+- Lucide icons
 
 ## 🚀 Quick Start
 
@@ -150,124 +67,161 @@ All 9 core models have `tenant_id` for multi-tenant SaaS support:
 ### Backend Setup
 
 ```bash
-# Clone repository
 git clone https://github.com/CodeCortexDigital/ERP-V2-clean.git
 cd ERP-V2-clean/backend
-
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+# Windows:
+venv\\Scripts\\activate
+# macOS/Linux:
+# source venv/bin/activate
 pip install -r requirements.txt
-
-# Run migrations
+cp ../.env.example .env
+# Edit .env with secure production values
 python manage.py makemigrations
 python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Start server
 python manage.py runserver
 ```
 
 ### Frontend Setup
 
 ```bash
-# Open new terminal
-cd frontend
-
-# Install dependencies
+cd ../frontend
 npm install
-
-# Start development server
 npm run dev
 ```
 
-### Login Credentials (Demo)
-- **Email**: admin@code.com
-- **Password**: admin123
-
-## 📡 API Endpoints
+## � API Endpoints
 
 ### Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/login/` | User login |
+| POST | `/api/auth/login/` | User login with `user_id` or email |
+| POST | `/api/auth/reset-password/` | Reset password for admin or user |
 | GET | `/api/auth/me/` | Get current user |
-| POST | `/api/auth/logout/` | User logout |
-
-### Students
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/auth/students/` | List all students |
-| POST | `/api/auth/students/` | Create student |
-| GET | `/api/auth/students/{id}/` | Get student details |
-| PUT | `/api/auth/students/{id}/` | Update student |
-| DELETE | `/api/auth/students/{id}/` | Delete student |
-| GET | `/api/education/students/student-360/{id}/` | Complete student overview |
-
-### Other Modules
-- **Courses**: `/api/auth/courses/`
-- **Exams**: `/api/auth/exams/`
-- **Attendance**: `/api/auth/attendance/`
-- **Analytics**: `/api/analytics/student/{id}/`
-
-## 🔄 Automation Triggers
-
-| Event | Trigger | Action |
-|-------|---------|--------|
-| Attendance < 75% | `attendance_low` | WhatsApp alert to parent |
-| Fee due in 7 days | `fee_due_soon` | Payment reminder |
-| Fee overdue | `fee_overdue` | Urgent payment alert |
-| Result published | `exam_result_published` | Result notification |
-
-## 📁 Project Structure
-
+| GET | `/forgot-password` | Frontend admin password reset form |
+### Admin password reset example
+```bash
+curl -X POST https://api.yourdomain.com/api/auth/reset-password/ \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"<ADMIN_USER_ID>","new_password":"NewStrongPass123!","reset_key":"your-admin-password-reset-key"}'
 ```
-ERP-V2-clean/
-├── backend/
-│   ├── services/
-│   │   ├── core/
-│   │   │   └── accounts/        # Users, Auth, RBAC
-│   │   ├── education/
-│   │   │   ├── academics/       # AcademicYear, Program, Course
-│   │   │   ├── students/        # Student model & 360 view
-│   │   │   ├── attendance/      # Attendance tracking
-│   │   │   ├── exams/           # Exam & Results
-│   │   │   ├── finance/         # Fee, Invoice, Payment
-│   │   │   ├── admissions/      # Applicant, Application
-│   │   │   └── communication/   # WhatsApp, Notifications
-│   │   └── analytics/           # Risk, Predictions, Recommendations
-│   ├── erp_core/                # Django settings
-│   └── manage.py
-│
-└── frontend/
-    ├── src/
-    │   ├── pages/               # All UI pages
-    │   ├── components/          # Reusable UI components
-    │   ├── services/            # API services
-    │   ├── contexts/            # React contexts
-    │   └── App.tsx
-    ├── package.json
-    └── vite.config.ts
+## 🧑‍💼 Admin Login and User Creation
+
+### Admin login
+- Use the frontend login page at `/login`.
+- The API accepts either `user_id` or `email` with the password payload:
+
+```bash
+curl -X POST https://api.yourdomain.com/api/auth/login/ \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"<ADMIN_USER_ID>","password":"<ADMIN_PASSWORD>"}'
 ```
 
-## 🔒 Environment Variables
+- For the admin account, prefer `user_id`/UUID login to avoid exposing email as the primary credential.
+- If the admin account is lost, use `/forgot-password` or the `/api/auth/reset-password/` endpoint with `ADMIN_PASSWORD_RESET_KEY`.
 
-### Backend (.env)
-```env
-DEBUG=True
-SECRET_KEY=your-secret-key
-DATABASE_URL=sqlite:///db.sqlite3
-REDIS_URL=redis://localhost:6379
+### Development sample accounts
+For local development, seed default accounts so the quick-login buttons work:
+
+```bash
+cd backend
+python manage.py seed_sample_users
+# or to force-update passwords/status for all sample users:
+python manage.py seed_sample_users --force
 ```
 
-### Frontend (.env)
-```env
-VITE_API_URL=http://localhost:8000
+Sample accounts (default):
+- Admin: `admin@code.com` / `Admin@123`
+- Teacher: `teacher@code.com` / `Teacher@123`
+- Parent: `parent@code.com` / `Parent@123`
+- Student: `student@code.com` / `Student@123`
+
+Notes and verification
+- If you previously had an `admin@code.com` user with a different password, the original seeder skipped updating it; use `--force` to overwrite passwords and set accounts to `ACTIVE`.
+- To verify backend accepts admin credentials locally, run this small script in the `backend` folder:
+
+```bash
+python test_login_client.py
 ```
+
+- To test from the frontend, start the backend and frontend servers and use the quick-login buttons on the login page. If you run into a `400` from `/api/auth/login/`, confirm the request payload contains `{ "user_id": "<email-or-uuid>", "password": "<password>" }`.
+
+- To reset the admin password from the API (requires `ADMIN_PASSWORD_RESET_KEY` env var):
+
+```bash
+curl -X POST http://localhost:8000/api/auth/reset-password/ \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"admin@code.com","new_password":"NewStrongPass123!","reset_key":"<ADMIN_PASSWORD_RESET_KEY>"}'
+```
+
+### Create users by role
+- The most reliable way to create users and assign roles is via the Django admin interface.
+- Admin users can also be created using Django management commands:
+
+```bash
+cd backend
+python manage.py createsuperuser
+```
+
+- Role-based users should be assigned the appropriate backend role/group, for example:
+  - `admin` / `super_admin`
+  - `school_admin`
+  - `teacher`
+  - `parent`
+  - `student`
+  - `accountant`
+
+- If you use API registration, ensure the created user is associated with the correct role or tenant role field in the backend.
+- In production, make sure only trusted admin accounts get `admin`/`super_admin` access and tenant users receive their specific role permissions.
+## �📁 Environment Configuration
+
+The project now relies on `.env.example` templates for secure configuration. Populate these files before running the application:
+
+- Root `.env.example`
+- `frontend/.env.example`
+- `backend/services/education/academics/.env.example`
+
+### Core backend variables
+- `DEBUG`
+- `SECRET_KEY`
+- `ALLOWED_HOSTS`
+- `DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
+- `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
+- `REDIS_URL`, `CACHE_URL`, `CHANNEL_REDIS_URL`
+- `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`
+- `SENTRY_DSN`, `SENTRY_ENVIRONMENT`
+- `USE_S3_STORAGE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_PASSWORD_RESET_KEY`
+- `AUDIT_EMAIL`, `AUDIT_PASSWORD`, `VERIFY_EMAIL`, `VERIFY_PASSWORD`, `VERIFY_BASE_URL`
+
+### Frontend variables
+- `VITE_API_URL`
+- `VITE_API_PREFIX`
+- `VITE_WS_URL`
+- `VITE_APP_ENV=production`
+- `VITE_ENABLE_ANALYTICS`
+- `VITE_ENABLE_WEBSOCKET`
+- `VITE_ENABLE_NOTIFICATIONS`
+
+### Service-specific env example
+- `backend/services/education/academics/.env.example` includes production service URLs, secure credentials, JWT settings, and RabbitMQ/Redis configuration.
+
+## ✅ What Changed
+
+- Removed hard-coded admin and audit credentials
+- Updated production `.env.example` files with secure placeholders
+- Removed demo login credentials from frontend docs
+- Hardened `backend/erp_core/settings.py` for production
+- Updated audit and verification scripts to use env variables
+- Aligned frontend env values for production deployment
+
+## 📌 Deployment Guidance
+
+- Do not commit `.env` files
+- Use environment variables or a secrets manager for production credentials
+- Keep `DEBUG=False` in production and verify `ALLOWED_HOSTS`
+- Verify `VITE_API_URL` and `VITE_WS_URL` point to real production endpoints
+- Keep Sentry, email, and storage credentials under secret management
 
 ## 🧪 Testing
 
@@ -279,20 +233,13 @@ python manage.py test
 npm test
 ```
 
-## 📈 Performance
-
-- **API Response Time**: <200ms average
-- **Concurrent Users**: 1000+
-- **Database Query Optimization**: Indexed fields on foreign keys
-- **Caching**: Redis for session and API caching
-
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
-5. Open Pull Request
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit changes (`git commit -m "Add feature"`)
+4. Push to branch (`git push origin feature/your-feature`)
+5. Open a pull request
 
 ## 📄 License
 
@@ -300,65 +247,15 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## 👥 Authors
 
-- **Code Cortex Digital** - *Initial work*
+- **Code Cortex Digital** - Initial work
 
 ## 🙏 Acknowledgments
 
 - Django REST Framework community
 - React team
 - Tailwind CSS
-- All open-source contributors
+- Open-source contributors
 
 ## 📞 Support
 
-For support, email: support@codecortex.com or create an issue on GitHub.
-
----
-
-**⭐ Star this repository if you find it useful!**
-
-*Built with ❤️ by Code Cortex Digital*
-'@
-
-# Write the README file
-$readmeContent | Out-File -FilePath "README.md" -Encoding utf8
-
-Write-Host "✅ README.md created successfully!" -ForegroundColor Green
-Write-Host ""
-Write-Host "📋 README includes:" -ForegroundColor Yellow
-Write-Host "   • Project overview and features" -ForegroundColor Gray
-Write-Host "   • System architecture diagram" -ForegroundColor Gray
-Write-Host "   • Technology stack details" -ForegroundColor Gray
-Write-Host "   • Quick start guide" -ForegroundColor Gray
-Write-Host "   • API endpoints documentation" -ForegroundColor Gray
-Write-Host "   • Database schema info" -ForegroundColor Gray
-Write-Host "   • Automation triggers" -ForegroundColor Gray
-Write-Host "   • Project structure" -ForegroundColor Gray
-
-# Add and commit README
-Write-Host ""
-Write-Host "📋 Adding README to git..." -ForegroundColor Yellow
-git add README.md
-git commit -m "Add comprehensive README.md with project documentation"
-git push origin main
-
-Write-Host ""
-Write-Host "✅ README.md pushed to GitHub!" -ForegroundColor Green
-Write-Host "🔗 View it at: https://github.com/CodeCortexDigital/ERP-V2-clean" -ForegroundColor Cyan
-```
-
-This script creates a **comprehensive README.md** with:
-
-- ✅ Project overview and features
-- ✅ System architecture diagram
-- ✅ Technology stack badges
-- ✅ Quick start guide
-- ✅ API endpoint documentation
-- ✅ Database schema table
-- ✅ Automation triggers
-- ✅ Project structure
-- ✅ Environment variables
-- ✅ Contributing guidelines
-- ✅ License information
-
-The README is automatically added, committed, and pushed to GitHub! 🚀
+For support, email: support@codecortex.com or open an issue on GitHub.

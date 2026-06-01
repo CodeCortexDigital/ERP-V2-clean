@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 // Layouts
 import Layout from '../components/layout/Layout';
 import LoginPage from '../pages/auth/LoginPage';
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
 
 // Lazy-loaded pages for code splitting
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
@@ -73,6 +74,14 @@ export const routes: RouteObject[] = [
     element: (
       <PublicRoute>
         <LoginPage />
+      </PublicRoute>
+    ),
+  },
+  {
+    path: '/forgot-password',
+    element: (
+      <PublicRoute>
+        <ForgotPasswordPage />
       </PublicRoute>
     ),
   },

@@ -4,6 +4,7 @@ import { useEffect, memo } from 'react'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 
 // Education Module Imports
@@ -70,6 +71,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />

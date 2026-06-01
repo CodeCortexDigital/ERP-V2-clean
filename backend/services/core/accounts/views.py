@@ -26,18 +26,22 @@ User = get_user_model()
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    email_or_student_id = request.data.get('email') or request.data.get('student_id')
+    identifier = (
+        request.data.get('user_id')
+        or request.data.get('email')
+        or request.data.get('student_id')
+    )
     password = request.data.get('password')
-    
-    if not email_or_student_id or not password:
-        return Response({'error': 'Email/Student ID and password required'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
+    if not identifier or not password:
+        return Response({'error': 'User ID/Email/Student ID and password required'}, status=status.HTTP_400_BAD_REQUEST)
+
     user = None
-    login_username = email_or_student_id
+    login_username = identifier
 
     from services.education.students.models import Student
     try:
-        student = Student.objects.get(student_id=email_or_student_id)
+        student = Student.objects.get(student_id=identifier)
         login_username = student.email
     except Student.DoesNotExist:
         pass
@@ -46,7 +50,11 @@ def login_view(request):
         user_obj = User.objects.get(email=login_username)
         user = authenticate(request, username=user_obj.email, password=password)
     except User.DoesNotExist:
-        user = authenticate(request, username=login_username, password=password)
+        try:
+            user_obj = User.objects.get(id=identifier)
+            user = authenticate(request, username=user_obj.email, password=password)
+        except (User.DoesNotExist, ValueError):
+            user = authenticate(request, username=login_username, password=password)
     
     if user and user.is_active:
         # Activate pending accounts on first successful login

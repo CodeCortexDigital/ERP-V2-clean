@@ -36,27 +36,12 @@ export interface AIInsight {
 }
 
 const analyticsService = {
-  // Attendance Trends
-  getAttendanceTrends: (year?: number) => 
-    api.get<AttendanceTrend[]>('/auth/analytics/attendance-trends/', { params: { year } }),
+  // Executive Analytics Dashboard
+  getExecutiveDashboard: () =>
+    api.get('/auth/analytics/executive-dashboard/'),
+  runBatchRiskAssessment: () =>
+    api.post('/auth/analytics/batch-risk-assessment/'),
 
-  // Fee Collection Trends
-  getFeeTrends: (year?: number) => 
-    api.get<FeeTrend[]>('/auth/analytics/fee-trends/', { params: { year } }),
-
-  // At-Risk Students
-  getAtRiskStudents: (riskType?: string) => 
-    api.get<StudentRisk[]>('/auth/analytics/at-risk-students/', { params: { risk_type: riskType } }),
-
-  // AI Insights
-  getStudentGrowth: () => api.get('/auth/analytics/student-growth/'),
-  getTeacherPerformance: () => api.get('/auth/analytics/teacher-performance/'),
-  getAIInsights: () => 
-    api.get<AIInsight[]>('/auth/analytics/ai-insights/'),
-
-  // Dashboard Summary
-  getDashboardSummary: () => 
-    api.get('/auth/analytics/dashboard-summary/'),
 };
 
 export default analyticsService;

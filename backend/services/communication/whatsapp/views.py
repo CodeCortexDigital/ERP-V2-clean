@@ -6,6 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from .service import WhatsAppService
 
 from services.education.communication.models import Message
 
@@ -75,3 +77,31 @@ class WhatsAppWebhookView(APIView):
             message.save(update_fields=['delivery_status', 'is_delivered', 'delivered_at', 'external_id'])
 
         return Response({'success': True}, status=status.HTTP_200_OK)
+
+
+class WhatsAppTestSendView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        phone = request.data.get('recipient_phone')
+        message = request.data.get('message', 'Test message from ERP')
+
+        service = WhatsAppService()
+
+        try:
+            result = service.send_message(
+                phone=phone,
+                template=None,
+                variables={'body': message}
+            )
+
+            return Response({
+                'success': True,
+                'result': result
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)

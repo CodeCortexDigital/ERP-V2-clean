@@ -1,13 +1,23 @@
+import os
 import psycopg2
 
 def create_trigger():
     try:
+        dbname = os.environ.get('DB_NAME', 'postgres')
+        dbuser = os.environ.get('DB_USER', 'postgres')
+        dbpassword = os.environ.get('DB_PASSWORD')
+        dbhost = os.environ.get('DB_HOST', 'localhost')
+        dbport = os.environ.get('DB_PORT', '5432')
+
+        if not dbpassword:
+            raise EnvironmentError('The DB_PASSWORD environment variable is required to run this script.')
+
         conn = psycopg2.connect(
-            dbname='postgres',
-            user='postgres',
-            password='Sundas_6921*',
-            host='localhost',
-            port='5432'
+            dbname=dbname,
+            user=dbuser,
+            password=dbpassword,
+            host=dbhost,
+            port=dbport,
         )
         cursor = conn.cursor()
         

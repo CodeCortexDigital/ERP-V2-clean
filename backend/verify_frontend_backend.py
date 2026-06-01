@@ -1,7 +1,14 @@
-import django
 import os
+import django
 import json
 import requests
+
+BASE_URL = os.environ.get('VERIFY_BASE_URL', 'http://localhost:8000/api/v1')
+VERIFY_EMAIL = os.environ.get('VERIFY_EMAIL')
+VERIFY_PASSWORD = os.environ.get('VERIFY_PASSWORD')
+
+if not VERIFY_EMAIL or not VERIFY_PASSWORD:
+    raise EnvironmentError('VERIFY_EMAIL and VERIFY_PASSWORD environment variables are required for verification scripts.')
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'erp_core.settings')
 django.setup()
@@ -31,8 +38,8 @@ print("\n🔹 FRONTEND API DATA:")
 print("-" * 50)
 
 # Login to get token
-login_url = "http://localhost:8000/api/auth/login/"
-login_data = {"email": "admin@code.com", "password": "admin123"}
+login_url = f"{BASE_URL}/auth/login/"
+login_data = {"email": VERIFY_EMAIL, "password": VERIFY_PASSWORD}
 
 try:
     login_resp = requests.post(login_url, json=login_data)

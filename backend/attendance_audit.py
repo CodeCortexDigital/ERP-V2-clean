@@ -1,10 +1,13 @@
+import os
 import requests
 import json
 
-BASE_URL = "http://127.0.0.1:8000/api/v1"
+BASE_URL = os.environ.get('AUDIT_BASE_URL', 'http://127.0.0.1:8000/api/v1')
+EMAIL = os.environ.get('AUDIT_EMAIL')
+PASSWORD = os.environ.get('AUDIT_PASSWORD')
 
-EMAIL = "admin@code.com"
-PASSWORD = "admin123"
+if not EMAIL or not PASSWORD:
+    raise EnvironmentError('AUDIT_EMAIL and AUDIT_PASSWORD environment variables are required.')
 
 
 def print_response(title, response):

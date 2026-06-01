@@ -5,6 +5,7 @@ Attach resolved feature flags to each request and return 404 for disabled gated 
 from __future__ import annotations
 
 from django.http import JsonResponse
+from django.conf import settings
 
 from .services import resolve_all_features
 
@@ -50,6 +51,10 @@ class FeatureFlagMiddleware:
         tenant = getattr(request, 'tenant', None)
         user = getattr(request, 'user', None)
         request.features = resolve_all_features(tenant=tenant, user=user)
+
+        # Development bypass for local testing
+        if settings.DEBUG:
+            return self.get_response(request)
 
         blocked = self._blocked_feature(request)
         if blocked:

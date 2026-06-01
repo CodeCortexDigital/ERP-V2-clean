@@ -6,11 +6,17 @@ django.setup()
 from accounts.models import User
 from django.contrib.auth import authenticate
 
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
+
+if not ADMIN_PASSWORD:
+    raise EnvironmentError('ADMIN_PASSWORD environment variable is required to create the admin user.')
+
 # Delete any existing admin
-User.objects.filter(email='admin@example.com').delete()
+User.objects.filter(email=ADMIN_EMAIL).delete()
 
 admin = User.objects.create(
-    email='admin@example.com',
+    email=ADMIN_EMAIL,
     full_name='Admin User',
     is_superuser=True,
     is_staff=True,
@@ -19,7 +25,7 @@ admin = User.objects.create(
     preferred_language='en',
     preferred_timezone='UTC'
 )
-admin.set_password('admin123')
+admin.set_password(ADMIN_PASSWORD)
 admin.save()
 
 print('=' * 60)
@@ -37,7 +43,7 @@ print('TESTING AUTHENTICATION')
 print('=' * 60)
 
 # Test with authenticate function
-auth_user = authenticate(username='admin@example.com', password='admin123')
+auth_user = authenticate(username=ADMIN_EMAIL, password=ADMIN_PASSWORD)
 if auth_user:
     print(f'✅ Authentication successful: {auth_user.email}')
     print(f'   Is Authenticated: {auth_user.is_authenticated}')
@@ -46,7 +52,7 @@ else:
     print('❌ Authentication failed')
 
 # Test direct password check
-if admin.check_password('admin123'):
+if admin.check_password(ADMIN_PASSWORD):
     print('✅ Password check passed')
 else:
     print('❌ Password check failed')

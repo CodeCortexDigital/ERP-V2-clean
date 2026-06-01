@@ -17,8 +17,8 @@ export interface LoginResponse {
 
 const authService = {
   // Normal login
-  login: (email: string, password: string) => 
-    api.post<LoginResponse>('/auth/login/', { email, password }),
+  login: (userId: string, password: string) => 
+    api.post<LoginResponse>('/auth/login/', { user_id: userId, password }),
   
   // Demo login - one click test account
   demoLogin: (name?: string) => 
@@ -35,6 +35,15 @@ const authService = {
   // Logout
   logout: () => 
     api.post('/auth/logout/', {}),
+
+  // Reset password for admin/user using admin reset key or current password
+  resetPassword: (payload: {
+    identifier: string;
+    new_password: string;
+    reset_key?: string;
+    current_password?: string;
+  }) => 
+    api.post('/auth/reset-password/', payload),
   
   // Refresh token
   refreshToken: (refresh: string) => 

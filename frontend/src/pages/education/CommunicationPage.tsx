@@ -1,40 +1,62 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { FeatureGate } from "@/hooks/useFeatureFlag"
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+
+import communicationService from '@/services/communication.service';
 
 export default function CommunicationPage() {
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSend = async () => {
+    try {
+      setLoading(true);
+
+      await communicationService.sendWhatsAppTest(
+        phone,
+        'Test message from ERP'
+      );
+
+      alert('WhatsApp message sent');
+
+    } catch (error) {
+      console.error(error);
+      alert('Failed to send message');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Communication</h1>
-        <p className="text-gray-500">Manage messages, notifications, and WhatsApp integration</p>
+        <p className="text-gray-500">
+          WhatsApp communication testing
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>WhatsApp Integration</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-500">
-              WhatsApp automation is enabled for low-attendance alerts and overdue fee
-              reminders. Configure templates and channel settings in the admin panel.
-            </p>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Send Test WhatsApp</CardTitle>
+        </CardHeader>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Auto Triggers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-500">
-              Auto triggers support attendance risk alerts and can be extended to send payment
-              reminders and academic notifications.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+        <CardContent className="space-y-4">
+          <Input
+            placeholder="923xxxxxxxxx"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+
+          <Button
+            onClick={handleSend}
+            disabled={loading}
+          >
+            {loading ? 'Sending...' : 'Send Test Message'}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }
-

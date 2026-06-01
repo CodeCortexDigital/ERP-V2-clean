@@ -37,7 +37,7 @@ interface AuthState {
   loading: boolean;
   isAuthenticated: boolean;
   hydrate: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (userId: string, password: string) => Promise<void>;
   demoLogin: (name?: string) => Promise<void>;
   googleLogin: (token: string) => Promise<void>;
   logout: () => void;
@@ -85,8 +85,8 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      login: async (email, password) => {
-        const response = await authService.login(email, password);
+      login: async (userId, password) => {
+        const response = await authService.login(userId, password);
         const { access, refresh, user } = response.data;
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);

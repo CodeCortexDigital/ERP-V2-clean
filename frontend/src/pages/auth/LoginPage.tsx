@@ -1,17 +1,16 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mail, Lock, LogIn, Sparkles, Chrome } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@code.com');
-  const [password, setPassword] = useState('admin123');
+  const [userId, setUserId] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, demoLogin, googleLogin } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
@@ -41,41 +40,42 @@ export default function LoginPage() {
     flow: 'implicit',
   });
 
+  const quickLoginAccounts: Record<string, { userId: string; password: string }> = {
+    admin: { userId: 'admin@code.com', password: 'Admin@123' },
+    teacher: { userId: 'teacher@code.com', password: 'Teacher@123' },
+    parent: { userId: 'parent@code.com', password: 'Parent@123' },
+    student: { userId: 'student@code.com', password: 'Student@123' },
+  };
+
+  const handleQuickLogin = async (role: 'admin' | 'teacher' | 'parent' | 'student') => {
+    const creds = quickLoginAccounts[role];
+    setUserId(creds.userId);
+    setPassword(creds.password);
+    setError('');
+    setLoading(true);
+
+    try {
+      await login(creds.userId, creds.password);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Invalid user ID or password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      console.log('Sending login with:', {email, password});
-      await login(email, password);
-      if (email === 'teacher@test.com') {
-        navigate('/teacher');
-      } else if (email === 'parent@test.com') {
-        navigate('/parent');
-      } else if (email === 'student43@example.com' || email.includes('@student.com')) {
-        navigate('/parent');
-      } else {
-        navigate('/dashboard');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Invalid email or password');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setDemoLoading(true);
-    setError('');
-
-    try {
-      await demoLogin();
+      await login(userId, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Demo login failed');
+      setError(err.response?.data?.error || err.message || 'Invalid user ID or password');
     } finally {
-      setDemoLoading(false);
+      setLoading(false);
     }
   };
 
@@ -99,58 +99,20 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Demo Button - One Click Test */}
-          
-          {/* Quick Login Buttons */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <button
-              onClick={async () => {
-                setEmail('admin@code.com');
-                setPassword('admin123');
-                setTimeout(() => {
-                  document.querySelector('form')?.requestSubmit();
-                }, 100);
-              }}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-            >
-              👑 Admin
-            </button>
-            <button
-              onClick={async () => {
-                setEmail('teacher@test.com');
-                setPassword('teacher123');
-                setTimeout(() => {
-                  document.querySelector('form')?.requestSubmit();
-                }, 100);
-              }}
-              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
-            >
-              👨‍🏫 Teacher
-            </button>
-            <button
-              onClick={async () => {
-                setEmail('parent@test.com');
-                setPassword('parent123');
-                setTimeout(() => {
-                  document.querySelector('form')?.requestSubmit();
-                }, 100);
-              }}
-              className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
-            >
-              👨‍👩‍👧 Parent
-            </button>
-            <button
-              onClick={async () => {
-                setEmail('student43@example.com');
-                setPassword('student123');
-                setTimeout(() => {
-                  document.querySelector('form')?.requestSubmit();
-                }, 100);
-              }}
-              className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition text-sm"
-            >
-              🎓 Student
-            </button>
+          <div className="mb-6">
+            <div className="text-sm text-slate-500 mb-3">Quick login</div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['admin', 'teacher', 'parent', 'student'] as const).map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => handleQuickLogin(role)}
+                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+                >
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button
@@ -186,16 +148,16 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
+                User ID
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="admin@code.com"
+                  placeholder="Enter your user ID"
                   required
                 />
               </div>
@@ -234,9 +196,13 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-xs text-gray-500">
-            <p>Demo: One-click trial | Admin: admin@code.com / admin123</p>`n            <p className="text-xs text-gray-400 mt-1">Students: Use Student ID (e.g., STU-2026-0043) or Email</p>
-            <p className="mt-1">Student: student43@example.com / student123</p>
+          <div className="mt-6 text-center text-xs text-gray-500 space-y-2">
+            <p>Please enter your registered credentials to continue.</p>
+            <p>
+              <Link to="/forgot-password" className="text-blue-600 hover:underline">
+                Forgot admin password?
+              </Link>
+            </p>
           </div>
         </div>
       </div>

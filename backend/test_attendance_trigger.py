@@ -1,14 +1,15 @@
+import os
 import psycopg2
 from datetime import date
 
 def test_attendance():
     try:
         conn = psycopg2.connect(
-            dbname='postgres',
-            user='postgres',
-            password='Sundas_6921*',
-            host='localhost',
-            port='5432'
+            dbname=os.environ.get('DB_NAME', 'postgres'),
+            user=os.environ.get('DB_USER', 'postgres'),
+            password=os.environ.get('DB_PASSWORD'),
+            host=os.environ.get('DB_HOST', 'localhost'),
+            port=os.environ.get('DB_PORT', '5432')
         )
         cursor = conn.cursor()
         
