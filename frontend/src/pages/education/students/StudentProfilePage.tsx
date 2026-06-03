@@ -181,15 +181,18 @@ export default function StudentProfilePage() {
     }
   };
 
+  // ✅ FIXED: Use getStudentHistory instead of getAttendance
   const fetchAttendance = async () => {
     if (!id) return;
     try {
-      const res = await attendanceService.getAttendance({ student_id: id });
+      const res = await attendanceService.getStudentHistory(id);
       let attendanceData: AttendanceRecord[] = [];
       if (Array.isArray(res.data)) {
         attendanceData = res.data;
       } else if (res.data?.results) {
         attendanceData = res.data.results;
+      } else if (res.data?.attendance_records) {
+        attendanceData = res.data.attendance_records;
       }
       setAttendance(attendanceData);
     } catch (error) {
@@ -251,6 +254,14 @@ export default function StudentProfilePage() {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-PK');
+  };
+
+  const downloadResultCard = () => {
+    if (id) {
+      import("@/services/pdf.service").then(module => {
+        module.default.downloadResultCard(id);
+      });
+    }
   };
 
   if (loading) {
@@ -355,10 +366,7 @@ export default function StudentProfilePage() {
           </Button>
           
           <button 
-            onClick={async () => { 
-              const pdfService = await import("@/services/pdf.service"); 
-              pdfService.default.downloadResultCard(id); 
-            }} 
+            onClick={downloadResultCard} 
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
           >
             📄 Download Result Card

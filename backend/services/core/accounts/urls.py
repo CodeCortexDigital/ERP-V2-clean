@@ -7,6 +7,7 @@ from . import views_auth
 from .firebase_views import FirebaseLoginView
 
 urlpatterns = [
+    path('attendance/working/', views.bulk_attendance_working, name='bulk-attendance-working'),
     path('notifications/', include('services.core.user_notifications.urls')),
     
     # Basic auth
@@ -58,6 +59,7 @@ urlpatterns = [
     path('pdf/result-card/<uuid:student_id>/', views.download_result_card, name='result-card'),
     path('pdf/fee-receipt/<str:invoice_id>/', views.download_fee_receipt, name='fee-receipt'),
 ]
+
 
 
 

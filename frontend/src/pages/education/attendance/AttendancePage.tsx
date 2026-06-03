@@ -290,7 +290,7 @@ export default function AttendancePage() {
       
       console.log('Saving attendance records:', records);
       
-      await attendanceService.bulkSave(records);
+      await attendanceService.bulkSave(selectedDate, records);
       
       setStudents(prev => prev.map(s => ({ 
         ...s, 

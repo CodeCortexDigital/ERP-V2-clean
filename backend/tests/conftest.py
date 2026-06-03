@@ -9,6 +9,7 @@ from django.test import Client
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 import factory
+from factory import fuzzy
 from faker import Faker
 
 
@@ -27,17 +28,23 @@ fake = Faker()
 class UserFactory(factory.django.DjangoModelFactory):
     """Factory for creating test User objects."""
     class Meta:
-        model = 'auth.User'
+        model = settings.AUTH_USER_MODEL
     
-    username = factory.Sequence(lambda n: f'user_{n}_{fake.user_name()}')
     email = factory.Faker('email')
+    full_name = factory.Faker('name')
     first_name = factory.Faker('first_name')
     last_name = factory.Faker('last_name')
     is_active = True
+    account_status = 'active'
     
     @classmethod
     def create(cls, **kwargs):
         """Override to set password if provided."""
+        username = kwargs.pop('username', None)
+        if username is not None:
+            kwargs.setdefault('email', f'{username}@example.com')
+            kwargs.setdefault('full_name', username)
+
         password = kwargs.pop('password', 'testpass123')
         user = super().create(**kwargs)
         user.set_password(password)
@@ -45,26 +52,10 @@ class UserFactory(factory.django.DjangoModelFactory):
         return user
 
 
-class AccountFactory(factory.django.DjangoModelFactory):
-    """Factory for creating test Account objects."""
-    class Meta:
-        model = 'accounts.Account'
-    
-    user = factory.SubFactory(UserFactory)
-    phone = factory.Faker('phone_number')
-    address = factory.Faker('address')
-    city = factory.Faker('city')
-    state = factory.Faker('state')
-    postal_code = factory.Faker('postcode')
-    country = 'Pakistan'
-    profile_pic = None
-    role = factory.fuzzy.FuzzyChoice(['Super Admin', 'School Admin', 'Teacher', 'Parent', 'Student', 'Accountant'])
-
-
 class SchoolFactory(factory.django.DjangoModelFactory):
     """Factory for creating test School objects."""
     class Meta:
-        model = 'students.School'
+        model = 'core_accounts.School'
     
     name = factory.Faker('company')
     code = factory.Sequence(lambda n: f'SCH{n:03d}')
@@ -81,7 +72,7 @@ class SchoolFactory(factory.django.DjangoModelFactory):
 class ClassFactory(factory.django.DjangoModelFactory):
     """Factory for creating test Class objects."""
     class Meta:
-        model = 'students.Class'
+        model = 'education_academics.SchoolClass'
     
     name = factory.Sequence(lambda n: f'Class {n + 1}')
     code = factory.Sequence(lambda n: f'CLS{n:03d}')
@@ -92,7 +83,7 @@ class ClassFactory(factory.django.DjangoModelFactory):
 class SectionFactory(factory.django.DjangoModelFactory):
     """Factory for creating test Section objects."""
     class Meta:
-        model = 'students.Section'
+        model = 'education_academics.Section'
     
     name = factory.Sequence(lambda n: f'Section {chr(65 + n)}')  # A, B, C...
     code = factory.Sequence(lambda n: chr(65 + n))
@@ -103,29 +94,39 @@ class SectionFactory(factory.django.DjangoModelFactory):
 class StudentFactory(factory.django.DjangoModelFactory):
     """Factory for creating test Student objects."""
     class Meta:
-        model = 'students.Student'
+        model = 'education_students.Student'
     
-    user = factory.SubFactory(UserFactory)
-    school = factory.SubFactory(SchoolFactory)
-    class_obj = factory.SubFactory(ClassFactory, school=factory.SelfAttribute('..school'))
-    section = factory.SubFactory(SectionFactory, class_obj=factory.SelfAttribute('..class_obj'))
-    enrollment_number = factory.Sequence(lambda n: f'STU{n:06d}')
+    student_id = factory.Sequence(lambda n: f'STU{n:06d}')
+    full_name = factory.Faker('name')
+    email = factory.LazyAttribute(lambda obj: f"{obj.full_name.lower().replace(' ', '.')}@example.com")
+    phone = factory.Faker('phone_number')
     date_of_birth = factory.Faker('date_of_birth', minimum_age=5, maximum_age=18)
     admission_date = factory.Faker('date_this_decade')
-    status = 'active'
+    gender = 'male'
+    guardian_name = factory.Faker('name')
+    emergency_contact = factory.Faker('phone_number')
+    father_name = factory.Faker('name')
+    mother_name = factory.Faker('name')
+    guardian_phone = factory.Faker('phone_number')
+    address = factory.Faker('address')
+    city = factory.Faker('city')
+    state = factory.Faker('state')
+    postal_code = factory.Faker('postcode')
+    current_class = factory.SubFactory(ClassFactory)
+    current_section = factory.SubFactory(SectionFactory)
     is_active = True
 
 
 class TeacherFactory(factory.django.DjangoModelFactory):
     """Factory for creating test Teacher objects."""
     class Meta:
-        model = 'students.Teacher'
+        model = 'education_academics.Teacher'
     
     user = factory.SubFactory(UserFactory)
     school = factory.SubFactory(SchoolFactory)
     employee_id = factory.Sequence(lambda n: f'TEA{n:05d}')
     qualification = 'Bachelor'
-    experience_years = factory.fuzzy.FuzzyInteger(0, 20)
+    experience_years = fuzzy.FuzzyInteger(0, 20)
     joining_date = factory.Faker('date_this_decade')
     status = 'active'
     is_active = True
@@ -134,11 +135,11 @@ class TeacherFactory(factory.django.DjangoModelFactory):
 class AttendanceRecordFactory(factory.django.DjangoModelFactory):
     """Factory for creating test AttendanceRecord objects."""
     class Meta:
-        model = 'attendance.AttendanceRecord'
+        model = 'education_attendance.AttendanceRecord'
     
     student = factory.SubFactory(StudentFactory)
     date = factory.Faker('date_this_month')
-    status = factory.fuzzy.FuzzyChoice(['present', 'absent', 'leave'])
+    status = fuzzy.FuzzyChoice(['present', 'absent', 'leave'])
     marked_by = factory.SubFactory(TeacherFactory)
     remarks = ''
 
@@ -146,12 +147,12 @@ class AttendanceRecordFactory(factory.django.DjangoModelFactory):
 class ExamFactory(factory.django.DjangoModelFactory):
     """Factory for creating test Exam objects."""
     class Meta:
-        model = 'exams.Exam'
+        model = 'education_exams.Exam'
     
     name = factory.Faker('word')
     school = factory.SubFactory(SchoolFactory)
     class_obj = factory.SubFactory(ClassFactory, school=factory.SelfAttribute('..school'))
-    exam_type = factory.fuzzy.FuzzyChoice(['midterm', 'final', 'quiz', 'assignment'])
+    exam_type = fuzzy.FuzzyChoice(['midterm', 'final', 'quiz', 'assignment'])
     start_date = factory.Faker('date_this_month')
     end_date = factory.Faker('date_this_month')
     is_active = True
@@ -160,14 +161,14 @@ class ExamFactory(factory.django.DjangoModelFactory):
 class ExamResultFactory(factory.django.DjangoModelFactory):
     """Factory for creating test ExamResult objects."""
     class Meta:
-        model = 'exams.ExamResult'
+        model = 'education_exams.ExamResult'
     
     exam = factory.SubFactory(ExamFactory)
     student = factory.SubFactory(StudentFactory)
     total_marks = 100
-    obtained_marks = factory.fuzzy.FuzzyInteger(0, 100)
+    obtained_marks = fuzzy.FuzzyInteger(0, 100)
     percentage = factory.LazyAttribute(lambda o: (o.obtained_marks / o.total_marks * 100))
-    grade = factory.fuzzy.FuzzyChoice(['A', 'B', 'C', 'D', 'F'])
+    grade = fuzzy.FuzzyChoice(['A', 'B', 'C', 'D', 'F'])
     status = 'published'
     remarks = ''
 
@@ -175,15 +176,15 @@ class ExamResultFactory(factory.django.DjangoModelFactory):
 class InvoiceFactory(factory.django.DjangoModelFactory):
     """Factory for creating test Invoice objects."""
     class Meta:
-        model = 'finance.Invoice'
+        model = 'education_finance.Invoice'
     
     student = factory.SubFactory(StudentFactory)
     invoice_number = factory.Sequence(lambda n: f'INV{n:06d}')
     invoice_date = factory.Faker('date_this_month')
     due_date = factory.Faker('date_this_month')
-    amount = factory.fuzzy.FuzzyDecimal(1000, 50000)
+    amount = fuzzy.FuzzyDecimal(1000, 50000)
     paid_amount = 0
-    status = factory.fuzzy.FuzzyChoice(['pending', 'partial', 'paid', 'overdue'])
+    status = fuzzy.FuzzyChoice(['pending', 'partial', 'paid', 'overdue'])
     description = 'Monthly tuition fee'
     is_active = True
 
@@ -196,7 +197,7 @@ class NotificationFactory(factory.django.DjangoModelFactory):
     recipient = factory.SubFactory(UserFactory)
     title = factory.Faker('sentence', nb_words=4)
     message = factory.Faker('text', max_nb_chars=200)
-    notification_type = factory.fuzzy.FuzzyChoice(['attendance', 'fee', 'exam', 'announcement'])
+    notification_type = fuzzy.FuzzyChoice(['attendance', 'fee', 'exam', 'announcement'])
     is_read = False
     created_at = factory.Faker('date_time_this_month')
 

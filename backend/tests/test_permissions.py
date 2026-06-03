@@ -5,7 +5,7 @@ import pytest
 from rest_framework import status
 from tests.conftest import (
     UserFactory, StudentFactory, TeacherFactory, 
-    AccountFactory, SchoolFactory, ClassFactory, SectionFactory
+    SchoolFactory, ClassFactory, SectionFactory
 )
 
 
