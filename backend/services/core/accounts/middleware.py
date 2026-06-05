@@ -1,34 +1,20 @@
+# backend/services/core/accounts/middleware.py
 from django.utils.deprecation import MiddlewareMixin
-from .audit_models import log_action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
 
-class AuditMiddleware(MiddlewareMixin):
-    def process_request(self, request):
-        # Store request info for later logging
-        request.audit_ip = request.META.get('REMOTE_ADDR')
-        request.audit_user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
-        return None
+class GlobalAuthenticationMiddleware(MiddlewareMixin):
+    """Global authentication for all API requests"""
     
-    def process_response(self, request, response):
-        # Log login actions
-        if request.path == '/api/auth/login/' and response.status_code == 200:
-            if hasattr(request, 'user') and request.user.is_authenticated:
-                log_action(
-                    user=request.user,
-                    action='login',
-                    module='auth',
-                    request=request
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        # Skip auth for login, health checks, and public endpoints
+        public_paths = ['/api/auth/login/', '/api/auth/health/', '/api/auth/register/']
+        
+        if request.path.startswith('/api/') and not any(request.path.startswith(p) for p in public_paths):
+            if not request.user.is_authenticated:
+                return Response(
+                    {'detail': 'Authentication required'}, 
+                    status=status.HTTP_401_UNAUTHORIZED
                 )
-
-        # Log denied access attempts
-        if response.status_code == 403 and hasattr(request, 'user') and request.user.is_authenticated:
-            module_name = request.path.strip('/').split('/')[0] if request.path else 'unknown'
-            log_action(
-                user=request.user,
-                action='permission_denied',
-                module=module_name,
-                object_id='',
-                object_name=request.path,
-                request=request
-            )
-
-        return response
+        return None

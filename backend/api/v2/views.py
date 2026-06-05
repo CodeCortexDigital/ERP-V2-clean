@@ -1,3 +1,5 @@
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
 """
 API v2 views — same behavior as v1 with extended student serializers.
 """

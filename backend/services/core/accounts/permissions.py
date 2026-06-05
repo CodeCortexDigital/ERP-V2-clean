@@ -1,32 +1,13 @@
-from rest_framework.permissions import BasePermission
-from .decorators import get_user_role
+from rest_framework import permissions
 
-
-class IsTeacher(BasePermission):
+class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and get_user_role(request.user) == 'teacher'
+        return request.user.is_authenticated and getattr(request.user, 'role', '') == 'admin'
 
-
-class IsParent(BasePermission):
+class IsTeacher(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and get_user_role(request.user) == 'parent'
+        return request.user.is_authenticated and getattr(request.user, 'role', '') == 'teacher'
 
-
-class IsStudent(BasePermission):
+class IsStudent(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and get_user_role(request.user) == 'student'
-
-
-class IsAccountant(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and get_user_role(request.user) == 'accountant'
-
-
-class IsAdmin(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and get_user_role(request.user) == 'admin'
-
-
-class DenyAccountantExamAccess(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and get_user_role(request.user) != 'accountant'
+        return request.user.is_authenticated and getattr(request.user, 'role', '') == 'student'

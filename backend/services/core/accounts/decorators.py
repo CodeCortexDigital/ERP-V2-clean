@@ -1,3 +1,5 @@
+# backend/services/core/accounts/decorators.py
+from functools import wraps
 from django.apps import apps
 from django.db.models import QuerySet
 from rest_framework.response import Response
@@ -5,16 +7,18 @@ from rest_framework import status
 
 
 def normalize_role_name(raw_name):
+    """Normalize role name to lowercase string"""
     if not raw_name:
         return None
     return str(raw_name).strip().lower()
 
 
 def get_user_role(user):
+    """Determine user role from database relationships and authentication state."""
     if not getattr(user, 'is_authenticated', False):
         return None
 
-    if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+    if getattr(user, 'is_superuser', False):
         return 'admin'
 
     if hasattr(user, 'profile') and getattr(user.profile, 'role', None):
@@ -57,7 +61,10 @@ def is_accountant(user):
 
 
 def unauthorized_response():
-    return Response({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+    return Response(
+        {'detail': 'Permission denied.'},
+        status=status.HTTP_403_FORBIDDEN
+    )
 
 
 def _get_parent_student_ids(user):
@@ -114,7 +121,10 @@ def filter_exams_for_user(user, queryset: QuerySet):
     if role == 'teacher':
         return queryset.filter(class_ref_id__in=_get_teacher_class_ids(user))
     if role == 'student':
-        return queryset.filter(class_ref_id__in=apps.get_model('education_students', 'Student').objects.filter(email=user.email).values_list('current_class_id', flat=True))
+        Student = apps.get_model('education_students', 'Student')
+        return queryset.filter(
+            class_ref_id__in=Student.objects.filter(email=user.email).values_list('current_class_id', flat=True)
+        )
     if role == 'accountant':
         return queryset.none()
     return queryset.none()
@@ -136,12 +146,12 @@ def filter_exam_results_for_user(user, queryset: QuerySet):
 
 def filter_invoices_for_user(user, queryset: QuerySet):
     role = get_user_role(user)
-    if role == 'admin' or role == 'accountant':
+    if role in ('admin', 'accountant'):
         return queryset
     if role == 'parent':
         return queryset.filter(student_id__in=_get_parent_student_ids(user))
     if role == 'teacher':
-        return queryset.filter(student__current_class_id__in=_get_teacher_class_ids(user))
+        return queryset.none()
     if role == 'student':
         return queryset.filter(student__email=user.email)
     return queryset.none()
@@ -149,12 +159,12 @@ def filter_invoices_for_user(user, queryset: QuerySet):
 
 def filter_payments_for_user(user, queryset: QuerySet):
     role = get_user_role(user)
-    if role == 'admin' or role == 'accountant':
+    if role in ('admin', 'accountant'):
         return queryset
     if role == 'parent':
         return queryset.filter(invoice__student_id__in=_get_parent_student_ids(user))
     if role == 'teacher':
-        return queryset.filter(invoice__student__current_class_id__in=_get_teacher_class_ids(user))
+        return queryset.none()
     if role == 'student':
         return queryset.filter(invoice__student__email=user.email)
     return queryset.none()
@@ -198,4 +208,33 @@ def ensure_student_access(user, student):
 
 
 def deny_accountant_exam_access(user):
-    return get_user_role(user) == 'accountant'
+    return is_accountant(user)
+
+
+def require_role(allowed_roles):
+    """Decorator to restrict access based on user role"""
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+            user_role = get_user_role(request.user)
+            if user_role not in allowed_roles:
+                return Response({'error': 'You do not have permission to access this resource'}, status=status.HTTP_403_FORBIDDEN)
+
+            return view_func(request, *args, **kwargs)
+        return wrapped_view
+    return decorator
+
+
+def admin_only(view_func):
+    return require_role(['admin'])(view_func)
+
+
+def teacher_only(view_func):
+    return require_role(['admin', 'teacher'])(view_func)
+
+
+def student_only(view_func):
+    return require_role(['admin', 'teacher', 'student'])(view_func)

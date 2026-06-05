@@ -1,10 +1,15 @@
 from rest_framework import serializers
 from django.apps import apps
+from .decorators import get_user_role
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    def get_role(self, obj):
+        return get_user_role(obj)
     class Meta:
         model = apps.get_model('core_accounts', 'User')
-        fields = ['id', 'email', 'full_name', 'is_staff', 'is_superuser']
+        fields = ['id', 'email', 'full_name', 'is_staff', 'is_superuser', 'role']
 
 
 # ============================================================

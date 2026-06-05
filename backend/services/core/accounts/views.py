@@ -67,6 +67,7 @@ def login_view(request):
             set_session_tenant,
         )
         from services.core.tenants.serializers import SchoolSerializer
+        from .decorators import get_user_role
 
         refresh = RefreshToken.for_user(user)
         tenant = resolve_tenant_for_user(user)
@@ -82,6 +83,7 @@ def login_view(request):
                 'full_name': getattr(user, 'full_name', user.email),
                 'is_staff': user.is_staff,
                 'is_superuser': user.is_superuser,
+                'role': get_user_role(user),
             },
         }
         if tenant:
@@ -112,6 +114,7 @@ def get_current_user(request):
         'full_name': user.full_name,
         'is_staff': user.is_staff,
         'is_superuser': user.is_superuser,
+        'role': get_user_role(user),
     })
 
 

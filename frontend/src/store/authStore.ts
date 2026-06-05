@@ -12,10 +12,12 @@ export interface AuthUser {
   is_demo?: boolean;
   is_staff?: boolean;
   is_superuser?: boolean;
+  role?: UserRole | null;
 }
 
 function resolveRole(user: AuthUser | null): UserRole | null {
   if (!user) return null;
+  if (user.role) return user.role;
   if (user.is_superuser) return 'admin';
   if (user.is_staff) return 'staff';
   return 'user';

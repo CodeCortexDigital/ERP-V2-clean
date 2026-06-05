@@ -41,6 +41,7 @@ def google_login(request):
         refresh = RefreshToken.for_user(user)
         
         from .serializers import UserSerializer
+        from .decorators import get_user_role
         serializer = UserSerializer(user)
         
         return Response({
@@ -110,6 +111,7 @@ def demo_login(request):
                 'full_name': user.full_name,
                 'is_demo': True,
                 'demo_remaining_days': remaining_days
+                , 'role': get_user_role(user)
             },
             'is_demo': True,
             'demo_warning': remaining_days <= 3,

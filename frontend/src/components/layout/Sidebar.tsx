@@ -85,12 +85,12 @@ interface SidebarProps {
 export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
   const { user } = useAuth();
+  const { role } = useAuth();
   
-  // Determine user role - FIXED to include student43@example.com
-  const isParent = user?.email === 'parent@test.com' || user?.email === 'parent@erp.com';
-  const isTeacher = user?.email === 'teacher@test.com' || user?.email === 'teacher@erp.com';
-  const isStudent = user?.email === 'student43@example.com' || user?.email?.includes('@student.com') || user?.email === 'student@erp.com';
-  const isAdmin = !isParent && !isTeacher && !isStudent;
+  const isParent = role === 'parent';
+  const isTeacher = role === 'teacher';
+  const isStudent = role === 'student';
+  const isAdmin = role === 'admin' || role === 'staff';
   
   // Parent Navigation
   const parentNavItems: NavItem[] = [

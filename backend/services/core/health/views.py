@@ -1,29 +1,30 @@
-"""Health check API views."""
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+
 from .utils import get_system_health
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def health_check(request):
     """
     Health check endpoint that returns system status.
-    
+
     Returns:
         - Database status
         - Redis cache status
         - Celery worker status
     """
     health_data = get_system_health()
-    
-    # Determine HTTP status code
+
     http_status = status.HTTP_200_OK if health_data['status'] == 'healthy' else status.HTTP_503_SERVICE_UNAVAILABLE
-    
     return Response(health_data, status=http_status)
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def readiness_check(request):
     """
     Kubernetes readiness probe endpoint.
@@ -31,17 +32,17 @@ def readiness_check(request):
     """
     health_data = get_system_health()
     database_status = health_data['checks']['database']['status']
-    
+
     if database_status == 'healthy':
         return Response({'status': 'ready'}, status=status.HTTP_200_OK)
-    else:
-        return Response(
-            {'status': 'not_ready', 'reason': 'Database unavailable'},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE
-        )
+    return Response(
+        {'status': 'not_ready', 'reason': 'Database unavailable'},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE
+    )
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def liveness_check(request):
     """
     Kubernetes liveness probe endpoint.
@@ -51,6 +52,7 @@ def liveness_check(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def detailed_health(request):
     """
     Detailed health check with all component statuses.

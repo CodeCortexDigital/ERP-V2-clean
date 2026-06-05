@@ -9,6 +9,7 @@ export interface LoginResponse {
     full_name: string;
     is_demo?: boolean;
     demo_remaining_days?: number;
+    role?: string;
   };
   is_demo?: boolean;
   demo_warning?: boolean;

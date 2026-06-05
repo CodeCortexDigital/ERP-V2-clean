@@ -1,287 +1,196 @@
-from pathlib import Path
+import os
 import re
-from datetime import datetime
+from pathlib import Path
+from collections import defaultdict
+
+print("=" * 80)
+print("RBAC PERMISSION AUDIT - Finding Missing Role Restrictions")
+print("=" * 80)
 
 ROOT = Path(".")
 
-print("=" * 100)
-print("SCHOOL ERP - FINAL AUDIT V2")
-print("=" * 100)
-print("Audit Time:", datetime.now())
-print("=" * 100)
-
-# ==========================================================
-# FILE DISCOVERY
-# ==========================================================
-
-frontend_pages = list((ROOT / "frontend/src/pages").rglob("*.tsx")) if (ROOT / "frontend/src/pages").exists() else []
-frontend_components = list((ROOT / "frontend/src/components").rglob("*.tsx")) if (ROOT / "frontend/src/components").exists() else []
-frontend_services = list((ROOT / "frontend/src/services").rglob("*.ts")) if (ROOT / "frontend/src/services").exists() else []
-frontend_hooks = list((ROOT / "frontend/src/hooks").rglob("*.ts")) if (ROOT / "frontend/src/hooks").exists() else []
-
-backend_urls = list((ROOT / "backend").rglob("urls.py"))
+# Files to check
 backend_views = list((ROOT / "backend").rglob("views.py"))
-backend_models = list((ROOT / "backend").rglob("models.py"))
-backend_serializers = list((ROOT / "backend").rglob("serializers.py"))
-backend_migrations = list((ROOT / "backend").rglob("*.py"))
+backend_urls = list((ROOT / "backend").rglob("urls.py"))
+frontend_pages = list((ROOT / "frontend/src/pages").rglob("*.tsx"))
+frontend_components = list((ROOT / "frontend/src/components").rglob("*.tsx"))
 
-print("\nFILE COUNTS")
-print("-" * 60)
-print(f"Frontend Pages      : {len(frontend_pages)}")
-print(f"Frontend Components : {len(frontend_components)}")
-print(f"Frontend Services   : {len(frontend_services)}")
-print(f"Frontend Hooks      : {len(frontend_hooks)}")
-print(f"Backend URLs        : {len(backend_urls)}")
-print(f"Backend Views       : {len(backend_views)}")
-print(f"Backend Models      : {len(backend_models)}")
-print(f"Backend Serializers : {len(backend_serializers)}")
-print(f"Backend Python Files: {len(backend_migrations)}")
+print(f"\n📁 Files Analyzed:")
+print(f"  Backend Views: {len(backend_views)}")
+print(f"  Backend URLs: {len(backend_urls)}")
+print(f"  Frontend Pages: {len(frontend_pages)}")
+print(f"  Frontend Components: {len(frontend_components)}")
 
-# ==========================================================
-# ROUTE AUDIT
-# ==========================================================
+# ============================================================
+# 1. CHECK BACKEND PERMISSION CLASSES
+# ============================================================
+print("\n" + "=" * 80)
+print("1. BACKEND PERMISSION CLASSES")
+print("=" * 80)
 
-print("\nROUTE AUDIT")
-print("-" * 60)
+missing_permissions = []
+has_permissions = []
+custom_permissions = []
 
-route_files = []
-route_files.extend(list((ROOT / "frontend/src").rglob("App.tsx")))
-route_files.extend(list((ROOT / "frontend/src").rglob("*Router*.tsx")))
-route_files.extend(list((ROOT / "frontend/src").rglob("*Routes*.tsx")))
-route_files.extend(list((ROOT / "frontend/src").rglob("*routes*.tsx")))
-
-route_text = ""
-
-for file in route_files:
+for view_file in backend_views:
     try:
-        route_text += file.read_text(encoding="utf-8")
-    except:
+        content = view_file.read_text(encoding="utf-8")
+        
+        # Find all @api_view decorators
+        api_views = re.findall(r'@api_view\([^)]+\)\s+def\s+(\w+)', content)
+        
+        for view_name in api_views:
+            # Get the function content
+            func_start = content.find(f'def {view_name}')
+            func_end = content.find('def ', func_start + 1) if content.find('def ', func_start + 1) != -1 else len(content)
+            func_content = content[func_start:func_end]
+            
+            # Check if permission_classes is set
+            if 'permission_classes' not in func_content:
+                missing_permissions.append({
+                    'file': view_file.name,
+                    'view': view_name
+                })
+            elif 'IsAuthenticated' in func_content:
+                has_permissions.append({
+                    'file': view_file.name,
+                    'view': view_name
+                })
+            
+            # Check for role-based permissions
+            if any(role in func_content for role in ['IsAdmin', 'IsTeacher', 'IsStudent', 'IsParent']):
+                custom_permissions.append({
+                    'file': view_file.name,
+                    'view': view_name
+                })
+                
+    except Exception as e:
         pass
 
-registered_pages = 0
-unregistered_pages = []
+print(f"\n✅ Views WITH Authentication: {len(has_permissions)}")
+print(f"⚠️  Views WITHOUT Permission Classes: {len(missing_permissions)}")
+print(f"🔐 Views with Role-Based Permissions: {len(custom_permissions)}")
 
-for page in frontend_pages:
-    page_name = page.stem
-    if page_name in route_text:
-        registered_pages += 1
-    else:
-        unregistered_pages.append(page_name)
+if missing_permissions:
+    print("\n⚠️  Views MISSING permission_classes:")
+    for item in missing_permissions[:10]:
+        print(f"   - {item['view']} in {item['file']}")
 
-route_percent = round((registered_pages / max(len(frontend_pages), 1)) * 100, 1)
+# ============================================================
+# 2. CHECK FRONTEND ROLE PROTECTION
+# ============================================================
+print("\n" + "=" * 80)
+print("2. FRONTEND ROLE PROTECTION")
+print("=" * 80)
 
-print("Pages Registered :", registered_pages)
-print("Pages Missing    :", len(unregistered_pages))
-print("Route Coverage   :", route_percent, "%")
-
-# ==========================================================
-# FRONTEND API AUDIT
-# ==========================================================
-
-print("\nFRONTEND API AUDIT")
-print("-" * 60)
-
-frontend_api_calls = []
-
-for service in frontend_services:
-    try:
-        txt = service.read_text(encoding="utf-8")
-        matches = re.findall(r"api\.(?:get|post|put|patch|delete)\(['\"]([^'\"]+)['\"]", txt)
-        frontend_api_calls.extend(matches)
-    except:
-        pass
-
-frontend_api_calls = sorted(set(frontend_api_calls))
-
-print("API Calls Found :", len(frontend_api_calls))
-
-# ==========================================================
-# BACKEND URL AUDIT
-# ==========================================================
-
-print("\nBACKEND URL AUDIT")
-print("-" * 60)
-
-backend_endpoints = []
-
-for url_file in backend_urls:
-    try:
-        txt = url_file.read_text(encoding="utf-8")
-        matches = re.findall(r"path\(['\"]([^'\"]+)['\"]", txt)
-        backend_endpoints.extend(matches)
-    except:
-        pass
-
-backend_endpoints = sorted(set(backend_endpoints))
-
-print("Backend Endpoints :", len(backend_endpoints))
-
-# ==========================================================
-# SERVICE USAGE AUDIT
-# ==========================================================
-
-print("\nSERVICE USAGE AUDIT")
-print("-" * 60)
-
-all_page_text = ""
+role_checks = []
+no_role_checks = []
 
 for page in frontend_pages:
     try:
-        all_page_text += page.read_text(encoding="utf-8")
-    except:
+        content = page.read_text(encoding="utf-8")
+        
+        # Check for role-based rendering
+        has_role_check = any([
+            'user?.role' in content,
+            'user.role' in content,
+            'role ===' in content,
+            'isAdmin' in content,
+            'isTeacher' in content,
+            'isStudent' in content,
+            'isParent' in content,
+            'ProtectedRoute' in content,
+            'useAuth' in content,
+            'allowedRoles' in content,
+            'RoleBasedRoute' in content
+        ])
+        
+        if has_role_check:
+            role_checks.append(page.stem)
+        else:
+            no_role_checks.append(page.stem)
+            
+    except Exception as e:
         pass
 
-unused_services = []
+print(f"\n✅ Pages WITH Role Checks: {len(role_checks)}")
+print(f"⚠️  Pages WITHOUT Role Checks: {len(no_role_checks)}")
 
-for service in frontend_services:
-    service_name = service.stem
-    if service_name not in all_page_text:
-        unused_services.append(service_name)
+if no_role_checks:
+    print("\n⚠️  Pages that may be accessible to ALL roles:")
+    for page in no_role_checks[:15]:
+        print(f"   - {page}")
 
-print("Unused Services :", len(unused_services))
+# ============================================================
+# 3. CHECK USER MODEL FOR ROLE FIELD
+# ============================================================
+print("\n" + "=" * 80)
+print("3. USER MODEL ROLE FIELD")
+print("=" * 80)
 
-# ==========================================================
-# AUTH AUDIT
-# ==========================================================
+has_role_field = False
+role_choices = []
 
-print("\nAUTHENTICATION AUDIT")
-print("-" * 60)
-
-auth_count = 0
-
-for view in backend_views:
+for model_file in (ROOT / "backend").rglob("models.py"):
     try:
-        txt = view.read_text(encoding="utf-8")
-        if "IsAuthenticated" in txt or "permission_classes" in txt or "JWTAuthentication" in txt:
-            auth_count += 1
+        content = model_file.read_text(encoding="utf-8")
+        if 'class User' in content or 'class CustomUser' in content:
+            if 'role' in content.lower():
+                has_role_field = True
+                # Extract role choices
+                role_match = re.search(r'role.*?choices.*?=\s*\[(.*?)\]', content, re.DOTALL)
+                if role_match:
+                    role_choices = role_match.group(1)
+                print(f"✅ Role field found in {model_file.name}")
+                if role_choices:
+                    print(f"   Role choices: {role_choices[:100]}")
+            else:
+                print(f"❌ NO role field found in {model_file.name}")
     except:
         pass
 
-print("Protected View Files :", auth_count)
+if not has_role_field:
+    print("❌ CRITICAL: No role field found in User model!")
 
-# ==========================================================
-# FEATURE FLAG AUDIT
-# ==========================================================
+# ============================================================
+# 4. SCORE CALCULATION
+# ============================================================
+print("\n" + "=" * 80)
+print("RBAC IMPLEMENTATION SCORE")
+print("=" * 80)
 
-print("\nFEATURE FLAG AUDIT")
-print("-" * 60)
+total_views = len(has_permissions) + len(missing_permissions)
+auth_percentage = (len(has_permissions) / total_views * 100) if total_views > 0 else 0
 
-feature_files = [x for x in (ROOT / "backend").rglob("*.py") if "feature" in str(x).lower()]
+total_pages = len(role_checks) + len(no_role_checks)
+role_percentage = (len(role_checks) / total_pages * 100) if total_pages > 0 else 0
 
-print("Feature Files :", len(feature_files))
+rbac_score = (auth_percentage + role_percentage) / 2
 
-# ==========================================================
-# TENANT AUDIT
-# ==========================================================
+print(f"🔐 API Authentication Coverage: {auth_percentage:.1f}%")
+print(f"🛡️  Frontend Role Check Coverage: {role_percentage:.1f}%")
+print(f"📊 Overall RBAC Score: {rbac_score:.1f}%")
 
-print("\nTENANT AUDIT")
-print("-" * 60)
-
-tenant_files = [x for x in (ROOT / "backend").rglob("*.py") if "tenant" in str(x).lower()]
-
-print("Tenant Files :", len(tenant_files))
-
-# ==========================================================
-# MODULE AUDIT
-# ==========================================================
-
-print("\nMODULE AUDIT")
-print("-" * 60)
-
-modules = [
-    "students",
-    "attendance",
-    "exams",
-    "finance",
-    "admissions",
-    "analytics",
-    "communication",
-    "academics"
-]
-
-module_score = 0
-
-for module in modules:
-    frontend_ok = any(module in str(x).lower() for x in frontend_pages)
-    backend_ok = any(module in str(x).lower() for x in backend_urls)
-    model_ok = any(module in str(x).lower() for x in backend_models)
-    
-    if frontend_ok and backend_ok and model_ok:
-        status = "PASS"
-        module_score += 1
-    else:
-        status = "FAIL"
-    
-    print(f"{module.upper():15} Frontend={frontend_ok} Backend={backend_ok} Models={model_ok} ==> {status}")
-
-# ==========================================================
-# INTEGRATION AUDIT
-# ==========================================================
-
-print("\nINTEGRATION AUDIT")
-print("-" * 60)
-
-matched = 0
-
-for api in frontend_api_calls:
-    clean_api = api.strip("/").split("/")[-1]
-    for endpoint in backend_endpoints:
-        if clean_api and clean_api in endpoint:
-            matched += 1
-            break
-
-integration_score = round((matched / max(len(frontend_api_calls), 1)) * 100, 1)
-
-print("Matched APIs     :", matched)
-print("Integration Rate :", integration_score, "%")
-
-# ==========================================================
-# FINAL SCORE
-# ==========================================================
-
-score = 0
-score += route_percent * 0.25
-score += integration_score * 0.25
-
-if auth_count > 0:
-    score += 15
-
-if len(feature_files) > 0:
-    score += 10
-
-if len(tenant_files) > 0:
-    score += 10
-
-score += (module_score / max(len(modules), 1)) * 40
-score = round(min(score, 100), 1)
-
-print("\n" + "=" * 100)
-print("FINAL ERP READINESS SCORE :", score, "%")
-print("=" * 100)
-
-if score >= 90:
-    print("STATUS : PRODUCTION READY")
-elif score >= 75:
-    print("STATUS : QA REVIEW REQUIRED")
-elif score >= 50:
-    print("STATUS : INTEGRATION WORK REMAINING")
+print("\n" + "=" * 80)
+if rbac_score >= 90:
+    print("✅ EXCELLENT! RBAC is well implemented!")
+elif rbac_score >= 70:
+    print("⚠️ GOOD but needs improvements in some areas")
+elif rbac_score >= 50:
+    print("🔴 NEEDS WORK - Add permission classes to API views")
 else:
-    print("STATUS : NOT READY")
+    print("🔴 CRITICAL - RBAC is missing or incomplete!")
 
-print("=" * 100)
+print("\n📋 RECOMMENDATIONS:")
+print("-" * 40)
 
-if unregistered_pages:
-    print("\n⚠️ UNREGISTERED PAGES (Need route configuration):")
-    print("-" * 60)
-    for page in sorted(unregistered_pages)[:10]:
-        print(" -", page)
-
-if unused_services:
-    print("\n⚠️ UNUSED SERVICES (Not imported anywhere):")
-    print("-" * 60)
-    for service in sorted(unused_services)[:10]:
-        print(" -", service)
-
-print("\n" + "=" * 100)
-print("AUDIT COMPLETE")
-print("=" * 100)
+if auth_percentage < 90:
+    print("1. Add @permission_classes([IsAuthenticated]) to all API views")
+if role_percentage < 90:
+    print("2. Add role-based checks in frontend pages")
+if not has_role_field:
+    print("3. Add 'role' field to User model")
+if len(custom_permissions) == 0:
+    print("4. Create custom permission classes for Teacher/Student/Parent roles")
+    
+print("=" * 80)

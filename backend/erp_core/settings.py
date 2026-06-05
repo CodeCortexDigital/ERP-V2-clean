@@ -70,6 +70,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'services.core.accounts.middleware.GlobalAuthenticationMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'services.education.students.middleware.StudentActivityMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -80,7 +81,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'services.core.tenants.middleware.TenantMiddleware',
     'services.core.features.middleware.FeatureFlagMiddleware',
-    'services.core.accounts.middleware.AuditMiddleware',
     'services.core.audit.middleware.AuditMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
