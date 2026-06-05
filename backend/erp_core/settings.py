@@ -70,7 +70,6 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'services.core.accounts.middleware.GlobalAuthenticationMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'services.education.students.middleware.StudentActivityMiddleware',
     'django.middleware.security.SecurityMiddleware',
