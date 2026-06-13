@@ -190,8 +190,9 @@ def cached_api_view(timeout: int | None = None, cache_type: str = 'api', key_fun
         return response
 
       data = cache_get_or_set(key, produce, ttl, cache_type)
-      from rest_framework.response import Response
-      return Response(data)
+      from django.http import HttpResponse
+      from rest_framework.renderers import JSONRenderer
+      return HttpResponse(JSONRenderer().render(data), content_type='application/json')
 
     return wrapper
 
@@ -235,8 +236,9 @@ class CachedListResponseMixin:
     cached = cache.get(key)
     if cached is not None:
       CacheMetrics.record_hit(self.cache_type)
-      from rest_framework.response import Response
-      return Response(cached)
+      from django.http import HttpResponse
+      from rest_framework.renderers import JSONRenderer
+      return HttpResponse(JSONRenderer().render(cached), content_type='application/json')
 
     CacheMetrics.record_miss(self.cache_type)
     response = super().list(request, *args, **kwargs)

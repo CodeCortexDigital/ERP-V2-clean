@@ -28,6 +28,7 @@ const AdmissionsPage = lazy(() => import('../pages/education/AdmissionsPage'));
 const ExamsPage = lazy(() => import('../pages/education/ExamsPage'));
 const FeesPage = lazy(() => import('../pages/education/FeesPage'));
 const AttendancePage = lazy(() => import('../pages/education/attendance/AttendancePage'));
+const AttendanceAnalyticsDashboard = lazy(() => import('../pages/education/attendance/dashboard/AttendanceAnalyticsDashboard'));
 
 // Loading component for Suspense
 const PageLoader = () => (
@@ -152,6 +153,10 @@ export const routes: RouteObject[] = [
       {
         path: 'education/attendance',
         element: <Suspense fallback={<PageLoader />}><AttendancePage /></Suspense>,
+      },
+      {
+        path: 'education/attendance/analytics',
+        element: <Suspense fallback={<PageLoader />}><AttendanceAnalyticsDashboard /></Suspense>,
       },
     ],
   },

@@ -57,3 +57,13 @@ class AttendanceRecord(SoftDeleteModel):
     def __str__(self):
         return f"{self.student.full_name} - {self.date} - {self.status}"
 
+
+# Import analytics models
+from .analytics_models import AttendanceAnalytics, AttendancePattern, AttendanceAlert
+
+__all__ = [
+    'AttendanceRecord',
+    'AttendanceAnalytics',
+    'AttendancePattern',
+    'AttendanceAlert',
+]

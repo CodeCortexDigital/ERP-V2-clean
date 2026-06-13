@@ -66,7 +66,27 @@ const attendanceService = {
     if (year) params.append('year', year);
     if (params.toString()) url += `?${params.toString()}`;
     return api.get(url);
-  }
+  },
+
+  // Analytics endpoints
+  getAnalytics: () =>
+    api.get('/auth/attendance/analytics/'),
+  
+  getPatterns: () =>
+    api.get('/auth/attendance/patterns/'),
+  
+  getAlerts: () =>
+    api.get('/auth/attendance/alerts/'),
+  
+  getTrends: (period: 'weekly' | 'monthly' = 'weekly', studentId?: string) => {
+    const params = new URLSearchParams();
+    params.append('period', period);
+    if (studentId) params.append('student_id', studentId);
+    return api.get(`/auth/attendance/trends/?${params.toString()}`);
+  },
+  
+  getAtRiskStudents: () =>
+    api.get('/auth/attendance/at-risk/'),
 };
 
 export default attendanceService;

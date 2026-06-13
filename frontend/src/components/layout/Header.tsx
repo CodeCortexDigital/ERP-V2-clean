@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import SearchBar from '@/components/SearchBar';
 
 interface BreadcrumbItem {
   label: string;
@@ -140,9 +141,14 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
             <button onClick={onMobileMenuToggle} className="lg:hidden text-gray-600">
               <Menu className="w-5 h-5" />
             </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Code Cortex</h1>
-              <p className="text-xs text-gray-500">School Management System</p>
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Code Cortex</h1>
+                <p className="text-xs text-gray-500">School Management System</p>
+              </div>
+              <div className="hidden md:block">
+                <SearchBar />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-4">

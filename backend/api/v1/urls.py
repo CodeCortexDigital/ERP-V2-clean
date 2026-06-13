@@ -30,6 +30,7 @@ urlpatterns = [
     path('auth/academics/', include('services.education.academics.urls')),
     path('auth/admissions/', include('services.education.admissions.urls')),
     path('auth/analytics/', include('services.analytics.urls')),
+    path('search/', include('services.core.search.urls')),
     path('communication/whatsapp/', include('services.communication.whatsapp.urls')),
     path('core/audit/', include('services.core.audit.urls')),
     path('storage/', include('services.core.storage.urls')),
