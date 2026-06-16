@@ -30,6 +30,7 @@ class Invoice(SoftDeleteModel):
         ('draft', 'Draft'),
         ('issued', 'Issued'),
         ('paid', 'Paid'),
+        ('partial', 'Partially Paid'),
         ('overdue', 'Overdue'),
         ('cancelled', 'Cancelled'),
     ]
@@ -45,12 +46,14 @@ class Invoice(SoftDeleteModel):
     fee_structure = models.ForeignKey(FeeStructure, on_delete=models.SET_NULL, null=True, blank=True)
     installment_plan = models.ForeignKey('InstallmentPlan', on_delete=models.SET_NULL, null=True, blank=True)
     scholarship = models.ForeignKey('StudentScholarship', on_delete=models.SET_NULL, null=True, blank=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)  # Pure monthly fee — no carry-forward
+    opening_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Balance brought forward (B/F) from previous unpaid invoices")
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     late_fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     due_date = models.DateField(db_index=True)
     issue_date = models.DateField(auto_now_add=True, db_index=True)
+    invoice_month = models.DateField(null=True, blank=True, db_index=True, help_text="First day of the month this invoice belongs to (e.g. 2026-06-01)")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='issued')
     description = models.TextField(blank=True)
     is_installment = models.BooleanField(default=False)
@@ -71,26 +74,36 @@ class Invoice(SoftDeleteModel):
     def save(self, *args, **kwargs):
         """Generate invoice number if not exists"""
         if not self.invoice_number:
-            # Generate unique invoice number using UUID
-            self.invoice_number = f"INV-{uuid.uuid4().hex[:8].upper()}"
+            # Format: INV-YYYY-MM-XXXX (sequential per month)
+            today = timezone.localtime().date()
+            prefix = f"INV-{today.year}-{today.month:02d}-"
+            # Count existing invoices this month to build sequential number
+            existing_count = Invoice.objects.filter(
+                invoice_number__startswith=prefix
+            ).count()
+            self.invoice_number = f"{prefix}{(existing_count + 1):04d}"
         
-        # Calculate late fees if overdue
-        if self.due_date < timezone.now().date() and self.status not in ['paid', 'cancelled']:
-            self.late_fee_amount = self.calculate_late_fee()
+        # Set invoice_month if not set
+        if self.invoice_month is None and self.issue_date:
+            self.invoice_month = self.issue_date.replace(day=1) if hasattr(self.issue_date, 'replace') else None
+        
+        # NOTE: Late fees are NOT auto-calculated here.
+        # They are applied exclusively by the 'apply_late_fees' management command
+        # on the 10th of each month. This prevents fees being added on every save.
         
         super().save(*args, **kwargs)
     
     @property
     def balance_due(self):
-        """Calculate correct balance due including discounts and late fees"""
-        total_due = self.amount - self.discount_amount + self.late_fee_amount
+        """Balance due = opening_balance + this month fee + late fee - discount - paid"""
+        total_due = self.opening_balance + self.amount - self.discount_amount + self.late_fee_amount
         balance = total_due - self.paid_amount
         return max(balance, 0)  # Never return negative
     
     @property
     def total_amount(self):
-        """Total amount including late fees and excluding discounts"""
-        return self.amount + self.late_fee_amount - self.discount_amount
+        """Total amount payable = opening_balance + fee + late fee - discount"""
+        return self.opening_balance + self.amount + self.late_fee_amount - self.discount_amount
     
     def calculate_late_fee(self):
         """Calculate late fee based on applicable rules"""
@@ -232,16 +245,23 @@ class Payment(models.Model):
         
         # Update invoice paid amount using correct total_amount
         from django.db.models import Sum
+        from django.utils import timezone
         total_paid = self.invoice.payments.aggregate(total=Sum('amount'))['total'] or 0
         self.invoice.paid_amount = total_paid
         
-        # Update invoice status based on correct total_amount
+        # Update invoice status based on correct total_amount and due date
         if total_paid >= self.invoice.total_amount:
             self.invoice.status = 'paid'
         elif total_paid > 0:
-            self.invoice.status = 'partial'
+            if self.invoice.due_date < timezone.now().date():
+                self.invoice.status = 'overdue'
+            else:
+                self.invoice.status = 'partial'
         else:
-            self.invoice.status = 'issued'
+            if self.invoice.due_date < timezone.now().date():
+                self.invoice.status = 'overdue'
+            else:
+                self.invoice.status = 'issued'
         
         self.invoice.save()
     

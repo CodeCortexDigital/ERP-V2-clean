@@ -59,6 +59,7 @@ export interface Student360Data {
     total_paid: number;
     balance_due: number;
     payment_percentage: number;
+    fee_status?: string;
     pending_invoices?: Array<{
       invoice_number: string;
       amount: number;

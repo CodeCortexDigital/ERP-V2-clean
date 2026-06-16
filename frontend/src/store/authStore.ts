@@ -90,14 +90,15 @@ export const useAuthStore = create<AuthState>()(
       login: async (userId, password) => {
         const response = await authService.login(userId, password);
         const { access, refresh, user } = response.data;
+        const authUser = user as AuthUser;
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);
         applyAuthHeader(access);
         set({
           accessToken: access,
           refreshToken: refresh,
-          user,
-          role: resolveRole(user),
+          user: authUser,
+          role: resolveRole(authUser),
           isAuthenticated: true,
           loading: false,
         });
@@ -106,14 +107,15 @@ export const useAuthStore = create<AuthState>()(
       demoLogin: async (name) => {
         const response = await authService.demoLogin(name);
         const { access, refresh, user } = response.data;
+        const authUser = user as AuthUser;
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);
         applyAuthHeader(access);
         set({
           accessToken: access,
           refreshToken: refresh,
-          user,
-          role: resolveRole(user),
+          user: authUser,
+          role: resolveRole(authUser),
           isAuthenticated: true,
           loading: false,
         });
@@ -125,14 +127,15 @@ export const useAuthStore = create<AuthState>()(
       googleLogin: async (token) => {
         const response = await authService.googleLogin(token);
         const { access, refresh, user } = response.data;
+        const authUser = user as AuthUser;
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);
         applyAuthHeader(access);
         set({
           accessToken: access,
           refreshToken: refresh,
-          user,
-          role: resolveRole(user),
+          user: authUser,
+          role: resolveRole(authUser),
           isAuthenticated: true,
           loading: false,
         });

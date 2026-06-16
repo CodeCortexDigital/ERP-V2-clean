@@ -8,3 +8,14 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = AttendanceRecord
         fields = '__all__'
+
+    def validate(self, data):
+        record_date = data.get('date')
+        status = data.get('status')
+        from django.utils import timezone
+        if record_date and record_date > timezone.localtime().date():
+            if status in ['present', 'absent', 'late']:
+                raise serializers.ValidationError(
+                    "Future dates can only be marked as Holiday or Excused."
+                )
+        return data

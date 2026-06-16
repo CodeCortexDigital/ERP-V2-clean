@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -6,7 +7,8 @@ import { Input } from '@/components/ui/Input';
 import communicationService from '@/services/communication.service';
 
 export default function CommunicationPage() {
-  const [phone, setPhone] = useState('');
+  const location = useLocation();
+  const [phone, setPhone] = useState(location.state?.phone || '');
   const [loading, setLoading] = useState(false);
 
   const handleSend = async () => {

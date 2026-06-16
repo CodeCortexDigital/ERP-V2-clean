@@ -265,31 +265,32 @@ def calculate_attendance_analytics(student, analysis_date: date = None) -> Dict:
     excused = records.filter(status='excused').count()
     holiday = records.filter(status='holiday').count()
     
-    attendance_rate = (present / total * 100) if total > 0 else 0
+    school_total = total - holiday
+    attendance_rate = ((present + late) / school_total * 100) if school_total > 0 else 0
     
     # Determine trend direction
     trend_direction = 'stable'
-    if total >= 20:  # Need enough data
+    if school_total >= 20:  # Need enough data
         # Compare first and second half
         mid_point = lookback_start + timedelta(days=15)
-        first_half = AttendanceRecord.objects.filter(
-            student=student,
-            date__gte=lookback_start,
-            date__lt=mid_point,
-            status='present'
-        ).count()
-        first_half_total = AttendanceRecord.objects.filter(
+        
+        first_half_records = AttendanceRecord.objects.filter(
             student=student,
             date__gte=lookback_start,
             date__lt=mid_point
-        ).count()
+        )
+        first_half_holiday = first_half_records.filter(status='holiday').count()
+        first_half_school = first_half_records.count() - first_half_holiday
+        first_half_present = first_half_records.filter(status='present').count()
+        first_half_late = first_half_records.filter(status='late').count()
         
-        second_half = present  # Already counted for full period
-        second_half_total = total - first_half_total
+        second_half_school = school_total - first_half_school
+        second_half_present = present - first_half_present
+        second_half_late = late - first_half_late
         
-        if first_half_total > 0 and second_half_total > 0:
-            first_rate = (first_half / first_half_total * 100)
-            second_rate = (second_half / second_half_total * 100)
+        if first_half_school > 0 and second_half_school > 0:
+            first_rate = ((first_half_present + first_half_late) / first_half_school * 100)
+            second_rate = ((second_half_present + second_half_late) / second_half_school * 100)
             
             if second_rate > first_rate + 5:
                 trend_direction = 'up'

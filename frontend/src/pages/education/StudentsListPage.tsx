@@ -66,12 +66,12 @@ export default function StudentsListPage() {
     loadClassesAndSections();
   }, []);
 
-  // Then load students after classes/sections are loaded
+  // Then load students once after classes/sections are loaded
   useEffect(() => {
     if (isDataLoaded) {
       fetchStudents();
     }
-  }, [isDataLoaded, selectedClass, selectedSection]);
+  }, [isDataLoaded]);
 
   const loadClassesAndSections = async () => {
     try {
@@ -179,7 +179,7 @@ export default function StudentsListPage() {
             id: student.id,
             attendance_percentage: dashboard.data?.attendance?.attendance_rate || 0,
             balance: dashboard.data?.finance?.balance_due || 0,
-            fee_status: (dashboard.data?.finance?.balance_due || 0) > 0 ? 'pending' : 'paid',
+            fee_status: dashboard.data?.finance?.fee_status || 'pending',
             priority: (dashboard.data?.attendance?.attendance_rate || 0) < 75 || (dashboard.data?.finance?.balance_due || 0) > 0 ? 'high' : 'normal'
           };
         } catch (err) {
@@ -233,7 +233,8 @@ export default function StudentsListPage() {
       case 'paid':
         return <Badge variant="success">Paid</Badge>;
       case 'pending':
-        return <Badge variant="warning">Pending</Badge>;
+      case 'partial':
+        return <Badge variant="warning">{status === 'partial' ? 'Partial' : 'Pending'}</Badge>;
       case 'overdue':
         return <Badge variant="destructive">Overdue</Badge>;
       default:
@@ -293,8 +294,11 @@ export default function StudentsListPage() {
     const matchesSearch = s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesClass = !selectedClass || s.current_class === selectedClass;
-    const matchesSection = !selectedSection || s.current_section === selectedSection;
+    const studentClassId = typeof s.current_class === 'object' && s.current_class ? (s.current_class as any).id : s.current_class;
+    const matchesClass = !selectedClass || studentClassId === selectedClass;
+    
+    const studentSectionId = typeof s.current_section === 'object' && s.current_section ? (s.current_section as any).id : s.current_section;
+    const matchesSection = !selectedSection || studentSectionId === selectedSection;
     
     let matchesStatus = true;
     if (selectedStatus === 'active') {
@@ -314,19 +318,46 @@ export default function StudentsListPage() {
   });
 
   const sortedStudents = [...filteredStudents].sort((a, b) => {
-    const idA = a.student_id || '';
-    const idB = b.student_id || '';
-    return sortOrder === 'asc' ? idA.localeCompare(idB) : idB.localeCompare(idA);
+    let valA = a[sortField as keyof StudentWithData];
+    let valB = b[sortField as keyof StudentWithData];
+    
+    if (valA === undefined || valA === null) valA = '';
+    if (valB === undefined || valB === null) valB = '';
+    
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      return sortOrder === 'asc' ? valA - valB : valB - valA;
+    }
+    
+    if (typeof valA === 'boolean' && typeof valB === 'boolean') {
+      const numA = valA ? 1 : 0;
+      const numB = valB ? 1 : 0;
+      return sortOrder === 'asc' ? numA - numB : numB - numA;
+    }
+    
+    const strA = String(valA).toLowerCase();
+    const strB = String(valB).toLowerCase();
+    return sortOrder === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
   });
 
   const paginatedStudents = sortedStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
-  const totalStudents = filteredStudents.length;
-  const activeStudents = filteredStudents.filter(s => s.is_active === true).length;
-  const inactiveStudents = filteredStudents.filter(s => s.is_active === false).length;
-  const overdueFees = filteredStudents.filter(s => s.fee_status === 'overdue' || s.fee_status === 'pending').length;
-  const lowAttendance = filteredStudents.filter(s => (s.attendance_percentage || 0) < 75).length;
-  const attentionNeeded = filteredStudents.filter(s => s.priority === 'high').length;
+  // Stats should be calculated based on the loaded students filtered by class/section only
+  const statsBaseStudents = students.filter(s => {
+    const studentClassId = typeof s.current_class === 'object' && s.current_class ? (s.current_class as any).id : s.current_class;
+    const matchesClass = !selectedClass || studentClassId === selectedClass;
+    
+    const studentSectionId = typeof s.current_section === 'object' && s.current_section ? (s.current_section as any).id : s.current_section;
+    const matchesSection = !selectedSection || studentSectionId === selectedSection;
+    
+    return matchesClass && matchesSection;
+  });
+
+  const totalStudents = statsBaseStudents.length;
+  const activeStudents = statsBaseStudents.filter(s => s.is_active === true).length;
+  const inactiveStudents = statsBaseStudents.filter(s => s.is_active === false).length;
+  const overdueFees = statsBaseStudents.filter(s => s.fee_status === 'overdue' || s.fee_status === 'pending').length;
+  const lowAttendance = statsBaseStudents.filter(s => (s.attendance_percentage || 0) < 75).length;
+  const attentionNeeded = statsBaseStudents.filter(s => s.priority === 'high').length;
 
   useEffect(() => {
     setShowBulkBar(selectedStudents.length > 0);
@@ -392,31 +423,69 @@ export default function StudentsListPage() {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="bg-blue-50 rounded-xl p-3"><div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total</span></div><p className="text-xl font-bold text-blue-700">{totalStudents}</p></div>
-        <div className="bg-green-50 rounded-xl p-3"><div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Active</span></div><p className="text-xl font-bold text-green-700">{activeStudents}</p></div>
-        <div className="bg-gray-50 rounded-xl p-3"><div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-gray-600" /><span className="text-xs text-gray-600">Inactive</span></div><p className="text-xl font-bold text-gray-700">{inactiveStudents}</p></div>
-        <div className="bg-red-50 rounded-xl p-3"><div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Pending Fees</span></div><p className="text-xl font-bold text-red-700">{overdueFees}</p></div>
-        <div className="bg-yellow-50 rounded-xl p-3"><div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600">Low Attendance</span></div><p className="text-xl font-bold text-yellow-700">{lowAttendance}</p></div>
+        <div 
+          onClick={() => { setSelectedStatus(''); setSelectedFeeStatus(''); setLowAttendanceOnly(false); }}
+          className="bg-blue-50 hover:bg-blue-100 hover:shadow-sm transition-all cursor-pointer rounded-xl p-3 border border-blue-100"
+        >
+          <div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600 font-medium">Total</span></div>
+          <p className="text-xl font-bold text-blue-700">{totalStudents}</p>
+        </div>
+        
+        <div 
+          onClick={() => { setSelectedStatus('active'); setSelectedFeeStatus(''); setLowAttendanceOnly(false); }}
+          className="bg-green-50 hover:bg-green-100 hover:shadow-sm transition-all cursor-pointer rounded-xl p-3 border border-green-100"
+        >
+          <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600 font-medium">Active</span></div>
+          <p className="text-xl font-bold text-green-700">{activeStudents}</p>
+        </div>
+        
+        <div 
+          onClick={() => { setSelectedStatus('inactive'); setSelectedFeeStatus(''); setLowAttendanceOnly(false); }}
+          className="bg-gray-50 hover:bg-gray-100 hover:shadow-sm transition-all cursor-pointer rounded-xl p-3 border border-gray-200"
+        >
+          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-gray-600" /><span className="text-xs text-gray-600 font-medium">Inactive</span></div>
+          <p className="text-xl font-bold text-gray-700">{inactiveStudents}</p>
+        </div>
+        
+        <div 
+          onClick={() => { setSelectedFeeStatus('pending'); setSelectedStatus(''); setLowAttendanceOnly(false); }}
+          className="bg-red-50 hover:bg-red-100 hover:shadow-sm transition-all cursor-pointer rounded-xl p-3 border border-red-100"
+        >
+          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600 font-medium">Pending Fees</span></div>
+          <p className="text-xl font-bold text-red-700">{overdueFees}</p>
+        </div>
+        
+        <div 
+          onClick={() => { setLowAttendanceOnly(true); setSelectedStatus('active'); setSelectedFeeStatus(''); }}
+          className="bg-yellow-50 hover:bg-yellow-100 hover:shadow-sm transition-all cursor-pointer rounded-xl p-3 border border-yellow-100"
+        >
+          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-yellow-600" /><span className="text-xs text-gray-600 font-medium">Low Attendance</span></div>
+          <p className="text-xl font-bold text-yellow-700">{lowAttendance}</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[200px]"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><Input placeholder="Search by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" /></div></div>
         
-        <select className="border rounded-lg px-3 py-2 text-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+        <select className="border rounded-lg px-3 py-2 text-sm bg-white font-medium" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
           <option value="">All Classes</option>
           {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
         </select>
         
         <select 
-          className="border rounded-lg px-3 py-2 text-sm"
+          className="border rounded-lg px-3 py-2 text-sm bg-white font-medium"
           value={selectedSection}
           onChange={(e) => setSelectedSection(e.target.value)}
-          disabled={!selectedClass}
         >
           <option value="">All Sections</option>
-          {sections.filter(sec => sec.class_ref === selectedClass).map(sec => (
-            <option key={sec.id} value={sec.id}>Section {sec.name}</option>
-          ))}
+          {sections.map(sec => {
+            const clsName = classMap.get(sec.class_ref) || '';
+            return (
+              <option key={sec.id} value={sec.id}>
+                {clsName ? `${clsName} - ` : ''}Section {sec.name}
+              </option>
+            );
+          })}
         </select>
         
         <select className="border rounded-lg px-3 py-2 text-sm" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
@@ -441,21 +510,42 @@ export default function StudentsListPage() {
         )}
       </div>
 
-      {showBulkBar && (<div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between"><span className="text-sm font-medium">{selectedStudents.length} selected</span><div className="flex gap-2"><button disabled={bulkLoading} className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg">Send Message</button><button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button></div></div>)}
+      {showBulkBar && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <span className="text-sm font-medium">{selectedStudents.length} selected</span>
+          <div className="flex gap-2">
+            <button 
+              disabled={bulkLoading} 
+              onClick={() => {
+                const bulkPhones = selectedStudents
+                  .map(id => students.find(s => s.id === id))
+                  .map(s => s?.phone || s?.emergency_contact || s?.guardian_phone)
+                  .filter(Boolean)
+                  .join(', ');
+                navigate('/education/communication', { state: { phone: bulkPhones } });
+              }}
+              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg font-medium hover:bg-green-700 transition-colors"
+            >
+              Send Message
+            </button>
+            <button onClick={() => setSelectedStudents([])} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg">Cancel</button>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto border rounded-xl bg-white">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b sticky top-0">
             <tr>
               <th className="p-3 w-10"><input type="checkbox" checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0} onChange={toggleSelectAll} /></th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('student_id')}>Student ID <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('full_name')}>Student Name <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('class_name')}>Class <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
-              <th className="p-3 text-left cursor-pointer hover:text-blue-600" onClick={() => handleSort('attendance_percentage')}>Attendance <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
-              <th className="p-3 text-left">Fees</th>
-              <th className="p-3 text-left">Priority</th>
-              <th className="p-3 text-left">Status</th>
-              <th className="p-3 text-center">Actions</th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600 select-none font-semibold" onClick={() => handleSort('student_id')}>Student ID <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600 select-none font-semibold" onClick={() => handleSort('full_name')}>Student Name <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600 select-none font-semibold" onClick={() => handleSort('class_name')}>Class <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600 select-none font-semibold" onClick={() => handleSort('attendance_percentage')}>Attendance <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600 select-none font-semibold" onClick={() => handleSort('fee_status')}>Fees <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600 select-none font-semibold" onClick={() => handleSort('priority')}>Priority <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-left cursor-pointer hover:text-blue-600 select-none font-semibold" onClick={() => handleSort('is_active')}>Status <ArrowUpDown className="w-3 h-3 inline ml-1" /></th>
+              <th className="p-3 text-center font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -489,7 +579,16 @@ export default function StudentsListPage() {
                 <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1 justify-center">
                     <button onClick={() => navigate(`/education/students/${student.id}/edit`)} className="p-1.5 rounded-lg hover:bg-blue-100" title="Edit"><Edit2 className="w-4 h-4 text-blue-600" /></button>
-                    <button className="p-1.5 rounded-lg hover:bg-green-100" title="Send Message"><MessageCircle className="w-4 h-4 text-green-600" /></button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/education/communication', { state: { phone: student.phone || student.emergency_contact || student.guardian_phone } });
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-green-100" 
+                      title="Send Message"
+                    >
+                      <MessageCircle className="w-4 h-4 text-green-600" />
+                    </button>
                   </div>
                 </td>
               </tr>

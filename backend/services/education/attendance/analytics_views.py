@@ -276,7 +276,7 @@ def attendance_trends(request):
                 )
                 
                 total = records.count()
-                present = records.filter(status='present').count()
+                present = records.filter(status__in=['present', 'late']).count()
                 absent = records.filter(status='absent').count()
                 
                 attendance_rate = (present / total * 100) if total > 0 else 0
@@ -306,7 +306,7 @@ def attendance_trends(request):
                 )
                 
                 total = records.count()
-                present = records.filter(status='present').count()
+                present = records.filter(status__in=['present', 'late']).count()
                 absent = records.filter(status='absent').count()
                 
                 attendance_rate = (present / total * 100) if total > 0 else 0

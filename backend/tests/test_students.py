@@ -18,24 +18,23 @@ class TestStudentModel:
     def test_student_creation(self, test_student):
         """Test student can be created."""
         assert test_student.id is not None
-        assert test_student.user is not None
+        assert test_student.student_id is not None
         assert test_student.school is not None
     
     def test_student_full_name(self, test_student):
         """Test student full name."""
-        full_name = f"{test_student.user.first_name} {test_student.user.last_name}"
-        assert len(full_name) > 0
+        assert len(test_student.full_name) > 0
     
     def test_student_enrollment_number_unique(self):
         """Test student enrollment number is unique."""
         school = SchoolFactory()
         student1 = StudentFactory(school=school)
         student2 = StudentFactory(school=school)
-        assert student1.enrollment_number != student2.enrollment_number
+        assert student1.student_id != student2.student_id
     
     def test_student_status_choices(self, test_student):
         """Test student status is valid."""
-        assert test_student.status in ['active', 'inactive', 'graduated', 'transferred']
+        assert test_student.is_active is True
 
 
 class TestStudentAPI:
@@ -114,8 +113,7 @@ class TestStudentFiltering:
     def test_search_students_by_name(self, authenticated_api_client):
         """Test searching students by name."""
         client, user = authenticated_api_client
-        user1 = UserFactory(first_name='Ahmed', last_name='Ali')
-        student = StudentFactory(user=user1)
+        student = StudentFactory(full_name='Ahmed Ali')
         
         # Adjust endpoint based on actual implementation
         # response = client.get('/api/auth/students/?search=Ahmed')

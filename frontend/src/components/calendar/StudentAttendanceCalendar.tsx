@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import api from '@/services/api';
@@ -20,6 +20,8 @@ const statusConfig = {
   present: { icon: CheckCircle, color: 'green', label: 'Present' },
   absent: { icon: XCircle, color: 'red', label: 'Absent' },
   late: { icon: AlertCircle, color: 'yellow', label: 'Late' },
+  holiday: { icon: Calendar, color: 'purple', label: 'Holiday' },
+  excused: { icon: Calendar, color: 'blue', label: 'Excused' },
 };
 
 export function StudentAttendanceCalendar({ studentId, studentName }: StudentAttendanceCalendarProps) {
@@ -105,8 +107,19 @@ export function StudentAttendanceCalendar({ studentId, studentName }: StudentAtt
         const config = statusConfig[record.status as keyof typeof statusConfig];
         if (config) {
           const Icon = config.icon;
-          cellBgClass = record.status === 'absent' ? 'bg-red-50 hover:bg-red-100' : 'bg-yellow-50 hover:bg-yellow-100';
-          iconElement = <Icon className="w-4 h-4 mt-1" style={{ color: record.status === 'absent' ? '#ef4444' : '#eab308' }} />;
+          if (record.status === 'absent') {
+            cellBgClass = 'bg-red-50 hover:bg-red-100';
+            iconElement = <Icon className="w-4 h-4 mt-1 text-red-500" />;
+          } else if (record.status === 'late') {
+            cellBgClass = 'bg-yellow-50 hover:bg-yellow-100';
+            iconElement = <Icon className="w-4 h-4 mt-1 text-yellow-500" />;
+          } else if (record.status === 'holiday') {
+            cellBgClass = 'bg-purple-50 hover:bg-purple-100';
+            iconElement = <Icon className="w-4 h-4 mt-1 text-purple-600" />;
+          } else if (record.status === 'excused') {
+            cellBgClass = 'bg-blue-50 hover:bg-blue-100';
+            iconElement = <Icon className="w-4 h-4 mt-1 text-blue-500" />;
+          }
         }
       } else if (record && record.status === 'present') {
         cellBgClass = 'bg-green-50 hover:bg-green-100';
@@ -151,7 +164,7 @@ export function StudentAttendanceCalendar({ studentId, studentName }: StudentAtt
     );
   }
 
-  const attendanceRate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
+  const attendanceRate = stats.total > 0 ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0;
 
   return (
     <Card>

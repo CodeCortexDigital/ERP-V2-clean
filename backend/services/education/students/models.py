@@ -5,9 +5,10 @@ import uuid
 
 from services.core.db.softdelete import SoftDeleteModel
 from services.core.storage.utils import student_profile_upload_to
+from services.core.tenants.mixins import SchoolAliasMixin
 
 
-class Student(SoftDeleteModel):
+class Student(SchoolAliasMixin, SoftDeleteModel):
     tenant = models.ForeignKey(
         'core_tenants.School',
         on_delete=models.CASCADE,
@@ -64,6 +65,22 @@ class Student(SoftDeleteModel):
             models.Index(fields=['current_class', 'is_active']),
             models.Index(fields=['created_at']),
         ]
+
+    @property
+    def class_obj(self):
+        return self.current_class
+
+    @class_obj.setter
+    def class_obj(self, value):
+        self.current_class = value
+
+    @property
+    def section(self):
+        return self.current_section
+
+    @section.setter
+    def section(self, value):
+        self.current_section = value
 
     def __str__(self):
         return self.display_label

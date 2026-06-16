@@ -15,6 +15,7 @@ from services.core.accounts.decorators import (
 from services.core.utils.filters import parse_status_param
 from services.core.tenants.scoping import scope_queryset, save_with_tenant
 from services.core.utils.cache import CachedListResponseMixin, CacheKeys
+from django.views.decorators.cache import never_cache
 import uuid
 
 # Get other models dynamically
@@ -22,6 +23,7 @@ Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
 
 
 class StudentListCreateView(CachedListResponseMixin, generics.ListCreateAPIView):
+
     """List all students (both active and inactive) or create a new student"""
     permission_classes = [IsAuthenticated]
     serializer_class = StudentSerializer
@@ -79,8 +81,9 @@ def get_student_by_id(request, student_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@never_cache
 def student_360(request, student_id):
-    """Get complete student 360 data including attendance"""
+    """Get complete student 360 data including attendance and finance"""
     try:
         student = Student.objects.get(id=student_id)
         if not ensure_student_access(request.user, student):
@@ -89,11 +92,45 @@ def student_360(request, student_id):
         # Get attendance data
         Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
         attendance_records = Attendance.objects.filter(student=student)
-        total = attendance_records.count()
-        present = attendance_records.filter(status='present').count()
-        absent = attendance_records.filter(status='absent').count()
-        late = attendance_records.filter(status='late').count()
-        attendance_rate = round((present / total * 100), 1) if total > 0 else 0
+        school_records = attendance_records.exclude(status='holiday')
+        total = school_records.count()
+        present = school_records.filter(status='present').count()
+        absent = school_records.filter(status='absent').count()
+        late = school_records.filter(status='late').count()
+        attendance_rate = round(((present + late) / total * 100), 1) if total > 0 else 0
+        
+        # Get finance data
+        Invoice = apps.get_model('education_finance', 'Invoice')
+        student_invoices = Invoice.objects.filter(student=student)
+        
+        from django.utils import timezone
+        today = timezone.localtime().date()
+        
+        if not student_invoices.exists():
+            fee_status = 'pending'
+            balance_due = 0
+        else:
+            balance_due = sum(inv.balance_due for inv in student_invoices)
+            
+            # Use invoice.status directly to stay consistent with Finance page
+            # Priority: paid > partial > overdue > pending
+            active_invoices = [inv for inv in student_invoices if inv.status != 'cancelled']
+            
+            if not active_invoices:
+                fee_status = 'paid'
+            elif all(inv.status == 'paid' for inv in active_invoices):
+                fee_status = 'paid'
+            elif any(inv.status == 'partial' for inv in active_invoices):
+                # Some payment made - show as partial
+                fee_status = 'partial'
+            elif any(inv.status == 'overdue' for inv in active_invoices):
+                # No payment made, past due date
+                fee_status = 'overdue'
+            elif balance_due > 0:
+                has_any_payment = any(inv.paid_amount > 0 for inv in active_invoices)
+                fee_status = 'partial' if has_any_payment else 'pending'
+            else:
+                fee_status = 'paid'
         
         return Response({
             'attendance': {
@@ -102,6 +139,10 @@ def student_360(request, student_id):
                 'absent': absent,
                 'late': late,
                 'attendance_rate': attendance_rate,
+            },
+            'finance': {
+                'balance_due': float(balance_due),
+                'fee_status': fee_status,
             }
         })
     except Student.DoesNotExist:

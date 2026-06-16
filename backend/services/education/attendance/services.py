@@ -230,6 +230,7 @@ def bulk_save_attendance_records(user, records: list) -> dict:
     updated_count = 0
     errors: list[str] = []
 
+    from django.utils import timezone
     with transaction.atomic():
         for record in records or []:
             student_id = record.get('student_id')
@@ -241,6 +242,13 @@ def bulk_save_attendance_records(user, records: list) -> dict:
                 record_date,
                 record.get('status'),
             )
+            
+            # Prevent future present/absent/late marking in bulk
+            if record_date > timezone.localtime().date():
+                if status_val in ['present', 'absent', 'late']:
+                    errors.append(f"Future dates can only be marked as Holiday or Excused. Skipped student {student_id} on {record_date}.")
+                    continue
+
             class_id = record.get('class_id') or record.get('course_id') or ''
             if class_id:
                 class_id = str(class_id)

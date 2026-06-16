@@ -237,7 +237,7 @@ def student_list(request):
     from django.apps import apps
     Student = apps.get_model('education_students', 'Student')
     from .serializers import StudentSerializer
-    students = Student.objects.filter(is_active=True)
+    students = Student.objects.all()
     serializer = StudentSerializer(students, many=True)
     return Response(serializer.data)
 
@@ -247,7 +247,7 @@ def student_list(request):
 def student_count(request):
     from django.apps import apps
     Student = apps.get_model('education_students', 'Student')
-    count = Student.objects.filter(is_active=True).count()
+    count = Student.objects.count()
     return Response({'count': count})
 
 
@@ -361,15 +361,17 @@ def attendance_stats(request):
     if student_id:
         try:
             student = Student.objects.get(id=student_id)
-            total = Attendance.objects.filter(student=student).count()
-            present = Attendance.objects.filter(student=student, status='present').count()
+            records = Attendance.objects.filter(student=student).exclude(status='holiday')
+            total = records.count()
+            present = records.filter(status='present').count()
+            late = records.filter(status='late').count()
             
             stats = {
                 'student_name': student.full_name,
                 'student_id': student.student_id,
                 'total_days': total,
-                'present_days': present,
-                'percentage': round((present / total * 100) if total > 0 else 0, 1)
+                'present_days': present + late,
+                'percentage': round(((present + late) / total * 100) if total > 0 else 0, 1)
             }
             return Response(stats)
         except Student.DoesNotExist:
@@ -379,12 +381,14 @@ def attendance_stats(request):
         students = Student.objects.filter(current_class_id=class_id, is_active=True)
         stats = []
         for student in students:
-            total = Attendance.objects.filter(student=student).count()
-            present = Attendance.objects.filter(student=student, status='present').count()
+            records = Attendance.objects.filter(student=student).exclude(status='holiday')
+            total = records.count()
+            present = records.filter(status='present').count()
+            late = records.filter(status='late').count()
             stats.append({
                 'student_id': str(student.id),
                 'student_name': student.full_name,
-                'percentage': round((present / total * 100) if total > 0 else 0, 1)
+                'percentage': round(((present + late) / total * 100) if total > 0 else 0, 1)
             })
         return Response(stats)
     
@@ -507,11 +511,12 @@ def attendance_trends(request):
         else:
             next_month = month_date.replace(month=month_date.month+1, day=1)
         
-        records = Attendance.objects.filter(date__gte=month_start, date__lt=next_month)
+        records = Attendance.objects.filter(date__gte=month_start, date__lt=next_month).exclude(status='holiday')
         total = records.count()
         present = records.filter(status='present').count()
-        percentage = round((present / total * 100) if total > 0 else 0, 1)
-        trends.append({'month': month_name, 'present': present, 'percentage': percentage})
+        late = records.filter(status='late').count()
+        percentage = round(((present + late) / total * 100) if total > 0 else 0, 1)
+        trends.append({'month': month_name, 'present': present + late, 'percentage': percentage})
     
     return Response(trends)
 
@@ -555,11 +560,12 @@ def at_risk_students(request):
     risk_students = []
     
     for student in Student.objects.filter(is_active=True):
-        attendance_records = Attendance.objects.filter(student=student)
+        attendance_records = Attendance.objects.filter(student=student).exclude(status='holiday')
         total = attendance_records.count()
         if total > 0:
             present = attendance_records.filter(status='present').count()
-            pct = round((present / total * 100), 1)
+            late = attendance_records.filter(status='late').count()
+            pct = round(((present + late) / total * 100), 1)
             
             if pct < 75:
                 risk_students.append({
@@ -589,10 +595,11 @@ def ai_insights(request):
     insights = []
     
     # Attendance insights
-    recent = Attendance.objects.filter(date__gte=datetime.now() - timedelta(days=30))
+    recent = Attendance.objects.filter(date__gte=datetime.now() - timedelta(days=30)).exclude(status='holiday')
     total = recent.count()
     present = recent.filter(status='present').count()
-    overall = round((present / total * 100) if total > 0 else 0, 1)
+    late = recent.filter(status='late').count()
+    overall = round(((present + late) / total * 100) if total > 0 else 0, 1)
     
     insights.append({
         'type': 'attendance',
@@ -688,10 +695,11 @@ def teacher_performance(request):
         if class_ids:
             attendance_records = Attendance.objects.filter(
                 student__current_class__id__in=class_ids
-            )
+            ).exclude(status='holiday')
             total = attendance_records.count()
             present = attendance_records.filter(status='present').count()
-            attendance_rate = round((present / total * 100) if total > 0 else 0, 1)
+            late = attendance_records.filter(status='late').count()
+            attendance_rate = round(((present + late) / total * 100) if total > 0 else 0, 1)
 
         performance.append({
             'id': str(teacher.id),
@@ -814,11 +822,12 @@ def executive_dashboard(request):
         # Low attendance alert
         low_attendance_students = 0
         for student in Student.objects.filter(is_active=True):
-            records = Attendance.objects.filter(student=student)
+            records = Attendance.objects.filter(student=student).exclude(status='holiday')
             total = records.count()
             if total > 0:
                 present = records.filter(status='present').count()
-                pct = round((present / total * 100), 1)
+                late = records.filter(status='late').count()
+                pct = round(((present + late) / total * 100), 1)
                 if pct < 75:
                     low_attendance_students += 1
         

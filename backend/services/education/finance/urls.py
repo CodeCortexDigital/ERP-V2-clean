@@ -56,6 +56,12 @@ urlpatterns = [
     path('communication/defaulter-whatsapp/<str:invoice_id>/', views.send_defaulter_whatsapp_notice, name='send-defaulter-whatsapp-notice'),
     
     path('communication/bulk-reminders/', views.bulk_send_reminders, name='bulk-send-reminders'),
+
+    # ─── Admin Trigger Endpoints ─────────────────────────────────────────────
+    # Manually trigger the scheduled jobs from the UI (useful without cron setup)
+    path('admin/run-monthly-invoices/', views.run_monthly_invoices, name='run-monthly-invoices'),
+    path('admin/apply-late-fees/', views.trigger_apply_late_fees, name='trigger-apply-late-fees'),
+    path('admin/send-reminders/', views.trigger_send_reminders, name='trigger-send-reminders'),
 ]
 
 

@@ -45,3 +45,5 @@ export const toastManager = {
     listeners.forEach((callback) => callback([...toasts]))
   },
 }
+
+export default toastManager;

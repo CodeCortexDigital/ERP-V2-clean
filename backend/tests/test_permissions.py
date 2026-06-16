@@ -9,8 +9,7 @@ from tests.conftest import (
 )
 
 
-pytestmark = pytest.mark.django_db
-pytestmark = pytest.mark.permission
+pytestmark = [pytest.mark.django_db, pytest.mark.permission]
 
 
 class TestParentPermissions:

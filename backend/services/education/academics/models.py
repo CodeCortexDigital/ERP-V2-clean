@@ -1,5 +1,6 @@
 from django.db import models
 import uuid
+from services.core.tenants.mixins import SchoolAliasMixin
 
 class AcademicYear(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -16,7 +17,7 @@ class AcademicYear(models.Model):
         ordering = ['-start_date']
 
 
-class SchoolClass(models.Model):
+class SchoolClass(SchoolAliasMixin, models.Model):
     tenant = models.ForeignKey(
         'core_tenants.School',
         on_delete=models.CASCADE,
@@ -39,7 +40,7 @@ class SchoolClass(models.Model):
         ordering = ['name']
 
 
-class Section(models.Model):
+class Section(SchoolAliasMixin, models.Model):
     tenant = models.ForeignKey(
         'core_tenants.School',
         on_delete=models.CASCADE,
@@ -54,6 +55,14 @@ class Section(models.Model):
     capacity = models.IntegerField(default=30)
     created_at = models.DateTimeField(auto_now_add=True)
     
+    @property
+    def class_obj(self):
+        return self.class_ref
+
+    @class_obj.setter
+    def class_obj(self, value):
+        self.class_ref = value
+
     def __str__(self):
         return f"{self.class_ref.name} - {self.name}"
     
@@ -246,7 +255,7 @@ class LearningResource(models.Model):
 
 
 # LEVEL 4: TEACHER MANAGEMENT
-class Teacher(models.Model):
+class Teacher(SchoolAliasMixin, models.Model):
     """Teacher profile and information"""
     tenant = models.ForeignKey(
         'core_tenants.School',

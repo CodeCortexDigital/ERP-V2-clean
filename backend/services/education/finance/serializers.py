@@ -63,25 +63,91 @@ class LateFeeRuleSerializer(serializers.ModelSerializer):
         return [cls.name for cls in obj.applicable_classes.all()]
 
 
+class PaymentHistorySerializer(serializers.ModelSerializer):
+    """Lightweight serializer for embedding payment history inside an invoice."""
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
+    received_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Payment
+        fields = [
+            'id', 'amount', 'payment_date', 'payment_method',
+            'payment_method_display', 'transaction_id', 'notes',
+            'received_by_name', 'created_at',
+        ]
+
+    def get_received_by_name(self, obj):
+        if obj.received_by:
+            return obj.received_by.get_full_name() or obj.received_by.username
+        return None
+
+
 class InvoiceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.full_name', read_only=True)
-    student_id = serializers.CharField(source='student.student_id', read_only=True)
-    class_name = serializers.CharField(source='student.current_class.name', read_only=True)
-    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    student_id_num = serializers.CharField(source='student.student_id', read_only=True)
+    class_name = serializers.SerializerMethodField()
     installment_plan_name = serializers.CharField(source='installment_plan.name', read_only=True)
     scholarship_name = serializers.CharField(source='scholarship.scholarship.name', read_only=True)
+
+    # Computed properties — read-only
     total_amount = serializers.ReadOnlyField()
     balance_due = serializers.ReadOnlyField()
-    
+
+    # Payment history embedded in each invoice response
+    payment_history = serializers.SerializerMethodField()
+
+    # Ledger breakdown for frontend display
+    ledger = serializers.SerializerMethodField()
+
     class Meta:
         model = Invoice
         fields = '__all__'
-        read_only_fields = ('invoice_number', 'issue_date', 'late_fee_amount')
+        read_only_fields = ('invoice_number', 'issue_date', 'late_fee_amount', 'invoice_month')
+
+    def get_class_name(self, obj):
+        try:
+            return obj.student.current_class.name if obj.student.current_class else None
+        except Exception:
+            return None
+
+    def get_payment_history(self, obj):
+        payments = obj.payments.order_by('payment_date')
+        return PaymentHistorySerializer(payments, many=True).data
+
+    def get_ledger(self, obj):
+        """
+        Returns a structured ledger for the invoice detail view.
+        
+        Example:
+            Opening Balance (B/F):   2,500.00
+            Monthly Fee:             4,500.00
+            Late Fee:                  500.00
+            Discount:               -  200.00
+            ─────────────────────────────────
+            Total Due:               7,300.00
+            Amount Paid:            -3,500.00
+            ─────────────────────────────────
+            Balance Due:             3,800.00
+        """
+        return {
+            'opening_balance': float(obj.opening_balance),
+            'fee_amount': float(obj.amount),
+            'late_fee_amount': float(obj.late_fee_amount),
+            'discount_amount': float(obj.discount_amount),
+            'total_due': float(obj.total_amount),
+            'paid_amount': float(obj.paid_amount),
+            'balance_due': float(obj.balance_due),
+            'invoice_month_label': (
+                obj.invoice_month.strftime('%B %Y') if obj.invoice_month else ''
+            ),
+        }
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     invoice_number = serializers.CharField(source='invoice.invoice_number', read_only=True)
     student_name = serializers.CharField(source='invoice.student.full_name', read_only=True)
+    student_id = serializers.CharField(source='invoice.student.student_id', read_only=True)
+    class_name = serializers.CharField(source='invoice.student.current_class.name', default='', read_only=True)
     
     class Meta:
         model = Payment
@@ -93,16 +159,17 @@ class PaymentSerializer(serializers.ModelSerializer):
         invoice = attrs.get('invoice')
         amount = attrs.get('amount')
         
-        # Skip validation if no invoice or amount
         if not invoice or not amount:
             return attrs
         
-        # Use the invoice's balance_due property (accounts for discounts & late fees)
         remaining_balance = invoice.balance_due
         
         if amount > remaining_balance:
             raise serializers.ValidationError({
-                'amount': f'Payment amount (${amount}) exceeds remaining balance (${remaining_balance}). Please enter a valid amount.'
+                'amount': (
+                    f'Payment amount ({amount}) exceeds remaining balance ({remaining_balance}). '
+                    'Please enter a valid amount.'
+                )
             })
         
         if amount <= 0:
@@ -138,6 +205,7 @@ class TransactionLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransactionLog
         fields = '__all__'
+
 
 class FinanceSettingsSerializer(serializers.ModelSerializer):
     class Meta:

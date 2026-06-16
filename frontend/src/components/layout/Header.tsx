@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import SearchBar from '@/components/SearchBar';
+import api from '@/services/api';
 
 interface BreadcrumbItem {
   label: string;
@@ -96,6 +97,8 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
   const location = useLocation();
   const [user, setUser] = useState<any>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
+  const [entityNames, setEntityNames] = useState<{ [id: string]: string }>({});
+  const fetchingIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -104,9 +107,32 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
     }
   }, []);
 
-  useEffect(() => {
-    generateBreadcrumbs(location.pathname);
-  }, [location.pathname]);
+  const fetchEntityName = async (id: string, type: string) => {
+    try {
+      let url = '';
+      if (type === 'students') {
+        url = `/auth/students/${id}/`;
+      } else if (type === 'teachers') {
+        url = `/auth/academics/teachers/${id}/`;
+      } else if (type === 'school-classes' || type === 'classes' || type === 'class') {
+        url = `/auth/academics/classes/${id}/`;
+      } else if (type === 'courses') {
+        url = `/auth/courses/${id}/`;
+      } else if (type === 'exams') {
+        url = `/auth/exams/${id}/`;
+      } else {
+        return;
+      }
+
+      const res = await api.get(url);
+      const name = res.data.full_name || res.data.name;
+      if (name) {
+        setEntityNames((prev) => ({ ...prev, [id]: name }));
+      }
+    } catch (err) {
+      console.error('Error fetching entity name for breadcrumb:', err);
+    }
+  };
 
   const generateBreadcrumbs = (pathname: string) => {
     const crumbs: BreadcrumbItem[] = [{ label: 'Home', href: '/dashboard' }];
@@ -116,12 +142,28 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
       const previousEntity = getEntityFromSegments(segments, index);
-      const label = formatSegment(segment, previousEntity);
+      let label = formatSegment(segment, previousEntity);
+
+      if (isIdSegment(segment)) {
+        if (entityNames[segment]) {
+          label = entityNames[segment];
+        } else {
+          if (!fetchingIds.current.has(segment)) {
+            fetchingIds.current.add(segment);
+            fetchEntityName(segment, segments[index - 1]);
+          }
+        }
+      }
+
       crumbs.push({ label, href: currentPath });
     });
 
     setBreadcrumbs(crumbs);
   };
+
+  useEffect(() => {
+    generateBreadcrumbs(location.pathname);
+  }, [location.pathname, entityNames]);
 
   const handleBreadcrumbClick = (href?: string) => {
     if (href) {

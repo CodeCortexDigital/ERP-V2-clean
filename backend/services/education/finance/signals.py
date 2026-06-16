@@ -103,7 +103,26 @@ def log_fee_structure_audit(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Payment)
 def log_payment_deletion(sender, instance, **kwargs):
-    """Log payment deletion"""
+    """Log payment deletion and update invoice"""
+    if instance.invoice:
+        from django.db.models import Sum
+        invoice = instance.invoice
+        total_paid = invoice.payments.aggregate(total=Sum('amount'))['total'] or 0
+        invoice.paid_amount = total_paid
+        
+        # Finance status logic
+        if total_paid >= invoice.total_amount:
+            invoice.status = 'paid'
+        elif total_paid > 0:
+            # Partial payment made - always show as partial regardless of due date
+            invoice.status = 'partial'
+        else:
+            if invoice.due_date < timezone.now().date():
+                invoice.status = 'overdue'
+            else:
+                invoice.status = 'issued'
+        invoice.save()
+
     log_transaction(
         user=getattr(instance, '_user', None),
         action='delete',

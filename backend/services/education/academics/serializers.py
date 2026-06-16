@@ -209,3 +209,14 @@ class TeacherAttendanceSerializer(serializers.ModelSerializer):
         model = TeacherAttendance
         fields = ['id', 'teacher', 'teacher_name', 'date', 'status', 'reason']
 
+    def validate(self, data):
+        record_date = data.get('date')
+        status = data.get('status')
+        from django.utils import timezone
+        if record_date and record_date > timezone.localtime().date():
+            if status in ['present', 'absent']:
+                raise serializers.ValidationError(
+                    "Future dates can only be marked as 'On Leave'."
+                )
+        return data
+

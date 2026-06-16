@@ -14,7 +14,7 @@ import attendanceService from '@/services/attendance.service';
 import studentService from '@/services/student.service';
 import classService, { SchoolClass, Section } from '@/services/class.service';
 
-type AttendanceStatus = 'present' | 'absent' | 'late' | 'holiday';
+type AttendanceStatus = 'present' | 'absent' | 'late' | 'holiday' | 'excused';
 
 interface AttendanceStudent {
   id: string;
@@ -54,7 +54,7 @@ function matchAttendanceRecord(records: any[], student: { id: string; student_id
   });
 }
 
-/** Present on school days / holiday on Sunday; only keep absent/late if a teacher saved it. */
+/** Present on school days / holiday on Sunday; only keep absent/late/excused if a teacher saved it. */
 function resolveStatusForMarking(
   existing: { status?: string; marked_by_id?: string | null; marked_by_name?: string } | undefined,
   dateStr: string,
@@ -66,7 +66,7 @@ function resolveStatusForMarking(
   if (!teacherMarked) return def;
 
   const s = String(existing.status).toLowerCase();
-  if (s === 'present' || s === 'absent' || s === 'late' || s === 'holiday') {
+  if (s === 'present' || s === 'absent' || s === 'late' || s === 'holiday' || s === 'excused') {
     return s as AttendanceStatus;
   }
   return def;
@@ -136,17 +136,18 @@ export default function AttendancePage() {
       console.log("SECTIONS API RESPONSE:", response.data);
       
       // Handle the backend response format: { type: "sections", options: [...] }
+      const responseData = response.data as any;
       let sectionList = [];
       
-      if (response.data?.options && Array.isArray(response.data.options)) {
+      if (responseData?.options && Array.isArray(responseData.options)) {
         // Format: { type: "sections", options: [...] }
-        sectionList = response.data.options;
-      } else if (response.data?.results && Array.isArray(response.data.results)) {
+        sectionList = responseData.options;
+      } else if (responseData?.results && Array.isArray(responseData.results)) {
         // Alternative format with results array
-        sectionList = response.data.results;
-      } else if (Array.isArray(response.data)) {
+        sectionList = responseData.results;
+      } else if (Array.isArray(responseData)) {
         // Direct array format
-        sectionList = response.data;
+        sectionList = responseData;
       } else {
         // Fallback: try to extract any array property
         sectionList = [];
@@ -266,6 +267,11 @@ export default function AttendancePage() {
     toast.success(`✓ All ${students.length} students marked as Holiday`);
   };
 
+  const markAllExcused = () => {
+    setStudents(prev => prev.map(s => ({ ...s, status: 'excused' })));
+    toast.success(`✓ All ${students.length} students marked as Excused/Leave`);
+  };
+
   const saveAttendance = async () => {
     if (students.length === 0) {
       toast.error('No students to save attendance for');
@@ -280,17 +286,26 @@ export default function AttendancePage() {
     setSaving(true);
     
     try {
-      const records = students.map(student => ({
-        student_id: student.id,
-        status: student.status,
-        date: selectedDate,
-        class_id: selectedClass,
-        section_id: selectedSection
-      }));
+      const isFuture = selectedDate > localDateInputValue();
+      const recordsToSave = students
+        .filter(student => !isFuture || (student.status === 'holiday' || student.status === 'excused'))
+        .map(student => ({
+          student_id: student.id,
+          status: student.status,
+          date: selectedDate,
+          class_id: selectedClass,
+          section_id: selectedSection
+        }));
       
-      console.log('Saving attendance records:', records);
+      if (isFuture && recordsToSave.length === 0) {
+        toast.info('No future holiday or leave changes selected to save.');
+        setSaving(false);
+        return;
+      }
       
-      await attendanceService.bulkSave(selectedDate, records);
+      console.log('Saving attendance records:', recordsToSave);
+      
+      await attendanceService.bulkSave(selectedDate, recordsToSave);
       
       setStudents(prev => prev.map(s => ({ 
         ...s, 
@@ -331,6 +346,7 @@ export default function AttendancePage() {
         case 'absent': return 'bg-red-600 text-white border-red-600';
         case 'late': return 'bg-orange-600 text-white border-orange-600';
         case 'holiday': return 'bg-purple-600 text-white border-purple-600';
+        case 'excused': return 'bg-blue-600 text-white border-blue-600';
         default: return 'bg-blue-600 text-white';
       }
     }
@@ -423,26 +439,40 @@ export default function AttendancePage() {
             </div>
             
             <div className="flex items-end gap-2 flex-wrap">
-              {!nonSchoolDay && (
+              {!(selectedDate > localDateInputValue()) ? (
+                <>
+                  {!nonSchoolDay && (
+                    <Button
+                      variant="outline"
+                      onClick={markAllPresent}
+                      className="flex-1 border-green-300 text-green-700 hover:bg-green-50 min-w-[120px]"
+                      disabled={students.length === 0}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      All Present
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={markAllAbsent}
+                    className="flex-1 border-red-300 text-red-700 hover:bg-red-50 min-w-[120px]"
+                    disabled={students.length === 0}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    All Absent
+                  </Button>
+                </>
+              ) : (
                 <Button
                   variant="outline"
-                  onClick={markAllPresent}
-                  className="flex-1 border-green-300 text-green-700 hover:bg-green-50 min-w-[120px]"
+                  onClick={markAllExcused}
+                  className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 min-w-[120px]"
                   disabled={students.length === 0}
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  All Present
+                  All Excused/Leave
                 </Button>
               )}
-              <Button
-                variant="outline"
-                onClick={markAllAbsent}
-                className="flex-1 border-red-300 text-red-700 hover:bg-red-50 min-w-[120px]"
-                disabled={students.length === 0}
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                All Absent
-              </Button>
               <Button
                 variant="outline"
                 onClick={markAllHoliday}
@@ -583,28 +613,39 @@ export default function AttendancePage() {
                       <td className="px-4 py-3 font-medium">{student.full_name}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2 flex-wrap">
-                          {!nonSchoolDay && (
-                            <button
-                              onClick={() => handleStatusChange(student.id, 'present')}
-                              className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'present')}`}
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              Present
-                            </button>
-                          )}
+                          {!(selectedDate > localDateInputValue()) ? (
+                            <>
+                              {!nonSchoolDay && (
+                                <button
+                                  onClick={() => handleStatusChange(student.id, 'present')}
+                                  className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'present')}`}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  Present
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleStatusChange(student.id, 'absent')}
+                                className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'absent')}`}
+                              >
+                                <XCircle className="w-4 h-4" />
+                                Absent
+                              </button>
+                              <button
+                                onClick={() => handleStatusChange(student.id, 'late')}
+                                className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'late')}`}
+                              >
+                                <Clock className="w-4 h-4" />
+                                Late
+                              </button>
+                            </>
+                          ) : null}
                           <button
-                            onClick={() => handleStatusChange(student.id, 'absent')}
-                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'absent')}`}
+                            onClick={() => handleStatusChange(student.id, 'excused')}
+                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'excused')}`}
                           >
-                            <XCircle className="w-4 h-4" />
-                            Absent
-                          </button>
-                          <button
-                            onClick={() => handleStatusChange(student.id, 'late')}
-                            className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'late')}`}
-                          >
-                            <Clock className="w-4 h-4" />
-                            Late
+                            <CheckCircle className="w-4 h-4" />
+                            Leave
                           </button>
                           <button
                             onClick={() => handleStatusChange(student.id, 'holiday')}
@@ -660,16 +701,20 @@ export default function AttendancePage() {
             <div className="p-4">
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-blue-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-blue-700">{studentHistory.length}</p>
-                  <p className="text-xs text-gray-600">Total Days</p>
+                  <p className="text-2xl font-bold text-blue-700">{studentHistory.filter((h: any) => h.status !== 'holiday').length}</p>
+                  <p className="text-xs text-gray-600">Total School Days</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-green-700">{studentHistory.filter((h: any) => h.status === 'present').length}</p>
-                  <p className="text-xs text-gray-600">Present</p>
+                  <p className="text-2xl font-bold text-green-700">{studentHistory.filter((h: any) => h.status === 'present' || h.status === 'late').length}</p>
+                  <p className="text-xs text-gray-600">Present (incl. Late)</p>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-purple-700">
-                    {studentHistory.length > 0 ? Math.round((studentHistory.filter((h: any) => h.status === 'present').length / studentHistory.length) * 100) : 0}%
+                    {(() => {
+                      const schoolDays = studentHistory.filter((h: any) => h.status !== 'holiday').length;
+                      const presentDays = studentHistory.filter((h: any) => h.status === 'present' || h.status === 'late').length;
+                      return schoolDays > 0 ? Math.round((presentDays / schoolDays) * 100) : 0;
+                    })()}%
                   </p>
                   <p className="text-xs text-gray-600">Attendance Rate</p>
                 </div>
@@ -700,8 +745,17 @@ export default function AttendancePage() {
                                   : record.status === 'absent'
                                     ? 'destructive'
                                     : record.status === 'holiday'
-                                      ? 'secondary'
-                                      : 'warning'
+                                      ? 'info'
+                                      : record.status === 'excused'
+                                        ? 'secondary'
+                                        : 'warning'
+                              }
+                              className={
+                                record.status === 'holiday' 
+                                  ? 'bg-purple-100 text-purple-800 border-transparent' 
+                                  : record.status === 'excused'
+                                    ? 'bg-blue-100 text-blue-800 border-transparent'
+                                    : ''
                               }
                             >
                               {record.status === 'present'
@@ -712,7 +766,9 @@ export default function AttendancePage() {
                                     ? '⏰ Late'
                                     : record.status === 'holiday'
                                       ? '📅 Holiday'
-                                      : record.status}
+                                      : record.status === 'excused'
+                                        ? '🍂 Excused/Leave'
+                                        : record.status}
                             </Badge>
                           </td>
                           <td className="p-2 text-gray-500">{record.marked_by_name || '-'}</td>

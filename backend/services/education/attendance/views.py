@@ -120,17 +120,18 @@ def attendance_summary(request):
     try:
         ensure_attendance_for_past_days(timezone.localtime().date())
         queryset = filter_attendance_for_user(request.user, Attendance.objects.all())
-        total_records = queryset.count()
-        present = queryset.filter(status='present').count()
-        absent = queryset.filter(status='absent').count()
-        late = queryset.filter(status='late').count()
+        school_records = queryset.exclude(status='holiday')
+        total_records = school_records.count()
+        present = school_records.filter(status='present').count()
+        absent = school_records.filter(status='absent').count()
+        late = school_records.filter(status='late').count()
         
         return Response({
             'total_records': total_records,
             'present': present,
             'absent': absent,
             'late': late,
-            'attendance_rate': round((present / total_records * 100), 1) if total_records > 0 else 0
+            'attendance_rate': round(((present + late) / total_records * 100), 1) if total_records > 0 else 0
         })
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -25,10 +25,10 @@ class TestAttendanceModel:
         """Test attendance status is valid."""
         assert test_attendance_record.status in ['present', 'absent', 'leave', 'sick']
     
-    def test_attendance_unique_per_day(self, test_student, test_teacher):
+    def test_attendance_unique_per_day(self, test_student):
         """Test only one attendance record per student per day."""
         date = datetime.now().date()
-        AttendanceRecordFactory(student=test_student, marked_by=test_teacher, date=date, status='present')
+        AttendanceRecordFactory(student=test_student, date=date, status='present')
         # Attempting to create another should violate uniqueness constraint
         # This depends on your model constraints
         pass
@@ -104,7 +104,9 @@ class TestAttendanceFiltering:
     def test_filter_attendance_by_student(self, authenticated_api_client, test_student):
         """Test filtering attendance by student."""
         client, user = authenticated_api_client
-        AttendanceRecordFactory.create_batch(5, student=test_student)
+        start_date = datetime.now().date() - timedelta(days=10)
+        for i in range(5):
+            AttendanceRecordFactory(student=test_student, date=start_date + timedelta(days=i))
         
         # Adjust endpoint based on actual implementation
         # response = client.get(f'/api/attendance/?student={test_student.id}')
@@ -115,9 +117,10 @@ class TestAttendanceFiltering:
         client, user = authenticated_api_client
         
         # Create records with different statuses
-        AttendanceRecordFactory(student=test_student, status='present')
-        AttendanceRecordFactory(student=test_student, status='absent')
-        AttendanceRecordFactory(student=test_student, status='leave')
+        date = datetime.now().date()
+        AttendanceRecordFactory(student=test_student, status='present', date=date)
+        AttendanceRecordFactory(student=test_student, status='absent', date=date - timedelta(days=1))
+        AttendanceRecordFactory(student=test_student, status='leave', date=date - timedelta(days=2))
         
         # Adjust endpoint based on actual implementation
         # response = client.get(f'/api/attendance/?status=present')
@@ -129,14 +132,14 @@ class TestAttendanceStatistics:
     
     def test_attendance_percentage_calculation(self, test_student):
         """Test attendance percentage is calculated correctly."""
-        teacher = TeacherFactory()
+        start_date = datetime.now().date() - timedelta(days=120)
         
         # Create 100 records: 80 present, 20 absent
         for i in range(80):
-            AttendanceRecordFactory(student=test_student, marked_by=teacher, status='present')
+            AttendanceRecordFactory(student=test_student, date=start_date + timedelta(days=i), status='present')
         
         for i in range(20):
-            AttendanceRecordFactory(student=test_student, marked_by=teacher, status='absent')
+            AttendanceRecordFactory(student=test_student, date=start_date + timedelta(days=80+i), status='absent')
         
         # Verify attendance percentage calculation
         # This depends on your implementation

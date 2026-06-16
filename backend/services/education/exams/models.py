@@ -1,8 +1,9 @@
 from django.db import models
 from django.utils import timezone
 import uuid
+from services.core.tenants.mixins import SchoolAliasMixin
 
-class Exam(models.Model):
+class Exam(SchoolAliasMixin, models.Model):
     tenant = models.ForeignKey(
         'core_tenants.School',
         on_delete=models.CASCADE,
@@ -69,7 +70,7 @@ class Exam(models.Model):
         ordering = ['-exam_date']
 
 
-class ExamResult(models.Model):
+class ExamResult(SchoolAliasMixin, models.Model):
     tenant = models.ForeignKey(
         'core_tenants.School',
         on_delete=models.CASCADE,

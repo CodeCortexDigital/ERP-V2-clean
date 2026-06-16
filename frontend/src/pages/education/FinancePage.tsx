@@ -94,6 +94,9 @@ export default function FinancePage() {
     notes: ''
   });
 
+  // Invoice ledger modal
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+
   // Advanced Forms
   const [installmentPlanForm, setInstallmentPlanForm] = useState({
     name: '',
@@ -426,7 +429,7 @@ export default function FinancePage() {
 
     // Refresh payment list immediately
     const paymentRes = await financeService.getPayments();
-    setPayments(extractListData(paymentRes.data));
+    setPayments(extractListData((paymentRes as any).data));
 
     // Refresh invoices so paid amount updates instantly
     await fetchInvoices(invoiceFilters);
@@ -849,9 +852,44 @@ const handleBulkSendReminders = async () => {
       );
 
       fetchAllData();
-
     } catch (error) {
       toast.error('Failed to send bulk reminders');
+    }
+  };
+
+  // ─── Admin Trigger Handlers ─────────────────────────────────────────────────
+  const handleRunMonthlyInvoices = async () => {
+    if (!confirm('Generate this month\'s invoices for all active students?')) return;
+    try {
+      const res = await financeService.runMonthlyInvoices();
+      toast.success('Monthly invoices generated!');
+      console.log(res.data?.details);
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to generate invoices');
+    }
+  };
+
+  const handleApplyLateFees = async () => {
+    if (!confirm('Apply late fees to all overdue invoices?')) return;
+    try {
+      const res = await financeService.triggerApplyLateFees();
+      toast.success('Late fees applied!');
+      console.log(res.data?.details);
+      fetchAllData();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to apply late fees');
+    }
+  };
+
+  const handleTriggerReminders = async () => {
+    if (!confirm('Send fee reminders to all students with unpaid invoices this month?')) return;
+    try {
+      const res = await financeService.triggerSendReminders();
+      toast.success('Reminders sent!');
+      console.log(res.data?.details);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to send reminders');
     }
   };
 
@@ -1105,9 +1143,18 @@ const handleBulkSendReminders = async () => {
           <div className="flex flex-col gap-4 mb-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold">Invoices</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button onClick={() => { setFormType('invoice'); setEditingItem(null); setInvoiceFormData({ student_id: '', amount: '', due_date: '', description: '' }); setShowForm(true); }} size="sm">
                   <Plus className="w-4 h-4 mr-2" /> Create Invoice
+                </Button>
+                <Button onClick={handleRunMonthlyInvoices} size="sm" variant="outline" title="Generate this month's invoices for all active students (runs 1st of month)">
+                  <Calendar className="w-4 h-4 mr-2" /> Generate Monthly
+                </Button>
+                <Button onClick={handleApplyLateFees} size="sm" variant="outline" title="Apply late fees to overdue invoices (runs 10th of month)">
+                  <AlertCircle className="w-4 h-4 mr-2" /> Apply Late Fees
+                </Button>
+                <Button onClick={handleTriggerReminders} size="sm" variant="outline" title="Send fee reminders to unpaid students (runs 5th of month)">
+                  <Send className="w-4 h-4 mr-2" /> Send Reminders
                 </Button>
                 <Button onClick={handleGenerateDefaulterReportPDF} size="sm" variant="outline">
                   <FileDown className="w-4 h-4 mr-2" /> Defaulter Report
@@ -1141,13 +1188,15 @@ const handleBulkSendReminders = async () => {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="p-3 text-left">Invoice #</th>
-                  <th className="p-3 text-left">Student ID</th>
+                  <th className="p-3 text-left">Month</th>
                   <th className="p-3 text-left">Student</th>
                   <th className="p-3 text-left">Class</th>
-                  <th className="p-3 text-left">Amount</th>
-                  <th className="p-3 text-left">Late Fee</th>
-                  <th className="p-3 text-left">Net Payable</th>
-                  <th className="p-3 text-left">Paid</th>
+                  <th className="p-3 text-right">B/F</th>
+                  <th className="p-3 text-right">Fee</th>
+                  <th className="p-3 text-right">Late Fee</th>
+                  <th className="p-3 text-right">Total Due</th>
+                  <th className="p-3 text-right">Paid</th>
+                  <th className="p-3 text-right">Balance</th>
                   <th className="p-3 text-left">Due Date</th>
                   <th className="p-3 text-left">Status</th>
                   <th className="p-3 text-center">Actions</th>
@@ -1160,34 +1209,42 @@ const handleBulkSendReminders = async () => {
                   invoices.map((inv) => (
                     <tr key={inv.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-mono text-xs">{inv.invoice_number}</td>
-                      <td className="p-3">{inv.student_id || "-"}</td>
-                      <td className="p-3">{inv.student_name}</td>
-                      <td className="p-3">{inv.class_name || inv.student_class || "-"}</td>
-                      <td className="p-3">{inv.amount}</td>
-
-                      <td className="p-3 text-orange-600 font-semibold">
-                        {Number(inv.late_fee_amount || 0).toFixed(2)}
+                      <td className="p-3 text-xs text-gray-500">
+                        {inv.ledger?.invoice_month_label || (inv.invoice_month ? new Date(inv.invoice_month).toLocaleDateString('en-US', {month:'short', year:'numeric'}) : '—')}
                       </td>
-
-                      <td className="p-3 font-semibold text-red-600">
-                        {(
-                          Number(inv.amount || 0) +
-                          Number(inv.late_fee_amount || 0) -
-                          Number(inv.paid_amount || 0)
-                        ).toFixed(2)}
-                      </td>
-
                       <td className="p-3">
-                        {Number(inv.paid_amount || 0).toFixed(2)}
+                        <div className="font-medium">{inv.student_name}</div>
+                        <div className="text-xs text-gray-400">{inv.student_id_num || inv.student_id}</div>
                       </td>
-                      <td className="p-3">{inv.due_date}</td>
+                      <td className="p-3 text-sm">{inv.class_name || '—'}</td>
+                      <td className="p-3 text-right text-blue-700 font-semibold">
+                        {Number(inv.ledger?.opening_balance ?? inv.opening_balance ?? 0).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-right">
+                        {Number(inv.ledger?.fee_amount ?? inv.amount ?? 0).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-right text-orange-600">
+                        {Number(inv.ledger?.late_fee_amount ?? inv.late_fee_amount ?? 0).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-right font-semibold">
+                        {Number(inv.ledger?.total_due ?? inv.total_amount ?? 0).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-right text-green-600">
+                        {Number(inv.ledger?.paid_amount ?? inv.paid_amount ?? 0).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-right font-bold text-red-600">
+                        {Number(inv.ledger?.balance_due ?? inv.balance_due ?? 0).toFixed(2)}
+                      </td>
+                      <td className="p-3 text-sm">{inv.due_date}</td>
                       <td className="p-3">{getStatusBadge(inv.status)}</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-1 justify-center">
+                          <button onClick={() => setSelectedInvoice(inv)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="View Ledger & Payment History">
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button onClick={() => openInvoiceReceipt(inv.id)} className="p-1 text-indigo-600 hover:bg-indigo-100 rounded" title="Receipt">
                             <Receipt className="w-4 h-4" />
                           </button>
-
                           <button onClick={() => handleGenerateInvoicePDF(inv.id)} className="p-1 text-purple-600 hover:bg-purple-100 rounded" title="Download PDF">
                             <FileDown className="w-4 h-4" />
                           </button>
@@ -1204,16 +1261,12 @@ const handleBulkSendReminders = async () => {
                               </button>
                             </>
                           )}
-                          {(
-  inv.status === 'issued' ||
-  inv.status === 'partial' ||
-  inv.status === 'overdue'
-) && (
-                            <button onClick={() => { setFormType('payment'); setPaymentFormData({ invoice_id: inv.id, amount: String(inv.amount - (inv.paid_amount || 0)), payment_method: 'cash', transaction_id: '', notes: '' }); setShowForm(true); }} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Record Payment">
+                          {(inv.status === 'issued' || inv.status === 'partial' || inv.status === 'overdue') && (
+                            <button onClick={() => { setFormType('payment'); setPaymentFormData({ invoice_id: inv.id, amount: String(inv.ledger?.balance_due ?? inv.balance_due ?? 0), payment_method: 'cash', transaction_id: '', notes: '' }); setShowForm(true); }} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Record Payment">
                               <CreditCard className="w-4 h-4" />
                             </button>
                           )}
-                          <button onClick={() => handleEditInvoice(inv)} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Edit">
+                          <button onClick={() => handleEditInvoice(inv)} className="p-1 text-gray-600 hover:bg-gray-100 rounded" title="Edit">
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button onClick={() => handleDeleteInvoice(inv.id)} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Delete">
@@ -1253,13 +1306,15 @@ const handleBulkSendReminders = async () => {
               </thead>
               <tbody>
                 {payments.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-8 text-gray-500">No payments recorded</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-gray-500">No payments recorded</td></tr>
                 ) : (
                   payments.map((payment) => (
                     <tr key={payment.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-mono text-xs">{payment.invoice_number}</td>
-                      <td className="p-3">{payment.student_name}</td>
-                      <td className="p-3 font-semibold text-green-600">{payment.amount}</td>
+                      <td className="p-3">{payment.student_id}</td>
+                      <td className="p-3 font-medium">{payment.student_name}</td>
+                      <td className="p-3">{payment.class_name || '-'}</td>
+                      <td className="p-3 font-semibold text-green-600">${Number(payment.amount || 0).toFixed(2)}</td>
                       <td className="p-3">{payment.payment_date}</td>
                       <td className="p-3">{getPaymentMethodBadge(payment.payment_method)}</td>
                       <td className="p-3 text-center">
@@ -1984,6 +2039,140 @@ const handleBulkSendReminders = async () => {
           <Button onClick={() => { setFormType('payment'); setShowForm(true); }} className="bg-green-600 hover:bg-green-700 rounded-full shadow-lg">
             <CreditCard className="w-5 h-5 mr-2" /> Record Payment
           </Button>
+        </div>
+      )}
+
+      {/* ─── Invoice Ledger Modal ────────────────────────────────────────────── */}
+      {selectedInvoice && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedInvoice(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex justify-between items-start p-5 border-b">
+              <div>
+                <h3 className="text-lg font-bold">{selectedInvoice.invoice_number}</h3>
+                <p className="text-sm text-gray-500">
+                  {selectedInvoice.student_name} · {selectedInvoice.class_name || '—'} ·{' '}
+                  {selectedInvoice.ledger?.invoice_month_label || ''}
+                </p>
+              </div>
+              <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">×</button>
+            </div>
+
+            {/* Ledger Breakdown */}
+            <div className="p-5 border-b">
+              <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Fee Ledger</h4>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="text-blue-700">
+                    <td className="py-1">Opening Balance (B/F)</td>
+                    <td className="py-1 text-right font-semibold">
+                      {Number(selectedInvoice.ledger?.opening_balance ?? selectedInvoice.opening_balance ?? 0).toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-1">Monthly Fee ({selectedInvoice.ledger?.invoice_month_label || ''})</td>
+                    <td className="py-1 text-right">
+                      {Number(selectedInvoice.ledger?.fee_amount ?? selectedInvoice.amount ?? 0).toFixed(2)}
+                    </td>
+                  </tr>
+                  {Number(selectedInvoice.ledger?.late_fee_amount ?? selectedInvoice.late_fee_amount ?? 0) > 0 && (
+                    <tr className="text-orange-600">
+                      <td className="py-1">Late Fee</td>
+                      <td className="py-1 text-right font-semibold">
+                        + {Number(selectedInvoice.ledger?.late_fee_amount ?? selectedInvoice.late_fee_amount).toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  {Number(selectedInvoice.ledger?.discount_amount ?? selectedInvoice.discount_amount ?? 0) > 0 && (
+                    <tr className="text-green-600">
+                      <td className="py-1">Discount</td>
+                      <td className="py-1 text-right font-semibold">
+                        − {Number(selectedInvoice.ledger?.discount_amount ?? selectedInvoice.discount_amount).toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="border-t font-bold text-gray-800">
+                    <td className="py-2">Total Due</td>
+                    <td className="py-2 text-right">
+                      {Number(selectedInvoice.ledger?.total_due ?? selectedInvoice.total_amount ?? 0).toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr className="text-green-600">
+                    <td className="py-1">Amount Paid</td>
+                    <td className="py-1 text-right font-semibold">
+                      − {Number(selectedInvoice.ledger?.paid_amount ?? selectedInvoice.paid_amount ?? 0).toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr className="border-t-2 border-gray-300 text-lg font-bold text-red-600">
+                    <td className="py-2">Balance Due</td>
+                    <td className="py-2 text-right">
+                      {Number(selectedInvoice.ledger?.balance_due ?? selectedInvoice.balance_due ?? 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-xs text-gray-400">Status:</span>
+                {getStatusBadge(selectedInvoice.status)}
+                <span className="text-xs text-gray-400 ml-2">Due: {selectedInvoice.due_date}</span>
+              </div>
+            </div>
+
+            {/* Payment History */}
+            <div className="p-5">
+              <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Payment History</h4>
+              {selectedInvoice.payment_history && selectedInvoice.payment_history.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-gray-500 text-xs">
+                      <th className="text-left py-1">Date</th>
+                      <th className="text-right py-1">Amount</th>
+                      <th className="text-left py-1 pl-3">Method</th>
+                      <th className="text-left py-1 pl-3">Received By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedInvoice.payment_history.map((p: any, i: number) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="py-2 text-gray-600">{p.payment_date}</td>
+                        <td className="py-2 text-right font-semibold text-green-600">{Number(p.amount).toFixed(2)}</td>
+                        <td className="py-2 pl-3 text-gray-500">{p.payment_method_display || p.payment_method}</td>
+                        <td className="py-2 pl-3 text-gray-400 text-xs">{p.received_by_name || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-400 text-sm italic">No payments recorded yet.</p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-2">
+              {(selectedInvoice.status === 'issued' || selectedInvoice.status === 'partial' || selectedInvoice.status === 'overdue') && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setFormType('payment');
+                    setPaymentFormData({
+                      invoice_id: selectedInvoice.id,
+                      amount: String(selectedInvoice.ledger?.balance_due ?? selectedInvoice.balance_due ?? 0),
+                      payment_method: 'cash',
+                      transaction_id: '',
+                      notes: '',
+                    });
+                    setSelectedInvoice(null);
+                    setShowForm(true);
+                  }}
+                >
+                  <CreditCard className="w-4 h-4 mr-2" /> Record Payment
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => openInvoiceReceipt(selectedInvoice.id)}>
+                <Receipt className="w-4 h-4 mr-2" /> Print Receipt
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

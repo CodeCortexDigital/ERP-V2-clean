@@ -18,7 +18,7 @@ class TestAuthenticationAPI:
         """Test user can be created."""
         user = UserFactory(username='newuser')
         assert user.id is not None
-        assert user.username == 'newuser'
+        assert user.email == 'newuser@example.com'
         assert user.is_active is True
     
     def test_user_password_set(self):
@@ -40,7 +40,7 @@ class TestAuthenticationAPI:
         access_token = refresh.access_token
         
         # Verify token contains user ID
-        assert access_token.payload['user_id'] == user.id
+        assert access_token.payload['user_id'] == str(user.id)
 
 
 class TestLoginAPI:
@@ -50,7 +50,7 @@ class TestLoginAPI:
         """Test login with valid credentials."""
         user = UserFactory(username='testlogin', password='correctpass')
         response = api_client.post('/api/auth/login/', {
-            'username': 'testlogin',
+            'email': 'testlogin@example.com',
             'password': 'correctpass'
         }, format='json')
         
@@ -61,7 +61,7 @@ class TestLoginAPI:
         """Test login with invalid credentials."""
         UserFactory(username='testuser', password='correctpass')
         response = api_client.post('/api/auth/login/', {
-            'username': 'testuser',
+            'email': 'testuser@example.com',
             'password': 'wrongpass'
         }, format='json')
         
@@ -86,7 +86,7 @@ class TestTokenRefresh:
         
         # Verify refresh token works
         assert refresh.access_token is not None
-        assert refresh['user_id'] == user.id
+        assert refresh['user_id'] == str(user.id)
 
 
 class TestUserProfile:

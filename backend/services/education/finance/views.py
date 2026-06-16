@@ -174,11 +174,11 @@ class InvoiceDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         response = super().update(request, *args, **kwargs)
         
-        # If status changed to paid, ensure paid_amount equals amount
+        # If status changed to paid, ensure paid_amount equals total_amount
         if response.status_code == 200:
             updated_instance = self.get_object()
-            if updated_instance.status == 'paid' and updated_instance.paid_amount < updated_instance.amount:
-                updated_instance.paid_amount = updated_instance.amount
+            if updated_instance.status == 'paid' and updated_instance.paid_amount < updated_instance.total_amount:
+                updated_instance.paid_amount = updated_instance.total_amount
                 updated_instance.save()
         
         return response
@@ -234,14 +234,19 @@ class PaymentListCreateView(generics.ListCreateAPIView):
         invoice.paid_amount = total_paid
 
         # Finance status logic
-        if total_paid >= invoice.amount:
+        if total_paid >= invoice.total_amount:
             invoice.status = 'paid'
 
         elif total_paid > 0:
+            # Partial payment made - always show as partial regardless of due date
+            # 'overdue' only applies when NO payment has been made
             invoice.status = 'partial'
 
         else:
-            invoice.status = 'issued'
+            if invoice.due_date < timezone.now().date():
+                invoice.status = 'overdue'
+            else:
+                invoice.status = 'issued'
 
         invoice.save()
         
@@ -261,15 +266,20 @@ class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
         # Update invoice paid amount when payment is modified
         if response.status_code == 200:
             updated_instance = self.get_object()
-            total_paid = updated_instance.invoice.payments.aggregate(total=Sum('amount'))['total'] or 0
-            updated_instance.invoice.paid_amount = total_paid
-            if total_paid >= updated_instance.invoice.amount:
-                updated_instance.invoice.status = 'paid'
+            invoice = updated_instance.invoice
+            total_paid = invoice.payments.aggregate(total=Sum('amount'))['total'] or 0
+            invoice.paid_amount = total_paid
+            if total_paid >= invoice.total_amount:
+                invoice.status = 'paid'
             elif total_paid > 0:
-                updated_instance.invoice.status = 'partial'
+                # Partial payment made - always show as partial regardless of due date
+                invoice.status = 'partial'
             else:
-                updated_instance.invoice.status = 'issued'
-            updated_instance.invoice.save()
+                if invoice.due_date < timezone.now().date():
+                    invoice.status = 'overdue'
+                else:
+                    invoice.status = 'issued'
+            invoice.save()
         
         return response
 
@@ -358,15 +368,16 @@ class TransactionLogListView(generics.ListAPIView):
 def finance_summary(request):
     """Get finance summary for dashboard using correct balance calculation"""
     total_invoices = Invoice.objects.count()
-    total_amount = Invoice.objects.aggregate(total=Sum('amount'))['total'] or 0
     
     # FIXED: Use sum of balance_due property instead of simple subtraction
     # This properly accounts for discounts and late fees
     all_invoices = Invoice.objects.all()
     balance_due = sum(invoice.balance_due for invoice in all_invoices)
-    
     total_paid = Invoice.objects.aggregate(total=Sum('paid_amount'))['total'] or 0
-    collection_rate = round((total_paid / total_amount * 100), 1) if total_amount > 0 else 0
+    
+    # Calculate total_amount as total_paid + balance_due to keep all cards aligned
+    total_amount = total_paid + balance_due
+    collection_rate = round((float(total_paid) / float(total_amount) * 100), 1) if total_amount > 0 else 0
     
     return Response({
         'total_invoices': total_invoices,
@@ -1438,7 +1449,7 @@ def send_defaulter_notice(request, invoice_id):
             subject=subject,
             body=text_content,
             from_email=from_email,
-            to=[invoice.invoice.student.email]
+            to=[invoice.student.email]  # Fixed: was invoice.invoice.student.email
         )
         email.attach_alternative(html_content, "text/html")
         email.send()
@@ -1536,15 +1547,141 @@ def send_defaulter_whatsapp_notice(request, invoice_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def bulk_send_reminders(request):
-    """Send bulk reminders without WhatsApp dependency"""
+    """Send bulk fee reminders to students with unpaid invoices this month."""
+    from django.utils import timezone
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+    from django.conf import settings
 
+    today = timezone.localtime().date()
+    invoice_month = today.replace(day=1)
+
+    # Optional: filter by specific invoice IDs or send to all unpaid this month
     invoice_ids = request.data.get("invoice_ids", [])
 
+    if invoice_ids:
+        invoices = Invoice.objects.filter(
+            id__in=invoice_ids,
+            status__in=['issued', 'partial', 'overdue'],
+        ).select_related('student')
+    else:
+        invoices = Invoice.objects.filter(
+            invoice_month=invoice_month,
+            status__in=['issued', 'partial'],
+        ).select_related('student')
+
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@school.com')
+    school_name = getattr(settings, 'SCHOOL_NAME', 'School Management System')
+
+    sent_count = 0
+    skipped_count = 0
+    errors = []
+
+    for invoice in invoices:
+        student = invoice.student
+        if not student.email:
+            skipped_count += 1
+            continue
+
+        days_overdue = max(0, (today - invoice.due_date).days)
+        context = {
+            'student_name': student.full_name,
+            'school_name': school_name,
+            'invoice_number': invoice.invoice_number,
+            'due_date': invoice.due_date,
+            'amount': float(invoice.amount),
+            'opening_balance': float(invoice.opening_balance),
+            'late_fee_amount': float(invoice.late_fee_amount),
+            'balance_due': float(invoice.balance_due),
+            'days_overdue': days_overdue,
+        }
+
+        try:
+            html_content = render_to_string('finance/emails/fee_reminder.html', context)
+            text_content = strip_tags(html_content)
+            email_msg = EmailMultiAlternatives(
+                subject=f"Fee Reminder — {invoice.invoice_number}",
+                body=text_content,
+                from_email=from_email,
+                to=[student.email],
+            )
+            email_msg.attach_alternative(html_content, "text/html")
+            email_msg.send()
+            sent_count += 1
+        except Exception as exc:
+            errors.append({'invoice': invoice.invoice_number, 'error': str(exc)})
+
     return Response({
-        "success": True,
-        "message": "Bulk reminders processed successfully",
-        "count": len(invoice_ids)
+        'success': True,
+        'sent': sent_count,
+        'skipped_no_email': skipped_count,
+        'errors': errors,
+        'message': f'Sent {sent_count} reminders successfully.',
     })
+
+
+# ─── Admin Trigger Endpoints ─────────────────────────────────────────────────
+# These endpoints allow admin to manually trigger scheduled jobs from the UI.
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def run_monthly_invoices(request):
+    """Admin trigger: Generate this month's invoices (same as 1st-of-month cron)."""
+    from django.core.management import call_command
+    from io import StringIO
+
+    out = StringIO()
+    try:
+        call_command('generate_monthly_invoices', '--force', stdout=out, verbosity=1)
+        output = out.getvalue()
+        return Response({
+            'success': True,
+            'message': 'Monthly invoices generated.',
+            'details': output,
+        })
+    except Exception as exc:
+        return Response({'success': False, 'error': str(exc)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trigger_apply_late_fees(request):
+    """Admin trigger: Apply late fees to overdue invoices (same as 10th-of-month cron)."""
+    from django.core.management import call_command
+    from io import StringIO
+
+    out = StringIO()
+    try:
+        call_command('apply_late_fees', '--force', stdout=out, verbosity=1)
+        output = out.getvalue()
+        return Response({
+            'success': True,
+            'message': 'Late fees applied.',
+            'details': output,
+        })
+    except Exception as exc:
+        return Response({'success': False, 'error': str(exc)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def trigger_send_reminders(request):
+    """Admin trigger: Send fee reminders (same as 5th-of-month cron)."""
+    from django.core.management import call_command
+    from io import StringIO
+
+    out = StringIO()
+    try:
+        call_command('send_fee_reminders', '--force', stdout=out, verbosity=1)
+        output = out.getvalue()
+        return Response({
+            'success': True,
+            'message': 'Fee reminders sent.',
+            'details': output,
+        })
+    except Exception as exc:
+        return Response({'success': False, 'error': str(exc)}, status=500)
 
 
 class FinanceSettingsView(generics.RetrieveUpdateAPIView):

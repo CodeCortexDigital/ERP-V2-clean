@@ -1,92 +1,121 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { vi } from 'vitest'
 import NotificationBell from './NotificationBell'
-import { api } from '@/lib/api'
+import { useNotifications } from '@/hooks/useNotifications'
 
-type ApiMock = {
-  get: ReturnType<typeof vi.fn>
-  post: ReturnType<typeof vi.fn>
-}
-
-vi.mock('@/lib/api', () => ({
-  api: {
-    get: vi.fn(),
-    post: vi.fn(),
-  },
+// Mock the useNotifications custom hook
+vi.mock('@/hooks/useNotifications', () => ({
+  useNotifications: vi.fn(),
 }))
 
-const mockApi = api as unknown as ApiMock
+const mockUseNotifications = useNotifications as any
 
 describe('NotificationBell', () => {
   beforeEach(() => {
-    mockApi.get.mockReset()
-    mockApi.post.mockReset()
+    vi.clearAllMocks()
   })
 
   it('renders unread notification count and opens dropdown', async () => {
-    mockApi.get.mockImplementation((url: string) => {
-      if (url.endsWith('/unread-count/')) {
-        return Promise.resolve({ data: { unread_count: 2 } })
-      }
-      if (url.endsWith('/notifications/')) {
-        return Promise.resolve({ data: [
-          {
-            id: '1',
-            title: 'Fee invoice created',
-            message: 'Invoice INV-2026-0001 has been issued.',
-            notification_type: 'finance',
-            is_read: false,
-            created_at: '2026-05-15T12:00:00Z',
-          },
-        ] })
-      }
-      return Promise.reject(new Error('Unexpected request'))
+    const setDropdownOpen = vi.fn()
+    const fetchNotifications = vi.fn()
+    const markAllAsRead = vi.fn()
+
+    // Mock initial render state (dropdown closed, 2 unread notifications)
+    mockUseNotifications.mockReturnValue({
+      notifications: [
+        {
+          id: '1',
+          title: 'Fee invoice created',
+          message: 'Invoice INV-2026-0001 has been issued.',
+          notification_type: 'finance',
+          is_read: false,
+          created_at: '2026-05-15T12:00:00Z',
+        },
+      ],
+      unreadCount: 2,
+      loading: false,
+      error: null,
+      dropdownOpen: false,
+      setDropdownOpen,
+      fetchNotifications,
+      markAsRead: vi.fn(),
+      markAllAsRead,
     })
 
-    render(<NotificationBell />)
+    const { rerender } = render(<NotificationBell />)
 
+    // Verify unread badge shows "2"
     const badge = await screen.findByText('2')
     expect(badge).toBeInTheDocument()
 
+    // Trigger click on the bell icon
     fireEvent.click(screen.getByLabelText('Notifications'))
+    expect(setDropdownOpen).toHaveBeenCalledWith(true)
 
-    await waitFor(() => {
-      expect(screen.getByText('Fee invoice created')).toBeInTheDocument()
-      expect(screen.getByText('Mark all read')).toBeInTheDocument()
+    // Simulate dropdown opening in the next render
+    mockUseNotifications.mockReturnValue({
+      notifications: [
+        {
+          id: '1',
+          title: 'Fee invoice created',
+          message: 'Invoice INV-2026-0001 has been issued.',
+          notification_type: 'finance',
+          is_read: false,
+          created_at: '2026-05-15T12:00:00Z',
+        },
+      ],
+      unreadCount: 2,
+      loading: false,
+      error: null,
+      dropdownOpen: true,
+      setDropdownOpen,
+      fetchNotifications,
+      markAsRead: vi.fn(),
+      markAllAsRead,
     })
+
+    rerender(<NotificationBell />)
+
+    // Verify dropdown contents render
+    expect(screen.getByText('Fee invoice created')).toBeInTheDocument()
+    expect(screen.getByText('Mark all read')).toBeInTheDocument()
   })
 
   it('marks a notification as read when clicked', async () => {
-    mockApi.get.mockImplementation((url: string) => {
-      if (url.endsWith('/unread-count/')) {
-        return Promise.resolve({ data: { unread_count: 1 } })
-      }
-      if (url.endsWith('/notifications/')) {
-        return Promise.resolve({ data: [
-          {
-            id: '1',
-            title: 'Exam result published',
-            message: 'Results are available for your student.',
-            notification_type: 'exam',
-            is_read: false,
-            created_at: '2026-05-15T13:00:00Z',
-          },
-        ] })
-      }
-      return Promise.reject(new Error('Unexpected request'))
+    const markAsRead = vi.fn()
+
+    // Mock state with dropdown open
+    mockUseNotifications.mockReturnValue({
+      notifications: [
+        {
+          id: '1',
+          title: 'Exam result published',
+          message: 'Results are available for your student.',
+          notification_type: 'exam',
+          is_read: false,
+          created_at: '2026-05-15T13:00:00Z',
+        },
+      ],
+      unreadCount: 1,
+      loading: false,
+      error: null,
+      dropdownOpen: true,
+      setDropdownOpen: vi.fn(),
+      fetchNotifications: vi.fn(),
+      markAsRead,
+      markAllAsRead: vi.fn(),
     })
-    mockApi.post.mockResolvedValue({ data: { status: 'marked as read' } })
 
     render(<NotificationBell />)
 
-    await screen.findByText('1')
-    fireEvent.click(screen.getByLabelText('Notifications'))
+    // Verify item is present
+    expect(screen.getByText('Exam result published')).toBeInTheDocument()
 
+    // Click mark as read button
     const markAsReadButton = await screen.findByRole('button', { name: /^Read$/i })
     fireEvent.click(markAsReadButton)
 
-    await waitFor(() => {
-      expect(mockApi.post).toHaveBeenCalledWith('/api/auth/notifications/mark-read/1/')
-    })
+    // Verify callback was invoked with the notification ID
+    expect(markAsRead).toHaveBeenCalledWith('1')
   })
 })

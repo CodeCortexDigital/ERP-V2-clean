@@ -90,4 +90,6 @@ export const websocketService = {
     connectionHandlers.add(handler);
     return () => connectionHandlers.delete(handler);
   },
-};
+}
+
+export default websocketService;

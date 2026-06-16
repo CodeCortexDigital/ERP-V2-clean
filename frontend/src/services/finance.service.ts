@@ -131,7 +131,13 @@ const financeService = {
   sendPaymentConfirmation: (paymentId: string) => api.post(`/auth/finance/communication/confirmation/${paymentId}/`),
   sendDefaulterNotice: (invoiceId: string) => api.post(`/auth/finance/communication/defaulter-notice/${invoiceId}/`),
   sendDefaulterWhatsAppNotice: (invoiceId: string) => api.post(`/auth/finance/communication/defaulter-whatsapp/${invoiceId}/`),
-  bulkSendReminders: (data: any) => api.post('/v1/auth/finance/communication/bulk-reminders/', data),
+  bulkSendReminders: (data: any) => api.post('/auth/finance/communication/bulk-reminders/', data),
+
+  // ─── Admin Trigger Endpoints ───────────────────────────────────────────────
+  // Manually trigger scheduled jobs (normally run by cron on 1st, 5th, 10th)
+  runMonthlyInvoices: () => api.post('/auth/finance/admin/run-monthly-invoices/'),
+  triggerApplyLateFees: () => api.post('/auth/finance/admin/apply-late-fees/'),
+  triggerSendReminders: () => api.post('/auth/finance/admin/send-reminders/'),
 };
 
 export default financeService;

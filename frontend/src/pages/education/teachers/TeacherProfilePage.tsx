@@ -38,7 +38,8 @@ type AvailabilityState = typeof DEFAULT_AVAILABILITY
 
 export default function TeacherProfilePage() {
   const { id } = useParams<{ id?: string }>()
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  const isAdmin = role === 'admin' || role === 'staff'
   const navigate = useNavigate()
   const [teacher, setTeacher] = useState<Teacher | null>(null)
   const [loading, setLoading] = useState(true)
@@ -456,7 +457,7 @@ export default function TeacherProfilePage() {
         </TabsContent>
 
         <TabsContent value="calendar">
-          <TeacherAttendanceCalendar teacherId={teacher.id} teacherName={teacher.full_name} />
+          <TeacherAttendanceCalendar teacherId={teacher.id} teacherName={teacher.full_name} canEdit={isAdmin} />
         </TabsContent>
       </Tabs>
     </div>

@@ -52,20 +52,21 @@ class UserFactory(factory.django.DjangoModelFactory):
         return user
 
 
+def _generate_tenant_code(n):
+    chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    c1 = chars[n % 26]
+    c2 = chars[(n // 26) % 26]
+    c3 = chars[(n // 676) % 26]
+    return f"{c3}{c2}{c1}"
+
 class SchoolFactory(factory.django.DjangoModelFactory):
     """Factory for creating test School objects."""
     class Meta:
-        model = 'core_accounts.School'
+        model = 'core_tenants.School'
     
     name = factory.Faker('company')
-    code = factory.Sequence(lambda n: f'SCH{n:03d}')
-    email = factory.Faker('email')
-    phone = factory.Faker('phone_number')
-    address = factory.Faker('address')
-    city = factory.Faker('city')
-    state = factory.Faker('state')
-    postal_code = factory.Faker('postcode')
-    country = 'Pakistan'
+    tenant_code = factory.Sequence(_generate_tenant_code)
+    subdomain = factory.Sequence(lambda n: f'school{n}')
     is_active = True
 
 
@@ -77,7 +78,6 @@ class ClassFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f'Class {n + 1}')
     code = factory.Sequence(lambda n: f'CLS{n:03d}')
     school = factory.SubFactory(SchoolFactory)
-    is_active = True
 
 
 class SectionFactory(factory.django.DjangoModelFactory):
@@ -86,9 +86,7 @@ class SectionFactory(factory.django.DjangoModelFactory):
         model = 'education_academics.Section'
     
     name = factory.Sequence(lambda n: f'Section {chr(65 + n)}')  # A, B, C...
-    code = factory.Sequence(lambda n: chr(65 + n))
     class_obj = factory.SubFactory(ClassFactory)
-    is_active = True
 
 
 class StudentFactory(factory.django.DjangoModelFactory):
@@ -99,15 +97,15 @@ class StudentFactory(factory.django.DjangoModelFactory):
     student_id = factory.Sequence(lambda n: f'STU{n:06d}')
     full_name = factory.Faker('name')
     email = factory.LazyAttribute(lambda obj: f"{obj.full_name.lower().replace(' ', '.')}@example.com")
-    phone = factory.Faker('phone_number')
+    phone = factory.Sequence(lambda n: f'+1555555{n:04d}')
     date_of_birth = factory.Faker('date_of_birth', minimum_age=5, maximum_age=18)
     admission_date = factory.Faker('date_this_decade')
     gender = 'male'
     guardian_name = factory.Faker('name')
-    emergency_contact = factory.Faker('phone_number')
+    emergency_contact = factory.Sequence(lambda n: f'+1555555{n:04d}')
     father_name = factory.Faker('name')
     mother_name = factory.Faker('name')
-    guardian_phone = factory.Faker('phone_number')
+    guardian_phone = factory.Sequence(lambda n: f'+1555555{n:04d}')
     address = factory.Faker('address')
     city = factory.Faker('city')
     state = factory.Faker('state')
@@ -122,13 +120,13 @@ class TeacherFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = 'education_academics.Teacher'
     
-    user = factory.SubFactory(UserFactory)
     school = factory.SubFactory(SchoolFactory)
     employee_id = factory.Sequence(lambda n: f'TEA{n:05d}')
-    qualification = 'Bachelor'
+    full_name = factory.Faker('name')
+    email = factory.Faker('email')
+    qualifications = ['Bachelor']
     experience_years = fuzzy.FuzzyInteger(0, 20)
     joining_date = factory.Faker('date_this_decade')
-    status = 'active'
     is_active = True
 
 
@@ -140,7 +138,7 @@ class AttendanceRecordFactory(factory.django.DjangoModelFactory):
     student = factory.SubFactory(StudentFactory)
     date = factory.Faker('date_this_month')
     status = fuzzy.FuzzyChoice(['present', 'absent', 'leave'])
-    marked_by = factory.SubFactory(TeacherFactory)
+    marked_by = factory.SubFactory(UserFactory)
     remarks = ''
 
 
@@ -180,13 +178,11 @@ class InvoiceFactory(factory.django.DjangoModelFactory):
     
     student = factory.SubFactory(StudentFactory)
     invoice_number = factory.Sequence(lambda n: f'INV{n:06d}')
-    invoice_date = factory.Faker('date_this_month')
     due_date = factory.Faker('date_this_month')
     amount = fuzzy.FuzzyDecimal(1000, 50000)
     paid_amount = 0
     status = fuzzy.FuzzyChoice(['pending', 'partial', 'paid', 'overdue'])
     description = 'Monthly tuition fee'
-    is_active = True
 
 
 class NotificationFactory(factory.django.DjangoModelFactory):
@@ -247,10 +243,9 @@ def test_section(test_class):
 
 
 @pytest.fixture
-def test_student(test_user, test_school, test_class, test_section):
+def test_student(test_school, test_class, test_section):
     """Fixture to provide a test student."""
     return StudentFactory(
-        user=test_user,
         school=test_school,
         class_obj=test_class,
         section=test_section
@@ -282,9 +277,9 @@ def test_invoice(test_student):
 
 
 @pytest.fixture
-def test_attendance_record(test_student, test_teacher):
+def test_attendance_record(test_student):
     """Fixture to provide a test attendance record."""
-    return AttendanceRecordFactory(student=test_student, marked_by=test_teacher)
+    return AttendanceRecordFactory(student=test_student)
 
 
 @pytest.fixture

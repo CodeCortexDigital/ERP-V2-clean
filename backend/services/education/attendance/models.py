@@ -3,9 +3,10 @@ from django.db import models
 import uuid
 
 from services.core.db.softdelete import SoftDeleteModel
+from services.core.tenants.mixins import SchoolAliasMixin
 
 
-class AttendanceRecord(SoftDeleteModel):
+class AttendanceRecord(SchoolAliasMixin, SoftDeleteModel):
     tenant = models.ForeignKey(
         'core_tenants.School',
         on_delete=models.CASCADE,

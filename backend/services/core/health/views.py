@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -7,7 +7,7 @@ from .utils import get_system_health
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def health_check(request):
     """
     Health check endpoint that returns system status.
@@ -24,7 +24,7 @@ def health_check(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def readiness_check(request):
     """
     Kubernetes readiness probe endpoint.
@@ -42,7 +42,7 @@ def readiness_check(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def liveness_check(request):
     """
     Kubernetes liveness probe endpoint.
@@ -52,7 +52,7 @@ def liveness_check(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def detailed_health(request):
     """
     Detailed health check with all component statuses.

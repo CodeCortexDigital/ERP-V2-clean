@@ -258,7 +258,11 @@ export default function StudentProfilePage() {
   const calculateAttendanceRate = () => {
     if (!attendance || attendance.length === 0) return 0;
     const present = attendance.filter(a => a.status === 'present').length;
-    return Math.round((present / attendance.length) * 100);
+    const late = attendance.filter(a => a.status === 'late').length;
+    const absent = attendance.filter(a => a.status === 'absent').length;
+    const totalSchoolDays = present + late + absent;
+    if (totalSchoolDays === 0) return 0;
+    return Math.round(((present + late) / totalSchoolDays) * 100);
   };
 
   const getPresentCount = () => {
@@ -590,11 +594,20 @@ export default function StudentProfilePage() {
                                 variant={
                                   record.status === 'present' ? 'success' : 
                                   record.status === 'late' ? 'warning' : 
+                                  record.status === 'holiday' ? 'info' : 
+                                  record.status === 'excused' ? 'secondary' :
                                   'destructive'
+                                }
+                                className={
+                                  record.status === 'holiday' 
+                                    ? 'bg-purple-100 text-purple-800 border-transparent hover:bg-purple-200' 
+                                    : ''
                                 }
                               >
                                 {record.status === 'present' ? 'Present' : 
                                  record.status === 'late' ? 'Late' : 
+                                 record.status === 'holiday' ? 'Holiday' : 
+                                 record.status === 'excused' ? 'Excused' :
                                  'Absent'}
                               </Badge>
                             </td>
