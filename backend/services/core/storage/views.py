@@ -23,26 +23,32 @@ def upload_file(request):
     POST multipart: file, bucket_type (media|reports), purpose (generic|student_profile).
     For student_profile: student_id required.
     """
-    upload = request.FILES.get('file')
-    if not upload:
-        return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
-
-    purpose = request.data.get('purpose', 'generic')
-    bucket_type = request.data.get('bucket_type', 'media')
-    tenant_code = request.data.get('tenant_code') or resolve_tenant_code(user=request.user)
-
     try:
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        purpose = request.data.get('purpose', 'generic')
+        bucket_type = request.data.get('bucket_type', 'media')
+        tenant_code = request.data.get('tenant_code') or resolve_tenant_code(user=request.user)
+
+        # Handle student profile upload
         if purpose == 'student_profile':
             student_id = request.data.get('student_id')
             if not student_id:
                 return Response({'error': 'student_id required'}, status=status.HTTP_400_BAD_REQUEST)
+            
             student = get_object_or_404(Student, pk=student_id)
-            denied = ensure_student_access(request.user, student)
-            if denied:
-                return denied
+            allowed = ensure_student_access(request.user, student)
+            if not allowed:
+                return Response(
+                    {'error': 'Permission denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             service = get_media_service()
             profile_record, thumb_record = service.upload_student_profile(
-                upload.file,
+                upload,
                 upload.name,
                 student=student,
                 user=request.user,
@@ -54,14 +60,15 @@ def upload_file(request):
                 'storage_key': profile_record.storage_key,
                 'thumbnail_key': thumb_record.storage_key,
                 'profile_picture': profile_record.storage_key,
-            })
+            }, status=status.HTTP_200_OK)
 
+        # Handle generic file upload
         service = StorageService(bucket_type=bucket_type)
         import uuid
-
+        
         key = f'tenant/{tenant_code}/uploads/{uuid.uuid4().hex}_{upload.name}'
         record = service.upload(
-            upload.file,
+            upload,
             upload.name,
             key,
             user=request.user,
@@ -71,9 +78,16 @@ def upload_file(request):
             'file_id': str(record.id),
             'storage_key': record.storage_key,
             'size_bytes': record.size_bytes,
-        })
+        }, status=status.HTTP_200_OK)
+        
     except ValidationError as exc:
-        return Response({'error': exc.messages[0] if hasattr(exc, 'messages') else str(exc)}, status=400)
+        error_msg = exc.messages[0] if hasattr(exc, 'messages') else str(exc)
+        return Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception(f"Upload error: {str(exc)}")
+        return Response({'error': 'Upload failed: ' + str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -110,3 +124,4 @@ def signed_download_by_key(request):
     if stored:
         log_file_download(request, stored)
     return Response({'url': url})
+

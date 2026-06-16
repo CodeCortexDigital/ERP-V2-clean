@@ -145,7 +145,7 @@ export default function EditTeacherPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/education/teachers/${id}`)}>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/education/teachers/${id}`)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>

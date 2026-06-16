@@ -19,11 +19,12 @@ from django.core.exceptions import ValidationError
 
 logger = logging.getLogger('erp.storage')
 
-ALLOWED_EXTENSIONS = frozenset({'pdf', 'jpg', 'jpeg', 'png', 'docx', 'xlsx'})
+ALLOWED_EXTENSIONS = frozenset({'pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'xlsx'})
 ALLOWED_MIME_TYPES = frozenset({
     'application/pdf',
     'image/jpeg',
     'image/png',
+    'image/webp',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 })

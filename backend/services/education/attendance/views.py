@@ -30,7 +30,7 @@ from services.core.accounts.decorators import (
 )
 from services.core.utils.filters import parse_date_param
 from .calendar import default_status_for_date, is_school_day, parse_attendance_date
-from .services import bulk_save_attendance_records, ensure_present_for_school_day
+from .services import bulk_save_attendance_records, ensure_present_for_school_day, ensure_attendance_for_past_days
 
 Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
 Student = apps.get_model('education_students', 'Student')
@@ -78,7 +78,7 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
         return queryset.order_by('-date')
 
     def _ensure_attendance_for_date(self, query_date):
-        ensure_present_for_school_day(query_date)
+        ensure_attendance_for_past_days(query_date)
     
     def perform_create(self, serializer):
         serializer.save()
@@ -118,6 +118,7 @@ def bulk_attendance(request):
 def attendance_summary(request):
     """Get attendance summary for dashboard"""
     try:
+        ensure_attendance_for_past_days(timezone.localtime().date())
         queryset = filter_attendance_for_user(request.user, Attendance.objects.all())
         total_records = queryset.count()
         present = queryset.filter(status='present').count()

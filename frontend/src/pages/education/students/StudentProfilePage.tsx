@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, User, BookOpen, Award, Edit2, CreditCard, Camera, X
+  ArrowLeft, User, BookOpen, Award, Edit2, CreditCard, Camera, X, Download, DollarSign, TrendingUp, Receipt
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +15,8 @@ import examService from '@/services/exam.service';
 import classService, { SchoolClass, Section } from '@/services/class.service';
 import api from '@/services/api';
 import { uploadStudentProfile, resolveMediaUrl, validateFileClient } from '@/utils/fileUpload';
+import financeService from '@/services/finance.service';
+import pdfService from '@/services/pdf.service';
 
 interface AttendanceRecord {
   date: string;
@@ -60,6 +62,9 @@ export default function StudentProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   useEffect(() => {
     loadClassMaps();
@@ -71,6 +76,7 @@ export default function StudentProfilePage() {
       fetchAttendance();
       fetchResults();
       fetchFinanceData();
+      fetchInvoices();
     }
   }, [id, classMap]);
 
@@ -233,6 +239,22 @@ export default function StudentProfilePage() {
     }
   };
 
+  const fetchInvoices = async () => {
+    if (!id) return;
+    setLoadingInvoices(true);
+    try {
+      const res = await financeService.getInvoices({ student_id: id });
+      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+      setInvoices(data);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      setInvoices([]);
+      toast.error('Failed to load fee history');
+    } finally {
+      setLoadingInvoices(false);
+    }
+  };
+
   const calculateAttendanceRate = () => {
     if (!attendance || attendance.length === 0) return 0;
     const present = attendance.filter(a => a.status === 'present').length;
@@ -304,7 +326,11 @@ export default function StudentProfilePage() {
           
           {/* Profile Picture */}
           <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden">
+            <div 
+              onClick={() => profilePictureUrl && setIsImageModalOpen(true)}
+              className={`w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden ${profilePictureUrl ? 'cursor-pointer hover:ring-4 hover:ring-blue-100 transition duration-200' : ''}`}
+              title={profilePictureUrl ? "Click to view full image" : ""}
+            >
               {profilePictureUrl ? (
                 <img 
                   src={profilePictureUrl} 
@@ -375,7 +401,7 @@ export default function StudentProfilePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-blue-50 rounded-xl p-4">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-blue-600" />
@@ -401,14 +427,6 @@ export default function StudentProfilePage() {
           </div>
           <p className="text-2xl font-bold text-purple-700">{examsTaken}</p>
           <p className="text-xs text-gray-600">Exams Taken</p>
-        </div>
-        
-        <div className="bg-yellow-50 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-yellow-600" />
-          </div>
-          <p className="text-2xl font-bold text-yellow-700">${finance?.balance_due || 0}</p>
-          <p className="text-xs text-gray-600">Balance Due</p>
         </div>
         
         <div className="bg-emerald-50 rounded-xl p-4">
@@ -594,52 +612,93 @@ export default function StudentProfilePage() {
         <TabsContent value="results">
           <Card>
             <CardHeader>
-              <CardTitle>Exam Results</CardTitle>
+              <CardTitle className="text-xl font-bold">Academic Performance & Exam Results</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-gray-700">{results.length}</p>
-                  <p className="text-xs text-gray-500">Total Exams</p>
+            <CardContent className="space-y-6">
+              {/* Exam Performance Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Exams Taken</p>
+                    <p className="text-2xl font-bold text-gray-800 mt-1">{results.length}</p>
+                  </div>
+                  <div className="p-3 bg-gray-100 text-gray-600 rounded-lg">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
                 </div>
-                <div className="bg-green-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-green-700">{passedExams}</p>
-                  <p className="text-xs text-gray-500">Passed</p>
+
+                <div className="bg-green-50/50 border border-green-100 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-green-600 uppercase tracking-wider">Passed Exams</p>
+                    <p className="text-2xl font-bold text-green-800 mt-1">{passedExams}</p>
+                  </div>
+                  <div className="p-3 bg-green-100 text-green-700 rounded-lg">
+                    <Award className="w-5 h-5" />
+                  </div>
                 </div>
-                <div className="bg-red-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-red-700">{examsTaken - passedExams}</p>
-                  <p className="text-xs text-gray-500">Failed</p>
+
+                <div className="bg-red-50/50 border border-red-100 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">Failed Exams</p>
+                    <p className="text-2xl font-bold text-red-800 mt-1">{results.length - passedExams}</p>
+                  </div>
+                  <div className="p-3 bg-red-100 text-red-700 rounded-lg">
+                    <X className="w-5 h-5" />
+                  </div>
                 </div>
               </div>
 
               {results.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No exam results found</div>
+                <div className="text-center py-12 text-gray-500 border border-dashed rounded-xl">
+                  <Award className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                  <p className="text-lg font-medium text-gray-700">No exam results found</p>
+                  <p className="text-sm text-gray-500 mt-1">This student has no graded exam records.</p>
+                </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto border rounded-xl shadow-sm bg-white">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50/75 border-b">
                       <tr>
-                        <th className="p-2 text-left">Exam</th>
-                        <th className="p-2 text-left">Subject</th>
-                        <th className="p-2 text-left">Marks</th>
-                        <th className="p-2 text-left">Percentage</th>
-                        <th className="p-2 text-left">Grade</th>
+                        <th className="p-4 text-left font-semibold text-gray-700">Exam</th>
+                        <th className="p-4 text-left font-semibold text-gray-700">Subject</th>
+                        <th className="p-4 text-right font-semibold text-gray-700">Obtained Marks</th>
+                        <th className="p-4 text-right font-semibold text-gray-700">Passing Marks</th>
+                        <th className="p-4 text-right font-semibold text-gray-700">Percentage</th>
+                        <th className="p-4 text-center font-semibold text-gray-700">Grade</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {results.map((result, idx) => (
-                        <tr key={idx} className="border-t">
-                          <td className="p-2">{result.exam_title || 'N/A'}</td>
-                          <td className="p-2">{result.subject_name || 'N/A'}</td>
-                          <td className="p-2">{result.obtained_marks} / {result.total_marks || 100}</td>
-                          <td className="p-2">{result.percentage}%</td>
-                          <td className="p-2">
-                            <Badge variant={result.is_pass ? 'success' : 'destructive'}>
-                              {result.grade || 'N/A'}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
+                      {results.map((result: any, idx) => {
+                        const getGradeBadgeVariant = (grade?: string) => {
+                          if (!grade) return 'secondary';
+                          const g = grade.toUpperCase();
+                          if (g.startsWith('A')) return 'success';
+                          if (g.startsWith('B')) return 'info';
+                          if (g.startsWith('C')) return 'warning';
+                          return 'destructive';
+                        };
+
+                        return (
+                          <tr key={idx} className="border-b hover:bg-gray-50/50 transition-colors">
+                            <td className="p-4 font-semibold text-gray-900">{result.exam_title || 'N/A'}</td>
+                            <td className="p-4 text-gray-600 font-medium">{result.subject_name || 'N/A'}</td>
+                            <td className={`p-4 text-right font-bold ${result.is_pass ? 'text-green-600' : 'text-red-600'}`}>
+                              {Number(result.obtained_marks)}
+                            </td>
+                            <td className="p-4 text-right text-gray-500 font-medium">
+                              {Number(result.passing_marks || 33)} / {Number(result.total_marks || 100)}
+                            </td>
+                            <td className="p-4 text-right font-semibold text-gray-800">
+                              {Number(result.percentage).toFixed(0)}%
+                            </td>
+                            <td className="p-4 text-center">
+                              <Badge variant={getGradeBadgeVariant(result.grade)}>
+                                {result.grade || 'N/A'}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -648,6 +707,28 @@ export default function StudentProfilePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Profile Picture Full-screen Modal */}
+      {isImageModalOpen && profilePictureUrl && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 transition-opacity cursor-zoom-out"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <div className="relative max-w-2xl max-h-[85vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={profilePictureUrl} 
+              alt={student.full_name} 
+              className="max-w-full max-h-[80vh] object-contain rounded-xl"
+            />
+            <button 
+              onClick={() => setIsImageModalOpen(false)}
+              className="absolute top-4 right-4 bg-black/60 text-white hover:bg-black/80 p-2 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

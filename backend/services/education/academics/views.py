@@ -208,8 +208,14 @@ class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class TeacherSubjectAssignmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = TeacherSubjectAssignment.objects.all()
     serializer_class = TeacherSubjectAssignmentSerializer
+
+    def get_queryset(self):
+        queryset = TeacherSubjectAssignment.objects.all()
+        teacher_id = self.request.query_params.get('teacher_id')
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        return queryset
 
 
 class TeacherSubjectAssignmentDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -261,8 +267,22 @@ class ClassroomDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class TimetableEntryListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = TimetableEntry.objects.all()
     serializer_class = TimetableEntrySerializer
+
+    def get_queryset(self):
+        queryset = TimetableEntry.objects.all()
+        teacher_id = self.request.query_params.get('teacher_id')
+        class_id = self.request.query_params.get('class_id')
+        day = self.request.query_params.get('day')
+        
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        if class_id:
+            queryset = queryset.filter(class_subject__class_ref_id=class_id)
+        if day:
+            queryset = queryset.filter(day_of_week__iexact=day)
+            
+        return queryset
 
 
 class TimetableEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -369,6 +389,43 @@ class TeacherDailyAvailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 
+def ensure_teacher_attendance_for_past_days(teacher_id, till_date, days_limit=30):
+    from datetime import timedelta
+    from services.education.academics.models import Teacher, TeacherAttendance
+    from services.education.attendance.calendar import is_school_day
+    
+    try:
+        teacher = Teacher.objects.get(id=teacher_id)
+    except Teacher.DoesNotExist:
+        return
+        
+    start_date = till_date - timedelta(days=days_limit)
+    
+    existing_dates = set(
+        TeacherAttendance.objects.filter(
+            teacher_id=teacher_id,
+            date__gte=start_date,
+            date__lte=till_date
+        ).values_list('date', flat=True)
+    )
+    
+    to_create = []
+    for i in range(days_limit, -1, -1):
+        day = till_date - timedelta(days=i)
+        if day not in existing_dates and is_school_day(day):
+            to_create.append(
+                TeacherAttendance(
+                    teacher=teacher,
+                    date=day,
+                    status='present',
+                    reason='Auto-marked present'
+                )
+            )
+            
+    if to_create:
+        TeacherAttendance.objects.bulk_create(to_create, ignore_conflicts=True)
+
+
 class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TeacherAttendanceSerializer
@@ -381,6 +438,8 @@ class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
         queryset = TeacherAttendance.objects.all()
         
         if teacher_id:
+            from django.utils import timezone
+            ensure_teacher_attendance_for_past_days(teacher_id, timezone.localtime().date())
             queryset = queryset.filter(teacher_id=teacher_id)
         if year and month:
             queryset = queryset.filter(date__year=year, date__month=month)

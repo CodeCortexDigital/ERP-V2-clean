@@ -25,7 +25,7 @@ def _s3_options() -> dict:
     return {k: v for k, v in opts.items() if v}
 
 
-if S3Storage is not None:
+if S3Storage is not None and getattr(settings, 'USE_S3_STORAGE', False):
 
     class MediaStorage(S3Storage):
         """Private tenant media (profile photos, documents)."""

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Mail, Phone, Calendar, Award, MapPin, Users, BookOpen, Plus, Check, X, Edit2,
+  ArrowLeft, Mail, Phone, Calendar, Award, MapPin, Users, BookOpen, Plus, Check, X, Edit2, Clock
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import teacherService, { Teacher } from '@/services/teacher.service'
+import api from '@/services/api'
 
 const SUBJECT_OPTIONS = [
   'Computer Science Fundamentals',
@@ -45,6 +46,12 @@ export default function TeacherProfilePage() {
   const [subjectToAssign, setSubjectToAssign] = useState<SubjectOption>(SUBJECT_OPTIONS[0])
   const [assignedSubjects, setAssignedSubjects] = useState<SubjectOption[]>([])
   const [availability, setAvailability] = useState<AvailabilityState>(DEFAULT_AVAILABILITY)
+  
+  // Real database assignments & timetable schedule states
+  const [assignments, setAssignments] = useState<any[]>([])
+  const [loadingAssignments, setLoadingAssignments] = useState(false)
+  const [timetableEntries, setTimetableEntries] = useState<any[]>([])
+  const [loadingTimetable, setLoadingTimetable] = useState(false)
 
   const teacherEmailToIdMap: Record<string, string> = {
     'teacher@test.com': '1',
@@ -70,15 +77,68 @@ export default function TeacherProfilePage() {
       const teacherData = response.data
       setTeacher(teacherData)
       setAssignedSubjects(teacherData.courses || [])
+      
+      // Load real assignments and daily timetable entries
+      fetchAssignments(teacherId)
+      fetchTimetable(teacherId)
     } catch (error) {
       console.error('Error loading teacher:', error)
+      toast.error('Failed to load teacher profile')
     } finally {
       setLoading(false)
     }
   }
 
+  const fetchAssignments = async (teacherId: string) => {
+    setLoadingAssignments(true)
+    try {
+      const response = await api.get('/auth/academics/teacher-assignments/', {
+        params: { teacher_id: teacherId }
+      })
+      const data = Array.isArray(response.data) ? response.data : response.data?.results || []
+      setAssignments(data)
+    } catch (err) {
+      console.error('Error loading teacher subject assignments:', err)
+    } finally {
+      setLoadingAssignments(false)
+    }
+  }
+
+  const fetchTimetable = async (teacherId: string) => {
+    setLoadingTimetable(true)
+    try {
+      const response = await api.get('/auth/academics/timetable-entries/', {
+        params: { teacher_id: teacherId }
+      })
+      const data = Array.isArray(response.data) ? response.data : response.data?.results || []
+      setTimetableEntries(data)
+    } catch (err) {
+      console.error('Error loading teacher timetable entries:', err)
+    } finally {
+      setLoadingTimetable(false)
+    }
+  }
+
+  // Group timetable entries by day of the week
+  const groupedSchedule = useMemo(() => {
+    const groups: Record<string, any[]> = {
+      Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: []
+    }
+    timetableEntries.forEach(entry => {
+      const day = entry.day_of_week ? entry.day_of_week.charAt(0).toUpperCase() + entry.day_of_week.slice(1).toLowerCase() : ''
+      if (groups[day]) {
+        groups[day].push(entry)
+      }
+    });
+    // Sort each day's entries by period/time name
+    Object.keys(groups).forEach(day => {
+      groups[day].sort((a, b) => (a.period_name || '').localeCompare(b.period_name || ''))
+    })
+    return groups
+  }, [timetableEntries])
+
   const teacherName = useMemo(
-    () => `${teacher?.first_name || ''} ${teacher?.last_name || ''}`.trim(),
+    () => teacher?.full_name || '',
     [teacher]
   )
 
@@ -141,33 +201,37 @@ export default function TeacherProfilePage() {
             <ArrowLeft className="w-4 h-4 mr-2" /> {id ? 'Back to Teachers' : 'Back to Dashboard'}
           </Button>
           <h1 className="mt-4 text-3xl font-bold text-gray-900">{teacherName}</h1>
-          <p className="text-gray-500">{teacher.department} • {teacher.specialization}</p>
+          <p className="text-gray-500">
+            {teacher.specializations && Array.isArray(teacher.specializations) && teacher.specializations.length > 0 
+              ? teacher.specializations.join(' • ') 
+              : 'Academics Staff'}
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-sm text-gray-500">Assigned Subjects</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{assignedSubjects.length}</p>
+            <p className="text-sm text-gray-500">Assigned Classes</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">{assignments.length}</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-sm text-gray-500">Availability Days</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">
-              {Object.values(availability).filter((day) => day.enabled).length}
-            </p>
+            <p className="text-sm text-gray-500">Scheduled Periods</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">{timetableEntries.length}</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <p className="text-sm text-gray-500">Status</p>
-            <Badge variant={teacher.is_active ? "active" : "inactive" === 'active' ? 'success' : teacher.is_active ? "active" : "inactive" === 'on_leave' ? 'warning' : 'secondary'}>
-              {teacher.is_active ? "active" : "inactive".replace('_', ' ')}
+            <Badge variant={teacher.is_active ? 'success' : 'secondary'}>
+              {teacher.is_active ? 'Active' : 'Inactive'}
             </Badge>
           </div>
         </div>
       </div>
 
       <Tabs defaultValue="profile" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="subjects">Subject Assignment</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>          <TabsTrigger value="calendar">📅 Calendar</TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="timetable">Daily Schedule</TabsTrigger>
+          <TabsTrigger value="calendar">📅 Calendar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -179,33 +243,37 @@ export default function TeacherProfilePage() {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-sm text-gray-500">Teacher ID</p>
-                    <p className="font-medium text-gray-900">{teacher.teacher_id}</p>
+                    <p className="text-sm text-gray-500">Employee ID</p>
+                    <p className="font-mono font-medium text-gray-900">{teacher.employee_id || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-medium text-gray-900">{teacher.email}</p>
+                    <p className="text-sm text-gray-500">Email Address</p>
+                    <a href={`mailto:${teacher.email}`} className="font-medium text-blue-600 hover:underline">{teacher.email}</a>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="font-medium text-gray-900">{teacher.phone}</p>
+                    <p className="text-sm text-gray-500">Phone Number</p>
+                    {teacher.phone ? (
+                      <a href={`tel:${teacher.phone}`} className="font-medium text-blue-600 hover:underline">{teacher.phone}</a>
+                    ) : (
+                      <p className="font-medium text-gray-400">N/A</p>
+                    )}
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Location</p>
-                    <p className="font-medium text-gray-900">{teacher.location}</p>
+                    <p className="text-sm text-gray-500">Experience</p>
+                    <p className="font-medium text-gray-900">{teacher.experience_years || 0} Years</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Qualification</p>
-                    <p className="font-medium text-gray-900">{teacher.qualification}</p>
+                    <p className="text-sm text-gray-500">Qualifications</p>
+                    <p className="font-medium text-gray-900">
+                      {Array.isArray(teacher.qualifications) && teacher.qualifications.length > 0 
+                        ? teacher.qualifications.join(', ') 
+                        : teacher.qualifications || 'N/A'}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Joined</p>
-                    <p className="font-medium text-gray-900">{teacher.joining_date}</p>
+                    <p className="text-sm text-gray-500">Date Joined</p>
+                    <p className="font-medium text-gray-900">{teacher.joining_date || 'N/A'}</p>
                   </div>
-                </div>
-                <div className="rounded-2xl border border-gray-200 bg-slate-50 p-4">
-                  <p className="text-sm text-gray-500">Biography</p>
-                  <p className="mt-2 text-gray-700">{teacher.bio}</p>
                 </div>
               </CardContent>
             </Card>
@@ -221,8 +289,8 @@ export default function TeacherProfilePage() {
                 <Button className="w-full" variant="outline" onClick={() => setActiveTab('availability')}>
                   <Calendar className="w-4 h-4 mr-2" /> Update Availability Calendar
                 </Button>
-                <Button className="w-full" variant="secondary" onClick={() => toast.success('Teacher information saved')}>
-                  <Check className="w-4 h-4 mr-2" /> Save Changes
+                <Button className="w-full" variant="outline" onClick={() => setActiveTab('timetable')}>
+                  <Clock className="w-4 h-4 mr-2" /> View Timetable Schedule
                 </Button>
               </CardContent>
             </Card>
@@ -232,56 +300,50 @@ export default function TeacherProfilePage() {
         <TabsContent value="subjects">
           <Card>
             <CardHeader>
-              <CardTitle>Subject Assignment</CardTitle>
+              <CardTitle>Class & Subject Assignments</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-[1fr_320px]">
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm text-gray-500">Assigned Subjects</p>
-                        <p className="text-xl font-semibold text-gray-900">{assignedSubjects.length}</p>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      {assignedSubjects.length === 0 ? (
-                        <p className="text-sm text-gray-500">No subjects assigned yet.</p>
-                      ) : (
-                        assignedSubjects.map((subject) => (
-                          <div key={subject} className="flex items-center justify-between rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
-                            <div>
-                              <p className="font-medium text-gray-900">{subject}</p>
-                              <p className="text-xs text-gray-500">Assigned to {teacherName}</p>
-                            </div>
-                            <Button variant="outline" size="sm" onClick={() => handleRemoveSubject(subject)}>
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
+              {loadingAssignments ? (
+                <div className="flex justify-center items-center py-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-slate-50 p-4">
-                  <p className="text-sm text-gray-500">Add Subject</p>
-                  <div className="mt-3 space-y-3">
-                    <select
-                      value={subjectToAssign}
-                      onChange={(e) => setSubjectToAssign(e.target.value as SubjectOption)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                    >
-                      {SUBJECT_OPTIONS.map((subject) => (
-                        <option key={subject} value={subject}>{subject}</option>
+              ) : assignments.length === 0 ? (
+                <div className="text-center py-10 text-gray-500 border border-dashed rounded-xl">
+                  <BookOpen className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                  <p>No class or subject assignments found for this teacher.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border rounded-xl shadow-sm bg-white">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="p-4 text-left font-semibold text-gray-700">Class Name</th>
+                        <th className="p-4 text-left font-semibold text-gray-700">Subject Name</th>
+                        <th className="p-4 text-center font-semibold text-gray-700">Role</th>
+                        <th className="p-4 text-center font-semibold text-gray-700">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignments.map((assign: any) => (
+                        <tr key={assign.id} className="border-b hover:bg-gray-50/50">
+                          <td className="p-4 font-semibold text-gray-900">{assign.class_name || 'Grade 1'}</td>
+                          <td className="p-4 text-gray-600 font-medium">{assign.subject_name || 'English'}</td>
+                          <td className="p-4 text-center">
+                            <Badge variant={assign.is_primary ? 'info' : 'secondary'}>
+                              {assign.is_primary ? 'Primary Teacher' : 'Assistant'}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-center">
+                            <Badge variant={assign.is_active ? 'success' : 'destructive'}>
+                              {assign.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </td>
+                        </tr>
                       ))}
-                    </select>
-                    <Button className="w-full" onClick={handleAssignSubject}>
-                      <Plus className="w-4 h-4 mr-2" /> Assign Subject
-                    </Button>
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -342,7 +404,61 @@ export default function TeacherProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
-              <TabsContent value="calendar">          <TeacherAttendanceCalendar teacherId={teacher.id} teacherName={teacher.full_name} />        </TabsContent></Tabs>
+
+        <TabsContent value="timetable">
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Class Timetable</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {loadingTimetable ? (
+                <div className="flex justify-center items-center py-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : timetableEntries.length === 0 ? (
+                <div className="text-center py-10 text-gray-500 border border-dashed rounded-xl">
+                  <Clock className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                  <p>No timetable entries scheduled for this teacher.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(groupedSchedule).map(([day, entries]) => {
+                    if (entries.length === 0) return null;
+                    return (
+                      <div key={day} className="space-y-3">
+                        <h3 className="text-lg font-bold text-gray-800 border-l-4 border-blue-600 pl-2">
+                          {day}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {entries.map((entry: any) => (
+                            <div key={entry.id} className="border border-gray-150 rounded-xl p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                              <div className="absolute top-0 right-0 bg-blue-50 text-blue-700 px-3 py-1 rounded-bl-xl text-xs font-semibold">
+                                {entry.period_name || 'Period'}
+                              </div>
+                              <div className="space-y-2 mt-2">
+                                <p className="text-sm font-semibold text-gray-950">{entry.class_name}</p>
+                                <p className="text-xs font-medium text-blue-600">{entry.subject_name}</p>
+                                <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2">
+                                  <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                                  <span>{entry.classroom_name || 'N/A'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="calendar">
+          <TeacherAttendanceCalendar teacherId={teacher.id} teacherName={teacher.full_name} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -106,6 +106,11 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
             "student__current_class"
         )
 
+        # Student filter
+        student_id = self.request.query_params.get("student_id") or self.request.query_params.get("student")
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+
         # Status filter
         status = self.request.query_params.get("status")
         if status:

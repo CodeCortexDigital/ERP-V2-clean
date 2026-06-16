@@ -17,29 +17,24 @@ def parse_attendance_date(value) -> date:
     return date.today()
 
 
-def is_sunday(d: date) -> bool:
-    return d.weekday() == 6
+def is_weekend(d: date) -> bool:
+    return d.weekday() in (5, 6)
 
 
 def is_school_day(d: date) -> bool:
-    """Monday–Saturday are school days; Sunday is not."""
-    return not is_sunday(d)
+    """Monday–Friday are school days; Saturday and Sunday are not."""
+    return not is_weekend(d)
 
 
 def default_status_for_date(d: date) -> str:
-    if is_sunday(d):
+    if is_weekend(d):
         return 'holiday'
     return 'present'
 
 
 def normalize_status_for_date(d: date, status: str | None) -> str:
-    """On Sundays only holiday/absent/late/excused are stored; present becomes holiday."""
     status = (status or default_status_for_date(d)).lower()
-    if is_sunday(d) and status == 'present':
-        return 'holiday'
     allowed = {'present', 'absent', 'late', 'excused', 'holiday'}
     if status not in allowed:
         return default_status_for_date(d)
-    if not is_school_day(d) and status == 'present':
-        return 'holiday'
     return status

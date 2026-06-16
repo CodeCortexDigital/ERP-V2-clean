@@ -282,3 +282,28 @@ def bulk_save_attendance_records(user, records: list) -> dict:
         'errors': errors,
         'forbidden': False,
     }
+
+
+def ensure_attendance_for_past_days(till_date: date, days_limit: int = 30) -> None:
+    """Ensure default attendance records are generated for all past days up to till_date."""
+    from datetime import timedelta
+    from django.db.models import Count
+    
+    start_date = till_date - timedelta(days=days_limit)
+    total_students = Student.objects.filter(is_active=True).count()
+    if total_students == 0:
+        return
+
+    # Get the count of existing attendance records per date in the range
+    existing_counts = dict(
+        Attendance.all_objects.filter(date__gte=start_date, date__lte=till_date)
+        .values('date')
+        .annotate(count=Count('id'))
+        .values_list('date', 'count')
+    )
+
+    for i in range(days_limit, -1, -1):
+        day = till_date - timedelta(days=i)
+        # If any student is missing attendance for this date, ensure defaults
+        if existing_counts.get(day, 0) < total_students:
+            ensure_defaults_for_date(day)

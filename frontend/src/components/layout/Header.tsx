@@ -55,7 +55,11 @@ const entityMap: { [key: string]: string } = {
 };
 
 const isIdSegment = (segment: string) => {
-  return /^[0-9]+$/.test(segment) || /^[0-9a-fA-F]{8,}$/.test(segment);
+  return (
+    /^[0-9]+$/.test(segment) ||
+    /^[0-9a-fA-F]{8,}$/.test(segment) ||
+    /^[0-9a-fA-F]{8}[-\s]?[0-9a-fA-F]{4}[-\s]?[0-9a-fA-F]{4}[-\s]?[0-9a-fA-F]{4}[-\s]?[0-9a-fA-F]{12}$/.test(segment)
+  );
 };
 
 const formatSegment = (segment: string, previousEntity?: string) => {

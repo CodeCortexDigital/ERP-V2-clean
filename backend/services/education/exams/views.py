@@ -50,7 +50,7 @@ def get_exam_results(request):
 
     queryset = filter_exam_results_for_user(
         request.user,
-        ExamResult.objects.select_related('exam', 'student').all()
+        ExamResult.objects.select_related('exam', 'exam__subject', 'student').all()
     )
     paginator = StandardResultsSetPagination()
     page = paginator.paginate_queryset(queryset, request)
@@ -61,6 +61,9 @@ def get_exam_results(request):
             'id': str(result.id),
             'exam': str(result.exam.id),
             'exam_title': result.exam.title,
+            'subject_name': result.exam.subject.name if result.exam.subject else 'N/A',
+            'total_marks': float(result.exam.total_marks),
+            'passing_marks': float(result.exam.passing_marks),
             'student': str(result.student.id),
             'student_name': result.student.full_name,
             'student_id': result.student.student_id,

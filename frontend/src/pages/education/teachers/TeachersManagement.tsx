@@ -200,9 +200,21 @@ export default function TeachersManagement() {
                 <td className="px-4 py-3 font-mono text-sm">{teacher.employee_id || 'N/A'}</td>
                 <td className="px-4 py-3">
                   <div>
-                    <p className="font-medium">{teacher.full_name}</p>
-                    <p className="text-xs text-gray-500">{teacher.email}</p>
-                    <p className="text-xs text-gray-400">{teacher.phone}</p>
+                    <p className="font-semibold text-gray-900 hover:text-blue-600 cursor-pointer transition" onClick={() => navigate(`/education/teachers/${teacher.id}`)}>
+                      {teacher.full_name}
+                    </p>
+                    <div className="flex flex-col gap-0.5 mt-1">
+                      <a href={`mailto:${teacher.email}`} className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition">
+                        <Mail className="w-3 h-3 text-gray-400" />
+                        {teacher.email}
+                      </a>
+                      {teacher.phone && (
+                        <a href={`tel:${teacher.phone}`} className="text-xs text-gray-400 hover:text-blue-600 flex items-center gap-1 transition">
+                          <Phone className="w-3 h-3 text-gray-400" />
+                          {teacher.phone}
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-3">

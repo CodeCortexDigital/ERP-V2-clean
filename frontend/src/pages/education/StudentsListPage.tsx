@@ -22,6 +22,21 @@ interface StudentWithData extends Student {
   class_code?: string;
 }
 
+const getProfilePicUrl = (path: string | null | undefined) => {
+  if (!path) return null;
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const base = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+  if (path.startsWith('/media/') || path.startsWith('media/')) {
+    return path.startsWith('/') ? `${base}${path}` : `${base}/${path}`;
+  }
+  if (path.startsWith('tenant/')) {
+    return `${base}/media/${path}`;
+  }
+  return `${base}/media/${path}`;
+};
+
 export default function StudentsListPage() {
   const [students, setStudents] = useState<StudentWithData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -448,7 +463,24 @@ export default function StudentsListPage() {
               <tr key={student.id} className={`border-b cursor-pointer ${getRowHighlightClass(student)}`} onClick={() => handleRowClick(student.id)}>
                 <td className="p-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} /></td>
                 <td className="p-3 font-mono text-xs font-medium">{student.student_id}</td>
-                <td className="p-3"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold">{student.full_name?.charAt(0)}</div><div><p className="font-medium">{student.full_name}</p></div></div></td>
+                <td className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-semibold overflow-hidden">
+                      {getProfilePicUrl(student.profile_picture) ? (
+                        <img 
+                          src={getProfilePicUrl(student.profile_picture)!} 
+                          alt={student.full_name} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        student.full_name?.charAt(0)
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">{student.full_name}</p>
+                    </div>
+                  </div>
+                </td>
                 <td className="p-3">{student.class_name || '-'}{student.section_name ? ` (${student.section_name})` : ''}</td>
                 <td className="p-3"><div className="flex items-center gap-2"><span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage || 0)}`}>{student.attendance_percentage || 0}%</span>{(student.attendance_percentage || 0) < 75 && <span className="text-red-500 text-xs">⚠</span>}</div></td>
                 <td className="p-3">{getFeeStatusBadge(student.fee_status || 'pending')}</td>

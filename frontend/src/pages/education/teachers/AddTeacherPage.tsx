@@ -77,7 +77,7 @@ export default function AddTeacherPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/education/teachers')}>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate('/education/teachers')}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>

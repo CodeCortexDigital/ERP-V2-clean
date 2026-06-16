@@ -113,7 +113,12 @@ export async function resolveMediaUrl(path: string | null | undefined): Promise<
   }
   if (path.startsWith('tenant/')) {
     try {
-      return await getSignedUrlByKey(path);
+      const url = await getSignedUrlByKey(path);
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+      }
+      const base = API_BASE.replace(/\/$/, '');
+      return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`;
     } catch {
       return `${API_BASE}/${path}`;
     }
