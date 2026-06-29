@@ -20,6 +20,8 @@ urlpatterns = [
     path('metrics/cache/', cache_metrics_view, name='v1-cache-metrics'),
     # Auth & identity
     path('auth/', include('services.core.accounts.urls')),
+    path('auth/', include('services.core.audit_api.urls')),
+    path('', include('services.core.audit_api.urls')),
     # Versioned resource paths (canonical)
     path('students/', include('api.v1.student_urls')),
     # Legacy nested paths (backward compatible)
@@ -38,4 +40,6 @@ urlpatterns = [
     path('features/', include('services.core.features.urls')),
     path('education/', include('services.education.urls')),
     path('exams-results/', get_exam_results, name='v1-exams-results-direct'),
+    # AI/ML routes
+    path('ai/', include('services.analytics.ai_urls')),
 ]

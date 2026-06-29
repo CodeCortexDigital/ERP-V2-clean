@@ -1,7 +1,9 @@
 from django.urls import path
 from . import views
+from services.education.academics.views import AllTimetableEntriesView
 
 urlpatterns = [
+    path('timetable-entries/all/', AllTimetableEntriesView.as_view(), name='timetable-entry-all'),
     # LEVEL 1: BASIC STRUCTURE
     path('academic-years/', views.AcademicYearListCreateView.as_view(), name='academic-year-list'),
     path('classes/', views.SchoolClassListCreateView.as_view(), name='class-list'),

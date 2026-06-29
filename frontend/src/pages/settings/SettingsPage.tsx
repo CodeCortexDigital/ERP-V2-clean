@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useAppStore } from '@/store/appStore'
 import { User, Bell, Shield, Palette, Globe, Save, Flag } from 'lucide-react'
 import FeatureFlagsPage from './FeatureFlagsPage'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
@@ -261,9 +262,16 @@ function SecuritySettings() {
   )
 }
 
+const colorClasses: Record<string, string> = {
+  blue: 'bg-blue-500',
+  green: 'bg-green-500',
+  purple: 'bg-purple-500',
+  orange: 'bg-orange-500',
+  red: 'bg-red-500',
+};
+
 function AppearanceSettings() {
-  const [theme, setTheme] = useState('light')
-  const [color, setColor] = useState('blue')
+  const { theme, setTheme, accentColor, setAccentColor } = useAppStore()
 
   const handleSave = () => {
     toast.success('Appearance settings updated')
@@ -282,9 +290,11 @@ function AppearanceSettings() {
             {['light', 'dark', 'system'].map((t) => (
               <button
                 key={t}
-                onClick={() => setTheme(t)}
-                className={`px-4 py-2 rounded-lg border ${
-                  theme === t ? 'border-primary bg-primary/10' : 'border-gray-200'
+                onClick={() => setTheme(t as any)}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  theme === t 
+                    ? 'border-primary bg-primary/10 text-primary font-semibold' 
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -298,9 +308,9 @@ function AppearanceSettings() {
             {['blue', 'green', 'purple', 'orange', 'red'].map((c) => (
               <button
                 key={c}
-                onClick={() => setColor(c)}
-                className={`w-8 h-8 rounded-full bg-${c}-500 ${
-                  color === c ? 'ring-2 ring-offset-2 ring-gray-400' : ''
+                onClick={() => setAccentColor(c)}
+                className={`w-8 h-8 rounded-full ${colorClasses[c]} transition-transform hover:scale-110 ${
+                  accentColor === c ? 'ring-2 ring-offset-2 ring-gray-400' : ''
                 }`}
               />
             ))}

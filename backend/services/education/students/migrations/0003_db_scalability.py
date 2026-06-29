@@ -3,6 +3,24 @@
 from django.db import migrations, models
 
 
+def add_deleted_at_column(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute("PRAGMA table_info(education_students_student)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if 'deleted_at' not in columns:
+                cursor.execute('ALTER TABLE education_students_student ADD COLUMN deleted_at datetime NULL;')
+    else:
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute('ALTER TABLE education_students_student ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone NULL;')
+
+def create_deleted_at_index(apps, schema_editor):
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS education_students_student_deleted_at_idx '
+            'ON education_students_student (deleted_at);'
+        )
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -20,19 +38,13 @@ class Migration(migrations.Migration):
                 ),
             ],
             database_operations=[
-                migrations.RunSQL(
-                    sql=(
-                        'ALTER TABLE education_students_student '
-                        'ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone NULL;'
-                    ),
-                    reverse_sql=migrations.RunSQL.noop,
+                migrations.RunPython(
+                    add_deleted_at_column,
+                    reverse_code=migrations.RunPython.noop,
                 ),
-                migrations.RunSQL(
-                    sql=(
-                        'CREATE INDEX IF NOT EXISTS education_students_student_deleted_at_idx '
-                        'ON education_students_student (deleted_at);'
-                    ),
-                    reverse_sql=migrations.RunSQL.noop,
+                migrations.RunPython(
+                    create_deleted_at_index,
+                    reverse_code=migrations.RunPython.noop,
                 ),
             ],
         ),

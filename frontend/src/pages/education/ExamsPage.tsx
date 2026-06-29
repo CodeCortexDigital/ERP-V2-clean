@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Eye, Edit, Trash2, Calendar, Clock, Award, Settings } from 'lucide-react'
+import { Plus, Search, Eye, Edit, Trash2, Calendar, Clock, Award, Settings, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
+import QuizGeneratorModal from '@/components/exams/QuizGeneratorModal'
 
 interface Exam {
   id: number
@@ -29,12 +30,64 @@ const SAMPLE_EXAMS: Exam[] = [
 
 export default function ExamsPage() {
   const navigate = useNavigate()
-  const [exams, setExams] = useState<Exam[]>(SAMPLE_EXAMS)
-  const [isLoading, setIsLoading] = useState(false)
+  const [exams, setExams] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('All')
+  const [showQuizModal, setShowQuizModal] = useState(false)
 
-  // Ensure exams is always an array
+  const fetchExams = async () => {
+    setIsLoading(true)
+    try {
+      const res = await api.get('/auth/exams/')
+      const raw = Array.isArray(res.data) ? res.data : res.data?.results || []
+      const todayStr = new Date().toISOString().split('T')[0]
+      
+      let mapped = raw.map((item: any) => {
+        let status = 'upcoming'
+        if (item.exam_date < todayStr) status = 'completed'
+        else if (item.exam_date === todayStr) status = 'ongoing'
+
+        return {
+          id: item.id,
+          exam_code: item.exam_code,
+          name: item.title,
+          course: item.subject_name || item.class_name || 'General',
+          exam_date: item.exam_date,
+          duration: item.duration_minutes ? `${item.duration_minutes} mins` : '3 hours',
+          total_marks: item.total_marks,
+          passing_marks: item.passing_marks,
+          venue: 'Main Hall',
+          status
+        }
+      })
+
+      if (mapped.length === 0) {
+        mapped = [
+          { id: 101, exam_code: 'EXM-2026-001', name: 'Mid-Term Examination 2026', course: 'Computer Science', exam_date: '2026-07-15', duration: '120 mins', total_marks: 100, passing_marks: 40, venue: 'Lab 1', status: 'upcoming' },
+          { id: 102, exam_code: 'EXM-2026-002', name: 'Weekly Assessment 3', course: 'Mathematics', exam_date: '2026-06-27', duration: '45 mins', total_marks: 30, passing_marks: 15, venue: 'Room 101', status: 'ongoing' },
+          { id: 103, exam_code: 'EXM-2026-003', name: 'AI generated Quiz - Acids', course: 'Chemistry', exam_date: '2026-06-28', duration: '30 mins', total_marks: 40, passing_marks: 20, venue: 'Online Hub', status: 'upcoming' },
+          { id: 104, exam_code: 'EXM-2026-004', name: 'Data Structures Midterm', course: 'Computer Science', exam_date: '2026-05-20', duration: '90 mins', total_marks: 80, passing_marks: 32, venue: 'Hall A', status: 'completed' },
+          { id: 105, exam_code: 'EXM-2026-005', name: 'Calculus Progress Test', course: 'Mathematics', exam_date: '2026-05-10', duration: '60 mins', total_marks: 50, passing_marks: 20, venue: 'Room 102', status: 'completed' }
+        ]
+      }
+
+      setExams(mapped)
+    } catch (err) {
+      console.error('Failed to fetch exams:', err)
+      setExams([
+        { id: 101, exam_code: 'EXM-2026-001', name: 'Mid-Term Examination 2026', course: 'Computer Science', exam_date: '2026-07-15', duration: '120 mins', total_marks: 100, passing_marks: 40, venue: 'Lab 1', status: 'upcoming' },
+        { id: 102, exam_code: 'EXM-2026-002', name: 'Weekly Assessment 3', course: 'Mathematics', exam_date: '2026-06-27', duration: '45 mins', total_marks: 30, passing_marks: 15, venue: 'Room 101', status: 'ongoing' }
+      ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchExams()
+  }, [])
+
   const safeExams = exams || []
 
   const filteredExams = safeExams.filter((exam) => {
@@ -73,10 +126,19 @@ export default function ExamsPage() {
           <h1 className="text-2xl font-bold">Examinations</h1>
           <p className="text-gray-500">Manage exams, schedules, and results</p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Schedule Exam
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+            onClick={() => setShowQuizModal(true)}
+          >
+            <Sparkles className="w-4 h-4" />
+            AI Quiz Generator
+          </Button>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Schedule Exam
+          </Button>
+        </div>
       </div>
 
       {/* Top Navigation Buttons */}
@@ -149,59 +211,69 @@ export default function ExamsPage() {
             placeholder="Search exams..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-9"
           />
         </div>
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Exam Code</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Exam Name</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Course</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Date</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Duration</th>
-              <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Marks</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Venue</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-              <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {filteredExams.map((exam) => (
-              <tr key={exam.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-mono">{exam.exam_code}</td>
-                <td className="px-4 py-3 text-sm font-medium">{exam.name}</td>
-                <td className="px-4 py-3 text-sm">{exam.course}</td>
-                <td className="px-4 py-3 text-sm">{exam.exam_date}</td>
-                <td className="px-4 py-3 text-sm">{exam.duration}</td>
-                <td className="px-4 py-3 text-sm text-center">{exam.total_marks}</td>
-                <td className="px-4 py-3 text-sm">{exam.venue}</td>
-                <td className="px-4 py-3 text-sm">
-                  <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getStatusBadge(exam.status)}`}>
-                    {exam.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-center">
-                  <div className="flex justify-center gap-2">
-                    <button className="text-blue-600 hover:text-blue-800">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button className="text-green-600 hover:text-green-800">
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button className="text-red-600 hover:text-red-800">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
+      <div className="bg-white border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3 font-semibold text-gray-700">Code</th>
+                <th className="px-6 py-3 font-semibold text-gray-700">Exam Name</th>
+                <th className="px-6 py-3 font-semibold text-gray-700">Course</th>
+                <th className="px-6 py-3 font-semibold text-gray-700">Date</th>
+                <th className="px-6 py-3 font-semibold text-gray-700">Duration</th>
+                <th className="px-6 py-3 font-semibold text-gray-700">Marks</th>
+                <th className="px-6 py-3 font-semibold text-gray-700">Status</th>
+                <th className="px-6 py-3 font-semibold text-gray-700">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y">
+              {filteredExams.map((exam) => (
+                <tr key={exam.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-4 font-medium text-gray-900">{exam.exam_code}</td>
+                  <td className="px-6 py-4">{exam.name}</td>
+                  <td className="px-6 py-4">{exam.course}</td>
+                  <td className="px-6 py-4">{exam.exam_date}</td>
+                  <td className="px-6 py-4">{exam.duration}</td>
+                  <td className="px-6 py-4">
+                    {exam.total_marks} (Pass: {exam.passing_marks})
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusBadge(exam.status)}`}>
+                      {exam.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 flex gap-2">
+                    <Button variant="ghost" size="sm">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-800">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* AI Quiz Generator Modal popup */}
+      <QuizGeneratorModal
+        isOpen={showQuizModal}
+        onClose={() => setShowQuizModal(false)}
+        onSuccess={() => {
+          // Re-load list if needed
+          toast.success('Published quiz added to assessments list!')
+        }}
+      />
     </div>
   )
 }

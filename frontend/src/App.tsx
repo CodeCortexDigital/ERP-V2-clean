@@ -50,11 +50,14 @@ import NewApplicationPage from '@/pages/education/admissions/NewApplicationPage'
 // Portal Imports
 import ParentDashboard from './pages/portals/parent/ParentDashboard'
 import TeacherDashboard from './pages/portals/teacher/TeacherDashboard'
+import StudentDashboard from './pages/portals/student/StudentDashboard'
 
 // Auth and Error Handling
 import { AuthInitializer } from './providers/AuthInitializer'
 import { QueryProvider } from './providers/QueryProvider'
 import { setupGlobalErrorHandlers, ErrorBoundary } from './utils/errorHandler'
+
+import CursorFollower from './components/common/CursorFollower'
 
 const AppToaster = memo(() => <Toaster position="top-right" />)
 AppToaster.displayName = 'AppToaster'
@@ -69,6 +72,7 @@ function App() {
       <QueryProvider>
         <AuthInitializer>
         <BrowserRouter>
+          <CursorFollower />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -126,6 +130,13 @@ function App() {
               <Route path="parent/notifications" element={<ParentDashboard />} />
               <Route path="teacher" element={<TeacherDashboard />} />
               <Route path="teacher/students" element={<StudentsListPage />} />
+              <Route path="student" element={<StudentDashboard />} />
+              <Route path="student/profile" element={<StudentDashboard />} />
+              <Route path="student/attendance" element={<StudentDashboard />} />
+              <Route path="student/results" element={<StudentDashboard />} />
+              <Route path="student/fees" element={<StudentDashboard />} />
+              <Route path="student/timetable" element={<StudentDashboard />} />
+              <Route path="student/notifications" element={<StudentDashboard />} />
             </Route>
           </Routes>
         </BrowserRouter>

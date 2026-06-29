@@ -18,7 +18,7 @@ export default function NewApplicationPage() {
     address: '',
     father_name: '',
     father_phone: '',
-    applying_for_class: 'Grade 1',
+    applying_for_class: '', // Load from API
     academic_year: '2026-2027'
   });
 

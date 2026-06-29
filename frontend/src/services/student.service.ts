@@ -26,6 +26,7 @@ export interface Student {
   is_active: boolean;
   last_activity?: string;
   profile_picture?: string | null;
+  attendance_rate?: number;
   created_at?: string;
   updated_at?: string;
 }

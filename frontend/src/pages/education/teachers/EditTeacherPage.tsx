@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
 import teacherService, { Teacher } from '@/services/teacher.service';
+import academicService from '@/services/academic.service';
 
 export default function EditTeacherPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,7 @@ export default function EditTeacherPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [teacher, setTeacher] = useState<Teacher | null>(null);
+  const [classList, setClassList] = useState<any[]>([]);
   const [newQualification, setNewQualification] = useState('');
   const [newSpecialization, setNewSpecialization] = useState('');
   
@@ -27,6 +29,7 @@ export default function EditTeacherPage() {
     experience_years: 0,
     joining_date: '',
     is_active: true,
+    assigned_class: '',
   });
 
   useEffect(() => {
@@ -35,18 +38,32 @@ export default function EditTeacherPage() {
 
   const fetchTeacher = async () => {
     try {
-      const response = await teacherService.getById(id!);
-      setTeacher(response.data);
+      const [tRes, cRes] = await Promise.all([
+        teacherService.getById(id!),
+        academicService.getClasses().catch(() => ({ data: [] }))
+      ]);
+      
+      const tData = tRes.data;
+      const classesData = Array.isArray(cRes.data) ? cRes.data : (cRes.data as any)?.results || [];
+      setClassList(classesData);
+
+      // Check localStorage first, then class teacher_name match
+      const storedMap = JSON.parse(localStorage.getItem('teacher_assigned_classes') || '{}');
+      const storedClass = storedMap[tData.id] || storedMap[tData.full_name];
+      const assignedCls = classesData.find((c: any) => c.teacher_name === tData.full_name);
+
+      setTeacher(tData);
       setFormData({
-        employee_id: response.data.employee_id || '',
-        full_name: response.data.full_name || '',
-        email: response.data.email || '',
-        phone: response.data.phone || '',
-        qualifications: response.data.qualifications || [],
-        specializations: response.data.specializations || [],
-        experience_years: response.data.experience_years || 0,
-        joining_date: response.data.joining_date || new Date().toISOString().split('T')[0],
-        is_active: response.data.is_active !== false,
+        employee_id: tData.employee_id || '',
+        full_name: tData.full_name || '',
+        email: tData.email || '',
+        phone: tData.phone || '',
+        qualifications: tData.qualifications || [],
+        specializations: tData.specializations || [],
+        experience_years: tData.experience_years || 0,
+        joining_date: tData.joining_date || new Date().toISOString().split('T')[0],
+        is_active: tData.is_active !== false,
+        assigned_class: storedClass || tData.assigned_class || (assignedCls ? assignedCls.name : ''),
       });
     } catch (error) {
       console.error('Error fetching teacher:', error);
@@ -111,6 +128,27 @@ export default function EditTeacherPage() {
     setSaving(true);
     try {
       await teacherService.update(id!, formData);
+
+      // Persist assigned class locally and update class model
+      const storedMap = JSON.parse(localStorage.getItem('teacher_assigned_classes') || '{}');
+      storedMap[id!] = formData.assigned_class;
+      if (formData.full_name) {
+        storedMap[formData.full_name] = formData.assigned_class;
+      }
+      localStorage.setItem('teacher_assigned_classes', JSON.stringify(storedMap));
+
+      // Sync to Class record
+      if (formData.assigned_class) {
+        const matchedCls = classList.find((c: any) => 
+          c.name.toLowerCase() === formData.assigned_class.toLowerCase() || 
+          formData.assigned_class.toLowerCase().includes(c.name.toLowerCase()) ||
+          c.id === formData.assigned_class
+        );
+        if (matchedCls) {
+          await academicService.updateClass(matchedCls.id, { teacher_name: formData.full_name }).catch(() => {});
+        }
+      }
+
       toast.success('Teacher updated successfully!');
       navigate(`/education/teachers/${id}`);
     } catch (error) {
@@ -200,6 +238,39 @@ export default function EditTeacherPage() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Assigned Class / Section</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2 bg-white text-sm font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={formData.assigned_class}
+                  onChange={(e) => setFormData({ ...formData, assigned_class: e.target.value })}
+                >
+                  <option value="">-- None / Not Assigned --</option>
+                  <option value="Grade 1-A">Grade 1 (Section A)</option>
+                  <option value="Grade 1-B">Grade 1 (Section B)</option>
+                  <option value="Grade 2-A">Grade 2 (Section A)</option>
+                  <option value="Grade 2-B">Grade 2 (Section B)</option>
+                  <option value="Grade 3-A">Grade 3 (Section A)</option>
+                  <option value="Grade 3-B">Grade 3 (Section B)</option>
+                  <option value="Grade 4-A">Grade 4 (Section A)</option>
+                  <option value="Grade 4-B">Grade 4 (Section B)</option>
+                  <option value="Grade 5-A">Grade 5 (Section A)</option>
+                  <option value="Grade 5-B">Grade 5 (Section B)</option>
+                  <option value="Grade 6-A">Grade 6 (Section A)</option>
+                  <option value="Grade 6-B">Grade 6 (Section B)</option>
+                  <option value="Grade 7-A">Grade 7 (Section A)</option>
+                  <option value="Grade 7-B">Grade 7 (Section B)</option>
+                  <option value="Grade 8-A">Grade 8 (Section A)</option>
+                  <option value="Grade 8-B">Grade 8 (Section B)</option>
+                  <option value="Grade 9-A">Grade 9 (Section A)</option>
+                  <option value="Grade 9-B">Grade 9 (Section B)</option>
+                  <option value="Grade 10-A">Grade 10 (Section A)</option>
+                  <option value="Grade 10-B">Grade 10 (Section B)</option>
+                  {classList.map((cls: any) => (
+                    <option key={cls.id} value={cls.name}>{cls.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Experience (Years)</label>

@@ -65,6 +65,26 @@ def student_insights(request, student_id):
 @permission_classes([IsAuthenticated])
 def batch_risk_assessment(request):
     """Run risk assessment for all students"""
+    # 1. Trigger the new Machine Learning models (Isolation Forest + Random Forest)
+    try:
+        # Add ai-ml path dynamically
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        ai_ml_path = os.path.abspath(os.path.join(BASE_DIR, '..', 'ai-ml'))
+        if os.name == 'nt' and len(ai_ml_path) > 1 and ai_ml_path[1] == ':':
+            ai_ml_path = ai_ml_path[0].upper() + ai_ml_path[1:]
+        if ai_ml_path not in sys.path:
+            sys.path.append(ai_ml_path)
+
+        from predictions.performance_predictor import train_and_save_model, predict_student_performance
+        from attendance.anomaly_detector import detect_anomalies
+        
+        train_and_save_model()
+        predict_student_performance()
+        detect_anomalies()
+    except Exception as e:
+        print(f"Warning: ML model execution failed: {e}")
+
+    # 2. Run default heuristic engine calculations
     Student = apps.get_model('education_students', 'Student')
     students = Student.objects.filter(is_active=True)
     
@@ -357,6 +377,41 @@ def _generate_smart_insights(attendance_trends, fee_recovery_trends, exam_perfor
     """Generate smart insights and alerts"""
     insights = []
 
+    # 1. Database-backed AI anomaly alerts (Isolation Forest)
+    try:
+        AttendanceAlert = apps.get_model('education_attendance', 'AttendanceAlert')
+        active_alerts = AttendanceAlert.objects.filter(is_resolved=False).select_related('student')
+        for alert in active_alerts:
+            insights.append({
+                'type': 'alert' if alert.priority == 'high' else 'warning',
+                'title': f"AI Alert: {alert.student.full_name}",
+                'description': alert.message,
+                'priority': alert.priority,
+                'category': 'attendance'
+            })
+    except Exception:
+        pass
+
+    # 2. Database-backed AI performance risk predictions (Random Forest)
+    try:
+        StudentRisk = apps.get_model('analytics', 'StudentRisk')
+        AcademicPrediction = apps.get_model('analytics', 'AcademicPrediction')
+        high_risks = StudentRisk.objects.filter(risk_level__in=('high', 'critical')).select_related('student')
+        predictions = {str(p.student_id): p for p in AcademicPrediction.objects.all()}
+        
+        for risk in high_risks:
+            pred = predictions.get(str(risk.student_id))
+            grade_info = f" (Predicted Grade: {pred.predicted_grade})" if pred else ""
+            insights.append({
+                'type': 'critical' if risk.risk_level == 'critical' else 'warning',
+                'title': f"Performance Risk: {risk.student.full_name}{grade_info}",
+                'description': f"Risk level assessed as {risk.risk_level.upper()} (Score: {risk.risk_score:.0f}%). Recommendations: {', '.join(risk.recommendations[:2])}",
+                'priority': 'high' if risk.risk_level == 'critical' else 'medium',
+                'category': 'academic'
+            })
+    except Exception:
+        pass
+
     # Attendance insights
     if attendance_trends['trend_percentage'] < -10:
         insights.append({
@@ -386,7 +441,7 @@ def _generate_smart_insights(attendance_trends, fee_recovery_trends, exam_perfor
             insights.append({
                 'type': 'warning',
                 'title': f"{lowest_subject['exam__subject__name']} performance declining",
-                'description': f"Average performance is {lowest_subject['avg_percentage']}%. May need additional teaching resources.",
+                'description': f"Average performance is {lowest_subject['exam__subject__name']} average {lowest_subject['avg_percentage']}%. May need additional teaching resources.",
                 'priority': 'medium',
                 'category': 'academic'
             })

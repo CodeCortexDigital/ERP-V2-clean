@@ -547,3 +547,18 @@ class TeacherAttendance(models.Model):
     
     def __str__(self):
         return f"{self.teacher.full_name} - {self.date} ({self.get_status_display()})"
+
+class SectionTeacherAssignment(models.Model):
+    section = models.ForeignKey('Section', on_delete=models.CASCADE, related_name='teacher_assignments')
+    teacher = models.ForeignKey('Teacher', on_delete=models.CASCADE, related_name='section_assignments')
+    academic_year = models.ForeignKey('AcademicYear', on_delete=models.CASCADE)
+    is_primary = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    assigned_date = models.DateField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'education_academics_section_teacher'
+        unique_together = ['section', 'academic_year']
+    
+    def __str__(self):
+        return f"{self.section.class_ref.name} - Section {self.section.name} -> {self.teacher.full_name}"

@@ -9,3 +9,4 @@ class EducationStudentsConfig(AppConfig):
     def ready(self):
         from services.core.signals.cache_invalidation import connect_cache_invalidation_signals
         connect_cache_invalidation_signals()
+        from . import signals

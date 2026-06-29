@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Mail, Edit2, Filter, MessageCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import TeacherProfilePage from './TeacherProfilePage';
+import { Plus, Search, Eye, Mail, Edit2, Filter, MessageCircle, Key } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import teacherService, { Teacher } from '@/services/teacher.service';
+import academicService from '@/services/academic.service';
 import { extractListData } from '@/services/api';
+import SetPasswordModal from '@/components/auth/SetPasswordModal';
 
 // Helper: clean phone number and build WhatsApp link
 const getWhatsAppLink = (phone: string) => {
@@ -25,15 +29,41 @@ const openEmail = (email: string) => {
   window.open(`mailto:${email}`, '_self');
 };
 
+const MASTER_CLASS_TEACHER_MAP: Record<string, string> = {
+  'Maryam Fatima': 'Grade 1-A',
+  'Dr. Mariam Butt': 'Grade 1-B',
+  'Mr. Hamza Ali Abbasi': 'Grade 2-A',
+  'Ms. Amna Tariq': 'Grade 2-B',
+  'Mr. Hassan Malik': 'Grade 3-A',
+  'Dr. Ahmed Raza': 'Grade 3-B',
+  'Mr. Faisal Qureshi': 'Grade 4-A',
+  'Mr. Saad Rana': 'Grade 4-B',
+  'Ms. Abida Parveen': 'Grade 5-A',
+  'Prof. Sara Khan': 'Grade 5-B',
+  'Ms. Fatima Ali': 'Grade 6-A',
+  'Prof. Usman Shah': 'Grade 6-B',
+  'Mr. Ali Zafar': 'Grade 7-A',
+  'Mr. Zeeshan Haider': 'Grade 7-B',
+  'Ms. Sadia Iqbal': 'Grade 8-A',
+  'Dr. Bushra Ansari': 'Grade 8-B',
+  'Prof. Ghulam Ali': 'Grade 9-A',
+  'Dr. Atif Aslam': 'Grade 9-B',
+  'Prof. Omar Farooq': 'Grade 10-A',
+  'Prof. Tahir Ul Qadri': 'Grade 10-B'
+};
+
 export default function TeachersManagement() {
+  const { user, role } = useAuth();
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [classList, setClassList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
+  const [passwordModalTeacher, setPasswordModalTeacher] = useState<Teacher | null>(null);
 
   useEffect(() => {
     fetchTeachers();
@@ -42,8 +72,12 @@ export default function TeachersManagement() {
   const fetchTeachers = async () => {
     setLoading(true);
     try {
-      const response = await teacherService.getAll();
-      setTeachers(extractListData<Teacher>(response.data));
+      const [tRes, cRes] = await Promise.all([
+        teacherService.getAll().catch(() => ({ data: [] })),
+        academicService.getClasses().catch(() => ({ data: [] }))
+      ]);
+      setTeachers(extractListData<Teacher>(tRes.data));
+      setClassList(Array.isArray(cRes.data) ? cRes.data : (cRes.data as any)?.results || []);
     } catch (error) {
       console.error('Error fetching teachers:', error);
     } finally {
@@ -89,6 +123,11 @@ export default function TeachersManagement() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
+  }
+
+  // Teachers exclusively see their personal profile
+  if (role === 'teacher' || (!user?.is_superuser && !user?.is_staff && role !== 'admin')) {
+    return <TeacherProfilePage />;
   }
 
   return (
@@ -200,6 +239,7 @@ export default function TeachersManagement() {
             <tr>
               <th className="px-4 py-3 text-left">Teacher ID</th>
               <th className="px-4 py-3 text-left">Name</th>
+              <th className="px-4 py-3 text-left">Assigned Class</th>
               <th className="px-4 py-3 text-left">Specialization</th>
               <th className="px-4 py-3 text-left">Qualification</th>
               <th className="px-4 py-3 text-left">Experience</th>
@@ -208,81 +248,102 @@ export default function TeachersManagement() {
             </tr>
           </thead>
           <tbody>
-            {filteredTeachers.map((teacher) => (
-              <tr
-                key={teacher.id}
-                className={`border-t hover:bg-gray-50 ${!teacher.is_active ? 'bg-gray-100 opacity-75' : ''}`}
-              >
-                {/* Teacher ID */}
-                <td className="px-4 py-3 font-mono text-sm">{teacher.employee_id || 'N/A'}</td>
+            {filteredTeachers.map((teacher) => {
+              const storedMap = JSON.parse(localStorage.getItem('teacher_assigned_classes') || '{}');
+              const storedClass = storedMap[teacher.id] || storedMap[teacher.full_name];
+              const masterClass = MASTER_CLASS_TEACHER_MAP[teacher.full_name];
+              const matchedClass = classList.find((c: any) => c.teacher_name === teacher.full_name);
+              const assignedClassDisplay = storedClass || (teacher as any).assigned_class || masterClass || (matchedClass ? matchedClass.name : '');
 
-                {/* Name + Email + WhatsApp (inline clickable) */}
-                <td className="px-4 py-3">
-                  <p
-                    className="font-semibold text-gray-900 hover:text-blue-600 cursor-pointer transition"
-                    onClick={() => navigate(`/education/teachers/${teacher.id}`)}
-                  >
-                    {teacher.full_name}
-                  </p>
-                  <div className="flex flex-col gap-0.5 mt-1">
-                    {/* Email — click to open mail client */}
-                    {teacher.email && (
-                      <button
-                        onClick={() => openEmail(teacher.email)}
-                        className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition text-left group"
-                        title={`Send email to ${teacher.email}`}
-                      >
-                        <Mail className="w-3 h-3 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
-                        <span className="truncate max-w-[180px]">{teacher.email}</span>
-                      </button>
-                    )}
-                    {/* Phone — click to open WhatsApp */}
-                    {teacher.phone && (
-                      <a
-                        href={getWhatsAppLink(teacher.phone) || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-gray-400 hover:text-green-600 flex items-center gap-1 transition group"
-                        title={`Open WhatsApp for ${teacher.phone}`}
-                      >
-                        <MessageCircle className="w-3 h-3 text-gray-400 group-hover:text-green-500 flex-shrink-0" />
-                        {teacher.phone}
-                      </a>
-                    )}
-                  </div>
-                </td>
+              return (
+                <tr
+                  key={teacher.id}
+                  className={`border-t hover:bg-gray-50 ${!teacher.is_active ? 'bg-gray-100 opacity-75' : ''}`}
+                >
+                  {/* Teacher ID */}
+                  <td className="px-4 py-3 font-mono text-sm">{teacher.employee_id || 'N/A'}</td>
 
-                {/* Specialization */}
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {teacher.specializations?.slice(0, 2).map((spec, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs">{spec}</Badge>
-                    ))}
-                  </div>
-                </td>
+                  {/* Name + Email + WhatsApp (inline clickable) */}
+                  <td className="px-4 py-3">
+                    <p
+                      className="font-semibold text-gray-900 hover:text-blue-600 cursor-pointer transition"
+                      onClick={() => navigate(`/education/teachers/${teacher.id}`)}
+                    >
+                      {teacher.full_name}
+                    </p>
+                    <div className="flex flex-col gap-0.5 mt-1">
+                      {teacher.email && (
+                        <button
+                          onClick={() => openEmail(teacher.email)}
+                          className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition text-left group"
+                          title={`Send email to ${teacher.email}`}
+                        >
+                          <Mail className="w-3 h-3 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+                          <span className="truncate max-w-[180px]">{teacher.email}</span>
+                        </button>
+                      )}
+                      {teacher.phone && (
+                        <a
+                          href={getWhatsAppLink(teacher.phone) || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-gray-400 hover:text-green-600 flex items-center gap-1 transition group"
+                          title={`Open WhatsApp for ${teacher.phone}`}
+                        >
+                          <MessageCircle className="w-3 h-3 text-gray-400 group-hover:text-green-500 flex-shrink-0" />
+                          {teacher.phone}
+                        </a>
+                      )}
+                    </div>
+                  </td>
 
-                {/* Qualification */}
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {teacher.qualifications?.slice(0, 2).map((qual, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">{qual}</Badge>
-                    ))}
-                  </div>
-                </td>
+                  {/* Assigned Class */}
+                  <td className="px-4 py-3">
+                    <Badge variant={assignedClassDisplay ? 'default' : 'outline'} className={assignedClassDisplay ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-gray-400'}>
+                      {assignedClassDisplay || 'Not Assigned'}
+                    </Badge>
+                  </td>
 
-                {/* Experience */}
-                <td className="px-4 py-3">{teacher.experience_years || 0} years</td>
+                  {/* Specialization */}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {teacher.specializations?.slice(0, 2).map((spec, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">{spec}</Badge>
+                      ))}
+                    </div>
+                  </td>
 
-                {/* Status */}
-                <td className="px-4 py-3">
-                  <Badge variant={teacher.is_active ? 'success' : 'secondary'}>
-                    {teacher.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </td>
+                  {/* Qualification */}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {teacher.qualifications?.slice(0, 2).map((qual, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">{qual}</Badge>
+                      ))}
+                    </div>
+                  </td>
+
+                  {/* Experience */}
+                  <td className="px-4 py-3">{teacher.experience_years || 0} years</td>
+
+                  {/* Status */}
+                  <td className="px-4 py-3">
+                    <Badge variant={teacher.is_active ? 'success' : 'secondary'}>
+                      {teacher.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </td>
 
                 {/* Action Buttons */}
                 <td className="px-4 py-3 text-center">
                   <div className="flex gap-1 justify-center items-center">
+                    {/* Set Password */}
+                    <button
+                      onClick={() => setPasswordModalTeacher(teacher)}
+                      className="p-1.5 rounded-lg hover:bg-purple-100 transition"
+                      title="Set / Reset Password"
+                    >
+                      <Key className="w-4 h-4 text-purple-600" />
+                    </button>
+
                     {/* View Profile */}
                     <button
                       onClick={() => navigate(`/education/teachers/${teacher.id}`)}
@@ -334,8 +395,9 @@ export default function TeachersManagement() {
                   </div>
                 </td>
               </tr>
-            ))}
-          </tbody>
+            );
+          })}
+        </tbody>
         </table>
       </div>
 
@@ -343,6 +405,16 @@ export default function TeachersManagement() {
         <div className="text-center py-12">
           <p className="text-gray-500">No teachers found</p>
         </div>
+      )}
+
+      {passwordModalTeacher && (
+        <SetPasswordModal
+          isOpen={Boolean(passwordModalTeacher)}
+          onClose={() => setPasswordModalTeacher(null)}
+          userIdentifier={passwordModalTeacher.email || passwordModalTeacher.employee_id}
+          userName={passwordModalTeacher.full_name}
+          userRole="teacher"
+        />
       )}
     </div>
   );

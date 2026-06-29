@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import { Sidebar } from './Sidebar';
 import { useUIStore } from '@/store/uiStore';
+import { AIChatbot } from '../ai/AIChatbot';
 
 export default function Layout() {
   const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
@@ -20,7 +21,7 @@ export default function Layout() {
   }, [setMobileSidebarOpen]);
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-50">
+    <div className="h-screen flex overflow-hidden bg-background text-foreground">
       {/* Desktop Sidebar - Fixed, no scroll */}
       <div className={`hidden md:block transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'} flex-shrink-0`}>
         <div className="fixed h-screen" style={{ width: sidebarCollapsed ? '5rem' : '16rem' }}>
@@ -53,6 +54,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      <AIChatbot />
     </div>
   );
 }

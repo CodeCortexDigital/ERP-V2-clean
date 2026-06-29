@@ -5,6 +5,19 @@ import authService from '@/services/auth.service';
 
 export type UserRole = 'admin' | 'staff' | 'teacher' | 'parent' | 'student' | 'user';
 
+export interface StudentSummary {
+  id: string;
+  student_id: string;
+  full_name: string;
+  email: string;
+  profile_picture?: string | null;
+  current_class?: string | null;
+  current_class_name?: string | null;
+  current_section?: string | null;
+  current_section_name?: string | null;
+  is_active?: boolean;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -13,11 +26,15 @@ export interface AuthUser {
   is_staff?: boolean;
   is_superuser?: boolean;
   role?: UserRole | null;
+  portal_path?: string;
+  student?: StudentSummary | null;
+  profile_picture?: string | null;
 }
 
 function resolveRole(user: AuthUser | null): UserRole | null {
   if (!user) return null;
   if (user.role) return user.role;
+  if (user.student) return 'student';
   if (user.is_superuser) return 'admin';
   if (user.is_staff) return 'staff';
   return 'user';
@@ -39,9 +56,9 @@ interface AuthState {
   loading: boolean;
   isAuthenticated: boolean;
   hydrate: () => Promise<void>;
-  login: (userId: string, password: string) => Promise<void>;
-  demoLogin: (name?: string) => Promise<void>;
-  googleLogin: (token: string) => Promise<void>;
+  login: (userId: string, password: string) => Promise<AuthUser>;
+  demoLogin: (name?: string) => Promise<AuthUser>;
+  googleLogin: (token: string) => Promise<AuthUser>;
   logout: () => void;
   setUser: (user: AuthUser | null) => void;
 }
@@ -102,6 +119,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           loading: false,
         });
+        return authUser;
       },
 
       demoLogin: async (name) => {
@@ -122,6 +140,7 @@ export const useAuthStore = create<AuthState>()(
         if (response.data.demo_warning && response.data.demo_message) {
           console.warn(response.data.demo_message);
         }
+        return authUser;
       },
 
       googleLogin: async (token) => {
@@ -139,6 +158,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           loading: false,
         });
+        return authUser;
       },
 
       logout: () => {

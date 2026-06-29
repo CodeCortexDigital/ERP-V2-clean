@@ -152,13 +152,7 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
 
         return queryset.order_by("-created_at")
 
-    def perform_create(self, serializer):
-        student_id = self.request.data.get("student")
-        student = Student.objects.get(id=student_id)
 
-        serializer.save(
-            tenant=student.tenant
-        )
 
 
 class InvoiceDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -982,9 +976,7 @@ def monthly_finance_report_pdf(request):
         ).aggregate(total=Sum('amount'))['total'] or 0
         
         # Outstanding balances
-        outstanding = Invoice.objects.filter(
-            status__in=['issued', 'partial', 'overdue']
-        ).aggregate(total=Sum('balance_due'))['total'] or 0
+        outstanding = sum(inv.balance_due for inv in Invoice.objects.filter(status__in=['issued', 'partial', 'overdue']))
         
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -1069,8 +1061,10 @@ def monthly_finance_report_pdf(request):
         return Response({'error': 'PDF generation requires reportlab'}, status=500)
 
 
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def monthly_revenue_chart(request):
     """Get monthly revenue data for charts"""
     months = request.query_params.get('months', 12)
@@ -1105,7 +1099,7 @@ def monthly_revenue_chart(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def defaulter_report(request):
     """Get report of students with overdue payments"""
     queryset = Invoice.objects.select_related('student').filter(
@@ -1134,7 +1128,7 @@ def defaulter_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def class_wise_collection(request):
     """Get collection analytics by class"""
     academic_year = request.query_params.get('academic_year', '2026-2027')
@@ -1693,3 +1687,24 @@ class FinanceSettingsView(generics.RetrieveUpdateAPIView):
             id='00000000-0000-0000-0000-000000000001'
         )
         return obj
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def bulk_delete_invoices(request):
+    """Bulk delete invoices by their IDs."""
+    invoice_ids = request.data.get("invoice_ids", [])
+    if not invoice_ids:
+        return Response({"success": False, "message": "No invoice IDs provided."}, status=400)
+    
+    invoices = Invoice.objects.filter(id__in=invoice_ids)
+    count = invoices.count()
+    for invoice in invoices:
+        invoice.delete()
+        
+    return Response({
+        "success": True,
+        "message": f"Successfully deleted {count} invoices.",
+        "deleted_count": count
+    })
+

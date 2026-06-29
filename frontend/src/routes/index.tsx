@@ -16,6 +16,9 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const AnalyticsPage = lazy(() => import('../pages/Analytics'));
 const SettingsPage = lazy(() => import('../pages/settings/SettingsPage'));
+const StudentDashboard = lazy(() => import('../pages/portals/student/StudentDashboard'));
+const TeacherDashboard = lazy(() => import('../pages/portals/teacher/TeacherDashboard'));
+const ParentDashboard = lazy(() => import('../pages/portals/parent/ParentDashboard'));
 
 // Education Module
 const StudentsListPage = lazy(() => import('../pages/education/StudentsListPage'));
@@ -157,6 +160,66 @@ export const routes: RouteObject[] = [
       {
         path: 'education/attendance/analytics',
         element: <Suspense fallback={<PageLoader />}><AttendanceAnalyticsDashboard /></Suspense>,
+      },
+      {
+        path: 'student',
+        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+      },
+      {
+        path: 'student/profile',
+        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+      },
+      {
+        path: 'student/attendance',
+        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+      },
+      {
+        path: 'student/results',
+        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+      },
+      {
+        path: 'student/fees',
+        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+      },
+      {
+        path: 'student/timetable',
+        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+      },
+      {
+        path: 'student/notifications',
+        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+      },
+      {
+        path: 'teacher',
+        element: <Suspense fallback={<PageLoader />}><TeacherDashboard /></Suspense>,
+      },
+      {
+        path: 'teacher/students',
+        element: <Suspense fallback={<PageLoader />}><TeacherDashboard /></Suspense>,
+      },
+      {
+        path: 'parent',
+        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+      },
+      {
+        path: 'parent/children',
+        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+      },
+      {
+        path: 'parent/attendance',
+        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+      },
+      {
+        path: 'parent/results',
+        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+      },
+      {
+        path: 'parent/fees',
+        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+      },
+      {
+        path: 'parent/notifications',
+        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
       },
     ],
   },

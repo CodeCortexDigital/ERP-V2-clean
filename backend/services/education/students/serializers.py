@@ -4,6 +4,7 @@ from .models import Student
 class StudentSerializer(serializers.ModelSerializer):
     class_name = serializers.CharField(source='current_class.name', read_only=True)
     section_name = serializers.CharField(source='current_section.name', read_only=True)
+    attendance_rate = serializers.SerializerMethodField()
     
     class Meta:
         model = Student
@@ -12,6 +13,15 @@ class StudentSerializer(serializers.ModelSerializer):
             'date_of_birth': {'required': False, 'allow_null': True},
             'admission_date': {'required': False, 'allow_null': True},
         }
+        
+    def get_attendance_rate(self, obj):
+        from services.education.attendance.models import AttendanceRecord
+        records = AttendanceRecord.objects.filter(student=obj).exclude(status='holiday')
+        total = records.count()
+        if total == 0:
+            return 0
+        present = records.filter(status__in=['present', 'late']).count()
+        return round((present / total) * 100)
     
     def to_internal_value(self, data):
         # Handle empty date strings

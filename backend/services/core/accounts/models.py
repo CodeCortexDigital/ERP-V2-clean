@@ -205,6 +205,11 @@ class User(AbstractUser):
             return True
         return False
 
+    @property
+    def role(self):
+        from .decorators import get_user_role
+        return get_user_role(self)
+
 class School(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='schools')

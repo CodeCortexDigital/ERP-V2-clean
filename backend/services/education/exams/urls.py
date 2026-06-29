@@ -2,6 +2,13 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Schedules & Registrations (Must be above <str:id>/ to avoid matching 'schedules' as exam ID)
+    path('schedules/', views.exam_schedules_list_create, name='exam-schedules-list'),
+    path('schedules/<str:schedule_id>/', views.exam_schedule_detail, name='exam-schedule-detail'),
+    path('registrations/', views.exam_registrations_list_create, name='exam-registrations-list'),
+    path('registrations/<str:reg_id>/', views.exam_registration_detail, name='exam-registration-detail'),
+    path('registrations/<str:reg_id>/generate-admit-card/', views.generate_admit_card, name='generate-admit-card'),
+
     # Exams
     path('', views.ExamListCreateView.as_view(), name='exam-list'),
     path('<str:id>/', views.ExamDetailView.as_view(), name='exam-detail'),

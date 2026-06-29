@@ -7,4 +7,4 @@ class CoreAccountsConfig(AppConfig):
     verbose_name = 'Users & Access'
 
     def ready(self):
-        pass
+        from . import signals

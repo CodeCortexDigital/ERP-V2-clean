@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import SearchBar from '@/components/SearchBar';
 import api from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
+import { resolveMediaUrl } from '@/utils/fileUpload';
 
 interface BreadcrumbItem {
   label: string;
@@ -93,19 +95,28 @@ const getEntityFromSegments = (segments: string[], index: number) => {
 };
 
 export default function Header({ onMobileMenuToggle }: HeaderProps) {
+  const { user, role, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState<any>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [entityNames, setEntityNames] = useState<{ [id: string]: string }>({});
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
   const fetchingIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-  }, []);
+    let active = true;
+    const loadAvatar = async () => {
+      const path = user?.student?.profile_picture ?? user?.profile_picture;
+      const url = await resolveMediaUrl(path);
+      if (active) {
+        setProfilePictureUrl(url);
+      }
+    };
+    loadAvatar();
+    return () => {
+      active = false;
+    };
+  }, [user?.student?.profile_picture, user?.profile_picture]);
 
   const fetchEntityName = async (id: string, type: string) => {
     try {
@@ -172,25 +183,23 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    logout();
     navigate('/login');
   };
 
   return (
-    <header className="bg-white border-b border-gray-200">
+    <header className="bg-card border-b border-border">
       {/* Top Bar */}
       <div className="px-6 py-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <button onClick={onMobileMenuToggle} className="lg:hidden text-gray-600">
+            <button onClick={onMobileMenuToggle} className="lg:hidden text-muted-foreground hover:text-foreground">
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-4">
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Code Cortex</h1>
-                <p className="text-xs text-gray-500">School Management System</p>
+                <h1 className="text-xl font-bold text-foreground">Code Cortex</h1>
+                <p className="text-xs text-muted-foreground">School Management System</p>
               </div>
               <div className="hidden md:block">
                 <SearchBar />
@@ -200,15 +209,31 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
           <div className="flex items-center gap-4">
             <NotificationBell />
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-primary flex items-center justify-center">
+                {profilePictureUrl ? (
+                  <img src={profilePictureUrl} alt={user?.student?.full_name ?? user?.full_name ?? 'User'} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-4 h-4 text-white" />
+                )}
               </div>
               <div className="hidden md:block">
-                <p className="text-sm font-medium text-gray-700">{user?.email || 'Admin'}</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-medium text-foreground">{user?.student?.full_name ?? user?.full_name ?? user?.email?.split('@')[0] ?? 'User'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {user?.student || role === 'student'
+                    ? 'Student'
+                    : role === 'teacher'
+                    ? 'Teacher'
+                    : role === 'parent'
+                    ? 'Parent'
+                    : role === 'admin' || user?.is_superuser
+                    ? 'Administrator'
+                    : user?.is_staff
+                    ? 'Staff'
+                    : 'User'}
+                </p>
               </div>
             </div>
-            <button onClick={handleLogout} className="text-gray-600 hover:text-red-600">
+            <button onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
               <LogOut className="w-5 h-5" />
             </button>
           </div>

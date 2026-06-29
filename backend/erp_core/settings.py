@@ -23,7 +23,9 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
+ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver,*').split(',') if host.strip()]
+if 'testserver' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('testserver')
 
 if not DEBUG and SECRET_KEY.startswith('django-insecure'):
     raise ImproperlyConfigured('A secure SECRET_KEY must be set in production via environment variables.')
@@ -353,7 +355,7 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ),
     'DEFAULT_PAGINATION_CLASS': 'services.core.utils.pagination.StandardResultsSetPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 500,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',

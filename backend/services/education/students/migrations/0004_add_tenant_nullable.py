@@ -5,6 +5,26 @@ import services.core.storage.utils
 from django.db import migrations, models
 
 
+def add_tenant_column(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute("PRAGMA table_info(education_students_student)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if 'tenant_id' not in columns:
+                cursor.execute('ALTER TABLE education_students_student ADD COLUMN tenant_id varchar(32) NULL;')
+    else:
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute("""
+                ALTER TABLE education_students_student
+                DROP COLUMN IF EXISTS tenant_id;
+                ALTER TABLE education_students_student
+                ADD COLUMN tenant_id uuid NULL;
+                ALTER TABLE education_students_student
+                ADD CONSTRAINT education_students_student_tenant_id_fk
+                FOREIGN KEY (tenant_id) REFERENCES tenants_school(id)
+                ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+            """)
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -28,18 +48,9 @@ class Migration(migrations.Migration):
                 ),
             ],
             database_operations=[
-                migrations.RunSQL(
-                    sql="""
-                    ALTER TABLE education_students_student
-                    DROP COLUMN IF EXISTS tenant_id;
-                    ALTER TABLE education_students_student
-                    ADD COLUMN tenant_id uuid NULL;
-                    ALTER TABLE education_students_student
-                    ADD CONSTRAINT education_students_student_tenant_id_fk
-                    FOREIGN KEY (tenant_id) REFERENCES tenants_school(id)
-                    ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
-                    """,
-                    reverse_sql=migrations.RunSQL.noop,
+                migrations.RunPython(
+                    add_tenant_column,
+                    reverse_code=migrations.RunPython.noop,
                 ),
             ],
         ),

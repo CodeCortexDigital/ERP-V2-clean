@@ -39,7 +39,7 @@ class PDFGenerator:
         # Receipt Info
         receipt_info = [
             ["Receipt Date:", datetime.now().strftime('%d-%b-%Y')],
-            ["Receipt No:", f"INV-{invoice.invoice_number if hasattr(invoice, 'invoice_number') else invoice.id[:8]}"]
+            ["Receipt No:", f"{invoice.invoice_number if getattr(invoice, 'invoice_number', None) else 'INV-N/A'}"]
         ]
         
         info_table = Table(receipt_info, colWidths=[100, 380])
@@ -52,9 +52,9 @@ class PDFGenerator:
         
         # Student Details
         student_data = [
-            ["Student Name:", student.full_name],
-            ["Student ID:", student.student_id],
-            ["Class:", student.current_class.name if student.current_class else "N/A"],
+            ["Student Name:", student.full_name if student else "N/A"],
+            ["Student ID:", student.student_id if student else "N/A"],
+            ["Class:", student.current_class.name if (student and student.current_class) else "N/A"],
         ]
         
         student_table = Table(student_data, colWidths=[100, 380])
@@ -68,22 +68,63 @@ class PDFGenerator:
         elements.append(Spacer(1, 20))
         
         # Fee Details
-        fee_data = [["Description", "Amount (₹)", "Status"]]
-        fee_data.append(["Tuition Fee", "5,000", "Paid"])
-        fee_data.append(["Admission Fee", "2,000", "Paid"])
-        fee_data.append(["Exam Fee", "500", "Paid"])
-        fee_data.append(["Total", "7,500", ""])
+        fee_data = [["Description", "Amount (PKR)", "Status"]]
         
-        fee_table = Table(fee_data, colWidths=[200, 150, 130])
-        fee_table.setStyle(TableStyle([
+        # Base Items
+        if invoice and getattr(invoice, 'opening_balance', 0) > 0:
+            fee_data.append(["Opening Balance (B/F)", f"{invoice.opening_balance:,.2f}", "Pending"])
+            
+        fee_name = invoice.fee_structure.fee_name if (invoice and invoice.fee_structure and invoice.fee_structure.fee_name) else "Monthly Tuition Fee"
+        fee_amount = invoice.amount if invoice else 0
+        fee_data.append([fee_name, f"{fee_amount:,.2f}", "Pending"])
+        
+        if invoice and getattr(invoice, 'late_fee_amount', 0) > 0:
+            fee_data.append(["Late Fee", f"{invoice.late_fee_amount:,.2f}", "Applied"])
+            
+        if invoice and getattr(invoice, 'discount_amount', 0) > 0:
+            fee_data.append(["Discount", f"-{invoice.discount_amount:,.2f}", "Applied"])
+            
+        # Subtotal/Total row
+        total_idx = len(fee_data)
+        total_amount = invoice.total_amount if invoice else 0
+        fee_data.append(["Total Payable", f"{total_amount:,.2f}", ""])
+        
+        # Paid row
+        paid_idx = len(fee_data)
+        paid_amount = invoice.paid_amount if invoice else 0
+        fee_data.append(["Amount Paid", f"{paid_amount:,.2f}", ""])
+        
+        # Balance row
+        balance_idx = len(fee_data)
+        balance_due = invoice.balance_due if invoice else 0
+        status_label = invoice.status.capitalize() if invoice else "N/A"
+        fee_data.append(["Balance Due", f"{balance_due:,.2f}", status_label])
+        
+        fee_table = Table(fee_data, colWidths=[220, 130, 130])
+        table_styles = [
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2563eb')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('ALIGN', (1,0), (1,-1), 'RIGHT'),
             ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
             ('FONTSIZE', (0,0), (-1,-1), 10),
-            ('GRID', (0,0), (-1,-2), 0.5, colors.grey),
-            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f4f8')),
-        ]))
+            ('GRID', (0,0), (-1, total_idx - 1), 0.5, colors.grey),
+            
+            # Total row styling
+            ('FONTNAME', (0, total_idx), (-1, total_idx), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, total_idx), (-1, total_idx), colors.HexColor('#f0f4f8')),
+            ('LINEABOVE', (0, total_idx), (-1, total_idx), 1, colors.black),
+            
+            # Paid row styling
+            ('FONTNAME', (0, paid_idx), (-1, paid_idx), 'Helvetica'),
+            ('TEXTCOLOR', (0, paid_idx), (-1, paid_idx), colors.HexColor('#16a34a')), # green
+            
+            # Balance row styling
+            ('FONTNAME', (0, balance_idx), (-1, balance_idx), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, balance_idx), (-1, balance_idx), colors.HexColor('#fef2f2') if balance_due > 0 else colors.HexColor('#f0fdf4')),
+            ('LINEABOVE', (0, balance_idx), (-1, balance_idx), 1, colors.black),
+        ]
+        fee_table.setStyle(TableStyle(table_styles))
+        
         elements.append(fee_table)
         elements.append(Spacer(1, 30))
         
@@ -94,6 +135,7 @@ class PDFGenerator:
         doc.build(elements)
         buffer.seek(0)
         return buffer
+
 
     def generate_result_card(self, student, exam_results, exam):
         """Generate result card PDF"""

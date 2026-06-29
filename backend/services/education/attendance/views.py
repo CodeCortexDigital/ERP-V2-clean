@@ -45,30 +45,52 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
     ordering = ['-date']
 
     def get_queryset(self):
+        import uuid
         queryset = Attendance.objects.select_related('student').all()
         date_param = self.request.query_params.get('date')
         date_from_param = self.request.query_params.get('date_from')
         date_to_param = self.request.query_params.get('date_to')
+        student_id = self.request.query_params.get('student_id')
 
-        if date_from_param or date_to_param:
-            date_from = parse_date_param(date_from_param)
-            date_to = parse_date_param(date_to_param)
-            if date_from:
-                queryset = queryset.filter(date__gte=date_from)
-            if date_to:
-                queryset = queryset.filter(date__lte=date_to)
-        else:
+        if student_id:
+            is_uuid = False
+            try:
+                uuid.UUID(str(student_id))
+                is_uuid = True
+            except (ValueError, TypeError):
+                is_uuid = False
+
+            if is_uuid:
+                queryset = queryset.filter(Q(student_id=student_id) | Q(student__student_id=student_id))
+            else:
+                queryset = queryset.filter(student__student_id=student_id)
+
             if date_param:
                 query_date = parse_date(date_param) or timezone.localtime().date()
+                queryset = queryset.filter(date=query_date)
+            elif date_from_param or date_to_param:
+                date_from = parse_date_param(date_from_param)
+                date_to = parse_date_param(date_to_param)
+                if date_from:
+                    queryset = queryset.filter(date__gte=date_from)
+                if date_to:
+                    queryset = queryset.filter(date__lte=date_to)
+        else:
+            if date_from_param or date_to_param:
+                date_from = parse_date_param(date_from_param)
+                date_to = parse_date_param(date_to_param)
+                if date_from:
+                    queryset = queryset.filter(date__gte=date_from)
+                if date_to:
+                    queryset = queryset.filter(date__lte=date_to)
             else:
-                query_date = timezone.localtime().date()
+                if date_param:
+                    query_date = parse_date(date_param) or timezone.localtime().date()
+                else:
+                    query_date = timezone.localtime().date()
 
-            self._ensure_attendance_for_date(query_date)
-            queryset = queryset.filter(date=query_date)
-
-        student_id = self.request.query_params.get('student_id')
-        if student_id:
-            queryset = queryset.filter(student_id=student_id)
+                self._ensure_attendance_for_date(query_date)
+                queryset = queryset.filter(date=query_date)
 
         status_param = self.request.query_params.get('status')
         if status_param:

@@ -14,7 +14,7 @@ Section = apps.get_model('education_academics', 'Section')
 Student = apps.get_model('education_students', 'Student')
 
 print("=" * 60)
-print("📚 GENERATING SCHOOL DATA")
+print("GENERATING SCHOOL DATA")
 print("=" * 60)
 
 # Pakistani names
@@ -28,21 +28,21 @@ def gen_phone():
 # Get academic year
 academic_year = AcademicYear.objects.first()
 if not academic_year:
-    academic_year = AcademicYear.objects.create(name='2024-2025', start_date=date(2024,9,1), end_date=date(2025,6,30), is_current=True)
-print("✅ Academic year ready")
+    academic_year = AcademicYear.objects.create(name='2024-2025', start_date=date(2024,9,1), end_date=date(2025,6,30), is_active=True)
+print("Academic year ready")
 
 # Get all existing classes
 classes = list(SchoolClass.objects.all())
-print(f"✅ Found {len(classes)} classes")
+print(f"Found {len(classes)} classes")
 
 if not classes:
-    print("❌ No classes found! Please create classes first.")
+    print("No classes found! Please create classes first.")
     exit()
 
 # Clear existing students
 old_count = Student.objects.count()
 Student.objects.all().delete()
-print(f"🧹 Cleared {old_count} existing students")
+print(f"Cleared {old_count} existing students")
 
 # Generate students
 student_counter = 1
@@ -50,7 +50,7 @@ total_generated = 0
 
 for school_class in classes:
     sections = Section.objects.filter(class_ref=school_class)
-    print(f"\n📚 {school_class.name} - Sections: {sections.count()}")
+    print(f"\n{school_class.name} - Sections: {sections.count()}")
     
     for section in sections:
         num_students = random.randint(25, 35)
@@ -71,10 +71,9 @@ for school_class in classes:
                 father_name=f"{random.choice(last_names)} {random.choice(boys_names)}",
                 mother_name=f"{random.choice(last_names)} {random.choice(girls_names)}",
                 guardian_phone=gen_phone(),
-                enrollment_date=date(2024, random.randint(8, 11), random.randint(1, 28)),
+                admission_date=date(2024, random.randint(8, 11), random.randint(1, 28)),
                 current_class=school_class,
                 current_section=section,
-                current_academic_year=academic_year,
                 is_active=True
             )
             student_counter += 1
@@ -83,5 +82,5 @@ for school_class in classes:
         print(f"   Section {section.name}: {num_students} students")
 
 print(f"\n" + "=" * 60)
-print(f"✅ TOTAL STUDENTS GENERATED: {Student.objects.count()}")
+print(f"TOTAL STUDENTS GENERATED: {Student.objects.count()}")
 print("=" * 60)

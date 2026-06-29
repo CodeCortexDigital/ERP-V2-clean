@@ -64,6 +64,32 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
         qs = scope_queryset(Student.objects.all(), self.request)
         return filter_students_for_user(self.request.user, qs)
 
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        lookup_val = self.kwargs[lookup_url_kwarg]
+        
+        import uuid
+        from django.db.models import Q
+        is_uuid = False
+        try:
+            uuid.UUID(str(lookup_val))
+            is_uuid = True
+        except (ValueError, TypeError):
+            is_uuid = False
+
+        if is_uuid:
+            obj = queryset.filter(Q(id=lookup_val) | Q(student_id=lookup_val)).first()
+        else:
+            obj = queryset.filter(student_id=lookup_val).first()
+
+        if not obj:
+            from django.http import Http404
+            raise Http404("Student not found")
+
+        self.check_object_permissions(self.request, obj)
+        return obj
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -79,13 +105,25 @@ def get_student_by_id(request, student_id):
         return Response({'error': 'Student not found'}, status=404)
 
 
+def _find_student(identifier):
+    import uuid
+    from django.db.models import Q
+    try:
+        uuid.UUID(str(identifier))
+        return Student.objects.filter(Q(id=identifier) | Q(student_id=identifier)).first()
+    except (ValueError, TypeError):
+        return Student.objects.filter(student_id=identifier).first()
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @never_cache
 def student_360(request, student_id):
     """Get complete student 360 data including attendance and finance"""
     try:
-        student = Student.objects.get(id=student_id)
+        student = _find_student(student_id)
+        if not student:
+            return Response({'error': 'Student not found'}, status=404)
         if not ensure_student_access(request.user, student):
             return Response({'error': 'Permission denied'}, status=403)
         
@@ -107,7 +145,7 @@ def student_360(request, student_id):
         today = timezone.localtime().date()
         
         if not student_invoices.exists():
-            fee_status = 'pending'
+            fee_status = 'paid'
             balance_due = 0
         else:
             balance_due = sum(inv.balance_due for inv in student_invoices)
@@ -156,16 +194,14 @@ def student_360(request, student_id):
 def update_student_activity(request, id):
     """Manually update student's last_activity (called from frontend)"""
     from django.utils import timezone
-    from .models import Student
-    try:
-        student = Student.objects.get(id=id)
-        if not ensure_student_access(request.user, student):
-            return Response({'error': 'Permission denied'}, status=403)
-        student.last_activity = timezone.now()
-        student.save(update_fields=['last_activity'])
-        return Response({'success': True, 'last_activity': student.last_activity})
-    except Student.DoesNotExist:
+    student = _find_student(id)
+    if not student:
         return Response({'error': 'Student not found'}, status=404)
+    if not ensure_student_access(request.user, student):
+        return Response({'error': 'Permission denied'}, status=403)
+    student.last_activity = timezone.now()
+    student.save(update_fields=['last_activity'])
+    return Response({'success': True, 'last_activity': student.last_activity})
 
 
 @api_view(['POST'])
@@ -173,14 +209,12 @@ def update_student_activity(request, id):
 def force_update_activity(request, student_id):
     """Force update last_activity for a student"""
     from django.utils import timezone
-    from .models import Student
-    try:
-        student = Student.objects.get(id=student_id)
-        if not ensure_student_access(request.user, student):
-            return Response({'error': 'Permission denied'}, status=403)
-        student.last_activity = timezone.now()
-        student.save(update_fields=['last_activity'])
-        return Response({'success': True, 'last_activity': student.last_activity})
-    except Student.DoesNotExist:
+    student = _find_student(student_id)
+    if not student:
         return Response({'error': 'Student not found'}, status=404)
+    if not ensure_student_access(request.user, student):
+        return Response({'error': 'Permission denied'}, status=403)
+    student.last_activity = timezone.now()
+    student.save(update_fields=['last_activity'])
+    return Response({'success': True, 'last_activity': student.last_activity})
 

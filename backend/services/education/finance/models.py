@@ -77,11 +77,18 @@ class Invoice(SoftDeleteModel):
             # Format: INV-YYYY-MM-XXXX (sequential per month)
             today = timezone.localtime().date()
             prefix = f"INV-{today.year}-{today.month:02d}-"
-            # Count existing invoices this month to build sequential number
-            existing_count = Invoice.objects.filter(
+            # Count existing invoices this month (including soft-deleted) to build sequential number
+            existing_count = Invoice.all_objects.filter(
                 invoice_number__startswith=prefix
             ).count()
-            self.invoice_number = f"{prefix}{(existing_count + 1):04d}"
+            
+            sequence = existing_count + 1
+            while True:
+                candidate = f"{prefix}{sequence:04d}"
+                if not Invoice.all_objects.filter(invoice_number=candidate).exists():
+                    self.invoice_number = candidate
+                    break
+                sequence += 1
         
         # Set invoice_month if not set
         if self.invoice_month is None and self.issue_date:

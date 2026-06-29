@@ -140,3 +140,63 @@ class ExamResult(SchoolAliasMixin, models.Model):
     class Meta:
         unique_together = ['exam', 'student']
         ordering = ['-exam__exam_date']
+
+
+class Quiz(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
+    subject = models.ForeignKey('education_academics.Subject', on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    topic = models.CharField(max_length=200)
+    difficulty = models.CharField(max_length=20, choices=[('easy', 'Easy'), ('medium', 'Medium'), ('hard', 'Hard')])
+    is_published = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.topic} ({self.difficulty})"
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class QuizQuestion(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')
+    question_type = models.CharField(max_length=20, choices=[('mcq', 'Multiple Choice'), ('true_false', 'True/False'), ('short_answer', 'Short Answer')])
+    question_text = models.TextField()
+    options = models.JSONField(null=True, blank=True)  # List of choices for MCQ
+    correct_answer = models.TextField()
+    explanation = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Question for {self.quiz.title} ({self.question_type})"
+
+
+class ExamSchedule(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='schedules')
+    date = models.DateField()
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    venue = models.CharField(max_length=100, default='Main Hall')
+    room = models.CharField(max_length=50, default='Hall A')
+    status = models.CharField(max_length=20, choices=[('scheduled', 'Scheduled'), ('ongoing', 'Ongoing'), ('completed', 'Completed')], default='scheduled')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Schedule for {self.exam.title} on {self.date}"
+
+
+class ExamRegistration(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='registrations')
+    student = models.ForeignKey('education_students.Student', on_delete=models.CASCADE, related_name='exam_registrations')
+    fee_status = models.CharField(max_length=20, choices=[('paid', 'Paid'), ('pending', 'Pending')], default='paid')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['exam', 'student']
+
+    def __str__(self):
+        return f"{self.student.full_name} registered for {self.exam.title}"
+

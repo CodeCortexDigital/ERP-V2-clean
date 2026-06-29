@@ -1,4 +1,3 @@
-
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
@@ -17,14 +16,12 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('me/', views.get_current_user, name='get_current_user'),
     path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
-    path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
-    path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # Students
     path('students/', views.student_list, name='student-list'),
     path('students/count/', views.student_count, name='student-count'),
-    path('students/<uuid:pk>/', views.StudentDetailView.as_view(), name='student-detail'),
+    path('students/<str:pk>/', views.StudentDetailView.as_view(), name='student-detail'),
     
     # Classes
     path('classes/', views.ClassListCreateView.as_view(), name='class-list'),
@@ -59,7 +56,3 @@ urlpatterns = [
     path('pdf/result-card/<uuid:student_id>/', views.download_result_card, name='result-card'),
     path('pdf/fee-receipt/<str:invoice_id>/', views.download_fee_receipt, name='fee-receipt'),
 ]
-
-
-
-

@@ -16,10 +16,21 @@ class UserSerializer(serializers.ModelSerializer):
 # STUDENT SERIALIZER
 # ============================================================
 class StudentSerializer(serializers.ModelSerializer):
+    attendance_rate = serializers.SerializerMethodField()
+
     class Meta:
         model = apps.get_model('education_students', 'Student')
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'deleted_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'deleted_at', 'attendance_rate']
+
+    def get_attendance_rate(self, obj):
+        from services.education.attendance.models import AttendanceRecord
+        records = AttendanceRecord.objects.filter(student=obj).exclude(status='holiday')
+        total = records.count()
+        if total == 0:
+            return 0
+        present = records.filter(status__in=['present', 'late']).count()
+        return round((present / total) * 100)
         extra_kwargs = {
             'phone': {'required': False, 'allow_blank': True},
             'father_name': {'required': False, 'allow_blank': True},

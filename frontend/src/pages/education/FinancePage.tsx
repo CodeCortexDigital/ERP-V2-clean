@@ -97,6 +97,9 @@ export default function FinancePage() {
   // Invoice ledger modal
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
+  // Selected invoice IDs for bulk actions
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+
   // Advanced Forms
   const [installmentPlanForm, setInstallmentPlanForm] = useState({
     name: '',
@@ -138,6 +141,7 @@ export default function FinancePage() {
 
   const fetchAllData = async () => {
     setLoading(true);
+    setSelectedInvoiceIds([]);
     try {
       const results = await Promise.allSettled([
         financeService.getInvoices(invoiceFilters),
@@ -305,11 +309,17 @@ export default function FinancePage() {
       return;
     }
     try {
+      const payload = {
+        student: invoiceFormData.student_id,
+        amount: invoiceFormData.amount,
+        due_date: invoiceFormData.due_date,
+        description: invoiceFormData.description
+      };
       if (editingItem) {
-        await financeService.updateInvoice(editingItem.id, invoiceFormData);
+        await financeService.updateInvoice(editingItem.id, payload);
         toast.success('Invoice updated');
       } else {
-        await financeService.createInvoice(invoiceFormData);
+        await financeService.createInvoice(payload);
         toast.success('Invoice created');
       }
       setShowForm(false);
@@ -341,6 +351,39 @@ export default function FinancePage() {
       fetchAllData();
     } catch (error) {
       toast.error('Failed to delete');
+    }
+  };
+
+  const handleSelectInvoice = (id: string) => {
+    setSelectedInvoiceIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllInvoices = () => {
+    if (selectedInvoiceIds.length === invoices.length) {
+      setSelectedInvoiceIds([]);
+    } else {
+      setSelectedInvoiceIds(invoices.map((inv) => inv.id));
+    }
+  };
+
+  const handleBulkDeleteInvoices = async () => {
+    if (selectedInvoiceIds.length === 0) return;
+    if (
+      !confirm(
+        `Are you sure you want to delete the ${selectedInvoiceIds.length} selected invoices? This will also delete any related payments.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await financeService.bulkDeleteInvoices(selectedInvoiceIds);
+      toast.success(`Successfully deleted ${selectedInvoiceIds.length} invoices`);
+      setSelectedInvoiceIds([]);
+      fetchAllData();
+    } catch (error) {
+      toast.error('Failed to perform bulk delete');
     }
   };
 
@@ -1183,10 +1226,35 @@ const handleBulkSendReminders = async () => {
               <Button onClick={clearInvoiceFilters} size="sm" variant="outline">Reset</Button>
             </div>
           </div>
+          {selectedInvoiceIds.length > 0 && (
+            <div className="flex justify-between items-center bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 transition-all animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedInvoiceIds.length} invoice(s) selected
+                </span>
+                <Button size="sm" variant="ghost" className="text-blue-600 hover:text-blue-800" onClick={() => setSelectedInvoiceIds([])}>
+                  Clear selection
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="destructive" onClick={handleBulkDeleteInvoices}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Bulk Delete
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto border rounded-xl bg-white">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="p-3 text-left w-10">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={invoices.length > 0 && selectedInvoiceIds.length === invoices.length}
+                      onChange={handleSelectAllInvoices}
+                    />
+                  </th>
                   <th className="p-3 text-left">Invoice #</th>
                   <th className="p-3 text-left">Month</th>
                   <th className="p-3 text-left">Student</th>
@@ -1204,10 +1272,18 @@ const handleBulkSendReminders = async () => {
               </thead>
               <tbody>
                 {invoices.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-8 text-gray-500">No invoices generated</td></tr>
+                  <tr><td colSpan={14} className="text-center py-8 text-gray-500">No invoices generated</td></tr>
                 ) : (
                   invoices.map((inv) => (
-                    <tr key={inv.id} className="border-t hover:bg-gray-50">
+                    <tr key={inv.id} className={`border-t hover:bg-gray-50 ${selectedInvoiceIds.includes(inv.id) ? 'bg-blue-50/40' : ''}`}>
+                      <td className="p-3 text-left w-10">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={selectedInvoiceIds.includes(inv.id)}
+                          onChange={() => handleSelectInvoice(inv.id)}
+                        />
+                      </td>
                       <td className="p-3 font-mono text-xs">{inv.invoice_number}</td>
                       <td className="p-3 text-xs text-gray-500">
                         {inv.ledger?.invoice_month_label || (inv.invoice_month ? new Date(inv.invoice_month).toLocaleDateString('en-US', {month:'short', year:'numeric'}) : '—')}

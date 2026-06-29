@@ -1,0 +1,11 @@
+# Core dependencies for AI/ML Integration Phase 0+
+scikit-learn>=1.4.0
+xgboost>=2.0.0
+opencv-python>=4.9.0
+deepface>=0.0.92
+ollama>=0.1.7
+redis>=5.0.0
+pandas>=2.2.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+python-dotenv>=1.0.0

@@ -76,7 +76,30 @@ def _get_parent_student_ids(user):
 def _get_teacher_class_ids(user):
     if not hasattr(user, 'teacher_profile'):
         return []
-    return list(user.teacher_profile.assigned_classes.values_list('id', flat=True))
+
+    class_ids = set(user.teacher_profile.assigned_classes.values_list('id', flat=True))
+
+    try:
+        SchoolClass = apps.get_model('education_academics', 'SchoolClass')
+        if user.full_name:
+            sc_ids = SchoolClass.objects.filter(teacher_name__iexact=user.full_name).values_list('id', flat=True)
+            class_ids.update(sc_ids)
+
+        TeacherSubjectAssignment = apps.get_model('education_academics', 'TeacherSubjectAssignment')
+        tsa_class_ids = TeacherSubjectAssignment.objects.filter(
+            teacher__email=user.email
+        ).values_list('class_subject__class_ref_id', flat=True).distinct()
+        class_ids.update(tsa_class_ids)
+
+        TimetableEntry = apps.get_model('education_academics', 'TimetableEntry')
+        timetable_class_ids = TimetableEntry.objects.filter(
+            teacher__email=user.email
+        ).values_list('class_subject__class_ref_id', flat=True).distinct()
+        class_ids.update(timetable_class_ids)
+    except Exception:
+        pass
+
+    return list(class_ids)
 
 
 def _student_queryset_for_role(user, queryset: QuerySet):

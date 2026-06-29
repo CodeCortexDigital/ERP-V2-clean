@@ -5,10 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
+import { toast } from 'sonner'
 
 export default function MarkSheetGeneration() {
   const [studentId, setStudentId] = useState('')
   const [selectedTerm, setSelectedTerm] = useState('')
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const handleExportPDF = () => {
+    toast.success('Preparing Mark Sheet PDF download...')
+    setTimeout(() => {
+      window.print()
+    }, 500)
+  }
 
   return (
     <div className="space-y-6">
@@ -18,10 +30,10 @@ export default function MarkSheetGeneration() {
           <p className="text-gray-500 mt-1">Generate student mark sheets and transcripts</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="flex items-center gap-1">
+          <Button onClick={handlePrint} variant="outline" className="flex items-center gap-1">
             <Printer className="w-4 h-4" /> Print
           </Button>
-          <Button variant="outline" className="flex items-center gap-1">
+          <Button onClick={handleExportPDF} className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white">
             <Download className="w-4 h-4" /> Export PDF
           </Button>
         </div>

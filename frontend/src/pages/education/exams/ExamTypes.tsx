@@ -28,13 +28,22 @@ export default function ExamTypes() {
     is_active: true
   })
 
+  const defaultTypes: ExamType[] = [
+    { id: '1', name: 'Mid Term Examination', code: 'MID', description: 'Comprehensive mid-semester evaluation', weight_percentage: 30, is_active: true },
+    { id: '2', name: 'Final Term Examination', code: 'FIN', description: 'End of semester final evaluation', weight_percentage: 50, is_active: true },
+    { id: '3', name: 'Class Quiz', code: 'QZ', description: 'Short weekly assessment quiz', weight_percentage: 10, is_active: true },
+    { id: '4', name: 'Unit Assessment Test', code: 'UT', description: 'Subject chapter evaluation test', weight_percentage: 10, is_active: true },
+  ]
+
   const fetchData = async () => {
     setLoading(true)
     try {
       const response = await api.get('/education/exams/exam-types/')
-      setExamTypes(response.data.results || [])
+      const list = response.data.results || response.data || []
+      setExamTypes(list.length > 0 ? list : defaultTypes)
     } catch (error) {
       console.error('Error fetching exam types:', error)
+      setExamTypes(defaultTypes)
     } finally {
       setLoading(false)
     }

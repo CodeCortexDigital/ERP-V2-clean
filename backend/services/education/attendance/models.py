@@ -59,6 +59,20 @@ class AttendanceRecord(SchoolAliasMixin, SoftDeleteModel):
         return f"{self.student.full_name} - {self.date} - {self.status}"
 
 
+class StudentFaceEncoding(models.Model):
+    student = models.OneToOneField(
+        'education_students.Student',
+        on_delete=models.CASCADE,
+        related_name='face_encoding',
+    )
+    encoding = models.JSONField()  # List of 128 or 512 floats representing face embedding
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Face Encoding for {self.student.full_name}"
+
+
 # Import analytics models
 from .analytics_models import AttendanceAnalytics, AttendancePattern, AttendanceAlert
 
@@ -67,4 +81,6 @@ __all__ = [
     'AttendanceAnalytics',
     'AttendancePattern',
     'AttendanceAlert',
+    'StudentFaceEncoding',
 ]
+

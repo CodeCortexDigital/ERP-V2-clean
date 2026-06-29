@@ -33,7 +33,7 @@ function SidebarItem({ icon, label, href, collapsed, subItems }: SidebarItemProp
           transition-all duration-200
           ${collapsed ? 'justify-center' : 'justify-start'}
           ${isActive 
-            ? 'bg-blue-600 text-white shadow-md' 
+            ? 'bg-primary text-white shadow-md' 
             : 'text-gray-300 hover:bg-gray-800 hover:text-white'
           }
         `}
@@ -56,7 +56,7 @@ function SidebarItem({ icon, label, href, collapsed, subItems }: SidebarItemProp
                 to={sub.href}
                 className={
                   `px-3 py-2 rounded-xl text-sm transition-all duration-200 ${
-                    subIsActive ? 'bg-blue-500 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    subIsActive ? 'bg-primary/85 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`
                 }
               >
@@ -112,14 +112,14 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   ];
   
   // Student Navigation
-    // Student Navigation
   const studentNavItems: NavItem[] = [
-    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/parent' },
-    { icon: <Users className="w-5 h-5" />, label: 'Profile', href: '/parent' },
-    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/parent/attendance' },
-    { icon: <FileText className="w-5 h-5" />, label: 'Results', href: '/parent/results' },
-    { icon: <DollarSign className="w-5 h-5" />, label: 'Fees', href: '/parent/fees' },
-    { icon: <Bell className="w-5 h-5" />, label: 'Notifications', href: '/parent/notifications' }
+    { icon: <LayoutDashboard className="w-5 h-5" />, label: 'Dashboard', href: '/student' },
+    { icon: <User className="w-5 h-5" />, label: 'My Profile', href: '/student/profile' },
+    { icon: <Calendar className="w-5 h-5" />, label: 'Attendance', href: '/student/attendance' },
+    { icon: <FileText className="w-5 h-5" />, label: 'Results', href: '/student/results' },
+    { icon: <DollarSign className="w-5 h-5" />, label: 'Fees', href: '/student/fees' },
+    { icon: <BookOpen className="w-5 h-5" />, label: 'Timetable', href: '/student/timetable' },
+    { icon: <Bell className="w-5 h-5" />, label: 'Notifications', href: '/student/notifications' }
   ];
   
   // Admin Navigation
@@ -148,14 +148,14 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
       <div className={`flex items-center h-16 px-4 border-b border-gray-800 ${sidebarCollapsed && !isMobile ? 'justify-center' : 'justify-between'}`}>
         {(!sidebarCollapsed || isMobile) && (
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">CC</span>
             </div>
             <span className="text-white font-semibold text-lg">Code Cortex</span>
           </div>
         )}
         {sidebarCollapsed && !isMobile && (
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mx-auto">
             <span className="text-white font-bold text-xs">EDU</span>
           </div>
         )}
@@ -189,9 +189,9 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
 
       {/* Navigation Menu */}
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {navItems.map((item) => (
+        {navItems.map((item, index) => (
           <SidebarItem
-            key={item.href}
+            key={`${item.href}-${item.label}-${index}`}
             icon={item.icon}
             label={item.label}
             href={item.href}

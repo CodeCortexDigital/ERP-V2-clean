@@ -20,6 +20,7 @@ const financeService = {
   createInvoice: (data: any) => api.post('/auth/finance/invoices/', data),
   updateInvoice: (id: string, data: any) => api.patch(`/auth/finance/invoices/${id}/`, data),
   deleteInvoice: (id: string) => api.delete(`/auth/finance/invoices/${id}/`),
+  bulkDeleteInvoices: (ids: string[]) => api.post('/auth/finance/invoices/bulk-delete/', { invoice_ids: ids }),
 
   // Invoice Receipts
   getInvoiceReceipt: (invoiceId: string) => api.get(`/auth/finance/invoices/${invoiceId}/receipt/`),

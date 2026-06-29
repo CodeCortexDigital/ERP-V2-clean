@@ -22,6 +22,7 @@ class StudentSerializerV1(serializers.ModelSerializer):
         read_only=True,
         help_text='DEPRECATED: use current_section_name in API v2.',
     )
+    attendance_rate = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -47,6 +48,7 @@ class StudentSerializerV1(serializers.ModelSerializer):
             'current_section',
             'class_name',
             'section_name',
+            'attendance_rate',
             'is_active',
             'last_activity',
             'profile_picture',
@@ -54,7 +56,16 @@ class StudentSerializerV1(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ('id', 'created_at', 'updated_at', 'class_name', 'section_name')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'class_name', 'section_name', 'attendance_rate')
+
+    def get_attendance_rate(self, obj):
+        from services.education.attendance.models import AttendanceRecord
+        records = AttendanceRecord.objects.filter(student=obj).exclude(status='holiday')
+        total = records.count()
+        if total == 0:
+            return 0
+        present = records.filter(status__in=['present', 'late']).count()
+        return round((present / total) * 100)
         extra_kwargs = {
             'date_of_birth': {'required': False, 'allow_null': True},
             'admission_date': {'required': False, 'allow_null': True},

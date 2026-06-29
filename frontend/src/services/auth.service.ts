@@ -10,6 +10,19 @@ export interface LoginResponse {
     is_demo?: boolean;
     demo_remaining_days?: number;
     role?: string;
+    portal_path?: string;
+    student?: {
+      id: string;
+      student_id: string;
+      full_name: string;
+      email: string;
+      profile_picture?: string | null;
+      current_class?: string | null;
+      current_class_name?: string | null;
+      current_section?: string | null;
+      current_section_name?: string | null;
+      is_active?: boolean;
+    } | null;
   };
   is_demo?: boolean;
   demo_warning?: boolean;

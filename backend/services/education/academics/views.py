@@ -1,9 +1,10 @@
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import generics
+from services.education.students.permissions import IsStaffOrReadOnly
 from services.core.utils.cache import get_timeout
 from .models import (
     AcademicYear, SchoolClass, Section, Subject, ClassSubject,
@@ -129,8 +130,14 @@ class AssessmentWeightageDetailView(generics.RetrieveUpdateDestroyAPIView):
 # LEVEL 3: SYLLABUS & RESOURCES
 class SyllabusListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Syllabus.objects.all()
     serializer_class = SyllabusSerializer
+
+    def get_queryset(self):
+        queryset = Syllabus.objects.all()
+        class_subject_id = self.request.query_params.get('class_subject_id')
+        if class_subject_id:
+            queryset = queryset.filter(class_subject_id=class_subject_id)
+        return queryset
 
 
 class SyllabusDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -142,8 +149,14 @@ class SyllabusDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class SyllabusUnitListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = SyllabusUnit.objects.all()
     serializer_class = SyllabusUnitSerializer
+
+    def get_queryset(self):
+        queryset = SyllabusUnit.objects.all()
+        syllabus_id = self.request.query_params.get('syllabus_id')
+        if syllabus_id:
+            queryset = queryset.filter(syllabus_id=syllabus_id)
+        return queryset
 
 
 class SyllabusUnitDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -155,8 +168,14 @@ class SyllabusUnitDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class SyllabusTopicListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = SyllabusTopic.objects.all()
     serializer_class = SyllabusTopicSerializer
+
+    def get_queryset(self):
+        queryset = SyllabusTopic.objects.all()
+        unit_id = self.request.query_params.get('unit_id')
+        if unit_id:
+            queryset = queryset.filter(unit_id=unit_id)
+        return queryset
 
 
 class SyllabusTopicDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -227,8 +246,14 @@ class TeacherSubjectAssignmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class TeacherAvailabilityListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = TeacherAvailability.objects.all()
     serializer_class = TeacherAvailabilitySerializer
+
+    def get_queryset(self):
+        queryset = TeacherAvailability.objects.all()
+        teacher_id = self.request.query_params.get('teacher_id')
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        return queryset
 
 
 class TeacherAvailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -240,34 +265,35 @@ class TeacherAvailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # LEVEL 5: SCHEDULING & TIMETABLE
 class PeriodListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = Period.objects.all()
     serializer_class = PeriodSerializer
 
 
 class PeriodDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = Period.objects.all()
     serializer_class = PeriodSerializer
     lookup_field = 'id'
 
 
 class ClassroomListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = Classroom.objects.all()
     serializer_class = ClassroomSerializer
 
 
 class ClassroomDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = Classroom.objects.all()
     serializer_class = ClassroomSerializer
     lookup_field = 'id'
 
 
 class TimetableEntryListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     serializer_class = TimetableEntrySerializer
+    pagination_class = None
 
     def get_queryset(self):
         queryset = TimetableEntry.objects.all()
@@ -286,17 +312,36 @@ class TimetableEntryListCreateView(generics.ListCreateAPIView):
 
 
 class TimetableEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = TimetableEntry.objects.all()
     serializer_class = TimetableEntrySerializer
     lookup_field = 'id'
 
 
+class AllTimetableEntriesView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = TimetableEntrySerializer
+    pagination_class = None
+    queryset = TimetableEntry.objects.all()
+
+
 # LEVEL 6: PROGRESS TRACKING
 class LessonPlanListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = LessonPlan.objects.all()
     serializer_class = LessonPlanSerializer
+
+    def get_queryset(self):
+        queryset = LessonPlan.objects.all()
+        teacher_id = self.request.query_params.get('teacher_id')
+        class_subject_id = self.request.query_params.get('class_subject_id')
+        date = self.request.query_params.get('date')
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        if class_subject_id:
+            queryset = queryset.filter(class_subject_id=class_subject_id)
+        if date:
+            queryset = queryset.filter(date=date)
+        return queryset
 
 
 class LessonPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -308,8 +353,17 @@ class LessonPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class TopicCoverageListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = TopicCoverage.objects.all()
     serializer_class = TopicCoverageSerializer
+
+    def get_queryset(self):
+        queryset = TopicCoverage.objects.all()
+        class_subject_id = self.request.query_params.get('class_subject_id')
+        teacher_id = self.request.query_params.get('teacher_id')
+        if class_subject_id:
+            queryset = queryset.filter(class_subject_id=class_subject_id)
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        return queryset
 
 
 class TopicCoverageDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -321,8 +375,17 @@ class TopicCoverageDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class StudentTopicProgressListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = StudentTopicProgress.objects.all()
     serializer_class = StudentTopicProgressSerializer
+
+    def get_queryset(self):
+        queryset = StudentTopicProgress.objects.all()
+        student_id = self.request.query_params.get('student_id')
+        class_subject_id = self.request.query_params.get('class_subject_id')
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+        if class_subject_id:
+            queryset = queryset.filter(class_subject_id=class_subject_id)
+        return queryset
 
 
 class StudentTopicProgressDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -334,8 +397,20 @@ class StudentTopicProgressDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class TeacherFeedbackListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = TeacherFeedback.objects.all()
     serializer_class = TeacherFeedbackSerializer
+
+    def get_queryset(self):
+        queryset = TeacherFeedback.objects.all()
+        student_id = self.request.query_params.get('student_id')
+        teacher_id = self.request.query_params.get('teacher_id')
+        class_subject_id = self.request.query_params.get('class_subject_id')
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        if class_subject_id:
+            queryset = queryset.filter(class_subject_id=class_subject_id)
+        return queryset
 
 
 class TeacherFeedbackDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -427,13 +502,14 @@ def ensure_teacher_attendance_for_past_days(teacher_id, till_date, days_limit=30
 
 
 class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     serializer_class = TeacherAttendanceSerializer
     
     def get_queryset(self):
         teacher_id = self.request.query_params.get('teacher_id')
         year = self.request.query_params.get('year')
         month = self.request.query_params.get('month')
+        date_param = self.request.query_params.get('date')
         
         queryset = TeacherAttendance.objects.all()
         
@@ -443,11 +519,35 @@ class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(teacher_id=teacher_id)
         if year and month:
             queryset = queryset.filter(date__year=year, date__month=month)
+        if date_param:
+            queryset = queryset.filter(date=date_param)
         
         return queryset
 
+    def post(self, request, *args, **kwargs):
+        if isinstance(request.data, list):
+            response_data = []
+            for item in request.data:
+                teacher_id = item.get('teacher')
+                date_str = item.get('date')
+                status = item.get('status')
+                reason = item.get('reason', '')
+                
+                attendance, created = TeacherAttendance.objects.update_or_create(
+                    teacher_id=teacher_id,
+                    date=date_str,
+                    defaults={
+                        'status': status,
+                        'reason': reason
+                    }
+                )
+                serializer = self.get_serializer(attendance)
+                response_data.append(serializer.data)
+            return Response(response_data, status=200)
+        return super().post(request, *args, **kwargs)
+
 class TeacherAttendanceDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = TeacherAttendance.objects.all()
     serializer_class = TeacherAttendanceSerializer
     lookup_field = 'id'

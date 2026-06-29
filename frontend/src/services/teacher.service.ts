@@ -23,7 +23,7 @@ const teacherService = {
 
   // Get all teachers
   getAll: async () => {
-    const response = await api.get('/auth/academics/teachers/');
+    const response = await api.get('/auth/academics/teachers/?page_size=100');
     return { ...response, data: extractListData<Teacher>(response.data) };
   },
 

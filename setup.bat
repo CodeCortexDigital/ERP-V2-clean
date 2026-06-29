@@ -27,13 +27,13 @@ from django.utils import timezone
 import uuid
 
 # Create Academic Year
-year, _ = AcademicYear.objects.get_or_create(name='2026-2027', defaults={'start_date': '2026-04-01', 'end_date': '2027-03-31', 'is_current': True})
+year, _ = AcademicYear.objects.get_or_create(name='2026-2027', defaults={'start_date': '2026-04-01', 'end_date': '2027-03-31', 'is_active': True})
 
 # Create Classes
 for i, name in enumerate(['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'], 1):
-    cls, _ = SchoolClass.objects.get_or_create(code=f'GRD0{i}', defaults={'name': name, 'capacity': 30, 'academic_year': year, 'is_active': True})
+    cls, _ = SchoolClass.objects.get_or_create(code=f'GRD0{i}', defaults={'name': name, 'academic_year': year})
     for sec in ['A', 'B']:
-        Section.objects.get_or_create(class_ref=cls, code=f'GRD0{i}_{sec}', defaults={'name': sec, 'capacity': 15, 'is_active': True})
+        Section.objects.get_or_create(class_ref=cls, name=sec, defaults={'capacity': 15})
 
 print('Sample data loaded!')
 "

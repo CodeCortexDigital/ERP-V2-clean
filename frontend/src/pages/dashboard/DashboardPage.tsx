@@ -1,4 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import StudentDashboard from '@/pages/portals/student/StudentDashboard';
+import studentService from '@/services/student.service';
+import attendanceService from '@/services/attendance.service';
+import examService from '@/services/exam.service';
+import financeService from '@/services/finance.service';
+import analyticsService from '@/services/analytics.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import {
@@ -19,7 +26,9 @@ import {
   Trophy,
   BarChart3,
   Activity,
-  PieChart
+  PieChart,
+  GraduationCap,
+  ChevronRight
 } from 'lucide-react';
 import {
   LineChart,
@@ -52,6 +61,7 @@ interface DashboardData {
     trend_direction: string;
   };
   attendance_trends: {
+    monthly_data?: Array<any>;
     this_week_rate: number;
     last_week_rate: number;
     trend_percentage: number;
@@ -129,7 +139,12 @@ const formatCurrency = (value: number): string => {
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [studentSnapshot, setStudentSnapshot] = useState<any>(null);
+  const [studentAttendance, setStudentAttendance] = useState<any[]>([]);
+  const [studentResults, setStudentResults] = useState<any[]>([]);
+  const [studentInvoices, setStudentInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,20 +152,83 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    const studentId = user?.student?.id;
+    if (!studentId) return;
+    loadStudentSnapshot(studentId);
+  }, [user?.student?.id]);
+
+  const loadStudentSnapshot = async (studentId: string) => {
+    try {
+      const [summaryRes, attendanceRes, resultsRes, invoicesRes] = await Promise.allSettled([
+        studentService.get360View(studentId),
+        attendanceService.getStudentHistory(studentId),
+        examService.getResults(),
+        financeService.getInvoices({ student_id: studentId }),
+      ]);
+
+      if (summaryRes.status === 'fulfilled') {
+        setStudentSnapshot(summaryRes.value.data);
+      }
+      if (attendanceRes.status === 'fulfilled') {
+        const records = Array.isArray(attendanceRes.value.data)
+          ? attendanceRes.value.data
+          : attendanceRes.value.data?.results || attendanceRes.value.data?.attendance_records || [];
+        setStudentAttendance(records);
+      }
+      if (resultsRes.status === 'fulfilled') {
+        const records = Array.isArray(resultsRes.value.data)
+          ? resultsRes.value.data
+          : resultsRes.value.data?.results || [];
+        setStudentResults(records.filter((record: any) => record.student === studentId));
+      }
+      if (invoicesRes.status === 'fulfilled') {
+        const records = Array.isArray(invoicesRes.value.data)
+          ? invoicesRes.value.data
+          : invoicesRes.value.data?.results || [];
+        setStudentInvoices(records);
+      }
+    } catch (snapshotError) {
+      console.error('Error loading student snapshot:', snapshotError);
+    }
+  };
+  const normalizeChartLabels = (items: Array<Record<string, unknown>> = []) =>
+    items.map((item) => ({
+      ...item,
+      month_name: item.month_name || item.month || item.label || '',
+    }));
+
+  const normalizeDashboardPayload = (payload: any) => {
+    if (!payload) return payload;
+
+    return {
+      ...payload,
+      revenue_trends: {
+        ...payload.revenue_trends,
+        monthly_data: normalizeChartLabels(payload.revenue_trends?.monthly_data),
+      },
+      student_growth: {
+        ...payload.student_growth,
+        monthly_growth: normalizeChartLabels(payload.student_growth?.monthly_growth),
+      },
+      attendance_trends: {
+        ...payload.attendance_trends,
+        monthly_data: normalizeChartLabels(payload.attendance_trends?.monthly_data),
+      },
+    };
+  };
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch comprehensive dashboard data
-      const response = await api.get('/auth/analytics/executive-dashboard/');
-      setDashboardData(response.data);
-
+      const response = await analyticsService.getExecutiveDashboard();
+      setDashboardData(normalizeDashboardPayload(response.data));
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       setError('Failed to load dashboard data. Using fallback data.');
 
-      // Fallback data
       setDashboardData({
         revenue_trends: {
           monthly_data: [],
@@ -160,12 +238,13 @@ export default function DashboardPage() {
           trend_direction: 'stable'
         },
         attendance_trends: {
-          this_week_rate: 85,
-          last_week_rate: 82,
-          trend_percentage: 3,
-          trend_direction: 'up',
-          this_week_total: 245,
-          last_week_total: 240
+          monthly_data: [],
+          this_week_rate: 0,
+          last_week_rate: 0,
+          trend_percentage: 0,
+          trend_direction: 'stable',
+          this_week_total: 0,
+          last_week_total: 0
         },
         fee_recovery_trends: {
           class_recovery: [],
@@ -174,9 +253,9 @@ export default function DashboardPage() {
         },
         student_growth: {
           monthly_growth: [],
-          current_total: 49,
-          growth_rate: 5.2,
-          growth_direction: 'up'
+          current_total: 0,
+          growth_rate: 0,
+          growth_direction: 'stable'
         },
         exam_performance_trends: {
           subject_performance: [],
@@ -184,7 +263,7 @@ export default function DashboardPage() {
           top_performing_subject: null,
           lowest_performing_subject: null
         },
-        teacher_metrics: { total_teachers: 12 },
+        teacher_metrics: { total_teachers: 0 },
         smart_insights: [],
         generated_at: new Date().toISOString()
       });
@@ -249,6 +328,12 @@ export default function DashboardPage() {
     );
   }
 
+  const isStudentOrParent = !user?.is_superuser && !user?.is_staff && (user?.role === 'student' || user?.role === 'parent' || Boolean(user?.student));
+  
+  if (isStudentOrParent) {
+    return <StudentDashboard />;
+  }
+
   const data = dashboardData!;
 
   return (
@@ -281,8 +366,59 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {user?.student && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-blue-600" />
+              Student Snapshot
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-xl bg-white p-4 border">
+                <p className="text-sm text-gray-500">Name</p>
+                <p className="font-semibold">{user.student.full_name}</p>
+                <p className="text-xs text-gray-400 font-mono">{user.student.student_id}</p>
+              </div>
+              <div className="rounded-xl bg-white p-4 border">
+                <p className="text-sm text-gray-500">Class / Section</p>
+                <p className="font-semibold">{user.student.current_class_name || 'Not assigned'}</p>
+                <p className="text-xs text-gray-400">{user.student.current_section_name ? 'Section ' + user.student.current_section_name : 'No section'}</p>
+              </div>
+              <div className="rounded-xl bg-white p-4 border">
+                <p className="text-sm text-gray-500">Attendance</p>
+                <p className="font-semibold">{studentSnapshot?.attendance?.attendance_rate ? studentSnapshot.attendance.attendance_rate + '%' : '—'}</p>
+                <p className="text-xs text-gray-400">Present: {studentSnapshot?.attendance?.present ?? 0}</p>
+              </div>
+              <div className="rounded-xl bg-white p-4 border">
+                <p className="text-sm text-gray-500">Fee Balance</p>
+                <p className="font-semibold">₹{Math.round(studentSnapshot?.finance?.balance_due || 0).toLocaleString()}</p>
+                <p className="text-xs text-gray-400">Invoices: {studentInvoices.length}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-lg bg-white p-3 border">
+                <p className="text-xs text-gray-500">Exam Results</p>
+                <p className="text-xl font-bold">{studentResults.length}</p>
+              </div>
+              <div className="rounded-lg bg-white p-3 border">
+                <p className="text-xs text-gray-500">Attendance Records</p>
+                <p className="text-xl font-bold">{studentAttendance.length}</p>
+              </div>
+              <div className="rounded-lg bg-white p-3 border">
+                <p className="text-xs text-gray-500">Quick View</p>
+                <div className="flex gap-2 mt-2">
+                  <a href="/student" className="inline-flex items-center text-sm text-blue-600 hover:underline">Open student portal <ChevronRight className="w-4 h-4" /></a>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Key Metrics Cards */}      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-3xl"></div>
           <CardContent className="p-6">

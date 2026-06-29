@@ -1,0 +1,37 @@
+[
+  {
+    "category": "attendance",
+    "question": "What is the school attendance policy?",
+    "answer": "Students must maintain a minimum of 75% attendance to be eligible for final examinations. If attendance falls below 75%, an automated warning is sent, and academic intervention may be required."
+  },
+  {
+    "category": "attendance",
+    "question": "How can I mark attendance or report an absence?",
+    "answer": "Attendance is taken daily by subject teachers. Parents can report a student's absence through the parent portal by submitting an absence notification with valid excuses (medical certificate or family emergencies)."
+  },
+  {
+    "category": "finance",
+    "question": "How can I check my outstanding fee balance or make a payment?",
+    "answer": "You can check outstanding balances under the Finance page on your dashboard. Payments can be made online via credit/debit card, bank transfer, or at the school administration billing counter."
+  },
+  {
+    "category": "finance",
+    "question": "What is the late fee policy?",
+    "answer": "Invoices are generated on the 1st of every month and are due by the 10th. A late fee rule of 5% is applied automatically on the 10th if the payment has not been received."
+  },
+  {
+    "category": "academics",
+    "question": "Where can I view the class timetable?",
+    "answer": "The class timetable is available under the Academics section on the main dashboard. Teachers can view their subject teaching schedules, and students/parents can view their respective class agendas."
+  },
+  {
+    "category": "exams",
+    "question": "When are the final exams scheduled and how are they graded?",
+    "answer": "Final examinations are scheduled at the end of each academic term (usually June and December). Grading follows a standard scale: A+ (90-100%), A (80-89%), B+ (70-79%), B (60-69%), C+ (50-59%), C (40-49%), D (33-39%), and F (Below 33%)."
+  },
+  {
+    "category": "general",
+    "question": "How do I contact school support or counselors?",
+    "answer": "For support, you can submit a support ticket via the Communication page. For student counseling or behavior queries, you can schedule an appointment with the counseling office under the Academics portal."
+  }
+]
