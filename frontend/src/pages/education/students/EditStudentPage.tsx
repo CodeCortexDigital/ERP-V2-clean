@@ -40,6 +40,7 @@ export default function EditStudentPage() {
     discount_in_fee: '',
     mobile_sms: '',
     profile_picture: '',
+    status: 'Active',
 
     // 2. Other Information
     date_of_birth: '',
@@ -149,6 +150,7 @@ export default function EditStudentPage() {
             mobile_sms:        s.phone            ?? s.mobile_sms       ?? '',
             profile_picture:   (s.profile_picture && !s.profile_picture.includes('unsplash'))
                                  ? s.profile_picture : '',
+            status:            s.is_active === false ? 'Inactive' : 'Active',
 
             date_of_birth:       s.date_of_birth       ?? '',
             gender:              s.gender              ?? '',
@@ -320,6 +322,7 @@ export default function EditStudentPage() {
       class_name: formData.class_name,
       profile_picture: formData.profile_picture,
       discount_in_fee: formData.discount_in_fee, // Include discount in payload
+      is_active: formData.status === 'Active',
       // Additional fields for full save
       identification_mark: formData.identification_mark,
       blood_group: formData.blood_group,
@@ -368,6 +371,7 @@ export default function EditStudentPage() {
         student_id: formData.registration_no || studentId,
         full_name: formData.student_name,
         class_name: formData.class_name,
+        is_active: formData.status === 'Active',
         profile_picture: formData.profile_picture,
         admission_date: formData.date_of_admission,
         phone: formData.mobile_sms,
@@ -506,6 +510,18 @@ export default function EditStudentPage() {
                   onChange={(e) => handleChange('date_of_admission', e.target.value)} 
                   className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" 
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">STATUS *</label>
+                <select 
+                  value={formData.status} 
+                  onChange={(e) => handleChange('status', e.target.value)} 
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
               </div>
             </div>
 

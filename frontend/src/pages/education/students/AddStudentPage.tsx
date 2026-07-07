@@ -41,6 +41,7 @@ export default function AddStudentPage() {
     date_of_admission: today,
     discount_in_fee: '',
     mobile_sms: '',
+    status: 'Active',
 
     // 2. Other Information
     date_of_birth: '',
@@ -243,7 +244,7 @@ export default function AddStudentPage() {
 
   const handleReset = () => {
     setFormData({
-        student_name: '', registration_no: '', class_name: 'Grade 1-A', date_of_admission: today, discount_in_fee: '', mobile_sms: '',
+        student_name: '', registration_no: '', class_name: 'Grade 1-A', date_of_admission: today, discount_in_fee: '', mobile_sms: '', status: 'Active',
         date_of_birth: '', gender: '', identification_mark: '', blood_group: '', disease: '', address: '', birth_form_id: '', cast: '', previous_school: '', previous_id: '', additional_note: '', orphan_student: '', osc: '', religion: '', select_family: '', total_siblings: '',
         father_name: '', father_national_id: '', father_occupation: '', father_education: '', father_mobile: '', father_profession: '', father_income: '',
         mother_name: '', mother_national_id: '', mother_occupation: '', mother_education: '', mother_mobile: '', mother_profession: '', mother_income: ''
@@ -323,7 +324,8 @@ export default function AddStudentPage() {
       osc: formData.osc,
       religion: formData.religion,
       select_family: formData.select_family,
-      total_siblings: formData.total_siblings
+      total_siblings: formData.total_siblings,
+      is_active: formData.status === 'Active'
     };
 
     try {
@@ -334,7 +336,8 @@ export default function AddStudentPage() {
         email: studentEmail,
         phone: formData.mobile_sms,
         father_name: formData.father_name,
-        mother_name: formData.mother_name
+        mother_name: formData.mother_name,
+        is_active: formData.status === 'Active'
       });
     } catch (err: any) {
       const errMsg = err?.response?.data?.student_id?.[0] ||
@@ -462,6 +465,17 @@ export default function AddStudentPage() {
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DATE OF ADMISSION *</label>
                 <Input type="date" value={formData.date_of_admission} onChange={(e) => handleChange('date_of_admission', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">STATUS *</label>
+                <select 
+                  value={formData.status} 
+                  onChange={(e) => handleChange('status', e.target.value)} 
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
               </div>
             </div>
 

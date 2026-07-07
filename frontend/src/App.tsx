@@ -17,6 +17,8 @@ import StudentIdCardsPage from './pages/education/students/StudentIdCardsPage'
 import PrintBasicListPage from './pages/education/students/PrintBasicListPage'
 import StudentLoginsPage from './pages/education/students/StudentLoginsPage'
 import PromoteStudentsPage from './pages/education/students/PromoteStudentsPage'
+import FamiliesPage from './pages/education/students/FamiliesPage'
+import ActiveInactivePage from './pages/education/students/ActiveInactivePage'
 import CoursesListPage from './pages/education/CoursesListPage'
 import TeachersManagementPage from './pages/education/teachers/TeachersManagement'
 import AddTeacherPage from './pages/education/teachers/AddTeacherPage'
@@ -130,6 +132,8 @@ function App() {
               <Route path="education" element={<Navigate to="/education/academics" replace />} />
               <Route path="education/students" element={<StudentsListPage />} />
               <Route path="education/students/add" element={<AddStudentPage />} />
+              <Route path="education/students/families" element={<FamiliesPage />} />
+              <Route path="education/students/status" element={<ActiveInactivePage />} />
               <Route path="education/students/admission-letter" element={<AdmissionLetterPage />} />
               <Route path="education/students/id-cards" element={<StudentIdCardsPage />} />
               <Route path="education/students/print-list" element={<PrintBasicListPage />} />
