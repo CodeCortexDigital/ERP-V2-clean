@@ -71,3 +71,64 @@ def attendance_automation(sender, instance, created, **kwargs):
         return
 
     transaction.on_commit(lambda: _run_attendance_automation(instance))
+
+
+@receiver(post_save, sender=AttendanceRecord)
+def attendance_dashboard_broadcast(sender, instance, **kwargs):
+    """
+    Push updated attendance stats to all connected dashboard WebSocket clients
+    whenever ANY attendance record is saved (created or updated).
+    Uses transaction.on_commit to ensure the DB is committed before we read counts.
+    """
+    def _broadcast():
+        try:
+            from django.utils import timezone
+            from django.apps import apps
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+
+            today = timezone.localtime().date()
+
+            # Only broadcast for today's records
+            if instance.date != today:
+                return
+
+            Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+            student_qs = (
+                Attendance.objects
+                .filter(date=today)
+                .exclude(status='holiday')
+                .exclude(student__isnull=True)
+            )
+
+            total_s     = student_qs.count()
+            present_s   = student_qs.filter(status='present').count()
+            late_s      = student_qs.filter(status='late').count()
+            absent_s    = student_qs.filter(status='absent').count()
+            present_pct = round(((present_s + late_s) / total_s * 100)) if total_s > 0 else 0
+
+            channel_layer = get_channel_layer()
+            if not channel_layer:
+                return
+
+            async_to_sync(channel_layer.group_send)(
+                'dashboard_updates',
+                {
+                    'type': 'attendance_update',
+                    'data': {
+                        'date': str(today),
+                        'students': {
+                            'total':       total_s,
+                            'present':     present_s,
+                            'late':        late_s,
+                            'absent':      absent_s,
+                            'present_pct': present_pct,
+                        },
+                    },
+                },
+            )
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).debug('Dashboard attendance broadcast failed: %s', exc)
+
+    transaction.on_commit(_broadcast)

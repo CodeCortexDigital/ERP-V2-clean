@@ -32,7 +32,7 @@ class PDFGenerator:
         elements = []
         
         # School Header
-        elements.append(Paragraph("CODE CORTEX SCHOOL", self.title_style))
+        elements.append(Paragraph("My School", self.title_style))
         elements.append(Paragraph("Excellence in Education", self.normal_style))
         elements.append(Spacer(1, 20))
         

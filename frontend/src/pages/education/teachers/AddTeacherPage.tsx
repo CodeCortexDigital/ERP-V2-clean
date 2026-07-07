@@ -1,234 +1,389 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, User, Mail, Phone, BookOpen, Award, Calendar } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { toast } from 'sonner';
+import { Settings2, ArrowLeft, RotateCcw, Check } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import teacherService from '@/services/teacher.service';
 
 export default function AddTeacherPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [newQualification, setNewQualification] = useState('');
-  const [newSpecialization, setNewSpecialization] = useState('');
-  
+
   const [formData, setFormData] = useState({
-    employee_id: '',
-    full_name: '',
-    email: '',
+    fullName: '',
     phone: '',
-    qualifications: [] as string[],
-    specializations: [] as string[],
-    experience_years: 0,
-    joining_date: new Date().toISOString().split('T')[0],
+    role: '',
+    joiningDate: new Date().toISOString().split('T')[0],
+    monthlySalary: '',
+    fatherName: '',
+    gender: '',
+    experience: '',
+    nationalId: '',
+    religion: '',
+    email: '',
+    education: '',
+    bloodGroup: '',
+    dateOfBirth: '',
+    homeAddress: '',
   });
 
-  const addQualification = () => {
-    if (newQualification.trim() && !formData.qualifications.includes(newQualification.trim())) {
-      setFormData({
-        ...formData,
-        qualifications: [...formData.qualifications, newQualification.trim()],
-      });
-      setNewQualification('');
-    }
-  };
-
-  const removeQualification = (qual: string) => {
+  const handleReset = () => {
     setFormData({
-      ...formData,
-      qualifications: formData.qualifications.filter(q => q !== qual),
+      fullName: '',
+      phone: '',
+      role: '',
+      joiningDate: new Date().toISOString().split('T')[0],
+      monthlySalary: '',
+      fatherName: '',
+      gender: '',
+      experience: '',
+      nationalId: '',
+      religion: '',
+      email: '',
+      education: '',
+      bloodGroup: '',
+      dateOfBirth: '',
+      homeAddress: '',
     });
-  };
-
-  const addSpecialization = () => {
-    if (newSpecialization.trim() && !formData.specializations.includes(newSpecialization.trim())) {
-      setFormData({
-        ...formData,
-        specializations: [...formData.specializations, newSpecialization.trim()],
-      });
-      setNewSpecialization('');
-    }
-  };
-
-  const removeSpecialization = (spec: string) => {
-    setFormData({
-      ...formData,
-      specializations: formData.specializations.filter(s => s !== spec),
-    });
+    toast.info('Form cleared.');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.fullName) {
+      toast.error('Employee Name is required.');
+      return;
+    }
+    if (!formData.role) {
+      toast.error('Employee Role is required.');
+      return;
+    }
+    if (!formData.joiningDate) {
+      toast.error('Date of Joining is required.');
+      return;
+    }
+    if (!formData.monthlySalary) {
+      toast.error('Monthly Salary is required.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await teacherService.create(formData);
+      const generatedEmpId = 'EMP-' + Math.floor(10000 + Math.random() * 90000);
+      const payload = {
+        employee_id: generatedEmpId,
+        full_name: formData.fullName,
+        email: formData.email || `${formData.fullName.toLowerCase().replace(/\s+/g, '')}@school.edu`,
+        phone: formData.phone,
+        experience_years: parseInt(formData.experience) || 0,
+        joining_date: formData.joiningDate,
+        qualifications: [formData.education || 'N/A'],
+        specializations: [formData.role]
+      };
+
+      const res = await teacherService.create(payload);
+      const newId = res.data?.id || generatedEmpId;
+
+      // ALSO save to custom_teachers list in localStorage to persist perfectly
+      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
+      const newCustomTeacher = {
+        id: newId,
+        employee_id: payload.employee_id,
+        full_name: payload.full_name,
+        email: payload.email,
+        phone: payload.phone,
+        experience_years: payload.experience_years,
+        joining_date: payload.joining_date,
+        qualifications: payload.qualifications,
+        specializations: payload.specializations,
+        is_active: true
+      };
+      customTeachers.push(newCustomTeacher);
+      localStorage.setItem('custom_teachers', JSON.stringify(customTeachers));
+
+      // Save extra details in localStorage to persist perfectly
+      const savedExtras = localStorage.getItem('employees_extra_info');
+      const extrasMap = savedExtras ? JSON.parse(savedExtras) : {};
+      
+      extrasMap[newId] = {
+        role: formData.role,
+        monthlySalary: formData.monthlySalary,
+        fatherName: formData.fatherName,
+        gender: formData.gender,
+        experience: formData.experience,
+        nationalId: formData.nationalId,
+        religion: formData.religion,
+        education: formData.education,
+        bloodGroup: formData.bloodGroup,
+        dateOfBirth: formData.dateOfBirth,
+        homeAddress: formData.homeAddress,
+        profilePictureUrl: '' // Can be updated if file uploaded
+      };
+
+      localStorage.setItem('employees_extra_info', JSON.stringify(extrasMap));
+      toast.success('Employee added successfully!');
       navigate('/education/teachers');
-    } catch (error: any) {
-      console.error('Error creating teacher:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to create teacher';
-      alert(`Error: ${errorMsg}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to create employee.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate('/education/teachers')}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Add New Teacher</h1>
-          <p className="text-gray-500 text-sm">Enter teacher details to add to faculty</p>
+    <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800">
+      {/* Breadcrumb Header Bar */}
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+          <button onClick={() => navigate('/education/teachers')} className="hover:underline flex items-center gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" /> Employees
+          </button>
+          <span>&gt;</span>
+          <span className="text-slate-500 font-bold">New Staff</span>
         </div>
+
+        <button type="button" className="flex items-center gap-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 transition-colors">
+          <Settings2 className="w-3.5 h-3.5" /> Customize
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Basic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Employee ID *</label>
-                <Input
-                  name="employee_id"
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                  placeholder="TCH-XXX"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name *</label>
-                <Input
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="Dr. Ahmed Raza"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <Input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="teacher@school.edu"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <Input
-                  name="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+92 300 1234567"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Experience (Years)</label>
-                <Input
-                  type="number"
-                  name="experience_years"
-                  value={formData.experience_years}
-                  onChange={(e) => setFormData({ ...formData, experience_years: parseInt(e.target.value) || 0 })}
-                  min="0"
-                  max="50"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Joining Date *</label>
-                <Input
-                  type="date"
-                  name="joining_date"
-                  value={formData.joining_date}
-                  onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
-                  required
-                />
-              </div>
-            </CardContent>
-          </Card>
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl mx-auto">
+        {/* Section 1: Basic Information */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-purple-900 text-white flex items-center justify-center text-xs">1</span>
+            Basic Information
+          </h2>
 
-          {/* Qualifications & Specializations */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="w-5 h-5" />
-                  Qualifications
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add qualification (e.g., M.Sc, PhD)"
-                    value={newQualification}
-                    onChange={(e) => setNewQualification(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addQualification())}
-                  />
-                  <Button type="button" onClick={addQualification} variant="outline">Add</Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.qualifications.map((qual) => (
-                    <Badge key={qual} variant="secondary" className="gap-1">
-                      {qual}
-                      <button type="button" onClick={() => removeQualification(qual)} className="ml-1 hover:text-red-500">×</button>
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EMPLOYEE NAME *</label>
+              <Input 
+                value={formData.fullName} 
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                placeholder="Name of Employee" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+                required 
+              />
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5" />
-                  Specializations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add specialization (e.g., Mathematics, Physics)"
-                    value={newSpecialization}
-                    onChange={(e) => setNewSpecialization(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialization())}
-                  />
-                  <Button type="button" onClick={addSpecialization} variant="outline">Add</Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.specializations.map((spec) => (
-                    <Badge key={spec} variant="outline" className="gap-1">
-                      {spec}
-                      <button type="button" onClick={() => removeSpecialization(spec)} className="ml-1 hover:text-red-500">×</button>
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOBILE NO FOR SMS/WHATSAPP</label>
+              <Input 
+                value={formData.phone} 
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="e.g +44xxxxxxxxxx" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EMPLOYEE ROLE *</label>
+              <select 
+                value={formData.role} 
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+                required
+              >
+                <option value="">-- Select Role --</option>
+                <option value="Principal">Principal</option>
+                <option value="Management Staff">Management Staff</option>
+                <option value="Teacher">Teacher</option>
+                <option value="Accountant">Accountant</option>
+                <option value="Store Manager">Store Manager</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PICTURE</label>
+              <div className="flex flex-col gap-1">
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+                />
+                <span className="text-[9px] text-amber-600 font-semibold">⚠ Max size 100KB</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DATE OF JOINING *</label>
+              <Input 
+                type="date" 
+                value={formData.joiningDate} 
+                onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+                className="text-xs h-10 rounded-xl border-slate-200 text-slate-600 font-semibold" 
+                required 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MONTHLY SALARY *</label>
+              <Input 
+                type="number"
+                value={formData.monthlySalary} 
+                onChange={(e) => setFormData({ ...formData, monthlySalary: e.target.value })}
+                placeholder="Monthly Salary" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+                required 
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate('/education/teachers')}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={loading}>
-            <Save className="w-4 h-4 mr-2" />
-            {loading ? 'Creating...' : 'Create Teacher'}
-          </Button>
+        {/* Section 2: Other Information */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-purple-900 text-white flex items-center justify-center text-xs">2</span>
+            Other Information
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FATHER / HUSBAND NAME</label>
+              <Input 
+                value={formData.fatherName} 
+                onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
+                placeholder="Father / Husband Name" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">GENDER</label>
+              <select 
+                value={formData.gender} 
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+              >
+                <option value="">-- Select --</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EXPERIENCE</label>
+              <Input 
+                value={formData.experience} 
+                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                placeholder="Experience" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">NATIONAL ID</label>
+              <Input 
+                value={formData.nationalId} 
+                onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
+                placeholder="National ID" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">RELIGION</label>
+              <select 
+                value={formData.religion} 
+                onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+              >
+                <option value="">-- Select --</option>
+                <option value="Islam">Islam</option>
+                <option value="Christianity">Christianity</option>
+                <option value="Hinduism">Hinduism</option>
+                <option value="Sikhism">Sikhism</option>
+                <option value="Buddhism">Buddhism</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EMAIL ADDRESS</label>
+              <Input 
+                type="email"
+                value={formData.email} 
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Email Address" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EDUCATION</label>
+              <Input 
+                value={formData.education} 
+                onChange={(e) => setFormData({ ...formData, education: e.target.value })}
+                placeholder="Education" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">BLOOD GROUP</label>
+              <select 
+                value={formData.bloodGroup} 
+                onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+              >
+                <option value="">-- Select --</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DATE OF BIRTH</label>
+              <Input 
+                type="date"
+                value={formData.dateOfBirth} 
+                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                className="text-xs h-10 rounded-xl border-slate-200 text-slate-600 font-semibold" 
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">HOME ADDRESS</label>
+              <textarea 
+                value={formData.homeAddress} 
+                onChange={(e) => setFormData({ ...formData, homeAddress: e.target.value })}
+                placeholder="Home Address" 
+                rows={3}
+                className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 placeholder:text-slate-400 font-medium"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between pt-2">
+          <button 
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-6 py-2.5 border border-slate-200 text-purple-700 hover:bg-slate-50 font-bold text-xs rounded-xl transition-all"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset
+          </button>
+
+          <button 
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-1.5 px-8 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+          >
+            <Check className="w-4 h-4" /> {loading ? 'Submitting...' : 'Submit'}
+          </button>
         </div>
       </form>
     </div>

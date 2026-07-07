@@ -1,1009 +1,392 @@
-import { useEffect, useMemo, useState, useRef, ChangeEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import {
-  ArrowLeft, Mail, Phone, Calendar, Award, MapPin, Users, BookOpen, Plus, Check, X, Edit2, Clock, Camera
-} from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
-import { TeacherAttendanceCalendar } from '@/components/calendar/TeacherAttendanceCalendar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { toast } from 'sonner'
-import { useAuth } from '@/contexts/AuthContext'
-import teacherService, { Teacher } from '@/services/teacher.service'
-import api, { extractListData } from '@/services/api'
-import { resolveMediaUrl, validateFileClient } from '@/utils/fileUpload'
-
-const SUBJECT_OPTIONS = [
-  'Computer Science Fundamentals',
-  'Data Structures',
-  'Discrete Mathematics',
-  'Linear Algebra',
-  'Probability & Statistics',
-  'Calculus',
-  'AI Ethics',
-] as const
-
-type SubjectOption = (typeof SUBJECT_OPTIONS)[number]
-
-interface AvailabilityDay {
-  enabled: boolean;
-  from: string;
-  to: string;
-  recordId: string | null;
-}
-
-type AvailabilityState = {
-  Monday: AvailabilityDay;
-  Tuesday: AvailabilityDay;
-  Wednesday: AvailabilityDay;
-  Thursday: AvailabilityDay;
-  Friday: AvailabilityDay;
-  Saturday: AvailabilityDay;
-  Sunday: AvailabilityDay;
-};
-
-const INITIAL_AVAILABILITY: AvailabilityState = {
-  Monday: { enabled: false, from: '09:00', to: '17:00', recordId: null },
-  Tuesday: { enabled: false, from: '09:00', to: '17:00', recordId: null },
-  Wednesday: { enabled: false, from: '09:00', to: '17:00', recordId: null },
-  Thursday: { enabled: false, from: '09:00', to: '17:00', recordId: null },
-  Friday: { enabled: false, from: '09:00', to: '17:00', recordId: null },
-  Saturday: { enabled: false, from: '09:00', to: '17:00', recordId: null },
-  Sunday: { enabled: false, from: '09:00', to: '17:00', recordId: null },
-};
-
-const mapDbDayToUiKey: Record<string, keyof AvailabilityState> = {
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
-};
-
-const mapUiKeyToDbDay: Record<keyof AvailabilityState, string> = {
-  Monday: 'monday',
-  Tuesday: 'tuesday',
-  Wednesday: 'wednesday',
-  Thursday: 'thursday',
-  Friday: 'friday',
-  Saturday: 'saturday',
-  Sunday: 'sunday',
-};
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { 
+  ArrowLeft, Download, RotateCcw, Award, Calendar, BookOpen, Clock, FileText, User
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import teacherService, { Teacher } from '@/services/teacher.service';
+import { extractListData } from '@/services/api';
 
 export default function TeacherProfilePage() {
-  const { id } = useParams<{ id?: string }>()
-  const { user, role } = useAuth()
-  const isAdmin = role === 'admin' || role === 'staff' || !!user?.is_staff || !!user?.is_superuser
-  const navigate = useNavigate()
-  const [teacher, setTeacher] = useState<Teacher | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('info')
-  const [subjectToAssign, setSubjectToAssign] = useState<SubjectOption>(SUBJECT_OPTIONS[0])
-  const [assignedSubjects, setAssignedSubjects] = useState<SubjectOption[]>([])
-  
-  // Real database assignments & timetable schedule states
-  const [assignments, setAssignments] = useState<any[]>([])
-  const [loadingAssignments, setLoadingAssignments] = useState(false)
-  const [timetableEntries, setTimetableEntries] = useState<any[]>([])
-  const [loadingTimetable, setLoadingTimetable] = useState(false)
-
-  // Availability & Metadata integration states
-  const [availability, setAvailability] = useState<AvailabilityState>(INITIAL_AVAILABILITY)
-  const [loadingAvailability, setLoadingAvailability] = useState(false)
-  const [savingAvailability, setSavingAvailability] = useState(false)
-  const [academicYears, setAcademicYears] = useState<any[]>([])
-  const [classSubjects, setClassSubjects] = useState<any[]>([])
-  const [activeAcademicYearId, setActiveAcademicYearId] = useState<string | null>(null)
-  const [selectedClassSubjectId, setSelectedClassSubjectId] = useState<string>('')
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>('')
-  const [isPrimaryAssignment, setIsPrimaryAssignment] = useState<boolean>(true)
-  const [assigningSubject, setAssigningSubject] = useState<boolean>(false)
-
-  // Profile picture states & refs
-  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  // Attendance history states
-  const [attendance, setAttendance] = useState<any[]>([])
-  const [loadingAttendance, setLoadingAttendance] = useState(false)
+  const { id } = useParams<{ id?: string }>();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [teacher, setTeacher] = useState<Teacher | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [extraDetails, setExtraDetails] = useState<any>({
+    role: 'Teacher',
+    monthlySalary: 'Rs 1,000',
+    fatherName: '--',
+    gender: 'Male',
+    experience: '2',
+    nationalId: '--',
+    religion: 'Islam',
+    education: 'N/A',
+    bloodGroup: 'O+',
+    dateOfBirth: '1995-05-15',
+    homeAddress: '--',
+    phone: '--'
+  });
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      const url = await resolveMediaUrl(teacher?.profile_picture);
-      if (active) setProfilePictureUrl(url);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [teacher?.profile_picture]);
+    loadTeacherData();
+  }, [id]);
 
-  const teacherEmailToIdMap: Record<string, string> = {
-    'teacher@test.com': '1',
-    'teacher@erp.com': '1',
-  }
-
-  useEffect(() => {
-    const teacherId = id || null;
-    loadTeacher(teacherId);
-  }, [id, user?.email]);
-
-  const loadTeacher = async (teacherId: string | null) => {
+  const loadTeacherData = async () => {
     setLoading(true);
     try {
       let teacherData: any = null;
-      if (teacherId) {
+      if (id) {
         try {
-          const response = await teacherService.getById(teacherId);
+          const response = await teacherService.getById(id);
           teacherData = response.data;
         } catch (err) {
-          console.log('Fetching teacher by ID failed, falling back to email lookup');
+          console.log('Fetching teacher by ID failed, falling back to localStorage');
         }
       }
 
+      // If backend fails or empty, try loading from localStorage cached list
       if (!teacherData) {
-        const res = await teacherService.getAll();
+        const res = await teacherService.getAll().catch(() => ({ data: [] }));
         const list = extractListData<any>(res.data);
-        const userEmail = user?.email?.toLowerCase();
-        teacherData = list.find((t: any) => t.email?.toLowerCase() === userEmail) || list[0];
+        if (id) {
+          teacherData = list.find((t: any) => t.id === id);
+        } else {
+          // Logged in teacher fallback
+          const userEmail = user?.email?.toLowerCase();
+          teacherData = list.find((t: any) => t.email?.toLowerCase() === userEmail) || list[0];
+        }
+      }
+
+      // Load extra info from localStorage
+      const savedExtras = localStorage.getItem('employees_extra_info');
+      let extra = {
+        role: 'Teacher',
+        monthlySalary: 'Rs 1,000',
+        fatherName: '--',
+        gender: 'Male',
+        experience: '2',
+        nationalId: '--',
+        religion: 'Islam',
+        education: 'N/A',
+        bloodGroup: 'O+',
+        dateOfBirth: '1995-05-15',
+        homeAddress: '--',
+        phone: '--',
+        profilePictureUrl: ''
+      };
+
+      const targetId = teacherData?.id || id;
+      if (savedExtras && targetId) {
+        try {
+          const extrasMap = JSON.parse(savedExtras);
+          if (extrasMap[targetId]) {
+            extra = { ...extra, ...extrasMap[targetId] };
+          }
+        } catch (e) {}
+      }
+
+      // format salary display
+      if (extra.monthlySalary && !extra.monthlySalary.toString().startsWith('Rs')) {
+        extra.monthlySalary = `Rs ${Number(extra.monthlySalary).toLocaleString()}`;
       }
 
       if (teacherData) {
         setTeacher(teacherData);
-        setAssignedSubjects(teacherData.courses || ['Computer Science', 'Mathematics']);
-        fetchAssignments(teacherData.id);
-        fetchTimetable(teacherData.id);
-        fetchAvailability(teacherData.id);
-        fetchAttendance(teacherData.id);
-        fetchMetadata();
+        setExtraDetails({
+          role: extra.role || teacherData.specializations?.[0] || 'Teacher',
+          monthlySalary: extra.monthlySalary || 'Rs 1,000',
+          fatherName: extra.fatherName || '--',
+          gender: extra.gender || 'Male',
+          experience: extra.experience || String(teacherData.experience_years || '2'),
+          nationalId: extra.nationalId || '--',
+          religion: extra.religion || 'Islam',
+          education: extra.education || teacherData.qualifications?.[0] || 'N/A',
+          bloodGroup: extra.bloodGroup || 'O+',
+          dateOfBirth: extra.dateOfBirth || '1995-05-15',
+          homeAddress: extra.homeAddress || '--',
+          phone: teacherData.phone || extra.phone || '--',
+          profilePictureUrl: extra.profilePictureUrl || ''
+        });
       } else {
-        // Default fallback for logged-in teacher
+        // Ultimate fallback default teacher
         setTeacher({
-          id: 't-me',
-          employee_id: 'TCH-001',
-          full_name: user?.full_name || 'Maryam Fatima',
-          email: user?.email || 'teacher@code.com',
-          qualification: 'M.Sc Computer Science / B.Ed',
-          experience_years: 8,
+          id: 't-1',
+          employee_id: '250822',
+          full_name: 'Maryam Fatima',
+          email: 'maryam.fatima@school.edu',
+          phone: '+92 300 1234567',
+          qualifications: ['Master of Education'],
+          specializations: ['Teacher'],
+          experience_years: 5,
+          joining_date: '2026-06-29',
           is_active: true,
-          specializations: ['Computer Science', 'Mathematics']
+          profile_picture: null
         } as any);
       }
     } catch (error) {
-      console.error('Error loading teacher:', error);
-      setTeacher({
-        id: 't-me',
-        employee_id: 'TCH-001',
-        full_name: user?.full_name || 'Maryam Fatima',
-        email: user?.email || 'teacher@code.com',
-        qualification: 'M.Sc Computer Science / B.Ed',
-        experience_years: 8,
-        is_active: true,
-        specializations: ['Computer Science', 'Mathematics']
-      } as any);
+      console.error('Error loading teacher profile:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchAttendance = async (teacherId: string) => {
-    setLoadingAttendance(true)
-    try {
-      const response = await api.get('/auth/academics/teacher-attendance/', {
-        params: { teacher_id: teacherId }
-      })
-      const data = extractListData<any>(response.data)
-      setAttendance(data)
-    } catch (err) {
-      console.error('Error fetching teacher attendance:', err)
-      setAttendance([])
-    } finally {
-      setLoadingAttendance(false)
-    }
-  }
-
-  const calculateAttendanceRate = () => {
-    if (!attendance || attendance.length === 0) return 100
-    const present = attendance.filter(a => a.status === 'present').length
-    const absent = attendance.filter(a => a.status === 'absent').length
-    const onLeave = attendance.filter(a => a.status === 'on_leave').length
-    const totalDays = present + absent + onLeave
-    if (totalDays === 0) return 100
-    return Math.round((present / totalDays) * 100)
-  }
-
-  const handleProfilePictureUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const validationError = validateFileClient(file);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-
-    const teacherId = id || teacher?.id;
-    if (!teacherId) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('profile_picture', file);
-      const response = await api.patch(`/auth/academics/teachers/${teacherId}/`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      const updatedTeacher = response.data;
-      setTeacher(updatedTeacher);
-      toast.success('Profile picture updated successfully!');
-    } catch (error) {
-      console.error('Error uploading profile picture:', error);
-      toast.error('Failed to upload profile picture');
-    } finally {
-      setUploading(false);
-    }
+  const getLoginCredentials = (t: any) => {
+    const code = t.employee_id || '250822';
+    const num = code.replace(/\D/g, '') || '22';
+    return {
+      username: `169081bsUDN${num.slice(-2)}`,
+      password: `159081bsUDR${num.slice(-2)}`
+    };
   };
 
-  const handleRemoveProfilePicture = async () => {
-    const teacherId = id || teacher?.id;
-    if (!teacherId) return;
-    try {
-      await api.patch(`/auth/academics/teachers/${teacherId}/`, { profile_picture: null });
-      setTeacher(prev => prev ? { ...prev, profile_picture: null } : null);
-      toast.success('Profile picture removed');
-    } catch (error) {
-      console.error('Error removing profile picture:', error);
-      toast.error('Failed to remove profile picture');
-    }
+  const handlePrint = () => {
+    window.print();
   };
-
-  const fetchAssignments = async (teacherId: string) => {
-    setLoadingAssignments(true)
-    try {
-      const response = await api.get('/auth/academics/teacher-assignments/', {
-        params: { teacher_id: teacherId }
-      })
-      const data = Array.isArray(response.data) ? response.data : response.data?.results || []
-      setAssignments(data)
-    } catch (err) {
-      console.error('Error loading teacher subject assignments:', err)
-    } finally {
-      setLoadingAssignments(false)
-    }
-  }
-
-  const fetchTimetable = async (teacherId: string) => {
-    setLoadingTimetable(true)
-    try {
-      const response = await api.get('/auth/academics/timetable-entries/', {
-        params: { teacher_id: teacherId }
-      })
-      const data = Array.isArray(response.data) ? response.data : response.data?.results || []
-      setTimetableEntries(data)
-    } catch (err) {
-      console.error('Error loading teacher timetable entries:', err)
-    } finally {
-      setLoadingTimetable(false)
-    }
-  }
-
-  const fetchAvailability = async (teacherId: string) => {
-    setLoadingAvailability(true)
-    try {
-      const response = await api.get('/auth/academics/teacher-availability/', {
-        params: { teacher_id: teacherId }
-      })
-      const data = extractListData<any>(response.data)
-      
-      const newAvail = { ...INITIAL_AVAILABILITY }
-      // Initialize all days to disabled by default
-      Object.keys(newAvail).forEach((day) => {
-        newAvail[day as keyof AvailabilityState] = {
-          enabled: false,
-          from: '09:00',
-          to: '17:00',
-          recordId: null
-        }
-      })
-
-      data.forEach((rec: any) => {
-        const uiKey = mapDbDayToUiKey[rec.day_of_week.toLowerCase()]
-        if (uiKey) {
-          newAvail[uiKey] = {
-            enabled: rec.is_available ?? true,
-            from: rec.start_time ? rec.start_time.substring(0, 5) : '09:00',
-            to: rec.end_time ? rec.end_time.substring(0, 5) : '17:00',
-            recordId: rec.id
-          }
-        }
-      })
-      setAvailability(newAvail)
-    } catch (err) {
-      console.error('Error loading availability:', err)
-    } finally {
-      setLoadingAvailability(false)
-    }
-  }
-
-  const fetchMetadata = async () => {
-    try {
-      const [ayRes, csRes] = await Promise.all([
-        api.get('/auth/academics/academic-years/'),
-        api.get('/auth/academics/class-subjects/')
-      ])
-      const ayList = extractListData<any>(ayRes.data)
-      const csList = extractListData<any>(csRes.data)
-      
-      setAcademicYears(ayList)
-      setClassSubjects(csList)
-      
-      const activeAy = ayList.find((ay: any) => ay.is_active) || ayList[0]
-      if (activeAy) {
-        setActiveAcademicYearId(activeAy.id)
-        setSelectedAcademicYearId(activeAy.id)
-      }
-      if (csList.length > 0) {
-        setSelectedClassSubjectId(csList[0].id)
-      }
-    } catch (err) {
-      console.error('Error fetching metadata:', err)
-    }
-  }
-
-  // Group timetable entries by day of the week
-  const groupedSchedule = useMemo(() => {
-    const groups: Record<string, any[]> = {
-      Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: []
-    }
-    timetableEntries.forEach(entry => {
-      const day = entry.day_of_week ? entry.day_of_week.charAt(0).toUpperCase() + entry.day_of_week.slice(1).toLowerCase() : ''
-      if (groups[day]) {
-        groups[day].push(entry)
-      }
-    });
-    // Sort each day's entries by period/time name
-    Object.keys(groups).forEach(day => {
-      groups[day].sort((a, b) => (a.period_name || '').localeCompare(b.period_name || ''))
-    })
-    return groups
-  }, [timetableEntries])
-
-  const teacherName = useMemo(
-    () => teacher?.full_name || '',
-    [teacher]
-  )
-
-  const handleAssignSubject = async () => {
-    if (!teacher) return
-    if (!selectedClassSubjectId) {
-      toast.error('Please select a class & subject.')
-      return
-    }
-    if (!selectedAcademicYearId) {
-      toast.error('Please select an academic year.')
-      return
-    }
-
-    const alreadyAssigned = assignments.some(
-      (assign: any) =>
-        assign.class_subject === selectedClassSubjectId &&
-        assign.academic_year === selectedAcademicYearId
-    )
-    if (alreadyAssigned) {
-      toast.error('This subject/class is already assigned to this teacher for the selected academic year.')
-      return
-    }
-
-    setAssigningSubject(true)
-    try {
-      await api.post('/auth/academics/teacher-assignments/', {
-        teacher: teacher.id,
-        class_subject: selectedClassSubjectId,
-        academic_year: selectedAcademicYearId,
-        is_primary: isPrimaryAssignment,
-        is_active: true
-      })
-      toast.success('Subject assigned successfully!')
-      fetchAssignments(teacher.id)
-      fetchTimetable(teacher.id)
-    } catch (err: any) {
-      console.error('Error assigning subject:', err)
-      const detail = err.response?.data?.non_field_errors?.[0] || err.response?.data?.detail || 'Failed to assign subject'
-      toast.error(detail)
-    } finally {
-      setAssigningSubject(false)
-    }
-  }
-
-  const handleRemoveAssignment = async (assignmentId: string) => {
-    if (!window.confirm('Are you sure you want to remove this class/subject assignment?')) {
-      return
-    }
-    try {
-      await api.delete(`/auth/academics/teacher-assignments/${assignmentId}/`)
-      toast.success('Assignment removed successfully!')
-      if (teacher) {
-        fetchAssignments(teacher.id)
-        fetchTimetable(teacher.id)
-      }
-    } catch (err) {
-      console.error('Error deleting assignment:', err)
-      toast.error('Failed to remove assignment')
-    }
-  }
-
-  const handleSaveAvailability = async () => {
-    if (!teacher) return
-    setSavingAvailability(true)
-    try {
-      let ayId = activeAcademicYearId
-      if (!ayId) {
-        const ayRes = await api.get('/auth/academics/academic-years/')
-        const ayList = extractListData<any>(ayRes.data)
-        const activeAy = ayList.find((ay: any) => ay.is_active) || ayList[0]
-        if (!activeAy) {
-          toast.error('No academic year configured in system.')
-          setSavingAvailability(false)
-          return
-        }
-        ayId = activeAy.id
-        setActiveAcademicYearId(ayId)
-      }
-
-      const promises = Object.entries(availability).map(async ([day, config]) => {
-        const dbDay = mapUiKeyToDbDay[day as keyof AvailabilityState]
-        if (config.enabled) {
-          if (config.recordId) {
-            return api.put(`/auth/academics/teacher-availability/${config.recordId}/`, {
-              teacher: teacher.id,
-              day_of_week: dbDay,
-              start_time: `${config.from}:00`,
-              end_time: `${config.to}:00`,
-              is_available: true,
-              academic_year: ayId
-            })
-          } else {
-            return api.post('/auth/academics/teacher-availability/', {
-              teacher: teacher.id,
-              day_of_week: dbDay,
-              start_time: `${config.from}:00`,
-              end_time: `${config.to}:00`,
-              is_available: true,
-              academic_year: ayId
-            })
-          }
-        } else {
-          if (config.recordId) {
-            return api.delete(`/auth/academics/teacher-availability/${config.recordId}/`)
-          }
-        }
-      })
-
-      await Promise.all(promises)
-      toast.success('Availability saved successfully!')
-      fetchAvailability(teacher.id)
-    } catch (err) {
-      console.error('Error saving availability:', err)
-      toast.error('Failed to save availability schedule')
-    } finally {
-      setSavingAvailability(false)
-    }
-  }
-
-  const handleAvailabilityChange = (day: keyof AvailabilityState, field: 'enabled' | 'from' | 'to', value: string | boolean) => {
-    setAvailability((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [field]: value,
-      },
-    }))
-  }
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <RotateCcw className="w-8 h-8 text-purple-600 animate-spin" />
       </div>
-    )
+    );
   }
 
-  if (!teacher) {
-    return (
-      <div className="text-center py-20">
-        <h2 className="text-2xl font-semibold text-gray-700">Teacher profile unavailable</h2>
-        <p className="mt-2 text-gray-500">
-          {id
-            ? 'No teacher matches the selected profile. Please choose another teacher or contact your administrator.'
-            : 'Your teacher profile is not available yet. Please contact support if this should be active for your account.'}
-        </p>
-        <Button className="mt-4" onClick={() => navigate(id ? '/education/teachers' : '/teacher')}>
-          {id ? 'Back to Teachers' : 'Back to Dashboard'}
-        </Button>
-      </div>
-    )
-  }
+  if (!teacher) return null;
+
+  const creds = getLoginCredentials(teacher);
 
   return (
-    <div className="space-y-6">
-      {/* Header with Profile Picture */}
-      <div className="flex justify-between items-start">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate(id ? '/education/teachers' : '/teacher')} 
-            className="text-gray-500 hover:text-gray-700 transition-colors"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-5 h-5" />
+    <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12">
+      {/* Top Breadcrumb Bar (Hidden on print) */}
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+          <button onClick={() => navigate('/education/teachers')} className="hover:underline flex items-center gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" /> Employees
           </button>
-          
-          {/* Profile Picture */}
-          <div className="relative">
-            <div 
-              onClick={() => profilePictureUrl && setIsImageModalOpen(true)}
-              className={`w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden ${profilePictureUrl ? 'cursor-pointer hover:ring-4 hover:ring-blue-100 transition duration-200' : ''}`}
-              title={profilePictureUrl ? "Click to view full image" : ""}
-            >
-              {profilePictureUrl ? (
-                <img 
-                  src={profilePictureUrl} 
-                  alt={teacherName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-3xl font-bold text-white">
-                  {teacherName?.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-            
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full hover:bg-blue-700 transition-colors"
-              disabled={uploading}
-              title="Upload Profile Picture"
-            >
-              {uploading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-            </button>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleProfilePictureUpload}
-              className="hidden"
-            />
-            
-            {profilePictureUrl && (
-              <button
-                onClick={handleRemoveProfilePicture}
-                className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
-                title="Remove Profile Picture"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-          
-          <div>
-            <h1 className="text-2xl font-bold">{teacherName}</h1>
-            <p className="text-gray-500">{teacher.employee_id || 'N/A'}</p>
-            <p className="text-xs text-gray-400">
-              {teacher.specializations && Array.isArray(teacher.specializations) && teacher.specializations.length > 0 
-                ? teacher.specializations.join(' • ') 
-                : 'Academics Staff'}
-            </p>
-          </div>
+          <span>&gt;</span>
+          <span className="text-slate-500 font-bold">Employee Report</span>
         </div>
-        
-        {isAdmin && id && (
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate(`/education/teachers/${id}/edit`)}
-            >
-              <Edit2 className="w-4 h-4 mr-2" /> 
-              Edit
-            </Button>
-          </div>
-        )}
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <BookOpen className="w-5 h-5 text-blue-600" />
-          </div>
-          <p className="text-2xl font-bold text-blue-700">{assignments.length}</p>
-          <p className="text-xs text-gray-600">Assigned Classes</p>
-        </div>
-        
-        <div className="bg-green-50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Award className="w-5 h-5 text-green-600" />
-          </div>
-          <p className="text-2xl font-bold text-green-700">{calculateAttendanceRate()}%</p>
-          <p className="text-xs text-gray-600">Attendance Rate</p>
-        </div>
-        
-        <div className="bg-purple-50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock className="w-5 h-5 text-purple-600" />
-          </div>
-          <p className="text-2xl font-bold text-purple-700">{timetableEntries.length}</p>
-          <p className="text-xs text-gray-600">Scheduled Periods</p>
-        </div>
-        
-        <div className="bg-emerald-50 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Users className="w-5 h-5 text-emerald-600" />
-          </div>
-          <Badge variant={teacher.is_active ? 'success' : 'secondary'}>
-            {teacher.is_active ? 'Active' : 'Inactive'}
-          </Badge>
-          <p className="text-xs text-gray-600 mt-2">Status</p>
-        </div>
-      </div>
-
-      <Tabs defaultValue="info" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="info">Personal Info</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="subjects">Subject Assignment</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-          <TabsTrigger value="timetable">Daily Schedule</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="info">
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Teacher Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-gray-500">Employee ID</p>
-                    <p className="font-mono font-medium text-gray-900">{teacher.employee_id || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Email Address</p>
-                    <a href={`mailto:${teacher.email}`} className="font-medium text-blue-600 hover:underline">{teacher.email}</a>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Phone Number</p>
-                    {teacher.phone ? (
-                      <a href={`tel:${teacher.phone}`} className="font-medium text-blue-600 hover:underline">{teacher.phone}</a>
-                    ) : (
-                      <p className="font-medium text-gray-400">N/A</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Experience</p>
-                    <p className="font-medium text-gray-900">{teacher.experience_years || 0} Years</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Qualifications</p>
-                    <p className="font-medium text-gray-900">
-                      {Array.isArray(teacher.qualifications) && teacher.qualifications.length > 0 
-                        ? teacher.qualifications.join(', ') 
-                        : teacher.qualifications || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Date Joined</p>
-                    <p className="font-medium text-gray-900">{teacher.joining_date || 'N/A'}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full" variant="outline" onClick={() => setActiveTab('subjects')}>
-                  <BookOpen className="w-4 h-4 mr-2" /> Manage Subject Assignments
-                </Button>
-                <Button className="w-full" variant="outline" onClick={() => setActiveTab('availability')}>
-                  <Calendar className="w-4 h-4 mr-2" /> Update Availability Calendar
-                </Button>
-                <Button className="w-full" variant="outline" onClick={() => setActiveTab('timetable')}>
-                  <Clock className="w-4 h-4 mr-2" /> View Timetable Schedule
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="subjects">
-          <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Class & Subject Assignments</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {loadingAssignments ? (
-                  <div className="flex justify-center items-center py-10">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : assignments.length === 0 ? (
-                  <div className="text-center py-10 text-gray-500 border border-dashed rounded-xl">
-                    <BookOpen className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                    <p>No class or subject assignments found for this teacher.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto border rounded-xl shadow-sm bg-white">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b">
-                        <tr>
-                          <th className="p-4 text-left font-semibold text-gray-700">Class Name</th>
-                          <th className="p-4 text-left font-semibold text-gray-700">Subject Name</th>
-                          <th className="p-4 text-center font-semibold text-gray-700">Role</th>
-                          <th className="p-4 text-center font-semibold text-gray-700">Status</th>
-                          {isAdmin && <th className="p-4 text-center font-semibold text-gray-700">Actions</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assignments.map((assign: any) => (
-                          <tr key={assign.id} className="border-b hover:bg-gray-50/50">
-                            <td className="p-4 font-semibold text-gray-900">{assign.class_name || 'N/A'}</td>
-                            <td className="p-4 text-gray-600 font-medium">{assign.subject_name || 'N/A'}</td>
-                            <td className="p-4 text-center">
-                              <Badge variant={assign.is_primary ? 'info' : 'secondary'}>
-                                {assign.is_primary ? 'Primary Teacher' : 'Assistant'}
-                              </Badge>
-                            </td>
-                            <td className="p-4 text-center">
-                              <Badge variant={assign.is_active ? 'success' : 'destructive'}>
-                                {assign.is_active ? 'Active' : 'Inactive'}
-                              </Badge>
-                            </td>
-                            {isAdmin && (
-                              <td className="p-4 text-center">
-                                <button
-                                  onClick={() => handleRemoveAssignment(assign.id)}
-                                  className="p-1 rounded-lg hover:bg-red-100 transition"
-                                  title="Remove Assignment"
-                                >
-                                  <X className="w-4 h-4 text-red-600" />
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {isAdmin && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assign New Class & Subject</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-700">Class & Subject</label>
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 bg-slate-50 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
-                      value={selectedClassSubjectId}
-                      onChange={(e) => setSelectedClassSubjectId(e.target.value)}
-                    >
-                      <option value="">Select Class & Subject...</option>
-                      {classSubjects.map((cs) => (
-                        <option key={cs.id} value={cs.id}>
-                          {cs.class_name} - {cs.subject_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-700">Academic Year</label>
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 bg-slate-50 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
-                      value={selectedAcademicYearId}
-                      onChange={(e) => setSelectedAcademicYearId(e.target.value)}
-                    >
-                      <option value="">Select Academic Year...</option>
-                      {academicYears.map((ay) => (
-                        <option key={ay.id} value={ay.id}>
-                          {ay.name} {ay.is_active ? '(Active)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2 py-2">
-                    <input
-                      type="checkbox"
-                      id="isPrimary"
-                      checked={isPrimaryAssignment}
-                      onChange={(e) => setIsPrimaryAssignment(e.target.checked)}
-                      className="rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <label htmlFor="isPrimary" className="text-sm font-medium text-gray-700 select-none cursor-pointer">
-                      Primary Subject Teacher
-                    </label>
-                  </div>
-
-                  <Button
-                    className="w-full"
-                    onClick={handleAssignSubject}
-                    disabled={assigningSubject || classSubjects.length === 0}
-                  >
-                    {assigningSubject ? 'Assigning...' : 'Assign Class & Subject'}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="availability">
-          <Card>
-            <CardHeader>
-              <CardTitle>Availability Calendar</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-500">Set weekly availability hours for the teacher. Active days will appear as available in scheduling workflows.</p>
-              
-              {loadingAvailability ? (
-                <div className="flex justify-center items-center py-10">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {Object.entries(availability).map(([day, config]) => (
-                      <div key={day} className="rounded-2xl border border-gray-200 bg-white p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-gray-900">{day}</p>
-                            <p className="text-sm text-gray-500">{config.enabled ? 'Available' : 'Unavailable'}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant={config.enabled ? 'secondary' : 'outline'}
-                            onClick={() => handleAvailabilityChange(day as keyof AvailabilityState, 'enabled', !config.enabled)}
-                          >
-                            {config.enabled ? 'Disable' : 'Enable'}
-                          </Button>
-                        </div>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                          <label className="block text-sm text-gray-500">
-                            From
-                            <input
-                              type="time"
-                              value={config.from}
-                              disabled={!config.enabled}
-                              onChange={(e) => handleAvailabilityChange(day as keyof AvailabilityState, 'from', e.target.value)}
-                              className="mt-1 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                            />
-                          </label>
-                          <label className="block text-sm text-gray-500">
-                            To
-                            <input
-                              type="time"
-                              value={config.to}
-                              disabled={!config.enabled}
-                              onChange={(e) => handleAvailabilityChange(day as keyof AvailabilityState, 'to', e.target.value)}
-                              className="mt-1 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-end">
-                    <Button onClick={handleSaveAvailability} disabled={savingAvailability}>
-                      <Check className="w-4 h-4 mr-2" /> {savingAvailability ? 'Saving...' : 'Save Availability'}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="timetable">
-          <Card>
-            <CardHeader>
-              <CardTitle>Daily Class Timetable</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {loadingTimetable ? (
-                <div className="flex justify-center items-center py-10">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : timetableEntries.length === 0 ? (
-                <div className="text-center py-10 text-gray-500 border border-dashed rounded-xl">
-                  <Clock className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                  <p>No timetable entries scheduled for this teacher.</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {Object.entries(groupedSchedule).map(([day, entries]) => {
-                    if (entries.length === 0) return null;
-                    return (
-                      <div key={day} className="space-y-3">
-                        <h3 className="text-lg font-bold text-gray-800 border-l-4 border-blue-600 pl-2">
-                          {day}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {entries.map((entry: any) => (
-                            <div key={entry.id} className="border border-gray-150 rounded-xl p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-                              <div className="absolute top-0 right-0 bg-blue-50 text-blue-700 px-3 py-1 rounded-bl-xl text-xs font-semibold">
-                                {entry.period_name || 'Period'}
-                              </div>
-                              <div className="space-y-2 mt-2">
-                                <p className="text-sm font-semibold text-gray-950">{entry.class_name}</p>
-                                <p className="text-xs font-medium text-blue-600">{entry.subject_name}</p>
-                                <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2">
-                                  <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                                  <span>{entry.classroom_name || 'N/A'}</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="attendance">
-          <TeacherAttendanceCalendar teacherId={teacher.id} teacherName={teacher.full_name} canEdit={isAdmin} />
-        </TabsContent>
-      </Tabs>
-
-      {/* Full image viewer modal */}
-      {isImageModalOpen && profilePictureUrl && (
-        <div 
-          className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 cursor-zoom-out p-4"
-          onClick={() => setIsImageModalOpen(false)}
+        <button 
+          onClick={handlePrint}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4C469D] hover:bg-[#3f3a85] text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
         >
-          <div className="relative max-w-3xl max-h-[85vh]">
-            <img 
-              src={profilePictureUrl} 
-              alt={teacherName} 
-              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain"
-            />
-            <button
-              onClick={() => setIsImageModalOpen(false)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 flex items-center gap-1 bg-black/40 px-3 py-1.5 rounded-lg text-sm transition"
-            >
-              <X className="w-4 h-4" /> Close
-            </button>
+          <Download className="w-3.5 h-3.5 text-white" /> Get PDF
+        </button>
+      </div>
+
+      {/* Main Grid: Left Details & Right Metrics Column */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        
+        {/* LEFT COLUMN: Employee Details */}
+        <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 bg-slate-100 shadow-xs">
+              <img 
+                src={extraDetails.profilePictureUrl || teacher.profile_picture || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200'} 
+                alt={teacher.full_name} 
+                className="w-full h-full object-cover" 
+              />
+            </div>
+            <h2 className="text-xl font-bold text-[#4C469D]">{teacher.full_name}</h2>
+          </div>
+
+          {/* Details Form Fields */}
+          <div className="space-y-4 text-xs">
+            <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100 space-y-3">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Registration No</p>
+                <p className="font-extrabold text-[#4C469D] mt-0.5">↪ {teacher.employee_id || '250822'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Employee Role</p>
+                <p className="font-extrabold text-[#4C469D] mt-0.5">↪ {extraDetails.role}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Monthly Salary</p>
+                <p className="font-extrabold text-[#4C469D] mt-0.5">↪ {extraDetails.monthlySalary}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Username</p>
+                <p className="font-bold text-purple-700 font-mono mt-0.5">↪ {creds.username}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Password</p>
+                <p className="font-bold text-purple-700 font-mono mt-0.5">↪ {creds.password}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 px-1">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Father / Husband Name</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.fatherName}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Mobile No</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.phone}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Email Address</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {teacher.email || '--'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Home Address</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.homeAddress}</p>
+              </div>
+              
+              <div className="bg-slate-50/50 p-3 rounded-lg border border-slate-100 space-y-2">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">National ID</p>
+                  <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.nationalId}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Education</p>
+                  <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.education}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Gender</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.gender}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Religion</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.religion}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Blood Group</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.bloodGroup}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Date of Birth</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.dateOfBirth}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Date of Joining</p>
+                <p className="font-bold text-[#4C469D] mt-0.5">↪ {teacher.joining_date || '25 June, 2026'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Experience</p>
+                <p className="font-bold text-slate-600 mt-0.5">↪ {extraDetails.experience} Years</p>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+
+        {/* RIGHT COLUMN: Attendance & Salary Reports */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* 1. Attendance Report Card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-[#4C469D] text-white text-xs font-extrabold flex items-center justify-center">1</span>
+              <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Attendance Report</h2>
+            </div>
+
+            {/* Legend & Gauge Row */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              {/* Legend circles */}
+              <div className="flex items-center gap-4 text-xs font-semibold">
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> P</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span> L</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> A</div>
+              </div>
+
+              {/* Two Circular Gauge representation */}
+              <div className="flex items-center gap-8">
+                <div className="text-center space-y-1.5">
+                  <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-pink-500 flex flex-col justify-center items-center bg-slate-50/50">
+                    <span className="text-xs font-black text-slate-700">0%</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-bold block">Overall</span>
+                </div>
+
+                <div className="text-center space-y-1.5">
+                  <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-pink-500 flex flex-col justify-center items-center bg-slate-50/50">
+                    <span className="text-xs font-black text-slate-700">0%</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-bold block">Jun 2026</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Attendance Status Buttons */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-center text-xs font-bold text-slate-400">
+                Today NOT MARKED
+              </div>
+              <div className="py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-center text-xs font-bold text-slate-400">
+                Yesterday NOT MARKED
+              </div>
+            </div>
+
+            {/* Attendance Count Cards Grid */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-blue-600 rounded-2xl text-white space-y-1 shadow-sm">
+                <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">PRESENTS</p>
+                <div className="flex justify-between items-baseline pt-2">
+                  <span className="text-sm font-bold">↪</span>
+                  <span className="text-2xl font-black">0</span>
+                </div>
+                <p className="text-[9px] font-medium opacity-70">This Month: 0</p>
+              </div>
+
+              <div className="p-4 bg-[#7671FA] rounded-2xl text-white space-y-1 shadow-sm">
+                <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">LEAVES</p>
+                <div className="flex justify-between items-baseline pt-2">
+                  <span className="text-sm font-bold">↪</span>
+                  <span className="text-2xl font-black">0</span>
+                </div>
+                <p className="text-[9px] font-medium opacity-70">This Month: 0</p>
+              </div>
+
+              <div className="p-4 bg-rose-500 rounded-2xl text-white space-y-1 shadow-sm">
+                <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">ABSENTS</p>
+                <div className="flex justify-between items-baseline pt-2">
+                  <span className="text-sm font-bold">↪</span>
+                  <span className="text-2xl font-black">0</span>
+                </div>
+                <p className="text-[9px] font-medium opacity-70">This Month: 0</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Salary Report Card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-[#4C469D] text-white text-xs font-extrabold flex items-center justify-center">2</span>
+              <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Salary Report</h2>
+            </div>
+
+            {/* Salary Status Indicators */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-center text-xs font-bold text-slate-500">
+                💵 Current Salary: <strong className="text-[#4C469D]">{extraDetails.monthlySalary}</strong>
+              </div>
+              <div className="py-2.5 border border-red-200 bg-red-50/30 rounded-xl text-center text-xs font-bold text-red-500">
+                This Month: <strong className="uppercase">SALARY NOT RECEIVED</strong>
+              </div>
+            </div>
+
+            {/* No Record Found Section */}
+            <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">• Latest salary record •</p>
+              <div className="w-32 h-32 opacity-85">
+                <img 
+                  src="https://illustrations.popsy.co/purple/searching.svg" 
+                  alt="No Record Found" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <p className="text-xs font-extrabold text-slate-400">🔍 No Record Found.</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
     </div>
-  )
+  );
 }
-
-
-
-
-
-
-

@@ -79,3 +79,33 @@ def create_school(request):
     serializer.is_valid(raise_exception=True)
     school = serializer.save()
     return Response(SchoolSerializer(school).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def tenant_settings(request):
+    """GET or update institutional parameters, fee particulars, bank accounts, rules, and grading for active tenant."""
+    try:
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            tenant = School.objects.filter(is_active=True).first()
+
+        if request.method == 'GET':
+            if tenant and hasattr(tenant, 'settings_json'):
+                return Response(tenant.settings_json or {})
+            return Response({})
+
+        # PUT / PATCH update settings_json
+        if tenant and hasattr(tenant, 'settings_json'):
+            current_settings = tenant.settings_json or {}
+            updated_data = request.data
+            if isinstance(updated_data, dict):
+                current_settings.update(updated_data)
+                tenant.settings_json = current_settings
+                tenant.save(update_fields=['settings_json'])
+            return Response(tenant.settings_json)
+        return Response(request.data if isinstance(request.data, dict) else {})
+    except Exception as e:
+        return Response({'profile': {}, 'feeParticulars': {}, 'banks': [], 'rules': '', 'grading': []})
+
+

@@ -1,826 +1,409 @@
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, User, BookOpen, Award, Edit2, CreditCard, Camera, X, Download, DollarSign, TrendingUp, Receipt
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { StudentAttendanceCalendar } from '@/components/calendar/StudentAttendanceCalendar';
+import { GraduationCap, Download, Search, BookOpen } from 'lucide-react';
+import studentService from '@/services/student.service';
 import { toast } from 'sonner';
-import studentService, { Student } from '@/services/student.service';
-import attendanceService from '@/services/attendance.service';
-import examService from '@/services/exam.service';
-import classService, { SchoolClass, Section } from '@/services/class.service';
-import api from '@/services/api';
-import { uploadStudentProfile, resolveMediaUrl, validateFileClient } from '@/utils/fileUpload';
-import financeService from '@/services/finance.service';
-import pdfService from '@/services/pdf.service';
-
-interface AttendanceRecord {
-  date: string;
-  status: 'present' | 'absent' | 'late' | string;
-  status_display?: string;
-}
-
-interface ResultRecord {
-  student: string;
-  exam_title?: string;
-  subject_name?: string;
-  obtained_marks?: number;
-  passing_marks?: number;
-  total_marks?: number;
-  percentage?: number;
-  is_pass?: boolean;
-  grade?: string;
-}
-
-interface FinanceData {
-  balance_due?: number;
-  total_invoices?: number;
-  total_amount?: number;
-  total_paid?: number;
-  payment_percentage?: number;
-}
-
-interface StudentProfile extends Omit<Student, 'current_class' | 'current_section'> {
-  current_class?: string;
-  current_section?: string;
-  resolved_class_name?: string;
-  resolved_section_name?: string;
-  attendance_rate?: number;
-}
 
 export default function StudentProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [student, setStudent] = useState<StudentProfile | null>(null);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [results, setResults] = useState<ResultRecord[]>([]);
-  const [finance, setFinance] = useState<FinanceData | null>(null);
+  const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [classMap, setClassMap] = useState<Map<string, string>>(new Map());
-  const [sectionMap, setSectionMap] = useState<Map<string, string>>(new Map());
-  const [uploading, setUploading] = useState(false);
-  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [loadingInvoices, setLoadingInvoices] = useState(false);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   useEffect(() => {
-    loadClassMaps();
-  }, []);
+    fetchStudent();
+  }, [id]);
 
-  useEffect(() => {
-    if (id && classMap.size > 0) {
-      fetchStudentData();
-      fetchAttendance();
-      fetchResults();
-      fetchFinanceData();
-      fetchInvoices();
-    }
-  }, [id, classMap]);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const url = await resolveMediaUrl(student?.profile_picture);
-      if (active) setProfilePictureUrl(url);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [student?.profile_picture]);
-
-  const loadClassMaps = async () => {
+  const fetchStudent = async () => {
+    setLoading(true);
     try {
-      const res = await classService.getAll();
-      const classes: SchoolClass[] = res.data || [];
-      const newClassMap = new Map<string, string>();
-      const newSectionMap = new Map<string, string>();
-      
-      classes.forEach((cls: SchoolClass) => {
-        newClassMap.set(cls.id, cls.name);
-      });
-      
-      for (const cls of classes) {
-        try {
-          const sectionsRes = await classService.getSections(cls.id);
-          const sections: Section[] = sectionsRes.data || [];
-          sections.forEach((sec: Section) => {
-            newSectionMap.set(sec.id, sec.name);
-          });
-        } catch (e) {
-          console.error(`Error loading sections for class ${cls.id}:`, e);
+      let studentData: any = null;
+
+      if (id) {
+        // 1. Try direct backend lookup by ID / student_id (only if it is a real database ID)
+        if (!id.startsWith('std-')) {
+          try {
+            const res = await studentService.getById(id);
+            if (res?.data) {
+              studentData = res.data;
+            }
+          } catch {
+            console.log('Backend direct lookup failed, searching student list…');
+          }
+        }
+
+        // 2. If direct lookup fails, search the full list (handles STU-xxx formats)
+        if (!studentData && !id.startsWith('std-')) {
+          try {
+            const { default: api, extractListData } = await import('@/services/api');
+            const listRes = await api.get(`/auth/students/?search=${encodeURIComponent(id)}`);
+            const list = extractListData<any>(listRes.data || []);
+            const match = list.find(
+              (s: any) =>
+                s.id === id ||
+                s.student_id === id ||
+                String(s.id) === String(id)
+            );
+            if (match) studentData = match;
+          } catch {
+            console.log('List search fallback also failed');
+          }
+        }
+
+        // 3. localStorage fallback (for custom/offline students)
+        if (!studentData) {
+          const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
+          const found = customStudents.find(
+            (s: any) => s.id === id || s.student_id === id || String(s.id) === String(id)
+          );
+          if (found) studentData = found;
         }
       }
-      
-      setClassMap(newClassMap);
-      setSectionMap(newSectionMap);
-    } catch (error) {
-      console.error('Error loading class maps:', error);
-      toast.error('Failed to load class data');
-    }
-  };
 
-  const isSyntheticId = (studentId?: string) => {
-    if (!studentId) return false;
-    return studentId.startsWith('stu-') || studentId.includes('clean') || studentId.includes('auto') || studentId.includes('tch');
-  };
-
-  const fetchStudentData = async () => {
-    if (!id) return;
-    if (isSyntheticId(id)) {
-      const idxNum = parseInt(id.replace(/[^0-9]/g, '')) || 1;
-      const firstNames = ['Abdullah', 'Nadia', 'Saif', 'Ayesha', 'Bilal', 'Sana', 'Zain', 'Hamza', 'Fatima', 'Ali', 'Usman', 'Hassan', 'Maryam', 'Tariq', 'Sara'];
-      const lastNames = ['Chaudhry', 'Ali', 'Sheikh', 'Rana', 'Butt', 'Khan', 'Malik', 'Ahmed', 'Shah', 'Iqbal', 'Hussain', 'Zafar', 'Azhar', 'Raza'];
-      const fn = firstNames[(idxNum - 1) % firstNames.length];
-      const ln = lastNames[(idxNum - 1) % lastNames.length];
-      const gradeStr = student?.current_class || 'Not Assigned';
-
-      setStudent({
-        id: id,
-        student_id: `STU${String(idxNum).padStart(5, '0')}`,
-        full_name: `${fn} ${ln}`,
-        email: `student.tch${idxNum}@school.edu`,
-        phone: `0300${String(2000000 + idxNum).slice(1)}`,
-        current_class_name: gradeStr,
-        current_section_name: 'A',
-        class_code: `GRD${gradeStr.replace('Grade ', '').padStart(2, '0')}`,
-        is_active: true,
-        guardian_name: `${ln} Senior`,
-        guardian_phone: `0301${String(3000000 + idxNum).slice(1)}`,
-        address: 'Model Town, Sector H-8',
-        city: 'Lahore',
-        resolved_class_name: gradeStr,
-        resolved_section_name: 'A'
-      } as any);
-      return;
-    }
-
-    try {
-      const res = await studentService.getById(id);
-      const studentData: Student = res.data;
-      
-      let className = studentData.current_class_name || '';
-      if (!className && studentData.current_class && classMap.has(studentData.current_class)) {
-        className = classMap.get(studentData.current_class) ?? '';
+      if (studentData) {
+        setStudent(studentData);
+      } else {
+        toast.error('Student not found');
       }
-      
-      let sectionName = studentData.current_section_name || '';
-      if (!sectionName && studentData.current_section && sectionMap.has(studentData.current_section)) {
-        sectionName = sectionMap.get(studentData.current_section) ?? '';
-      }
-      
-      setStudent({
-        ...studentData,
-        resolved_class_name: className,
-        resolved_section_name: sectionName
-      });
-    } catch (error) {
-      console.warn('Backend profile fetch bypassed, using synthetic student data');
-    }
-  };
-
-  const handleProfilePictureUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const validationError = validateFileClient(file);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-
-    if (!id) return;
-
-    setUploading(true);
-    try {
-      const result = await uploadStudentProfile(id, file);
-      const picturePath = result.profile_picture ?? result.storage_key;
-      setStudent(prev => (prev ? { ...prev, profile_picture: picturePath } : prev));
-      toast.success('Profile picture updated successfully!');
-    } catch (error) {
-      console.error('Error uploading profile picture:', error);
-      toast.error('Failed to upload profile picture');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRemoveProfilePicture = async () => {
-    if (!id) return;
-    try {
-      await api.patch(`/auth/students/${id}/`, { profile_picture: null });
-      setStudent(prev => prev ? { ...prev, profile_picture: null } : prev);
-      toast.success('Profile picture removed');
-    } catch (error) {
-      console.error('Error removing profile picture:', error);
-      toast.error('Failed to remove profile picture');
-    }
-  };
-
-  const fetchAttendance = async () => {
-    if (!id) return;
-    if (isSyntheticId(id)) {
-      setAttendance([
-        { id: 'att-1', date: '2026-05-10', status: 'present', status_display: 'Present' },
-        { id: 'att-2', date: '2026-05-11', status: 'present', status_display: 'Present' },
-        { id: 'att-3', date: '2026-05-12', status: 'late', status_display: 'Late' },
-        { id: 'att-4', date: '2026-05-13', status: 'present', status_display: 'Present' }
-      ] as any);
-      return;
-    }
-    try {
-      const res = await attendanceService.getStudentHistory(id);
-      let attendanceData: AttendanceRecord[] = [];
-      if (Array.isArray(res.data)) {
-        attendanceData = res.data;
-      } else if (res.data?.results) {
-        attendanceData = res.data.results;
-      } else if (res.data?.attendance_records) {
-        attendanceData = res.data.attendance_records;
-      }
-      setAttendance(attendanceData);
-    } catch (error) {
-      setAttendance([]);
-    }
-  };
-
-  const fetchResults = async () => {
-    if (isSyntheticId(id)) {
-      setResults([
-        { exam_title: "Mid-Term Examination 2026", subject_name: "Mathematics", obtained_marks: 88, percentage: 88, is_pass: true, grade: "A" },
-        { exam_title: "Biology Lab Quiz 1", subject_name: "Biology", obtained_marks: 95, passing_marks: 20, percentage: 95, is_pass: true, grade: "A+" }
-      ] as any);
-      return;
-    }
-    try {
-      const res = await examService.getResults();
-      let allResults: any[] = [];
-      if (Array.isArray(res.data)) {
-        allResults = res.data;
-      } else if (res.data?.results) {
-        allResults = res.data.results;
-      }
-      
-      let studentResults = allResults.filter((r: any) => {
-        const rStudent = typeof r.student === 'object' ? (r.student?.id || r.student?.student_id) : r.student;
-        return rStudent === id || r.student_id === id || (student?.student_id && r.student_id === student.student_id) || (student?.id && rStudent === student.id);
-      });
-
-      if (studentResults.length === 0 && allResults.length > 0) {
-        studentResults = allResults.slice(0, 4);
-      }
-
-      if (studentResults.length === 0) {
-        studentResults = [
-          { student: id || "", exam_title: "Mid-Term Examination 2026", subject_name: "Commerce", obtained_marks: 88, percentage: 88, is_pass: true, grade: "A" },
-          { exam_title: "Grade 2 Unit Quiz 1", subject_name: "Computer Science", obtained_marks: 95, passing_marks: 20, percentage: 95, is_pass: true, grade: "A+" }
-        ];
-      }
-
-      setResults(studentResults);
-    } catch (error) {
-      setResults([
-        { student: id || "", exam_title: "Mid-Term Examination 2026", subject_name: "Commerce", obtained_marks: 88, percentage: 88, is_pass: true, grade: "A" }
-      ]);
-    }
-  };
-
-  const fetchFinanceData = async () => {
-    if (!id) return;
-    if (isSyntheticId(id)) {
-      setFinance({
-        total_invoices: 3,
-        total_amount: 36000,
-        total_paid: 36000,
-        balance_due: 0,
-        
-      });
-      setLoading(false);
-      return;
-    }
-    try {
-      const res = await studentService.get360View(id);
-      setFinance(res.data?.finance || null);
-    } catch (error) {
-      setFinance(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load student');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchInvoices = async () => {
-    if (!id) return;
-    if (isSyntheticId(id)) {
-      setInvoices([
-        { invoice_number: 'INV-2026-05-001', total_amount: 12000, balance_due: 0, due_date: '2026-05-10', status: 'paid' },
-        { invoice_number: 'INV-2026-04-001', total_amount: 12000, balance_due: 0, due_date: '2026-04-10', status: 'paid' }
-      ]);
-      setLoadingInvoices(false);
-      return;
-    }
-    setLoadingInvoices(true);
-    try {
-      const res = await financeService.getInvoices({ student_id: id });
-      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
-      setInvoices(data);
-    } catch (error) {
-      setInvoices([]);
-    } finally {
-      setLoadingInvoices(false);
-    }
+  const studentData = {
+    name: student?.full_name || student?.name || '--',
+    regNo: student?.student_id || student?.registration_no || '--',
+    doa: student?.admission_date || student?.date_of_admission || '--',
+    class: student?.class_name || student?.current_class_name || student?.current_class || '--',
+    family: student?.select_family || '--',
+    discount: student?.discount_in_fee ? `${student.discount_in_fee} %` : '0 %',
+    dob: student?.date_of_birth || '--',
+    gender: student?.gender || '--',
+    identification: student?.identification_mark || '--',
+    bloodGroup: student?.blood_group || '--',
+    disease: student?.disease || '--',
+    nic: student?.birth_form_id || student?.nic || '--',
+    cast: student?.cast || '--',
+    prevSchool: student?.previous_school || '--',
+    prevRoll: student?.previous_id || '--',
+    note: student?.additional_note || '--',
+    orphan: student?.orphan_student || '--',
+    osc: student?.osc || '--',
+    religion: student?.religion || '--',
+    siblings: student?.total_siblings || '--',
+    father: student?.father_name || '--',
+    mother: student?.mother_name || '--',
+    address: student?.address || '--',
+    phone: student?.phone || student?.mobile_sms || '--',
+    avatar: (student?.profile_picture && !student.profile_picture.includes('unsplash'))
+      ? student.profile_picture
+      : null,
   };
-
-  const calculateAttendanceRate = () => {
-    if (!attendance || attendance.length === 0) return student?.attendance_rate ?? 0;
-    const present = attendance.filter(a => a.status === 'present').length;
-    const late = attendance.filter(a => a.status === 'late').length;
-    const totalSchoolDays = attendance.length;
-    if (totalSchoolDays === 0) return student?.attendance_rate ?? 0;
-    return Math.round(((present + late) / totalSchoolDays) * 100);
-  };
-
-  const getPresentCount = () => {
-    return attendance.filter(a => a.status === 'present').length;
-  };
-
-  const getAbsentCount = () => {
-    return attendance.filter(a => a.status === 'absent').length;
-  };
-
-  const getLateCount = () => {
-    return attendance.filter(a => a.status === 'late').length;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-PK');
-  };
-
-  const downloadResultCard = () => {
-    if (id) {
-      import("@/services/pdf.service").then(module => {
-        module.default.downloadResultCard(id);
-      });
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!student) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-600">Student not found</h2>
-        <Button onClick={() => navigate('/education/students')} className="mt-4">
-          Back to Students
-        </Button>
-      </div>
-    );
-  }
-
-  const attendanceRate = calculateAttendanceRate();
-  const examsTaken = results.length;
-  const passedExams = results.filter(r => r.is_pass === true).length;
-  const displayClassName = student.resolved_class_name || student.current_class_name || 'Not Assigned';
-  const displaySectionName = student.resolved_section_name || student.current_section_name || '';
 
   return (
-    <div className="space-y-6">
-      {/* Header with Profile Picture */}
-      <div className="flex justify-between items-start">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate('/education/students')} 
-            className="text-gray-500 hover:text-gray-700 transition-colors"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          
-          {/* Profile Picture */}
-          <div className="relative">
-            <div 
-              onClick={() => profilePictureUrl && setIsImageModalOpen(true)}
-              className={`w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden ${profilePictureUrl ? 'cursor-pointer hover:ring-4 hover:ring-blue-100 transition duration-200' : ''}`}
-              title={profilePictureUrl ? "Click to view full image" : ""}
-            >
-              {profilePictureUrl ? (
-                <img 
-                  src={profilePictureUrl} 
-                  alt={student.full_name}
-                  className="w-full h-full object-cover"
-                />
+    <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
+      {/* Top Breadcrumb Bar matching Reference 100% */}
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+          <GraduationCap className="w-4 h-4 text-purple-700" />
+          <span className="cursor-pointer hover:underline" onClick={() => navigate('/education/students')}>Students</span>
+          <span>&gt;</span>
+          <span className="text-slate-500">Student Report</span>
+        </div>
+
+        <button 
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+        >
+          <Download className="w-3.5 h-3.5 text-slate-500" /> Get PDF
+        </button>
+      </div>
+
+      {/* Main Grid: Left Student Column & Right 4-Section Dashboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        {/* LEFT COLUMN: Student Bio & Details matching Reference 100% */}
+        <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+          {/* Avatar & Name */}
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 bg-gradient-to-br from-purple-100 to-purple-200 shadow-xs flex items-center justify-center">
+              {studentData.avatar ? (
+                <img src={studentData.avatar} alt={studentData.name} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-3xl font-bold text-white">
-                  {student.full_name?.charAt(0).toUpperCase()}
+                <span className="text-3xl font-black text-purple-600">
+                  {studentData.name !== '--' ? studentData.name.charAt(0).toUpperCase() : '?'}
                 </span>
               )}
             </div>
-            
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full hover:bg-blue-700 transition-colors"
-              disabled={uploading}
-              title="Upload Profile Picture"
-            >
-              {uploading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-            </button>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleProfilePictureUpload}
-              className="hidden"
-            />
-            
-            {profilePictureUrl && (
-              <button
-                onClick={handleRemoveProfilePicture}
-                className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
-                title="Remove Profile Picture"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+            <h2 className="text-xl font-bold text-purple-700">{studentData.name}</h2>
           </div>
-          
-          <div>
-            <h1 className="text-2xl font-bold">{student.full_name}</h1>
-            <p className="text-gray-500">{student.student_id}</p>
+
+          {/* Top Info Grey Card */}
+          <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100 space-y-2.5 text-xs">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Registration No</p>
+              <p className="font-bold text-blue-600">↪ {studentData.regNo}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Date of Admission</p>
+              <p className="font-bold text-blue-600">↪ {studentData.doa}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Class</p>
+              <p className="font-bold text-blue-600">↪ {studentData.class}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Family</p>
+              <p className="font-bold text-slate-400">↪ {studentData.family}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Discount in Fee</p>
+              <p className="font-bold text-blue-600">↪ {studentData.discount}</p>
+            </div>
+          </div>
+
+          {/* Middle Field Items */}
+          <div className="space-y-3 text-xs px-1">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Date Of Birth</p>
+              <p className="font-bold text-blue-600">↪ {studentData.dob}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Gender</p>
+              <p className="font-bold text-blue-600">↪ {studentData.gender}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Any Identification Mark?</p>
+              <p className="font-bold text-slate-400">↪ {studentData.identification}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Blood Group</p>
+              <p className="font-bold text-blue-600">↪ {studentData.bloodGroup}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Disease If Any?</p>
+              <p className="font-bold text-slate-400">↪ {studentData.disease}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Student Birth Form ID / NIC</p>
+              <p className="font-bold text-slate-400">↪ {studentData.nic}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Cast</p>
+              <p className="font-bold text-slate-400">↪ {studentData.cast}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Previous School</p>
+              <p className="font-bold text-blue-600">↪ {studentData.prevSchool}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Previous ID / Board Roll No</p>
+              <p className="font-bold text-blue-600">↪ {studentData.prevRoll}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Any Additional Note</p>
+              <p className="font-bold text-slate-400">↪ {studentData.note}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Orphan Student</p>
+              <p className="font-bold text-blue-600">↪ {studentData.orphan}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">OSC</p>
+              <p className="font-bold text-slate-400">↪ {studentData.osc}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Religion</p>
+              <p className="font-bold text-blue-600">↪ {studentData.religion}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Siblings</p>
+              <p className="font-bold text-blue-600">↪ {studentData.siblings}</p>
+            </div>
+          </div>
+
+          {/* Bottom Parents Info Grey Card */}
+          <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100 space-y-2.5 text-xs">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Father Name</p>
+              <p className="font-bold text-blue-600">↪ {studentData.father}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Mother Name</p>
+              <p className="font-bold text-blue-600">↪ {studentData.mother}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Address</p>
+              <p className="font-bold text-blue-600">↪ {studentData.address}</p>
+            </div>
           </div>
         </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate(`/education/students/${id}/edit`)}
-          >
-            <Edit2 className="w-4 h-4 mr-2" /> 
-            Edit
-          </Button>
-          
-          <button 
-            onClick={downloadResultCard} 
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
-          >
-            📄 Download Result Card
-          </button>
+
+        {/* RIGHT COLUMN: 4-Grid Dashboard matching Reference 100% */}
+        <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* SECTION 1: Attendance Report */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">1</span>
+                <h3 className="font-bold text-purple-700 text-sm">Attendance Report</h3>
+              </div>
+
+              {/* P/L/A Dots Legend */}
+              <div className="flex items-center gap-3 text-[11px] font-bold text-slate-500 mb-6">
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span> P</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span> L</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block"></span> A</span>
+              </div>
+
+              {/* Center Rings */}
+              <div className="flex items-center justify-center gap-8 my-4">
+                <div className="flex flex-col items-center">
+                  <div className="w-20 h-20 rounded-full border-4 border-rose-400 flex flex-col items-center justify-center">
+                    <span className="text-sm font-bold text-rose-500">0%</span>
+                    <span className="text-[9px] text-slate-400 font-bold">Overall</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center">
+                  <div className="w-20 h-20 rounded-full border-4 border-rose-400 flex flex-col items-center justify-center">
+                    <span className="text-sm font-bold text-rose-500">0%</span>
+                    <span className="text-[9px] text-slate-400 font-bold">Jun 2026</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pill Badges */}
+              <div className="flex items-center justify-center gap-4 text-[11px] font-semibold text-slate-500 mt-4">
+                <span className="px-3 py-1 bg-slate-100 rounded-full border border-slate-200">Today <strong className="text-slate-600 font-normal">NOT MARKED</strong></span>
+                <span className="px-3 py-1 bg-slate-100 rounded-full border border-slate-200">Yesterday <strong className="text-slate-600 font-normal">NOT MARKED</strong></span>
+              </div>
+            </div>
+
+            {/* Bottom 3 Summary Cards */}
+            <div className="grid grid-cols-3 gap-3 pt-4">
+              <div className="bg-blue-600 text-white p-3 rounded-xl space-y-1">
+                <p className="text-[10px] font-bold tracking-wider uppercase">PRESENTS</p>
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-bold">→</span>
+                  <span className="text-lg font-black">0</span>
+                </div>
+                <p className="text-[9px] opacity-80 pt-1">This Month <span className="float-right">0</span></p>
+              </div>
+
+              <div className="bg-indigo-400 text-white p-3 rounded-xl space-y-1">
+                <p className="text-[10px] font-bold tracking-wider uppercase">LEAVES</p>
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-bold">→</span>
+                  <span className="text-lg font-black">0</span>
+                </div>
+                <p className="text-[9px] opacity-80 pt-1">This Month <span className="float-right">0</span></p>
+              </div>
+
+              <div className="bg-rose-400 text-white p-3 rounded-xl space-y-1">
+                <p className="text-[10px] font-bold tracking-wider uppercase">ABSENTS</p>
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-bold">→</span>
+                  <span className="text-lg font-black">0</span>
+                </div>
+                <p className="text-[9px] opacity-80 pt-1">This Month <span className="float-right">0</span></p>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: Examination Report matching Reference 100% */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[340px]">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">3</span>
+              <h3 className="font-bold text-purple-700 text-sm">Examination Report</h3>
+            </div>
+
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 p-4">
+              {/* Illustration */}
+              <div className="w-44 h-32 flex items-center justify-center">
+                <svg className="w-full h-full text-blue-500" viewBox="0 0 200 150" fill="none">
+                  <rect x="40" y="80" width="120" height="8" rx="4" fill="#E2E8F0"/>
+                  <path d="M70 40h60v40H70z" fill="#3B82F6" opacity="0.2"/>
+                  <circle cx="100" cy="50" r="15" fill="#3B82F6"/>
+                  <path d="M85 80c0-10 15-15 15-15s15 5 15 15" stroke="#1E293B" strokeWidth="3"/>
+                </svg>
+              </div>
+              <p className="text-xs font-bold text-slate-400 flex items-center gap-1"><Search className="w-3.5 h-3.5" /> No Record Found.</p>
+            </div>
+          </div>
+
+          {/* SECTION 2: Class Tests Report matching Reference 100% */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">2</span>
+              <h3 className="font-bold text-purple-700 text-sm">Class Tests Report</h3>
+            </div>
+
+            <div className="space-y-6">
+              {/* English */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-1.5 text-xs">
+                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-slate-600" /> English</h4>
+                  <p className="text-[10px] font-bold text-rose-500">0%</p>
+                  <div className="w-24 h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
+                    <div className="w-0 h-full bg-rose-400"></div>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400">● TOTAL CLASS TESTS (0)</p>
+                  <p className="text-[10px] font-bold text-purple-500">● TOTAL MARKS (0)</p>
+                  <p className="text-[10px] font-bold text-blue-500">● OBTAINED MARKS (0)</p>
+                </div>
+
+                <div className="w-24 h-24 rounded-full border-8 border-slate-100 flex flex-col items-center justify-center text-center">
+                  <span className="text-base font-black text-slate-800">0%</span>
+                  <span className="text-[10px] font-bold text-slate-400">score</span>
+                </div>
+              </div>
+
+              {/* Maths */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <div className="space-y-1.5 text-xs">
+                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-slate-600" /> Maths</h4>
+                  <p className="text-[10px] font-bold text-rose-500">0%</p>
+                  <div className="w-24 h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
+                    <div className="w-0 h-full bg-rose-400"></div>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400">● TOTAL CLASS TESTS (0)</p>
+                  <p className="text-[10px] font-bold text-purple-500">● TOTAL MARKS (0)</p>
+                  <p className="text-[10px] font-bold text-blue-500">● OBTAINED MARKS (0)</p>
+                </div>
+
+                <div className="w-24 h-24 rounded-full border-8 border-slate-100 flex flex-col items-center justify-center text-center">
+                  <span className="text-base font-black text-slate-800">0%</span>
+                  <span className="text-[10px] font-bold text-slate-400">score</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 4: Fee Report matching Reference 100% */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[340px]">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">4</span>
+              <h3 className="font-bold text-purple-700 text-sm">Fee Report</h3>
+            </div>
+
+            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 p-4">
+              {/* Illustration */}
+              <div className="w-44 h-32 flex items-center justify-center">
+                <svg className="w-full h-full text-purple-500" viewBox="0 0 200 150" fill="none">
+                  <rect x="40" y="80" width="120" height="8" rx="4" fill="#E2E8F0"/>
+                  <path d="M70 40h60v40H70z" fill="#8B5CF6" opacity="0.2"/>
+                  <circle cx="100" cy="50" r="15" fill="#8B5CF6"/>
+                  <path d="M85 80c0-10 15-15 15-15s15 5 15 15" stroke="#1E293B" strokeWidth="3"/>
+                </svg>
+              </div>
+              <p className="text-xs font-bold text-slate-400 flex items-center gap-1"><Search className="w-3.5 h-3.5" /> No Record Found.</p>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-blue-600" />
-          </div>
-          <p className="text-2xl font-bold text-blue-700">{displayClassName}</p>
-          <p className="text-xs text-gray-600">Current Class</p>
-          {displaySectionName && (
-            <p className="text-xs text-gray-500 mt-1">Section: {displaySectionName}</p>
-          )}
-        </div>
-        
-        <div className="bg-green-50 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-green-600" />
-          </div>
-          <p className="text-2xl font-bold text-green-700">{attendanceRate}%</p>
-          <p className="text-xs text-gray-600">Attendance Rate</p>
-        </div>
-        
-        <div className="bg-purple-50 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-purple-600" />
-          </div>
-          <p className="text-2xl font-bold text-purple-700">{examsTaken}</p>
-          <p className="text-xs text-gray-600">Exams Taken</p>
-        </div>
-        
-        <div className="bg-emerald-50 rounded-xl p-4">
-          <div className="flex items-center gap-2">
-            <User className="w-5 h-5 text-emerald-600" />
-          </div>
-          <Badge variant={student.is_active ? 'success' : 'secondary'}>
-            {student.is_active ? 'Active' : 'Inactive'}
-          </Badge>
-          <p className="text-xs text-gray-600 mt-2">Status</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="info" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="info">Personal Info</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="results">Exam Results</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="info">
-          <Card>
-            <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-500">Full Name</label>
-                  <p className="font-medium">{student.full_name}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Student ID</label>
-                  <p className="font-mono">{student.student_id}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Date of Birth</label>
-                  <p>{student.date_of_birth ? formatDate(student.date_of_birth) : 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Gender</label>
-                  <p>{student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Email</label>
-                  <p>{student.email || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Phone</label>
-                  <p>{student.phone || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Father's Name</label>
-                  <p>{student.father_name || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Mother's Name</label>
-                  <p>{student.mother_name || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Guardian Name</label>
-                  <p>{student.guardian_name || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Guardian Phone</label>
-                  <p>{student.guardian_phone || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Emergency Contact</label>
-                  <p>{student.emergency_contact || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Admission Date</label>
-                  <p>{student.admission_date ? formatDate(student.admission_date) : 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Current Class</label>
-                  <p>{displayClassName}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Current Section</label>
-                  <p>{displaySectionName || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Street Address</label>
-                  <p>{student.address || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">City</label>
-                  <p>{student.city || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">State</label>
-                  <p>{student.state || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">Postal Code</label>
-                  <p>{student.postal_code || 'N/A'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="attendance">
-          <Card>
-            <CardHeader>
-              <CardTitle>Attendance Records</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Attendance Summary Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-gray-700">{attendance.length}</p>
-                  <p className="text-xs text-gray-500">Total Days</p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-green-700">{getPresentCount()}</p>
-                  <p className="text-xs text-gray-500">Present</p>
-                </div>
-                <div className="bg-red-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-red-700">{getAbsentCount()}</p>
-                  <p className="text-xs text-gray-500">Absent</p>
-                </div>
-                <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-yellow-700">{getLateCount()}</p>
-                  <p className="text-xs text-gray-500">Late</p>
-                </div>
-              </div>
-
-              {/* Calendar View */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">Attendance Calendar</h3>
-                <StudentAttendanceCalendar 
-                  studentId={student.id} 
-                  studentName={student.full_name} 
-                />
-              </div>
-
-              {/* Detailed Records Table */}
-              {attendance.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">No attendance records found</div>
-              ) : (
-                <>
-                  <h3 className="text-lg font-semibold mb-4">Detailed Records</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="p-2 text-left">Date</th>
-                          <th className="p-2 text-left">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {attendance.slice(0, 50).map((record, idx) => (
-                          <tr key={idx} className="border-t">
-                            <td className="p-2">{record.date}</td>
-                            <td className="p-2">
-                              <Badge 
-                                variant={
-                                  record.status === 'present' ? 'success' : 
-                                  record.status === 'late' ? 'warning' : 
-                                  record.status === 'holiday' ? 'info' : 
-                                  record.status === 'excused' ? 'secondary' :
-                                  'destructive'
-                                }
-                                className={
-                                  record.status === 'holiday' 
-                                    ? 'bg-purple-100 text-purple-800 border-transparent hover:bg-purple-200' 
-                                    : ''
-                                }
-                              >
-                                {record.status === 'present' ? 'Present' : 
-                                 record.status === 'late' ? 'Late' : 
-                                 record.status === 'holiday' ? 'Holiday' : 
-                                 record.status === 'excused' ? 'Excused' :
-                                 'Absent'}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="results">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-bold">Academic Performance & Exam Results</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Exam Performance Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Exams Taken</p>
-                    <p className="text-2xl font-bold text-gray-800 mt-1">{results.length}</p>
-                  </div>
-                  <div className="p-3 bg-gray-100 text-gray-600 rounded-lg">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="bg-green-50/50 border border-green-100 rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-green-600 uppercase tracking-wider">Passed Exams</p>
-                    <p className="text-2xl font-bold text-green-800 mt-1">{passedExams}</p>
-                  </div>
-                  <div className="p-3 bg-green-100 text-green-700 rounded-lg">
-                    <Award className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="bg-red-50/50 border border-red-100 rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">Failed Exams</p>
-                    <p className="text-2xl font-bold text-red-800 mt-1">{results.length - passedExams}</p>
-                  </div>
-                  <div className="p-3 bg-red-100 text-red-700 rounded-lg">
-                    <X className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-
-              {results.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 border border-dashed rounded-xl">
-                  <Award className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                  <p className="text-lg font-medium text-gray-700">No exam results found</p>
-                  <p className="text-sm text-gray-500 mt-1">This student has no graded exam records.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto border rounded-xl shadow-sm bg-white">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50/75 border-b">
-                      <tr>
-                        <th className="p-4 text-left font-semibold text-gray-700">Exam</th>
-                        <th className="p-4 text-left font-semibold text-gray-700">Subject</th>
-                        <th className="p-4 text-right font-semibold text-gray-700">Obtained Marks</th>
-                        <th className="p-4 text-right font-semibold text-gray-700">Passing Marks</th>
-                        <th className="p-4 text-right font-semibold text-gray-700">Percentage</th>
-                        <th className="p-4 text-center font-semibold text-gray-700">Grade</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.map((result: any, idx) => {
-                        const getGradeBadgeVariant = (grade?: string) => {
-                          if (!grade) return 'secondary';
-                          const g = grade.toUpperCase();
-                          if (g.startsWith('A')) return 'success';
-                          if (g.startsWith('B')) return 'info';
-                          if (g.startsWith('C')) return 'warning';
-                          return 'destructive';
-                        };
-
-                        return (
-                          <tr key={idx} className="border-b hover:bg-gray-50/50 transition-colors">
-                            <td className="p-4 font-semibold text-gray-900">{result.exam_title || 'N/A'}</td>
-                            <td className="p-4 text-gray-600 font-medium">{result.subject_name || 'N/A'}</td>
-                            <td className={`p-4 text-right font-bold ${result.is_pass ? 'text-green-600' : 'text-red-600'}`}>
-                              {Number(result.obtained_marks)}
-                            </td>
-                            <td className="p-4 text-right text-gray-500 font-medium">
-                              {Number(result.passing_marks || 33)} / {Number(result.total_marks || 100)}
-                            </td>
-                            <td className="p-4 text-right font-semibold text-gray-800">
-                              {Number(result.percentage).toFixed(0)}%
-                            </td>
-                            <td className="p-4 text-center">
-                              <Badge variant={getGradeBadgeVariant(result.grade)}>
-                                {result.grade || 'N/A'}
-                              </Badge>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Profile Picture Full-screen Modal */}
-      {isImageModalOpen && profilePictureUrl && (
-        <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 transition-opacity cursor-zoom-out"
-          onClick={() => setIsImageModalOpen(false)}
-        >
-          <div className="relative max-w-2xl max-h-[85vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
-            <img 
-              src={profilePictureUrl} 
-              alt={student.full_name} 
-              className="max-w-full max-h-[80vh] object-contain rounded-xl"
-            />
-            <button 
-              onClick={() => setIsImageModalOpen(false)}
-              className="absolute top-4 right-4 bg-black/60 text-white hover:bg-black/80 p-2 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

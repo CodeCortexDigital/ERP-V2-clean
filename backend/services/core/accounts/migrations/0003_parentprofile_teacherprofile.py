@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('core_accounts', '0002_user_firebase_uid_tenant_school_and_more'),
-        ('education_academics', '0002_assessmenttype_classroom_gradescale_syllabustopic_and_more'),
         ('education_students', '0002_student_profile_picture'),
     ]
 

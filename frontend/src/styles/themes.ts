@@ -1,5 +1,5 @@
 export const theme = {
-  // Primary brand colors (Code Cortex Green)
+  // Primary brand colors (My School Green)
   primary: '#0A5C36',
   primaryLight: '#1B7A44',
   primaryHover: '#0E4A2A',

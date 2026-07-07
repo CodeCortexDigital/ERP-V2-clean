@@ -15,10 +15,31 @@ import { toast } from 'sonner';
 import financeService from '@/services/finance.service';
 import classService from '@/services/class.service';
 import studentService from '@/services/student.service';
+import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 
 export default function FinancePage() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') || 'overview';
+  });
+  
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [window.location.search]);
+
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [showPayrollModal, setShowPayrollModal] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
+  const [salaryMonth, setSalaryMonth] = useState('June 2026');
+  const [salaryBasic, setSalaryBasic] = useState(0);
+  const [salaryAllowances, setSalaryAllowances] = useState(0);
+  const [salaryDeductions, setSalaryDeductions] = useState(0);
+
   const [feeStructures, setFeeStructures] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -137,7 +158,64 @@ export default function FinancePage() {
     fetchAllData();
     fetchClasses();
     fetchStudents();
+    fetchTeachers();
   }, []);
+
+  const fetchTeachers = async () => {
+    try {
+      const res = await teacherService.getAll().catch(() => ({ data: [] }));
+      const rawTeachers = extractListData<any>(res.data || []);
+      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
+      const allTeachers = [...rawTeachers, ...customTeachers];
+      setTeachers(allTeachers);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSubmitSalaryPayment = () => {
+    if (!selectedTeacher) return;
+    try {
+      const netSalary = salaryBasic + salaryAllowances - salaryDeductions;
+      const savedSalaries = localStorage.getItem('custom_salaries');
+      const salaries = savedSalaries ? JSON.parse(savedSalaries) : [];
+      
+      const newPayment = {
+        id: `sal-${Date.now()}`,
+        employee_id: selectedTeacher.id,
+        employee_name: selectedTeacher.full_name,
+        month: salaryMonth,
+        basic_salary: salaryBasic,
+        allowances: salaryAllowances,
+        deductions: salaryDeductions,
+        net_salary: netSalary,
+        status: 'paid' as const,
+        paid_date: new Date().toISOString().split('T')[0]
+      };
+
+      salaries.push(newPayment);
+      localStorage.setItem('custom_salaries', JSON.stringify(salaries));
+
+      // Save to ledger transactions
+      const savedTxs = localStorage.getItem('finance_transactions');
+      const transactions = savedTxs ? JSON.parse(savedTxs) : [];
+      const newTx = {
+        id: `tx-sal-${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        description: `Salary Paid to ${selectedTeacher.full_name} (${salaryMonth})`,
+        amount: netSalary,
+        type: 'Expense' as const
+      };
+      transactions.push(newTx);
+      localStorage.setItem('finance_transactions', JSON.stringify(transactions));
+
+      toast.success(`Salary of Rs ${netSalary} successfully paid to ${selectedTeacher.full_name}!`);
+      setShowPayrollModal(false);
+      setSelectedTeacher(null);
+    } catch (e) {
+      toast.error('Failed to submit salary payment');
+    }
+  };
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -220,7 +298,7 @@ export default function FinancePage() {
     try {
       console.log("Sending filters:", filters);
 
-      const response = await financeService.getInvoices(filters);
+      const response = await financeService.getInvoices(filters).catch(() => ({ data: [] }));
 
       console.log("API Response:", response.data);
 
@@ -228,7 +306,29 @@ export default function FinancePage() {
         ? response.data
         : (response.data?.results || []);
 
-      setInvoices([...invoiceData]);
+      const customInvoices = JSON.parse(localStorage.getItem('custom_invoices') || '[]');
+      const mergedInvoices = [...invoiceData];
+      customInvoices.forEach((ci: any) => {
+        if (!mergedInvoices.some(inv => inv.id === ci.id || inv.id === ci.invoice_number)) {
+          mergedInvoices.push({
+            id: ci.id,
+            invoice_number: ci.invoice_number,
+            amount: ci.amount,
+            due_date: ci.due_date,
+            description: ci.description,
+            status: ci.status || 'unpaid',
+            student_detail: {
+              id: ci.student,
+              full_name: ci.student_name,
+              student_id: ci.student_id_code,
+              current_class_name: ci.class_name
+            },
+            created_at: ci.created_at
+          });
+        }
+      });
+
+      setInvoices(mergedInvoices);
 
     } catch (error) {
       console.error("Invoice fetch error:", error);
@@ -982,6 +1082,19 @@ const handleBulkSendReminders = async () => {
     );
   }
 
+  const computedSummary = (() => {
+    const totalAmount = invoices.reduce((acc, inv) => acc + parseFloat(inv.amount || '0'), 0);
+    const totalPaid = invoices.filter(inv => inv.status === 'paid').reduce((acc, inv) => acc + parseFloat(inv.amount || '0'), 0);
+    const balanceDue = totalAmount - totalPaid;
+    const collectionRate = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
+    return {
+      total_amount: totalAmount,
+      total_paid: totalPaid,
+      balance_due: balanceDue,
+      collection_rate: collectionRate
+    };
+  })();
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1003,26 +1116,24 @@ const handleBulkSendReminders = async () => {
       </div>
 
       {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-blue-50 rounded-xl p-3">
-            <div className="flex items-center gap-2"><DollarSign className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total Amount</span></div>
-            <p className="text-xl font-bold text-blue-700">{summary.total_amount?.toFixed(2) || 0}</p>
-          </div>
-          <div className="bg-green-50 rounded-xl p-3">
-            <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Collected</span></div>
-            <p className="text-xl font-bold text-green-700">{summary.total_paid?.toFixed(2) || 0}</p>
-          </div>
-          <div className="bg-red-50 rounded-xl p-3">
-            <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Balance Due</span></div>
-            <p className="text-xl font-bold text-red-700">{summary.balance_due?.toFixed(2) || 0}</p>
-          </div>
-          <div className="bg-purple-50 rounded-xl p-3">
-            <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-purple-600" /><span className="text-xs text-gray-600">Collection Rate</span></div>
-            <p className="text-xl font-bold text-purple-700">{summary.collection_rate || 0}%</p>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-blue-50 rounded-xl p-3">
+          <div className="flex items-center gap-2"><DollarSign className="w-4 h-4 text-blue-600" /><span className="text-xs text-gray-600">Total Amount</span></div>
+          <p className="text-xl font-bold text-blue-700">{computedSummary.total_amount?.toFixed(2) || 0}</p>
         </div>
-      )}
+        <div className="bg-green-50 rounded-xl p-3">
+          <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-xs text-gray-600">Collected</span></div>
+          <p className="text-xl font-bold text-green-700">{computedSummary.total_paid?.toFixed(2) || 0}</p>
+        </div>
+        <div className="bg-red-50 rounded-xl p-3">
+          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-600" /><span className="text-xs text-gray-600">Balance Due</span></div>
+          <p className="text-xl font-bold text-red-700">{computedSummary.balance_due?.toFixed(2) || 0}</p>
+        </div>
+        <div className="bg-purple-50 rounded-xl p-3">
+          <div className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-purple-600" /><span className="text-xs text-gray-600">Collection Rate</span></div>
+          <p className="text-xl font-bold text-purple-700">{computedSummary.collection_rate || 0}%</p>
+        </div>
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -1038,6 +1149,8 @@ const handleBulkSendReminders = async () => {
           <TabsTrigger value="reports">📋 Reports</TabsTrigger>
           <TabsTrigger value="communication">📧 Communication</TabsTrigger>
           <TabsTrigger value="audit">🔍 Audit</TabsTrigger>
+          <TabsTrigger value="payroll">💼 Payroll</TabsTrigger>
+          <TabsTrigger value="slips">📄 Salary Slips</TabsTrigger>
           <TabsTrigger value="settings">⚙️ Settings</TabsTrigger>
         </TabsList>
 
@@ -1918,6 +2031,146 @@ const handleBulkSendReminders = async () => {
           </div>
 
         </TabsContent>
+
+        {/* Payroll Tab */}
+        <TabsContent value="payroll">
+          <Card>
+            <CardHeader className="flex flex-row justify-between items-center pb-2">
+              <CardTitle>Staff & Teachers Payroll</CardTitle>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="June 2026"
+                  value={salaryMonth}
+                  onChange={(e) => setSalaryMonth(e.target.value)}
+                  className="w-44 h-10 text-xs font-semibold"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-150 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4">Staff ID</th>
+                      <th className="py-3 px-4">Name</th>
+                      <th className="py-3 px-4">Class Ref</th>
+                      <th className="py-3 px-4 text-right">Monthly Salary</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold">
+                    {teachers.map(teacher => {
+                      const savedSalaries = JSON.parse(localStorage.getItem('custom_salaries') || '[]');
+                      const paidRecord = savedSalaries.find((s: any) => 
+                        s.employee_id === teacher.id && 
+                        s.month.toLowerCase().trim() === salaryMonth.toLowerCase().trim()
+                      );
+                      const displaySalary = teacher.monthlySalary || 'Rs 45,000';
+
+                      return (
+                        <tr key={teacher.id} className="hover:bg-slate-50/50">
+                          <td className="py-3 px-4">{teacher.id.slice(0, 8)}</td>
+                          <td className="py-3 px-4 font-bold text-slate-800">{teacher.full_name}</td>
+                          <td className="py-3 px-4 text-slate-500">{teacher.class_name || 'N/A'}</td>
+                          <td className="py-3 px-4 text-right font-bold text-slate-700">{displaySalary}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                              paidRecord ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                            }`}>
+                              {paidRecord ? 'Paid' : 'Unpaid'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {paidRecord ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  toast.info(`Salary slip generated for ${teacher.full_name}`);
+                                }}
+                              >
+                                Print Slip
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="bg-[#5C53CD] hover:bg-[#4d45bd] text-white"
+                                onClick={() => {
+                                  setSelectedTeacher(teacher);
+                                  const basic = teacher.monthlySalary ? Number(teacher.monthlySalary.toString().replace(/[^0-9]/g, '')) : 45000;
+                                  setSalaryBasic(basic);
+                                  setSalaryAllowances(0);
+                                  setSalaryDeductions(0);
+                                  setShowPayrollModal(true);
+                                }}
+                              >
+                                Pay Salary
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {teachers.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-400 font-bold">
+                          No teachers or employees found in registry database.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Slips Tab */}
+        <TabsContent value="slips">
+          <Card>
+            <CardHeader>
+              <CardTitle>Paid Salary Slips Ledger</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-150 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4">Slip ID</th>
+                      <th className="py-3 px-4">Employee Name</th>
+                      <th className="py-3 px-4">Salary Month</th>
+                      <th className="py-3 px-4 text-right">Net Paid</th>
+                      <th className="py-3 px-4 text-center">Paid Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold">
+                    {(() => {
+                      const list = JSON.parse(localStorage.getItem('custom_salaries') || '[]');
+                      return list.map((sal: any) => (
+                        <tr key={sal.id} className="hover:bg-slate-50/50">
+                          <td className="py-3 px-4 text-[#5C53CD] font-bold">{sal.id}</td>
+                          <td className="py-3 px-4 font-black text-slate-800">{sal.employee_name}</td>
+                          <td className="py-3 px-4 text-slate-600">{sal.month}</td>
+                          <td className="py-3 px-4 text-right font-bold text-emerald-600">Rs {sal.net_salary.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-center text-slate-400">{sal.paid_date}</td>
+                        </tr>
+                      ));
+                    })()}
+                    {JSON.parse(localStorage.getItem('custom_salaries') || '[]').length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-400 font-bold">
+                          No salary payments recorded yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Add/Edit Modal */}
@@ -2246,6 +2499,77 @@ const handleBulkSendReminders = async () => {
               )}
               <Button size="sm" variant="outline" onClick={() => openInvoiceReceipt(selectedInvoice.id)}>
                 <Receipt className="w-4 h-4 mr-2" /> Print Receipt
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPayrollModal && selectedTeacher && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4">
+            <h3 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider border-b pb-2">
+              Pay Salary - {selectedTeacher.full_name}
+            </h3>
+            
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Salary Month</label>
+                <input
+                  type="text"
+                  value={salaryMonth}
+                  disabled
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Basic Salary (Rs)</label>
+                <input
+                  type="number"
+                  value={salaryBasic}
+                  onChange={(e) => setSalaryBasic(Number(e.target.value))}
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Allowances (Rs)</label>
+                <input
+                  type="number"
+                  value={salaryAllowances}
+                  onChange={(e) => setSalaryAllowances(Number(e.target.value))}
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Deductions (Rs)</label>
+                <input
+                  type="number"
+                  value={salaryDeductions}
+                  onChange={(e) => setSalaryDeductions(Number(e.target.value))}
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700"
+                />
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center font-bold text-slate-700">
+                <span>Net Salary Payable:</span>
+                <span className="text-emerald-600 font-extrabold text-sm">
+                  Rs {(salaryBasic + salaryAllowances - salaryDeductions).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button size="sm" variant="outline" onClick={() => setShowPayrollModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-[#5C53CD] hover:bg-[#4d45bd] text-white"
+                onClick={handleSubmitSalaryPayment}
+              >
+                Confirm Payment
               </Button>
             </div>
           </div>

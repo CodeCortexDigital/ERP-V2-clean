@@ -29,6 +29,7 @@ urlpatterns = [
     path('select-options/<str:option_type>/', views.select_options, name='select-options'),
     
     # Attendance
+    path('attendance/dashboard-stats/', views.dashboard_attendance_stats, name='attendance-dashboard-stats'),
     path('attendance/', views.get_attendance, name='get-attendance'),
     path('attendance/bulk/', views.bulk_attendance, name='bulk-attendance'),
     path('attendance/stats/', views.attendance_stats, name='attendance-stats'),

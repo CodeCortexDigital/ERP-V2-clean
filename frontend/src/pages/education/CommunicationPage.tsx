@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { MessageSquare, Send, CheckCircle2, PhoneCall } from 'lucide-react';
+import { MessageSquare, Send, CheckCircle2, PhoneCall, User, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import communicationService from '@/services/communication.service';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SentMessageLog {
   id: string;
@@ -17,9 +18,59 @@ interface SentMessageLog {
 }
 
 export default function CommunicationPage() {
+  const { role, user } = useAuth();
+  const isStudent = role === 'student';
   const location = useLocation();
+  const navigate = useNavigate();
   const [phone, setPhone] = useState(location.state?.phone || '923001234567');
   const [customMsg, setCustomMsg] = useState('Important school update: Tomorrow is a regular working day.');
+
+  // Student Chat Mock States
+  const [selectedContact, setSelectedContact] = useState<string>('teacher');
+  const [messages, setMessages] = useState<Record<string, { sender: 'me' | 'them'; text: string; time: string }[]>>({
+    teacher: [
+      { sender: 'them', text: `Hello ${user?.full_name || 'Student'}! How can I help you with your assignments today?`, time: '09:30 AM' }
+    ],
+    principal: [
+      { sender: 'them', text: 'Welcome to the student-principal feedback line. Please share your suggestions here.', time: 'Yesterday' }
+    ],
+    finance: [
+      { sender: 'them', text: 'Your fee slip for July 2026 has been generated. Let me know if you need installment options.', time: '2 days ago' }
+    ],
+    support: [
+      { sender: 'them', text: 'Need help with the portal or system settings? Message us here.', time: '3 days ago' }
+    ]
+  });
+  const [typedMessage, setTypedMessage] = useState('');
+
+  const handleStudentSendMessage = () => {
+    if (!typedMessage.trim()) return;
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMsg = { sender: 'me' as const, text: typedMessage.trim(), time: timeStr };
+    
+    setMessages(prev => ({
+      ...prev,
+      [selectedContact]: [...(prev[selectedContact] || []), userMsg]
+    }));
+    const tempMsg = typedMessage;
+    setTypedMessage('');
+
+    // Trigger auto-reply
+    setTimeout(() => {
+      let replyText = "Thank you for your message. School administration will get back to you shortly.";
+      if (selectedContact === 'teacher') {
+        replyText = "Got it! I will review your query and reply in a bit. Keep studying!";
+      } else if (selectedContact === 'finance') {
+        replyText = "Your message has been logged with the accounts office. We will update your fee ledger.";
+      }
+      
+      const replyMsg = { sender: 'them' as const, text: replyText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+      setMessages(prev => ({
+        ...prev,
+        [selectedContact]: [...(prev[selectedContact] || []), replyMsg]
+      }));
+    }, 1200);
+  };
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<SentMessageLog[]>([
     { id: '1', recipient: '923001234567', content: 'Fee payment reminder for Grade 10', timestamp: new Date().toLocaleTimeString(), status: 'Delivered' },
@@ -61,6 +112,109 @@ export default function CommunicationPage() {
       setLoading(false);
     }
   };
+
+  if (isStudent) {
+    const activeMessages = messages[selectedContact] || [];
+    return (
+      <div className="space-y-6 bg-slate-50 min-h-screen p-4 text-slate-800 pb-12 animate-fade-in">
+        {/* Top Header & Breadcrumb */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+            <span className="text-slate-850 font-extrabold text-sm border-r border-slate-200 pr-3.5 mr-1 hover:underline cursor-pointer" onClick={() => navigate('/student')}>Messaging</span>
+            <MessageSquare className="w-4 h-4 text-slate-400" />
+            <span>Home - Helpdesk & Chats</span>
+          </div>
+        </div>
+
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 bg-white rounded-2xl border border-slate-200 shadow-3xs overflow-hidden h-[600px]">
+          {/* Left Contacts Pane */}
+          <div className="md:col-span-4 border-r border-slate-100 flex flex-col h-full bg-slate-50/50">
+            <div className="p-4 border-b border-slate-100">
+              <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Inbox Conversations</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-50 p-2 space-y-1">
+              {[
+                { id: 'teacher', name: 'Class Teacher', desc: 'Zainab Ahmed', icon: '👩‍🏫' },
+                { id: 'principal', name: 'Principal Office', desc: 'Dr. Tariq Mahmood', icon: '👨‍💼' },
+                { id: 'finance', name: 'Accounts Department', desc: 'Fee & Billing Assistance', icon: '💳' },
+                { id: 'support', name: 'IT Support & Helpdesk', desc: 'Portal assistance', icon: '🛠️' }
+              ].map(c => (
+                <div
+                  key={c.id}
+                  onClick={() => setSelectedContact(c.id)}
+                  className={`p-3.5 rounded-xl cursor-pointer transition-all flex items-center gap-3 ${
+                    selectedContact === c.id 
+                      ? 'bg-white text-blue-650 shadow-3xs border border-slate-100' 
+                      : 'hover:bg-slate-100/50 text-slate-600'
+                  }`}
+                >
+                  <span className="text-xl shrink-0 select-none">{c.icon}</span>
+                  <div className="space-y-0.5 overflow-hidden">
+                    <p className="text-xs font-black truncate">{c.name}</p>
+                    <p className="text-[10px] text-slate-400 font-bold truncate">{c.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Message/Chat Pane */}
+          <div className="md:col-span-8 flex flex-col h-full">
+            {/* Contact Header */}
+            <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-black text-slate-855 uppercase">
+                  {selectedContact === 'teacher' ? 'Class Teacher' : selectedContact === 'principal' ? 'Principal Office' : selectedContact === 'finance' ? 'Accounts Department' : 'IT Support'}
+                </h3>
+                <p className="text-[9px] text-green-600 font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Online Support
+                </p>
+              </div>
+            </div>
+
+            {/* Messages Body */}
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 space-y-4">
+              {activeMessages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${m.sender === 'me' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[70%] rounded-2xl p-3 shadow-3xs space-y-1 ${
+                    m.sender === 'me' 
+                      ? 'bg-blue-600 text-white rounded-br-none' 
+                      : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none'
+                  }`}>
+                    <p className="text-xs font-semibold leading-relaxed">{m.text}</p>
+                    <p className={`text-[8px] text-right font-bold ${
+                      m.sender === 'me' ? 'text-blue-200' : 'text-slate-400'
+                    }`}>{m.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Input Bar */}
+            <div className="p-3 border-t border-slate-100 bg-white flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Type your message here..."
+                value={typedMessage}
+                onChange={(e) => setTypedMessage(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleStudentSendMessage(); }}
+                className="flex-1 text-xs h-10 border border-slate-200 rounded-xl px-3 focus:outline-none focus:ring-1 focus:ring-blue-600 font-semibold"
+              />
+              <button
+                onClick={handleStudentSendMessage}
+                className="w-10 h-10 shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center transition-colors shadow-2xs"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

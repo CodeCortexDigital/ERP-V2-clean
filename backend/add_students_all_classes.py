@@ -77,7 +77,7 @@ for school_class in all_classes:
                 father_name=random.choice(last_names) + " " + random.choice(boys_names),
                 mother_name=random.choice(last_names) + " " + random.choice(girls_names),
                 guardian_phone=gen_phone(),
-                enrollment_date=date(2024, random.randint(8, 11), random.randint(1, 28)),
+                admission_date=date(2024, random.randint(8, 11), random.randint(1, 28)),
                 current_class=school_class,
                 current_section=sections[i % len(sections)],
                 is_active=True

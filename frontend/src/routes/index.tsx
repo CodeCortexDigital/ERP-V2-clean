@@ -27,11 +27,27 @@ const AcademicsPage = lazy(() => import('../pages/education/AcademicsPage'));
 const CurriculumManagement = lazy(() => import('../pages/education/curriculum/SyllabusManagement'));
 const TopicBreakdownPage = lazy(() => import('../pages/education/curriculum/TopicBreakdown'));
 const ResourceManagementPage = lazy(() => import('../pages/education/curriculum/ResourceManagement'));
+const HomeworkManagementPage = lazy(() => import('../pages/education/assignments/HomeworkManagementPage'));
 const AdmissionsPage = lazy(() => import('../pages/education/AdmissionsPage'));
+const RateBehavioursPage = lazy(() => import('../pages/education/behaviour/RateBehavioursPage'));
+const RateSkillsPage = lazy(() => import('../pages/education/behaviour/RateSkillsPage'));
+const ObservationsPage = lazy(() => import('../pages/education/behaviour/ObservationsPage'));
+const AffectiveDomainReportPage = lazy(() => import('../pages/education/behaviour/AffectiveDomainReportPage'));
+const PsycomotorDomainReportPage = lazy(() => import('../pages/education/behaviour/PsycomotorDomainReportPage'));
 const ExamsPage = lazy(() => import('../pages/education/ExamsPage'));
 const FeesPage = lazy(() => import('../pages/education/FeesPage'));
 const AttendancePage = lazy(() => import('../pages/education/attendance/AttendancePage'));
 const AttendanceAnalyticsDashboard = lazy(() => import('../pages/education/attendance/dashboard/AttendanceAnalyticsDashboard'));
+
+// Timetable Module
+const TimetableManagement = lazy(() => import('../pages/education/timetable/TimetableManagement'));
+const TimetableEditorPage = lazy(() => import('../pages/education/timetable/TimetableEditorPage'));
+const TimetableViewPage = lazy(() => import('../pages/education/timetable/TimetableViewPage'));
+const PeriodManagementPage = lazy(() => import('../pages/education/timetable/PeriodManagementPage'));
+const WeekdayManagementPage = lazy(() => import('../pages/education/timetable/WeekdayManagementPage'));
+const ClassroomManagementPage = lazy(() => import('../pages/education/timetable/ClassroomManagementPage'));
+const ClassTimetableListPage = lazy(() => import('../pages/education/timetable/ClassTimetableListPage'));
+const TeacherTimetableListPage = lazy(() => import('../pages/education/timetable/TeacherTimetableListPage'));
 
 // Loading component for Suspense
 const PageLoader = () => (
@@ -142,8 +158,32 @@ export const routes: RouteObject[] = [
         element: <Suspense fallback={<PageLoader />}><ResourceManagementPage /></Suspense>,
       },
       {
+        path: 'education/homework',
+        element: <Suspense fallback={<PageLoader />}><HomeworkManagementPage /></Suspense>,
+      },
+      {
         path: 'education/admissions',
         element: <Suspense fallback={<PageLoader />}><AdmissionsPage /></Suspense>,
+      },
+      {
+        path: 'education/behaviour/rate',
+        element: <Suspense fallback={<PageLoader />}><RateBehavioursPage /></Suspense>,
+      },
+      {
+        path: 'education/skills/rate',
+        element: <Suspense fallback={<PageLoader />}><RateSkillsPage /></Suspense>,
+      },
+      {
+        path: 'education/behaviour/observations',
+        element: <Suspense fallback={<PageLoader />}><ObservationsPage /></Suspense>,
+      },
+      {
+        path: 'education/behaviour/affective-report',
+        element: <Suspense fallback={<PageLoader />}><AffectiveDomainReportPage /></Suspense>,
+      },
+      {
+        path: 'education/behaviour/psycomotor-report',
+        element: <Suspense fallback={<PageLoader />}><PsycomotorDomainReportPage /></Suspense>,
       },
       {
         path: 'education/exams',
@@ -160,6 +200,38 @@ export const routes: RouteObject[] = [
       {
         path: 'education/attendance/analytics',
         element: <Suspense fallback={<PageLoader />}><AttendanceAnalyticsDashboard /></Suspense>,
+      },
+      {
+        path: 'education/timetable',
+        element: <Suspense fallback={<PageLoader />}><TimetableManagement /></Suspense>,
+      },
+      {
+        path: 'education/timetable/editor',
+        element: <Suspense fallback={<PageLoader />}><TimetableEditorPage /></Suspense>,
+      },
+      {
+        path: 'education/timetable/view',
+        element: <Suspense fallback={<PageLoader />}><TimetableViewPage /></Suspense>,
+      },
+      {
+        path: 'education/timetable/periods',
+        element: <Suspense fallback={<PageLoader />}><PeriodManagementPage /></Suspense>,
+      },
+      {
+        path: 'education/timetable/weekdays',
+        element: <Suspense fallback={<PageLoader />}><WeekdayManagementPage /></Suspense>,
+      },
+      {
+        path: 'education/timetable/rooms',
+        element: <Suspense fallback={<PageLoader />}><ClassroomManagementPage /></Suspense>,
+      },
+      {
+        path: 'education/timetable/class',
+        element: <Suspense fallback={<PageLoader />}><ClassTimetableListPage /></Suspense>,
+      },
+      {
+        path: 'education/timetable/teacher',
+        element: <Suspense fallback={<PageLoader />}><TeacherTimetableListPage /></Suspense>,
       },
       {
         path: 'student',

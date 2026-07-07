@@ -32,7 +32,7 @@ export function useNotifications(pollIntervalMs = POLL_MS) {
   // WebSocket: real-time notification push
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
-      websocketService.disconnect();
+      websocketService.disconnect('notifications');
       setWsConnected(false);
       return;
     }
@@ -41,7 +41,7 @@ export function useNotifications(pollIntervalMs = POLL_MS) {
 
     const connect = async () => {
       try {
-        await websocketService.connect(accessToken);
+        websocketService.connect(accessToken, 'notifications');
         if (!cancelled) setWsConnected(true);
       } catch {
         if (!cancelled) setWsConnected(false);
@@ -56,18 +56,19 @@ export function useNotifications(pollIntervalMs = POLL_MS) {
         const item = message.data as NotificationItem;
         if (item?.id) pushNotification(item);
         else fetchUnreadCount();
-      }
+      },
+      'notifications'
     );
 
     const unsubConn = websocketService.onConnectionChange((connected) => {
       setWsConnected(connected);
-    });
+    }, 'notifications');
 
     return () => {
       cancelled = true;
       unsubMessage();
       unsubConn();
-      websocketService.disconnect();
+      websocketService.disconnect('notifications');
     };
   }, [
     isAuthenticated,

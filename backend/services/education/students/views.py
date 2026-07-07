@@ -218,3 +218,18 @@ def force_update_activity(request, student_id):
     student.save(update_fields=['last_activity'])
     return Response({'success': True, 'last_activity': student.last_activity})
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def last_registration(request):
+    """
+    Returns the student_id of the most recently created student.
+    Used by the Add Student form to display: LAST: <id>
+    Response: { "last_id": "003b", "count": 4 }
+    """
+    last = Student.objects.order_by('-created_at').values('student_id').first()
+    total = Student.objects.count()
+    return Response({
+        'last_id': last['student_id'] if last else None,
+        'count': total,
+    })

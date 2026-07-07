@@ -33,7 +33,7 @@ const attendanceService = {
         ...(r.section_id ? { section_id: r.section_id } : {}),
         ...(r.remarks ? { remarks: r.remarks } : {})
       }))
-    });
+    }, { skipGlobalToast: true } as any);
   },
 
   // Get attendance by date, optionally filtered by class and section

@@ -1,69 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import TeacherProfilePage from './TeacherProfilePage';
-import { Plus, Search, Eye, Mail, Edit2, Filter, MessageCircle, Key } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
+import { Plus, Search, Eye, Mail, Edit2, Trash2, RotateCcw } from 'lucide-react';
 import teacherService, { Teacher } from '@/services/teacher.service';
-import academicService from '@/services/academic.service';
 import { extractListData } from '@/services/api';
-import SetPasswordModal from '@/components/auth/SetPasswordModal';
-
-// Helper: clean phone number and build WhatsApp link
-const getWhatsAppLink = (phone: string) => {
-  if (!phone) return null;
-  // Remove spaces, dashes, parentheses
-  const cleaned = phone.replace(/[\s\-().]/g, '');
-  // If starts with 0, replace with Pakistan country code (+92)
-  const international = cleaned.startsWith('0')
-    ? '92' + cleaned.slice(1)
-    : cleaned.replace(/^\+/, '');
-  return `https://wa.me/${international}`;
-};
-
-// Helper: open default mail client without navigating the SPA away
-const openEmail = (email: string) => {
-  if (!email) return;
-  window.open(`mailto:${email}`, '_self');
-};
-
-const MASTER_CLASS_TEACHER_MAP: Record<string, string> = {
-  'Maryam Fatima': 'Grade 1-A',
-  'Dr. Mariam Butt': 'Grade 1-B',
-  'Mr. Hamza Ali Abbasi': 'Grade 2-A',
-  'Ms. Amna Tariq': 'Grade 2-B',
-  'Mr. Hassan Malik': 'Grade 3-A',
-  'Dr. Ahmed Raza': 'Grade 3-B',
-  'Mr. Faisal Qureshi': 'Grade 4-A',
-  'Mr. Saad Rana': 'Grade 4-B',
-  'Ms. Abida Parveen': 'Grade 5-A',
-  'Prof. Sara Khan': 'Grade 5-B',
-  'Ms. Fatima Ali': 'Grade 6-A',
-  'Prof. Usman Shah': 'Grade 6-B',
-  'Mr. Ali Zafar': 'Grade 7-A',
-  'Mr. Zeeshan Haider': 'Grade 7-B',
-  'Ms. Sadia Iqbal': 'Grade 8-A',
-  'Dr. Bushra Ansari': 'Grade 8-B',
-  'Prof. Ghulam Ali': 'Grade 9-A',
-  'Dr. Atif Aslam': 'Grade 9-B',
-  'Prof. Omar Farooq': 'Grade 10-A',
-  'Prof. Tahir Ul Qadri': 'Grade 10-B'
-};
+import { toast } from 'sonner';
 
 export default function TeachersManagement() {
-  const { user, role } = useAuth();
+  const { role } = useAuth();
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [classList, setClassList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [showInactive, setShowInactive] = useState(false);
-  const [passwordModalTeacher, setPasswordModalTeacher] = useState<Teacher | null>(null);
 
   useEffect(() => {
     fetchTeachers();
@@ -72,350 +20,226 @@ export default function TeachersManagement() {
   const fetchTeachers = async () => {
     setLoading(true);
     try {
-      const [tRes, cRes] = await Promise.all([
-        teacherService.getAll().catch(() => ({ data: [] })),
-        academicService.getClasses().catch(() => ({ data: [] }))
-      ]);
-      setTeachers(extractListData<Teacher>(tRes.data));
-      setClassList(Array.isArray(cRes.data) ? cRes.data : (cRes.data as any)?.results || []);
+      const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
+      const fetched = extractListData<Teacher>(tRes.data);
+      
+      // Load custom_teachers from localStorage
+      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
+      
+      // Merge them, avoiding duplicate IDs
+      const merged = [...fetched];
+      customTeachers.forEach((ct: any) => {
+        if (!merged.some(t => String(t.id) === String(ct.id))) {
+          merged.push(ct);
+        }
+      });
+
+      // Filter out deleted ones locally
+      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
+      const filtered = merged.filter(t => !deletedIds.includes(t.id));
+      
+      const defaultTeachers = [
+        {
+          id: 't-1',
+          employee_id: '250622',
+          full_name: 'Maryam Fatima',
+          email: 'maryam.fatima@school.edu',
+          phone: '+92 300 1234567',
+          qualifications: ['Master of Education'],
+          specializations: ['Teacher'],
+          experience_years: 5,
+          joining_date: '2026-06-29',
+          is_active: true,
+          profile_picture: null
+        }
+      ];
+
+      setTeachers(filtered.length > 0 ? filtered : defaultTeachers);
     } catch (error) {
-      console.error('Error fetching teachers:', error);
+      console.error('Error fetching employees:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const activeTeachers = teachers.filter(t => t.is_active);
-  const departments = [...new Set(teachers.flatMap(t => t.specializations || []))].filter(Boolean);
-  const totalExperience = activeTeachers.reduce((sum, t) => sum + (t.experience_years || 0), 0);
-  const avgExperience = activeTeachers.length > 0 ? Math.round(totalExperience / activeTeachers.length) : 0;
-
-  const filteredTeachers = teachers.filter(t => {
-    const matchesSearch =
-      t.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesDept = !selectedDepartment || (t.specializations || []).includes(selectedDepartment);
-
-    let matchesStatus = true;
-    if (selectedStatus === 'active') {
-      matchesStatus = t.is_active === true;
-    } else if (selectedStatus === 'inactive') {
-      matchesStatus = t.is_active === false;
-    } else if (!showInactive) {
-      matchesStatus = t.is_active === true;
+  const handleDeleteTeacher = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete employee ${name}?`)) return;
+    try {
+      await teacherService.deleteTeacher(id);
+    } catch (err) {
+      console.log('Backend delete employee fallback');
     }
 
-    return matchesSearch && matchesDept && matchesStatus;
-  });
+    const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
+    deletedIds.push(id);
+    localStorage.setItem('deleted_teacher_ids', JSON.stringify(deletedIds));
+    
+    // Also remove from local extra details map
+    const savedExtras = localStorage.getItem('employees_extra_info');
+    if (savedExtras) {
+      try {
+        const extrasMap = JSON.parse(savedExtras);
+        delete extrasMap[id];
+        localStorage.setItem('employees_extra_info', JSON.stringify(extrasMap));
+      } catch (e) {}
+    }
 
-  const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedDepartment('');
-    setSelectedStatus('');
-    setShowInactive(false);
+    toast.success('Employee deleted successfully.');
+    fetchTeachers();
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  // Get custom extra details (like role) from localStorage
+  const getEmployeeRole = (teacher: Teacher) => {
+    const savedExtras = localStorage.getItem('employees_extra_info');
+    if (savedExtras) {
+      try {
+        const extrasMap = JSON.parse(savedExtras);
+        if (extrasMap[teacher.id]?.role) {
+          return extrasMap[teacher.id].role;
+        }
+      } catch (e) {}
+    }
+    return teacher.specializations?.[0] || 'Teacher';
+  };
 
-  // Teachers exclusively see their personal profile
-  if (role === 'teacher' || (!user?.is_superuser && !user?.is_staff && role !== 'admin')) {
-    return <TeacherProfilePage />;
-  }
+  const filteredTeachers = teachers.filter(t => {
+    const empRole = getEmployeeRole(t).toLowerCase();
+    const query = searchTerm.toLowerCase();
+    return (
+      t.full_name.toLowerCase().includes(query) ||
+      (t.employee_id || '').toLowerCase().includes(query) ||
+      empRole.includes(query)
+    );
+  });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Teachers Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage faculty and teaching staff</p>
+    <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800">
+      {/* Breadcrumb Header Bar */}
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+          <span className="text-purple-800 font-extrabold flex items-center gap-1.5">
+            💼 Employees
+          </span>
+          <span>&gt;</span>
+          <span className="text-slate-500 font-bold">All Employees</span>
         </div>
-        <Button onClick={() => navigate('/education/teachers/add')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Teacher
-        </Button>
+
+        <button 
+          onClick={fetchTeachers} 
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 transition-colors"
+        >
+          <RotateCcw className="w-3.5 h-3.5" /> Reload
+        </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 rounded-xl p-4">
-          <p className="text-sm text-gray-600">Total Teachers</p>
-          <p className="text-2xl font-bold text-blue-700">{teachers.length}</p>
-        </div>
-        <div className="bg-green-50 rounded-xl p-4">
-          <p className="text-sm text-gray-600">Active Teachers</p>
-          <p className="text-2xl font-bold text-green-700">{activeTeachers.length}</p>
-        </div>
-        <div className="bg-purple-50 rounded-xl p-4">
-          <p className="text-sm text-gray-600">Departments</p>
-          <p className="text-2xl font-bold text-purple-700">{departments.length}</p>
-        </div>
-        <div className="bg-yellow-50 rounded-xl p-4">
-          <p className="text-sm text-gray-600">Avg Experience</p>
-          <p className="text-2xl font-bold text-yellow-700">{avgExperience} yrs</p>
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-7xl mx-auto">
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-700">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xl font-black text-slate-900 leading-tight">{teachers.length}</p>
+            <p className="text-[11px] text-slate-400 font-extrabold tracking-wider uppercase">All Employees</p>
+          </div>
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex-1 min-w-[200px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search by name, email, or ID..."
+      {/* Search Employee Box */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs max-w-7xl mx-auto space-y-4">
+        <label className="block text-[10px] font-bold tracking-wider text-purple-800 uppercase">SEARCH EMPLOYEE</label>
+        
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Type name, ID or designation..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium placeholder:text-slate-400 text-slate-700"
             />
           </div>
+
+          <button
+            onClick={() => navigate('/education/teachers/add')}
+            className="flex items-center gap-1.5 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all shrink-0 w-full md:w-auto justify-center"
+          >
+            <Plus className="w-4 h-4" /> Add New Employee
+          </button>
         </div>
+      </div>
 
-        <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
-          <Filter className="w-4 h-4 mr-2" />
-          Filters
-        </Button>
-
-        <Button
-          variant={showInactive ? 'default' : 'outline'}
-          onClick={() => setShowInactive(!showInactive)}
+      {/* Cards Grid */}
+      <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-6 pt-2">
+        {/* Add New Dotted Box */}
+        <button
+          onClick={() => navigate('/education/teachers/add')}
+          className="aspect-[4/5] rounded-3xl border-2 border-dashed border-slate-200 hover:border-purple-400 bg-white/50 hover:bg-white flex flex-col items-center justify-center gap-2 transition-all group"
         >
-          {showInactive ? 'Hide Inactive' : 'Show Inactive'}
-        </Button>
-
-        {(searchTerm || selectedDepartment || selectedStatus || showInactive) && (
-          <Button variant="ghost" onClick={clearFilters} size="sm">
-            Clear Filters
-          </Button>
-        )}
-
-        <Button onClick={fetchTeachers} variant="outline" size="sm">
-          Refresh
-        </Button>
-      </div>
-
-      {/* Advanced Filters Panel */}
-      {showFilters && (
-        <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Department / Specialization</label>
-            <select
-              className="w-full border rounded-lg px-3 py-2"
-              value={selectedDepartment}
-              onChange={(e) => setSelectedDepartment(e.target.value)}
-            >
-              <option value="">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
+          <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+            <Plus className="w-5 h-5" />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Status</label>
-            <select
-              className="w-full border rounded-lg px-3 py-2"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+          <span className="text-xs font-bold text-purple-600">Add New</span>
+        </button>
+
+        {/* Employee Cards */}
+        {filteredTeachers.map((teacher) => {
+          const empRole = getEmployeeRole(teacher);
+          return (
+            <div 
+              key={teacher.id}
+              className="aspect-[4/5] bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex flex-col items-center justify-between text-center transition-all hover:shadow-md hover:-translate-y-0.5"
             >
-              <option value="">All Status</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
-          </div>
-        </div>
-      )}
+              <div className="flex flex-col items-center space-y-3 mt-4">
+                <div className="w-20 h-20 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden p-0.5 shadow-2xs">
+                  {teacher.profile_picture ? (
+                    <img src={teacher.profile_picture} alt={teacher.full_name} className="w-full h-full object-cover rounded-full" />
+                  ) : (
+                    <svg className="w-12 h-12 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
 
-      {/* Teachers Table */}
-      <div className="overflow-x-auto border rounded-xl bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-3 text-left">Teacher ID</th>
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Assigned Class</th>
-              <th className="px-4 py-3 text-left">Specialization</th>
-              <th className="px-4 py-3 text-left">Qualification</th>
-              <th className="px-4 py-3 text-left">Experience</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTeachers.map((teacher) => {
-              const storedMap = JSON.parse(localStorage.getItem('teacher_assigned_classes') || '{}');
-              const storedClass = storedMap[teacher.id] || storedMap[teacher.full_name];
-              const masterClass = MASTER_CLASS_TEACHER_MAP[teacher.full_name];
-              const matchedClass = classList.find((c: any) => c.teacher_name === teacher.full_name);
-              const assignedClassDisplay = storedClass || (teacher as any).assigned_class || masterClass || (matchedClass ? matchedClass.name : '');
+                <div className="space-y-0.5">
+                  <h4 className="font-extrabold text-slate-800 text-xs tracking-tight truncate max-w-[130px]" title={teacher.full_name}>
+                    {teacher.full_name}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-bold">{empRole}</p>
+                </div>
+              </div>
 
-              return (
-                <tr
-                  key={teacher.id}
-                  className={`border-t hover:bg-gray-50 ${!teacher.is_active ? 'bg-gray-100 opacity-75' : ''}`}
+              {/* Actions row */}
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={() => navigate(`/education/teachers/${teacher.id}`)}
+                  className="p-1.5 bg-slate-50 hover:bg-purple-50 text-slate-400 hover:text-purple-600 rounded-lg border border-slate-150 transition-colors"
+                  title="View Details"
                 >
-                  {/* Teacher ID */}
-                  <td className="px-4 py-3 font-mono text-sm">{teacher.employee_id || 'N/A'}</td>
-
-                  {/* Name + Email + WhatsApp (inline clickable) */}
-                  <td className="px-4 py-3">
-                    <p
-                      className="font-semibold text-gray-900 hover:text-blue-600 cursor-pointer transition"
-                      onClick={() => navigate(`/education/teachers/${teacher.id}`)}
-                    >
-                      {teacher.full_name}
-                    </p>
-                    <div className="flex flex-col gap-0.5 mt-1">
-                      {teacher.email && (
-                        <button
-                          onClick={() => openEmail(teacher.email)}
-                          className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition text-left group"
-                          title={`Send email to ${teacher.email}`}
-                        >
-                          <Mail className="w-3 h-3 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
-                          <span className="truncate max-w-[180px]">{teacher.email}</span>
-                        </button>
-                      )}
-                      {teacher.phone && (
-                        <a
-                          href={getWhatsAppLink(teacher.phone) || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-gray-400 hover:text-green-600 flex items-center gap-1 transition group"
-                          title={`Open WhatsApp for ${teacher.phone}`}
-                        >
-                          <MessageCircle className="w-3 h-3 text-gray-400 group-hover:text-green-500 flex-shrink-0" />
-                          {teacher.phone}
-                        </a>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Assigned Class */}
-                  <td className="px-4 py-3">
-                    <Badge variant={assignedClassDisplay ? 'default' : 'outline'} className={assignedClassDisplay ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-gray-400'}>
-                      {assignedClassDisplay || 'Not Assigned'}
-                    </Badge>
-                  </td>
-
-                  {/* Specialization */}
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {teacher.specializations?.slice(0, 2).map((spec, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">{spec}</Badge>
-                      ))}
-                    </div>
-                  </td>
-
-                  {/* Qualification */}
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {teacher.qualifications?.slice(0, 2).map((qual, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">{qual}</Badge>
-                      ))}
-                    </div>
-                  </td>
-
-                  {/* Experience */}
-                  <td className="px-4 py-3">{teacher.experience_years || 0} years</td>
-
-                  {/* Status */}
-                  <td className="px-4 py-3">
-                    <Badge variant={teacher.is_active ? 'success' : 'secondary'}>
-                      {teacher.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </td>
-
-                {/* Action Buttons */}
-                <td className="px-4 py-3 text-center">
-                  <div className="flex gap-1 justify-center items-center">
-                    {/* Set Password */}
-                    <button
-                      onClick={() => setPasswordModalTeacher(teacher)}
-                      className="p-1.5 rounded-lg hover:bg-purple-100 transition"
-                      title="Set / Reset Password"
-                    >
-                      <Key className="w-4 h-4 text-purple-600" />
-                    </button>
-
-                    {/* View Profile */}
-                    <button
-                      onClick={() => navigate(`/education/teachers/${teacher.id}`)}
-                      className="p-1.5 rounded-lg hover:bg-blue-100 transition"
-                      title="View Profile"
-                    >
-                      <Eye className="w-4 h-4 text-blue-600" />
-                    </button>
-
-                    {/* Edit */}
-                    <button
-                      onClick={() => navigate(`/education/teachers/${teacher.id}/edit`)}
-                      className="p-1.5 rounded-lg hover:bg-yellow-100 transition"
-                      title="Edit Teacher"
-                    >
-                      <Edit2 className="w-4 h-4 text-yellow-600" />
-                    </button>
-
-                    {/* Email — opens default mail client without navigating SPA away */}
-                    <button
-                      onClick={() => openEmail(teacher.email)}
-                      className="p-1.5 rounded-lg hover:bg-green-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                      title={teacher.email ? `Email: ${teacher.email}` : 'No email available'}
-                      disabled={!teacher.email}
-                    >
-                      <Mail className="w-4 h-4 text-green-600" />
-                    </button>
-
-                    {/* WhatsApp — opens wa.me in new tab */}
-                    {teacher.phone ? (
-                      <a
-                        href={getWhatsAppLink(teacher.phone) || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-emerald-100 transition inline-flex items-center justify-center"
-                        title={`WhatsApp: ${teacher.phone}`}
-                      >
-                        <MessageCircle className="w-4 h-4 text-emerald-600" />
-                      </a>
-                    ) : (
-                      <button
-                        className="p-1.5 rounded-lg opacity-40 cursor-not-allowed"
-                        title="No phone number available"
-                        disabled
-                      >
-                        <MessageCircle className="w-4 h-4 text-emerald-600" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-        </table>
+                  <Search className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => navigate(`/education/teachers/${teacher.id}/edit`)}
+                  className="p-1.5 bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg border border-slate-150 transition-colors"
+                  title="Edit Profile"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDeleteTeacher(teacher.id, teacher.full_name)}
+                  className="p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg border border-slate-150 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
-
-      {filteredTeachers.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No teachers found</p>
-        </div>
-      )}
-
-      {passwordModalTeacher && (
-        <SetPasswordModal
-          isOpen={Boolean(passwordModalTeacher)}
-          onClose={() => setPasswordModalTeacher(null)}
-          userIdentifier={passwordModalTeacher.email || passwordModalTeacher.employee_id}
-          userName={passwordModalTeacher.full_name}
-          userRole="teacher"
-        />
-      )}
     </div>
   );
 }

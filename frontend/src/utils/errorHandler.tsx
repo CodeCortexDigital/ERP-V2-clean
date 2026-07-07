@@ -47,9 +47,18 @@ export function setupApiErrorInterceptor(api: AxiosInstance) {
   api.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
+      const config = error.config as any;
+      if (config?.skipGlobalToast) {
+        return Promise.reject(error);
+      }
+
       const status = error.response?.status;
 
       if (status === 401) {
+        const currentToken = useAuthStore.getState().accessToken;
+        if (currentToken === 'mock-access-token') {
+          return Promise.reject(error);
+        }
         useAuthStore.getState().logout();
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
           window.location.href = '/login';

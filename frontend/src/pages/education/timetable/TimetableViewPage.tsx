@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { toast } from 'sonner'
 import api from '@/services/api'
 import academicService from '@/services/academic.service'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface Period {
   id: string
@@ -30,23 +31,50 @@ interface TimetableEntry {
   period: string
 }
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-
 export default function TimetableViewPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { role, user } = useAuth()
+  const isStudent = role === 'student'
   const classId = searchParams.get('class_id')
   const teacherId = searchParams.get('teacher_id')
+
+  const resolvedClassId = useMemo(() => {
+    if (isStudent) {
+      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
+      const matched = customStudents.find((s: any) => 
+        String(s.id) === String(user?.id) || 
+        String(s.student_id) === String(user?.id) ||
+        s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
+      );
+      return matched?.class_name || (user as any)?.class_name || 'Grade 1-A';
+    }
+    return classId;
+  }, [isStudent, classId, user]);
 
   const [periods, setPeriods] = useState<Period[]>([])
   const [entries, setEntries] = useState<TimetableEntry[]>([])
   const [title, setTitle] = useState('Timetable View')
   const [subtitle, setSubtitle] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeDays, setActiveDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
+
+  useEffect(() => {
+    const saved = localStorage.getItem('active_weekdays');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const active = parsed.filter((d: any) => d.is_active).map((d: any) => d.day_code);
+        if (active.length > 0) {
+          setActiveDays(active);
+        }
+      } catch (e) {}
+    }
+  }, []);
 
   useEffect(() => {
     fetchTimetableData()
-  }, [classId, teacherId])
+  }, [resolvedClassId, teacherId])
 
   const fetchTimetableData = async () => {
     setLoading(true)
@@ -57,17 +85,36 @@ export default function TimetableViewPage() {
       periodsList.sort((a: Period, b: Period) => a.period_number - b.period_number)
       setPeriods(periodsList)
 
+      // Fetch classes list first
+      let classesList: any[] = []
+      try {
+        const classesRes = await academicService.getClasses()
+        classesList = Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data as any)?.results || []
+      } catch (e) {
+        console.error(e)
+      }
+
       // Fetch timetable entries
       const params: any = {}
-      if (classId) {
-        params.class_id = classId
-        // Fetch class metadata for title
-        try {
-          const classRes = await academicService.getClass(classId)
-          setTitle(`${classRes.data?.name || 'Class'} Timetable`)
-          setSubtitle(`Class Code: ${classRes.data?.code || 'N/A'}`)
-        } catch {
-          setTitle('Class Timetable')
+      if (resolvedClassId) {
+        params.class_id = resolvedClassId
+        // Resolve class metadata locally from the list
+        const matchedClass = classesList.find(c => String(c.id) === String(resolvedClassId) || c.name === resolvedClassId)
+        if (matchedClass) {
+          setTitle(`${matchedClass.name} Timetable`)
+          setSubtitle(`Class Code: ${matchedClass.code || 'N/A'}`)
+        } else if (resolvedClassId.length > 20) {
+          try {
+            const classRes = await academicService.getClass(resolvedClassId)
+            setTitle(`${classRes.data?.name || 'Class'} Timetable`)
+            setSubtitle(`Class Code: ${classRes.data?.code || 'N/A'}`)
+          } catch {
+            setTitle(`${resolvedClassId} Timetable`)
+            setSubtitle('Class Code: N/A')
+          }
+        } else {
+          setTitle(`${resolvedClassId} Timetable`)
+          setSubtitle('Class Code: N/A')
         }
       } else if (teacherId) {
         params.teacher_id = teacherId
@@ -80,9 +127,14 @@ export default function TimetableViewPage() {
           setTitle('Teacher Timetable')
         }
       } else {
-        toast.error('No class or teacher specified')
-        navigate('/education/timetable')
-        return
+        if (isStudent) {
+          setTitle('My Timetable')
+          setSubtitle('Class Code: N/A')
+        } else {
+          toast.error('No class or teacher specified')
+          navigate('/education/timetable')
+          return
+        }
       }
 
       const entriesRes = await academicService.getTimetableEntries(params)
@@ -121,7 +173,7 @@ export default function TimetableViewPage() {
     <div className="space-y-6 print:space-y-4 print:p-4">
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/education/timetable')} className="text-gray-500 hover:text-gray-700">
+          <button onClick={() => navigate(isStudent ? '/student' : '/education/timetable')} className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
@@ -150,7 +202,7 @@ export default function TimetableViewPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          {DAYS.map((day) => {
+          {activeDays.map((day) => {
             // Find active entries for this day
             const dayEntries = periods.map(p => ({
               period: p,

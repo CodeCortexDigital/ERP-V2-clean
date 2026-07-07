@@ -6,5 +6,5 @@ class CoreConfig(AppConfig):
     name = "erp_core"
 
     def ready(self):
-        # Only import signals
-        import erp_core.signals
+        import erp_core.signals                  # existing post_migrate initializer
+        import erp_core.dashboard_signals        # real-time dashboard WS broadcast signals

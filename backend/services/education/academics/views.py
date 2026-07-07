@@ -3,7 +3,7 @@ from django.views.decorators.cache import cache_page
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework import generics
+from rest_framework import generics, status
 from services.education.students.permissions import IsStaffOrReadOnly
 from services.core.utils.cache import get_timeout
 from .models import (
@@ -44,6 +44,17 @@ class SchoolClassDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SchoolClassSerializer
     lookup_field = 'id'
 
+    def destroy(self, request, *args, **kwargs):
+        """Handle delete with graceful error reporting instead of 500."""
+        try:
+            instance = self.get_object()
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response(
+                {'error': f'Cannot delete class: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class SectionListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -223,6 +234,25 @@ class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
     lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete: mark teacher as inactive instead of hard delete to avoid cascade errors."""
+        try:
+            instance = self.get_object()
+            instance.is_active = False
+            instance.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            # Fallback: try hard delete if soft delete fails
+            try:
+                instance = self.get_object()
+                instance.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            except Exception:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
 
 class TeacherSubjectAssignmentListCreateView(generics.ListCreateAPIView):

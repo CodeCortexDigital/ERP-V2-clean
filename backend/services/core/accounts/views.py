@@ -534,6 +534,64 @@ def attendance_stats(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def dashboard_attendance_stats(request):
+    """
+    Returns TODAY's attendance summary for the admin dashboard widgets.
+    Shape:
+    {
+        "date": "2026-07-03",
+        "students": { "total": 10, "present": 7, "absent": 2, "late": 1, "present_pct": 70, "absent_list": [...] },
+        "employees": { "total": 0, "present": 0, "present_pct": 0 }
+    }
+    """
+    from django.utils import timezone
+    from django.apps import apps
+
+    today = timezone.localtime().date()
+    Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+
+    student_qs = (
+        Attendance.objects
+        .select_related('student', 'student__current_class')
+        .filter(date=today)
+        .exclude(status='holiday')
+        .exclude(student__isnull=True)
+    )
+
+    total_s     = student_qs.count()
+    present_s   = student_qs.filter(status='present').count()
+    late_s      = student_qs.filter(status='late').count()
+    absent_s    = student_qs.filter(status='absent').count()
+    present_pct = round(((present_s + late_s) / total_s * 100)) if total_s > 0 else 0
+
+    absent_list = []
+    for rec in student_qs.filter(status='absent').select_related('student__current_class')[:10]:
+        absent_list.append({
+            'name':       getattr(rec.student, 'full_name', '—') if rec.student else '—',
+            'class':      rec.student.current_class.name if rec.student and rec.student.current_class else '—',
+            'student_id': str(rec.student_id),
+        })
+
+    return Response({
+        'date': str(today),
+        'students': {
+            'total':       total_s,
+            'present':     present_s,
+            'late':        late_s,
+            'absent':      absent_s,
+            'present_pct': present_pct,
+            'absent_list': absent_list,
+        },
+        'employees': {
+            'total':       0,
+            'present':     0,
+            'present_pct': 0,
+        },
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def student_attendance(request, student_id):
     from django.apps import apps
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')

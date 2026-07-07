@@ -15,6 +15,7 @@ from services.education.students.views import (
     StudentDetailView as _StudentDetailView,
     StudentListCreateView as _StudentListCreateView,
     force_update_activity,
+    last_registration,
     student_360,
     update_student_activity,
 )

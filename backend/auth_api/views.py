@@ -150,6 +150,38 @@ class MeView(APIView):
             return Response(TOKEN_STORE[token])
         return Response({'error': 'Invalid token'}, status=401)
 
+    def put(self, request):
+        auth = request.META.get('HTTP_AUTHORIZATION', '')
+        token = auth[7:] if auth.startswith('Bearer ') else None
+        if not token or token not in TOKEN_STORE:
+            return Response({'error': 'Invalid token'}, status=401)
+
+        payload = TOKEN_STORE[token]
+        user_id = payload.get('id')
+        try:
+            user = User.objects.get(id=user_id)
+        except (User.DoesNotExist, ValidationError, ValueError):
+            return Response({'error': 'User not found.'}, status=404)
+
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if email:
+            user.email = email
+            user.username = email
+        if password and len(password) >= 6:
+            user.set_password(password)
+
+        user.save()
+
+        updated_payload = build_user_payload(user)
+        TOKEN_STORE[token] = updated_payload
+
+        return Response({
+            'detail': 'Profile updated successfully.',
+            'user': updated_payload
+        })
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ResetPasswordView(APIView):

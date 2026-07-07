@@ -1,14 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Calendar, GraduationCap, BookOpen, Users, Plus, Trash2, 
-  X, RefreshCw
+  GraduationCap, Plus, Trash2, Edit3, X, RefreshCw, Layers, Users, BookOpen, CheckCircle2, AlertCircle, ArrowLeft, RotateCcw,
+  LayoutGrid, List, ChevronDown, ChevronUp
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import academicService from '@/services/academic.service';
 import sectionService from '@/services/section.service';
 import studentService from '@/services/student.service';
@@ -16,504 +12,649 @@ import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import { toast } from 'sonner';
 
-interface AcademicYear {
-  id: string;
-  name: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-  is_current?: boolean;
-}
-
 interface SchoolClass {
   id: string;
   name: string;
   code: string;
-  capacity: number;
-  teacher_name: string;
-  teacher_email?: string;
-  sections_count?: number;
+  teacher_name?: string;
+  tuition_fee?: number;
   students_count?: number;
-  is_active: boolean;
-}
-
-interface Subject {
-  id: string;
-  code: string;
-  name: string;
-  credits: number;
-  level?: string;
-  description?: string;
-  is_active: boolean;
+  boys_count?: number;
+  girls_count?: number;
+  na_count?: number;
+  subjects_count?: number;
+  sections?: { id: string; name: string }[];
 }
 
 export default function AcademicsPage() {
+  const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('years');
-  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+
+  const isNewClassView = location.search.includes('action=new-class');
+  const isEditClassView = location.search.includes('action=edit-class');
+  
+  const queryParams = new URLSearchParams(location.search);
+  const editId = queryParams.get('id');
+
   const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [sections, setSections] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showYearForm, setShowYearForm] = useState(false);
-  const [showClassForm, setShowClassForm] = useState(false);
-  const [showSubjectForm, setShowSubjectForm] = useState(false);
-  
-  const [yearForm, setYearForm] = useState({ name: '', start_date: '', end_date: '' });
-  const [classForm, setClassForm] = useState({ name: '', code: '', teacher_name: '' });
-  const [subjectForm, setSubjectForm] = useState({ code: '', name: '', credits: 3, description: '' });
 
-  const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
+  const [classForm, setClassForm] = useState({
+    id: '',
+    name: '',
+    tuitionFee: '',
+    teacherName: ''
+  });
+
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAllData();
+    fetchClassesAndSections();
   }, []);
 
-  const fetchAllData = async () => {
+  useEffect(() => {
+    if (isEditClassView && editId && classes.length > 0) {
+      const target = classes.find(c => c.id === editId || c.code === editId);
+      if (target) {
+        setClassForm({
+          id: target.id,
+          name: target.name,
+          tuitionFee: target.tuition_fee !== undefined && target.tuition_fee !== null ? String(target.tuition_fee) : '',
+          teacherName: target.teacher_name || ''
+        });
+      }
+    }
+  }, [isEditClassView, editId, classes]);
+
+  const fetchClassesAndSections = async () => {
     setLoading(true);
     try {
-      const [yearsRes, classesRes, subjectsRes, sectionsRes, studentsRes, teachersRes] = await Promise.all([
-        academicService.getAcademicYears().catch(() => ({ data: [] })),
+      const [classesRes, teachersRes, studentsRes] = await Promise.all([
         academicService.getClasses().catch(() => ({ data: [] })),
-        academicService.getSubjects().catch(() => ({ data: [] })),
-        sectionService.getAll().catch(() => ({ data: [] })),
-        studentService.getAll().catch(() => ({ data: [] })),
-        teacherService.getAll().catch(() => ({ data: [] }))
+        teacherService.getAll().catch(() => ({ data: [] })),
+        studentService.getAll().catch(() => ({ data: [] }))
       ]);
+
+      const rawClasses = extractListData<SchoolClass>(classesRes.data || []);
+      const rawTeachers = extractListData<any>(teachersRes.data || []);
+      const rawStudents = extractListData<any>(studentsRes.data || []);
+
+      // Merge custom teachers and filter deleted ones to match Employees list
+      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
+      const mergedTeachers = [...rawTeachers];
+      customTeachers.forEach((ct: any) => {
+        if (!mergedTeachers.some(t => String(t.id) === String(ct.id))) {
+          mergedTeachers.push(ct);
+        }
+      });
+      const deletedTeacherIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
+      const filteredTeachers = mergedTeachers.filter((t: any) => !deletedTeacherIds.includes(t.id));
+
+      const defaultTeachers = [
+        {
+          id: 't-1',
+          employee_id: '250622',
+          full_name: 'Maryam Fatima',
+          email: 'maryam.fatima@school.edu',
+          phone: '+92 300 1234567',
+          qualifications: ['Master of Education'],
+          specializations: ['Teacher'],
+          experience_years: 5,
+          joining_date: '2026-06-29',
+          is_active: true,
+          profile_picture: null
+        }
+      ];
+
+      setTeachers(filteredTeachers.length > 0 ? filteredTeachers : defaultTeachers);
+
+      // Load custom students to get full list
+      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
+      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
+      const allStudents = [...rawStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
+
+      // FIXED: No default classes with hardcoded 3500 fee
+      const defaultClasses: SchoolClass[] = [];
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+
+      // FIXED: Merge classes without overwriting tuition_fee
+      const classMap = new Map<string, any>();
       
-      const yearsList = extractListData<AcademicYear>(yearsRes.data || []);
-      const subjectsList = extractListData<Subject>(subjectsRes.data || []);
-      const sectionsList = extractListData<any>(sectionsRes.data || []);
-      let classesList = extractListData<SchoolClass>(classesRes.data || []);
-      const studentsList = extractListData<Record<string, unknown>>(studentsRes.data || []);
-      const teachersList = extractListData<any>(teachersRes.data || []);
+      [...rawClasses, ...customClasses].forEach(cls => {
+        classMap.set(cls.id, {
+          ...cls,
+          tuition_fee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? Number(cls.tuition_fee) : 0
+        });
+      });
 
-      setAcademicYears(yearsList.length > 0 ? yearsList : [
-        { id: 'ay-1', name: '2025-2026', start_date: '2025-08-01', end_date: '2026-06-30', is_active: true }
-      ]);
-      
-      setSubjects(subjectsList.length > 0 ? subjectsList : [
-        { id: 'sub-1', code: 'MATH101', name: 'Mathematics', credits: 4, is_active: true },
-        { id: 'sub-2', code: 'ENG101', name: 'English Literature', credits: 3, is_active: true },
-        { id: 'sub-3', code: 'SCI101', name: 'General Science', credits: 4, is_active: true },
-        { id: 'sub-4', code: 'BIO101', name: 'Biology', credits: 3, is_active: true },
-        { id: 'sub-5', code: 'CHM101', name: 'Chemistry', credits: 3, is_active: true },
-        { id: 'sub-6', code: 'PHY101', name: 'Physics', credits: 3, is_active: true }
-      ]);
+      const combinedRaw = Array.from(classMap.values());
 
-      setSections(sectionsList);
-      setTeachers(teachersList);
+      const mappedClasses = combinedRaw.map((cls) => {
+        // Calculate counts dynamically from all students list
+        const classStudents = allStudents.filter(s => {
+          const sClass = s.class_name || s.current_class_name || s.current_class || '';
+          return sClass.toLowerCase().trim() === cls.name.toLowerCase().trim();
+        });
 
-      const classesWithCounts = classesList.map((cls: SchoolClass) => {
-        const count = studentsList.filter((s: any) => {
-          const sCls = typeof s.current_class === 'object' ? s.current_class?.id : s.current_class;
-          return (sCls === cls.id || s.current_class_name === cls.name) && s.is_active !== false;
+        const boys = classStudents.filter(s => {
+          const g = (s.gender || '').toLowerCase().trim();
+          return g === 'male' || g === 'boy';
         }).length;
-        
+
+        const girls = classStudents.filter(s => {
+          const g = (s.gender || '').toLowerCase().trim();
+          return g === 'female' || g === 'girl';
+        }).length;
+
+        const na = classStudents.length - boys - girls;
+
         return {
           ...cls,
-          students_count: count > 0 ? count : 12
+          students_count: classStudents.length,
+          boys_count: boys,
+          girls_count: girls,
+          na_count: na,
+          tuition_fee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? Number(cls.tuition_fee) : 0
         };
       });
-      
-      setClasses(classesWithCounts);
-    } catch (error) {
-      console.error('Error fetching academics data:', error);
+
+      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
+      const finalClasses = mappedClasses.filter(c => !deletedIds.includes(c.id));
+      const sortedClasses = finalClasses.slice().sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+      // Remove duplicate class names (case‑insensitive)
+      const uniqueByName = sortedClasses.filter((c, idx, self) =>
+        self.findIndex(sc => sc.name.toLowerCase() === c.name.toLowerCase()) === idx
+      );
+      setClasses(uniqueByName);
+    } catch (err) {
+      toast.error('Failed to load academic classes');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateYear = async () => {
-    if (!yearForm.name || !yearForm.start_date || !yearForm.end_date) {
-      toast.error('Please fill all fields');
+  const handleSaveClass = async () => {
+    if (!classForm.name) {
+      toast.error('Please enter Class Name');
       return;
     }
-    try {
-      await academicService.createAcademicYear(yearForm);
-      toast.success('Academic year created');
-      setShowYearForm(false);
-      setYearForm({ name: '', start_date: '', end_date: '' });
-      fetchAllData();
-    } catch (error) {
-      toast.error('Failed to create academic year');
+
+    if (isEditClassView) {
+      try {
+        await academicService.updateClass(classForm.id, {
+          name: classForm.name,
+          code: classForm.name.substring(0, 5).toUpperCase(),
+          tuition_fee: Number(classForm.tuitionFee)
+        });
+      } catch (err) {
+        console.log('Backend class update failed, updating locally:', err);
+      }
+
+      setClasses(prev => prev.map(c => c.id === classForm.id ? {
+        ...c,
+        name: classForm.name,
+        tuition_fee: Number(classForm.tuitionFee),
+        teacher_name: classForm.teacherName
+      } : c));
+      
+      // Update custom_classes if present
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+      let updatedCustom = customClasses.map((c: any) => c.id === classForm.id ? {
+        ...c,
+        name: classForm.name,
+        tuition_fee: Number(classForm.tuitionFee),
+        teacher_name: classForm.teacherName
+      } : c);
+      // If the class wasn't in custom_classes (i.e., it's a default class), add it
+      if (!customClasses.some((c: any) => c.id === classForm.id)) {
+        updatedCustom.push({
+          id: classForm.id,
+          name: classForm.name,
+          tuition_fee: Number(classForm.tuitionFee),
+          teacher_name: classForm.teacherName
+        });
+      }
+      localStorage.setItem('custom_classes', JSON.stringify(updatedCustom));
+
+      toast.success('Class information updated successfully!');
+    } else {
+      const newCls = {
+        id: `cls-${Date.now()}`,
+        name: classForm.name,
+        code: classForm.name.substring(0, 5).toUpperCase(),
+        teacher_name: classForm.teacherName,
+        tuition_fee: Number(classForm.tuitionFee),
+        students_count: 0,
+        boys_count: 0,
+        girls_count: 0,
+        na_count: 0
+      };
+
+      try {
+        await academicService.createClass(newCls);
+      } catch (e) {
+        console.log('Backend create class fallback');
+      }
+
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+      customClasses.push(newCls);
+      localStorage.setItem('custom_classes', JSON.stringify(customClasses));
+
+      setClasses(prev => [...prev, newCls]);
+      toast.success('Class created successfully!');
     }
+
+    setClassForm({ id: '', name: '', tuitionFee: '', teacherName: '' });
+    navigate('/education/academics');
   };
 
-  const handleCreateClass = async () => {
-    if (!classForm.name || !classForm.code) {
-      toast.error('Please fill name and code');
+  const handleDeleteClass = async (cls: SchoolClass) => {
+    if ((cls.students_count || 0) > 0) {
+      toast.error(`⚠️ Cannot delete ${cls.name}: Active students are attached to this class.`);
       return;
     }
+
+    if (!confirm(`Are you sure you want to delete ${cls.name}?`)) return;
+
     try {
-      await academicService.createClass(classForm);
-      toast.success('Class created successfully');
-      setShowClassForm(false);
-      setClassForm({ name: '', code: '', teacher_name: '' });
-      fetchAllData();
-    } catch (error) {
-      toast.error('Failed to create class');
+      await academicService.deleteClass(cls.id);
+    } catch (err) {
+      console.log('Backend delete class fallback');
     }
+
+    // Persist deleted class ID in localStorage
+    const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
+    if (!deletedIds.includes(cls.id)) {
+      deletedIds.push(cls.id);
+      localStorage.setItem('deleted_class_ids', JSON.stringify(deletedIds));
+    }
+
+    // Remove from custom_classes if present
+    const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+    const updatedCustom = customClasses.filter((c: any) => c.id !== cls.id);
+    localStorage.setItem('custom_classes', JSON.stringify(updatedCustom));
+
+    setClasses(prev => prev.filter(c => c.id !== cls.id));
+    toast.success(`${cls.name} deleted permanently`);
   };
 
-  const handleUpdateClassTeacher = async (cls: SchoolClass, newTeacherName: string) => {
-    try {
-      await academicService.updateClass(cls.id, { ...cls, teacher_name: newTeacherName });
-      toast.success(`Assigned ${newTeacherName || 'No teacher'} to ${cls.name}`);
-      setClasses(prev => prev.map(c => c.id === cls.id ? { ...c, teacher_name: newTeacherName } : c));
-      setEditingClass(null);
-    } catch (error) {
-      setClasses(prev => prev.map(c => c.id === cls.id ? { ...c, teacher_name: newTeacherName } : c));
-      toast.success(`Assigned ${newTeacherName || 'No teacher'} to ${cls.name}`);
-      setEditingClass(null);
-    }
-  };
-
-  const handleCreateSubject = async () => {
-    if (!subjectForm.name || !subjectForm.code) {
-      toast.error('Please fill name and code');
-      return;
-    }
-    try {
-      await academicService.createSubject(subjectForm);
-      toast.success('Subject created');
-      setShowSubjectForm(false);
-      setSubjectForm({ code: '', name: '', credits: 3, description: '' });
-      fetchAllData();
-    } catch (error) {
-      toast.error('Failed to create subject');
-    }
-  };
-
-  const handleDeleteSubject = async (id: string) => {
-    if (!confirm('Delete this subject?')) return;
-    try {
-      await academicService.deleteSubject(id);
-      toast.success('Subject deleted');
-      fetchAllData();
-    } catch (error) {
-      toast.error('Failed to delete subject');
-    }
-  };
-
-  const currentYear = academicYears.find(y => y.is_active);
-  const totalStudents = classes.reduce((sum, c) => sum + (c.students_count || 0), 0);
-  const avgClassSize = classes.length > 0 ? Math.round(totalStudents / classes.length) : 0;
-
-  if (loading) {
+  // VIEW 1: NEW CLASS VIEW
+  if (isNewClassView) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
+        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+            <span className="cursor-pointer hover:underline" onClick={() => navigate('/education/academics')}>Classes</span>
+            <span>&gt;</span>
+            <span className="text-slate-500">Add New Class</span>
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 mt-4">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">1</div>
+            <h2 className="font-bold text-slate-800 text-sm">New Class Details</h2>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">CLASS NAME *</label>
+              <Input placeholder="e.g. Grade 5 - A" value={classForm.name} onChange={(e) => setClassForm({...classForm, name: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY TUITION FEES *</label>
+              <Input placeholder="Enter fee amount" value={classForm.tuitionFee} onChange={(e) => setClassForm({...classForm, tuitionFee: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT CLASS TEACHER *</label>
+              <select value={classForm.teacherName} onChange={(e) => setClassForm({...classForm, teacherName: e.target.value})} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
+                <option value="">-- Choose a teacher --</option>
+                {teachers.map((t) => <option key={t.id || t.full_name} value={t.full_name}>{t.full_name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+            <button onClick={() => navigate('/education/academics')} className="flex items-center gap-1.5 px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-colors"><ArrowLeft className="w-4 h-4" /> Back</button>
+            <button onClick={handleSaveClass} className="flex items-center gap-1.5 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all"><Plus className="w-4 h-4" /> Create Class</button>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // VIEW 2: EDIT CLASS VIEW
+  if (isEditClassView) {
+    return (
+      <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
+        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+            <span className="cursor-pointer hover:underline" onClick={() => navigate('/education/academics')}>Classes</span>
+            <span>&gt;</span>
+            <span className="text-slate-500">Edit Class Information</span>
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 mt-4">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">1</div>
+            <h2 className="font-bold text-slate-800 text-sm">Edit Class Information</h2>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">CLASS NAME *</label>
+              <Input value={classForm.name} onChange={(e) => setClassForm({...classForm, name: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY FEES *</label>
+              <Input value={classForm.tuitionFee} onChange={(e) => setClassForm({...classForm, tuitionFee: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT CLASS TEACHER *</label>
+              <select value={classForm.teacherName} onChange={(e) => setClassForm({...classForm, teacherName: e.target.value})} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
+                <option value="">-- Choose a teacher --</option>
+                {teachers.map((t) => <option key={t.id || t.full_name} value={t.full_name}>{t.full_name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+            <button onClick={() => navigate('/education/academics')} className="flex items-center gap-1.5 px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-colors"><ArrowLeft className="w-4 h-4" /> Back</button>
+            <button onClick={handleSaveClass} className="flex items-center gap-1.5 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all"><RotateCcw className="w-4 h-4" /> Update Class</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // VIEW 3: ALL CLASSES GRID
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Academics Management</h1>
-          <p className="text-gray-500">Manage academic years, classes, and subjects</p>
+    <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
+      {/* Breadcrumb Header */}
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+          <span className="cursor-pointer hover:underline" onClick={() => navigate('/dashboard')}>Classes</span>
+          <span>&gt;</span>
+          <span className="text-slate-500">All Classes</span>
         </div>
-        <Button onClick={fetchAllData} variant="outline">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex flex-wrap gap-3">
-        <Button onClick={() => navigate('/education/curriculum')} variant="outline" className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4" />
-          Curriculum
-        </Button>
-        <Button onClick={() => navigate('/education/teachers')} variant="outline" className="flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          Teachers
-        </Button>
-        <Button onClick={() => navigate('/education/timetable')} variant="outline" className="flex items-center gap-2">
-          <Calendar className="w-4 h-4" />
-          Timetable
-        </Button>
-        <Button onClick={() => navigate('/education/progress')} variant="outline" className="flex items-center gap-2">
-          <GraduationCap className="w-4 h-4" />
-          Progress Tracking
-        </Button>
-      </div>
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle Buttons */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === 'list' ? 'bg-white text-purple-650 shadow-3xs' : 'text-slate-450 hover:text-slate-700'
+              }`}
+              title="List View"
+            >
+              <List className="w-4.5 h-4.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === 'grid' ? 'bg-white text-purple-650 shadow-3xs' : 'text-slate-450 hover:text-slate-700'
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid className="w-4.5 h-4.5" />
+            </button>
+          </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-blue-50 rounded-xl p-3">
-          <p className="text-xs text-gray-600">Active Year</p>
-          <p className="text-lg font-bold text-blue-700 truncate">{currentYear?.name || 'Not Set'}</p>
-        </div>
-        <div className="bg-green-50 rounded-xl p-3">
-          <p className="text-xs text-gray-600">Classes</p>
-          <p className="text-xl font-bold text-green-700">{classes.length}</p>
-        </div>
-        <div className="bg-purple-50 rounded-xl p-3">
-          <p className="text-xs text-gray-600">Subjects</p>
-          <p className="text-xl font-bold text-purple-700">{subjects.length}</p>
-        </div>
-        <div className="bg-yellow-50 rounded-xl p-3">
-          <p className="text-xs text-gray-600">Total Students</p>
-          <p className="text-xl font-bold text-yellow-700">{totalStudents}</p>
-          <p className="text-xs text-gray-500">Avg {avgClassSize}/class</p>
+          <button
+            onClick={() => {
+              setClassForm({ id: '', name: '', tuitionFee: '', teacherName: '' });
+              navigate('/education/academics?action=new-class');
+            }}
+            className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs h-8.5 rounded-lg shadow-2xs px-3 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Class
+          </button>
         </div>
       </div>
 
-      <Tabs defaultValue={activeTab} onChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="years">📅 Academic Years</TabsTrigger>
-          <TabsTrigger value="classes">🏫 Classes</TabsTrigger>
-          <TabsTrigger value="subjects">📚 Subjects</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="years" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">Manage academic years</p>
-            <Button onClick={() => setShowYearForm(true)} size="sm">
-              <Plus className="w-4 h-4 mr-2" /> Add Year
-            </Button>
-          </div>
-          <div className="overflow-x-auto border rounded-xl">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left">Year Name</th>
-                  <th className="px-4 py-3 text-left">Start Date</th>
-                  <th className="px-4 py-3 text-left">End Date</th>
-                  <th className="px-4 py-3 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {academicYears.map((year) => (
-                  <tr key={year.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">
-                      {year.name}
-                      {year.is_active && <Badge className="ml-2 bg-green-100 text-green-700">Active</Badge>}
-                    </td>
-                    <td className="px-4 py-3">{year.start_date}</td>
-                    <td className="px-4 py-3">{year.end_date}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant={year.is_active ? 'success' : 'secondary'}>
-                        {year.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="classes" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">Manage classes and assign dedicated class teachers</p>
-            <Button onClick={() => setShowClassForm(true)} size="sm">
-              <Plus className="w-4 h-4 mr-2" /> Add Class
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {classes.map((cls) => {
-              const assignedTeacherNames = classes
-                .filter(c => c.id !== cls.id)
-                .map(c => c.teacher_name)
-                .filter(Boolean);
-
-              const availableTeachersForClass = teachers.filter(t => !assignedTeacherNames.includes(t.full_name));
-
-              // Get sections for this class
-              let classSections = sections.filter(s => 
-                s.class_ref === cls.id || 
-                s.class_ref_id === cls.id || 
-                s.class_name === cls.name || 
-                s.class_code === cls.code || 
-                s.current_class === cls.id ||
-                (typeof s.class_ref === 'object' && s.class_ref?.id === cls.id)
-              );
-
-              if (classSections.length === 0) {
-                classSections = [
-                  { id: `sec-${cls.id}-a`, name: 'A' },
-                  { id: `sec-${cls.id}-b`, name: 'B' }
-                ];
-              }
-
-              return (
-                <div key={cls.id} className="bg-white rounded-xl p-4 border hover:shadow-lg transition-shadow">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-lg">{cls.name}</h3>
-                      <p className="text-sm text-gray-500">Code: {cls.code}</p>
+      {viewMode === 'list' ? (
+        <div className="space-y-3 pt-2">
+          {classes.map((cls) => {
+            const isExpanded = expandedClassId === cls.id;
+            return (
+              <div 
+                key={cls.id} 
+                className="bg-white rounded-xl border border-slate-100 shadow-3xs hover:border-purple-100 transition-all overflow-hidden"
+              >
+                {/* Compact Row Header */}
+                <div 
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer select-none"
+                  onClick={() => setExpandedClassId(isExpanded ? null : cls.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-650 flex items-center justify-center">
+                      <GraduationCap className="w-5 h-5" />
                     </div>
-                    <Badge variant="success" className="text-xs">Active</Badge>
-                  </div>
-                  
-                  {/* Teacher */}
-                  <div className="mt-2 flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">👩‍🏫</span>
-                    {editingClass?.id === cls.id ? (
-                      <select
-                        className="text-xs border rounded-md px-2 py-1 bg-white font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={cls.teacher_name || ''}
-                        autoFocus
-                        onBlur={() => setEditingClass(null)}
-                        onChange={(e) => handleUpdateClassTeacher(cls, e.target.value)}
-                      >
-                        <option value="">No teacher assigned</option>
-                        {availableTeachersForClass.map((t) => (
-                          <option key={t.id || t.employee_id} value={t.full_name}>
-                            {t.full_name} ({t.employee_id || 'Teacher'})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span 
-                        onClick={() => setEditingClass(cls)}
-                        className="cursor-pointer font-medium hover:text-blue-600 hover:underline transition-colors"
-                        title="Click to assign or change class teacher"
-                      >
-                        {cls.teacher_name || 'No teacher assigned'}
+                    <div>
+                      <h3 className="font-bold text-xs text-slate-800">{cls.name}</h3>
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        Class Teacher: {cls.teacher_name || 'Not Assigned'}
                       </span>
-                    )}
+                    </div>
                   </div>
-                  
-                  {/* Students count */}
-                  <div className="mt-1 flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">👨‍🎓</span>
-                    <span>{cls.students_count || 12} Students</span>
-                  </div>
-                  
-                  {/* ✅ SECTIONS DISPLAY */}
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Sections:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {classSections.length > 0 ? (
-                        classSections.map((sec: any) => (
-                          <span key={sec.id} className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full font-medium">
-                            Section {sec.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-gray-400">No sections</span>
-                      )}
+
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-8">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Students</span>
+                      <span className="text-xs font-bold text-slate-800">{cls.students_count || 0} enrolled</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Tuition Fees</span>
+                      <span className="text-xs font-bold text-slate-800">PKR {cls.tuition_fee || 0} / month</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setClassForm({ id: cls.id, name: cls.name, tuitionFee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? String(cls.tuition_fee) : '', teacherName: cls.teacher_name || '' });
+                          navigate(`/education/academics?action=edit-class&id=${cls.id}`);
+                        }}
+                        className="p-1.5 text-slate-455 hover:text-purple-600 bg-slate-50 hover:bg-purple-50 rounded-lg border border-slate-100 transition-colors"
+                        title="Edit Class"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClass(cls);
+                        }}
+                        className="p-1.5 text-slate-455 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-100 transition-colors"
+                        title="Delete Class"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="p-1 text-slate-455 hover:text-slate-700">
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </TabsContent>
 
-        <TabsContent value="subjects" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">Manage subjects/courses</p>
-            <Button onClick={() => setShowSubjectForm(true)} size="sm">
-              <Plus className="w-4 h-4 mr-2" /> Add Subject
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {subjects.map((subject) => (
-              <Card key={subject.id}>
-                <CardContent className="pt-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold">{subject.name}</h3>
-                      <p className="text-xs font-mono text-gray-500">{subject.code}</p>
+                {/* Expanded Details Body */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 border-t border-slate-50 pt-4 bg-slate-50/20">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Left: Students Gender Breakdown */}
+                      {(() => {
+                        const total = cls.students_count || 0;
+                        const boysPercent = total > 0 ? Math.round((cls.boys_count / total) * 100) : 0;
+                        const girlsPercent = total > 0 ? Math.round((cls.girls_count / total) * 100) : 0;
+                        const naPercent = total > 0 ? Math.round((cls.na_count / total) * 100) : 0;
+
+                        return (
+                          <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Students Gender Breakdown</h4>
+                            <div className="flex items-center gap-6">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[8px] font-black ${boysPercent > 0 ? 'border-blue-500 text-blue-600' : 'border-slate-100 text-slate-400'}`}>
+                                  {boysPercent}%
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block font-bold">Boys</span>
+                                  <span className="text-xs font-bold text-slate-800">{cls.boys_count || 0}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[8px] font-black ${girlsPercent > 0 ? 'border-rose-500 text-rose-600' : 'border-slate-100 text-slate-400'}`}>
+                                  {girlsPercent}%
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block font-bold">Girls</span>
+                                  <span className="text-xs font-bold text-slate-800">{cls.girls_count || 0}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[8px] font-black ${naPercent > 0 ? 'border-slate-400 text-slate-500' : 'border-slate-100 text-slate-400'}`}>
+                                  {naPercent}%
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block font-bold">N/A</span>
+                                  <span className="text-xs font-bold text-slate-800">{cls.na_count || 0}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Right: Quick Action Links */}
+                      <div className="space-y-3">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Actions & Navigation</h4>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => navigate(`/education/curriculum?action=assign&class=${cls.name}`)}
+                            className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-black rounded-lg transition-colors border border-purple-100"
+                          >
+                            📚 Assign Subjects
+                          </button>
+                          <button
+                            onClick={() => navigate(`/education/timetable/editor?class_id=${cls.name}`)}
+                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black rounded-lg transition-colors border border-blue-100"
+                          >
+                            📅 Edit Timetable
+                          </button>
+                          <button
+                            onClick={() => navigate(`/education/timetable/view?class_id=${cls.name}`)}
+                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-lg transition-colors border border-emerald-100"
+                          >
+                            👁️ View Timetable
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <button onClick={() => handleDeleteSubject(subject.id)} className="p-1 text-red-600 hover:bg-red-100 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                  <div className="mt-2 text-xs text-gray-500">
-                    <span>📊 {subject.credits} Credits</span>
-                  </div>
-                  {subject.description && <p className="text-xs text-gray-400 mt-2">{subject.description}</p>}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Add Year Modal */}
-      {showYearForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Add Academic Year</h2>
-              <button onClick={() => setShowYearForm(false)}><X className="w-5 h-5" /></button>
-            </div>
-            <div className="space-y-4">
-              <Input placeholder="Year Name (e.g., 2026-2027)" value={yearForm.name} onChange={(e) => setYearForm({...yearForm, name: e.target.value})} />
-              <Input type="date" placeholder="Start Date" value={yearForm.start_date} onChange={(e) => setYearForm({...yearForm, start_date: e.target.value})} />
-              <Input type="date" placeholder="End Date" value={yearForm.end_date} onChange={(e) => setYearForm({...yearForm, end_date: e.target.value})} />
-              <Button onClick={handleCreateYear} className="w-full">Create Academic Year</Button>
-            </div>
-          </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
-
-      {/* Add Class Modal */}
-      {showClassForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Add Class</h2>
-              <button onClick={() => setShowClassForm(false)}><X className="w-5 h-5" /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">Class Name</label>
-                <Input placeholder="Class Name (e.g., Grade 11)" value={classForm.name} onChange={(e) => setClassForm({...classForm, name: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">Class Code</label>
-                <Input placeholder="Class Code (e.g., GRD11)" value={classForm.code} onChange={(e) => setClassForm({...classForm, code: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">Assign Class Teacher (Optional)</label>
-                <select 
-                  className="w-full border rounded-lg p-2 text-sm bg-white font-medium"
-                  value={classForm.teacher_name}
-                  onChange={(e) => setClassForm({...classForm, teacher_name: e.target.value})}
+      ) : (
+        /* Classes Cards Grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+          {classes.map((cls) => (
+          <div key={cls.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs space-y-6 relative overflow-hidden border-t-4 border-purple-600 hover:shadow-md transition-all">
+            {/* Card Header */}
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-base text-slate-800">{cls.name}</h3>
+              <div className="flex items-center gap-1.5">
+                <button 
+                  onClick={() => {
+                    setClassForm({ id: cls.id, name: cls.name, tuitionFee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? String(cls.tuition_fee) : '', teacherName: cls.teacher_name || '' });
+                    navigate(`/education/academics?action=edit-class&id=${cls.id}`);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-purple-600 bg-slate-50 hover:bg-purple-50 rounded-lg border border-slate-200 transition-colors"
+                  title="Edit Class"
                 >
-                  <option value="">-- Select Class Teacher --</option>
-                  {teachers
-                    .filter(t => !classes.map(c => c.teacher_name).filter(Boolean).includes(t.full_name))
-                    .map(t => (
-                      <option key={t.id || t.employee_id} value={t.full_name}>
-                        {t.full_name} ({t.employee_id || 'Teacher'})
-                      </option>
-                    ))
-                  }
-                </select>
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  onClick={() => handleDeleteClass(cls)} 
+                  className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 transition-colors"
+                  title="Delete Class"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <Button onClick={handleCreateClass} className="w-full">Create Class</Button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Add Subject Modal */}
-      {showSubjectForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Add Subject</h2>
-              <button onClick={() => setShowSubjectForm(false)}><X className="w-5 h-5" /></button>
+            {/* Card Body Top Student Count */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-purple-50 flex flex-col items-center justify-center text-purple-600 shrink-0">
+                <GraduationCap className="w-7 h-7" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-2xl font-black text-slate-800 leading-tight">{cls.students_count || 0}</span>
+                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">STUDENTS</span>
+              </div>
             </div>
-            <div className="space-y-4">
-              <Input placeholder="Subject Code (e.g., MATH101)" value={subjectForm.code} onChange={(e) => setSubjectForm({...subjectForm, code: e.target.value})} />
-              <Input placeholder="Subject Name" value={subjectForm.name} onChange={(e) => setSubjectForm({...subjectForm, name: e.target.value})} />
-              <Input type="number" placeholder="Credits" value={subjectForm.credits} onChange={(e) => setSubjectForm({...subjectForm, credits: parseInt(e.target.value)})} />
-              <textarea placeholder="Description" className="w-full border rounded-lg px-3 py-2" rows={3} value={subjectForm.description} onChange={(e) => setSubjectForm({...subjectForm, description: e.target.value})} />
-              <Button onClick={handleCreateSubject} className="w-full">Create Subject</Button>
-            </div>
+
+            {/* Gender Circular Progress Row */}
+            {(() => {
+              const total = cls.students_count || 0;
+              const boysPercent = total > 0 ? Math.round((cls.boys_count / total) * 100) : 0;
+              const girlsPercent = total > 0 ? Math.round((cls.girls_count / total) * 100) : 0;
+              const naPercent = total > 0 ? Math.round((cls.na_count / total) * 100) : 0;
+
+              return (
+                <div className="grid grid-cols-3 gap-2 pt-2 text-center border-t border-slate-100/80">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-[10px] font-bold ${boysPercent > 0 ? 'border-blue-500 border-t-blue-300 text-blue-600' : 'border-slate-100 text-slate-400'}`}>
+                      {boysPercent}%
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 mt-1.5">Boys</span>
+                    <span className="text-xs font-bold text-slate-700">{cls.boys_count || 0}</span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-[10px] font-bold ${girlsPercent > 0 ? 'border-rose-500 border-t-rose-300 text-rose-600' : 'border-slate-100 text-slate-400'}`}>
+                      {girlsPercent}%
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 mt-1.5">Girls</span>
+                    <span className="text-xs font-bold text-slate-700">{cls.girls_count || 0}</span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-[10px] font-bold ${naPercent > 0 ? 'border-slate-400 border-t-slate-300 text-slate-500' : 'border-slate-100 text-slate-400'}`}>
+                      {naPercent}%
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 mt-1.5">N/A</span>
+                    <span className="text-xs font-bold text-slate-700">{cls.na_count || 0}</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
+        ))}
+
+        {/* Dashed Add New Class Card */}
+        <div 
+          onClick={() => {
+            setClassForm({ id: '', name: '', tuitionFee: '', teacherName: '' });
+            navigate('/education/academics?action=new-class');
+          }} 
+          className="bg-white rounded-2xl p-8 border-2 border-dashed border-slate-200 hover:border-purple-400 flex flex-col items-center justify-center text-center cursor-pointer min-h-[220px] transition-all group shadow-2xs"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-purple-600 group-hover:bg-purple-700 text-white flex items-center justify-center shadow-md mb-3 transition-colors">
+            <Plus className="w-8 h-8" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-sm">Add New Class</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Create a new class with sections</p>
         </div>
+      </div>
       )}
     </div>
   );

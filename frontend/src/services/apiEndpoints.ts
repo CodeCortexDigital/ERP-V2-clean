@@ -36,4 +36,7 @@ export const API_ENDPOINTS = {
   // Admissions
   APPLICANTS: `${API_BASE_URL}/api/auth/applicants/`,
   APPLICATIONS: `${API_BASE_URL}/api/auth/applications/`,
+
+  // Settings & Tenant
+  SETTINGS: `${API_BASE_URL}/api/tenants/settings/`,
 }

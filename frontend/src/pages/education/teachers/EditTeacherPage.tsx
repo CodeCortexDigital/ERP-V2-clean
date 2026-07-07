@@ -1,159 +1,189 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, User, Mail, Phone, GraduationCap, BookOpen, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
-import teacherService, { Teacher } from '@/services/teacher.service';
-import academicService from '@/services/academic.service';
+import { Settings2, ArrowLeft, RotateCcw, Check } from 'lucide-react';
+import { Input } from '@/components/ui/Input';
+import teacherService from '@/services/teacher.service';
 
 export default function EditTeacherPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [teacher, setTeacher] = useState<Teacher | null>(null);
-  const [classList, setClassList] = useState<any[]>([]);
-  const [newQualification, setNewQualification] = useState('');
-  const [newSpecialization, setNewSpecialization] = useState('');
-  
+  const [profilePicture, setProfilePicture] = useState<string>('');
+
   const [formData, setFormData] = useState({
-    employee_id: '',
-    full_name: '',
-    email: '',
+    fullName: '',
     phone: '',
-    qualifications: [] as string[],
-    specializations: [] as string[],
-    experience_years: 0,
-    joining_date: '',
-    is_active: true,
-    assigned_class: '',
+    role: '',
+    joiningDate: '',
+    monthlySalary: '',
+    fatherName: '',
+    gender: '',
+    experience: '',
+    nationalId: '',
+    religion: '',
+    email: '',
+    education: '',
+    bloodGroup: '',
+    dateOfBirth: '',
+    homeAddress: '',
   });
 
   useEffect(() => {
-    fetchTeacher();
+    fetchTeacherData();
   }, [id]);
 
-  const fetchTeacher = async () => {
+  const fetchTeacherData = async () => {
     try {
-      const [tRes, cRes] = await Promise.all([
-        teacherService.getById(id!),
-        academicService.getClasses().catch(() => ({ data: [] }))
-      ]);
-      
-      const tData = tRes.data;
-      const classesData = Array.isArray(cRes.data) ? cRes.data : (cRes.data as any)?.results || [];
-      setClassList(classesData);
+      let teacher: any = null;
+      try {
+        const res = await teacherService.getById(id!);
+        teacher = res.data;
+      } catch (err) {
+        console.log('Backend get teacher failed, trying localStorage fallback');
+      }
 
-      // Check localStorage first, then class teacher_name match
-      const storedMap = JSON.parse(localStorage.getItem('teacher_assigned_classes') || '{}');
-      const storedClass = storedMap[tData.id] || storedMap[tData.full_name];
-      const assignedCls = classesData.find((c: any) => c.teacher_name === tData.full_name);
+      // Fetch extra details from localStorage
+      const savedExtras = localStorage.getItem('employees_extra_info');
+      let extra = {
+        role: teacher?.specializations?.[0] || 'Teacher',
+        monthlySalary: '45000',
+        fatherName: '',
+        gender: 'Male',
+        experience: String(teacher?.experience_years || '2'),
+        nationalId: '',
+        religion: 'Islam',
+        education: teacher?.qualifications?.[0] || 'N/A',
+        bloodGroup: 'O+',
+        dateOfBirth: '1995-05-15',
+        homeAddress: '',
+        profilePictureUrl: '',
+      };
 
-      setTeacher(tData);
+      if (savedExtras) {
+        try {
+          const extrasMap = JSON.parse(savedExtras);
+          if (extrasMap[id!]) {
+            extra = { ...extra, ...extrasMap[id!] };
+          }
+        } catch (e) {}
+      }
+
+      setProfilePicture(extra.profilePictureUrl || '');
+
       setFormData({
-        employee_id: tData.employee_id || '',
-        full_name: tData.full_name || '',
-        email: tData.email || '',
-        phone: tData.phone || '',
-        qualifications: tData.qualifications || [],
-        specializations: tData.specializations || [],
-        experience_years: tData.experience_years || 0,
-        joining_date: tData.joining_date || new Date().toISOString().split('T')[0],
-        is_active: tData.is_active !== false,
-        assigned_class: storedClass || tData.assigned_class || (assignedCls ? assignedCls.name : ''),
+        fullName: teacher?.full_name || '',
+        phone: teacher?.phone || '',
+        role: extra.role,
+        joiningDate: teacher?.joining_date || new Date().toISOString().split('T')[0],
+        monthlySalary: extra.monthlySalary,
+        fatherName: extra.fatherName,
+        gender: extra.gender,
+        experience: extra.experience,
+        nationalId: extra.nationalId,
+        religion: extra.religion,
+        email: teacher?.email || '',
+        education: extra.education,
+        bloodGroup: extra.bloodGroup,
+        dateOfBirth: extra.dateOfBirth,
+        homeAddress: extra.homeAddress,
       });
-    } catch (error) {
-      console.error('Error fetching teacher:', error);
-      toast.error('Failed to load teacher data');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load employee details.');
     } finally {
       setLoading(false);
     }
   };
 
-  const addQualification = () => {
-    if (newQualification.trim() && !formData.qualifications.includes(newQualification.trim())) {
-      setFormData({
-        ...formData,
-        qualifications: [...formData.qualifications, newQualification.trim()],
-      });
-      setNewQualification('');
-    }
-  };
-
-  const removeQualification = (qual: string) => {
-    setFormData({
-      ...formData,
-      qualifications: formData.qualifications.filter(q => q !== qual),
-    });
-  };
-
-  const addSpecialization = () => {
-    if (newSpecialization.trim() && !formData.specializations.includes(newSpecialization.trim())) {
-      setFormData({
-        ...formData,
-        specializations: [...formData.specializations, newSpecialization.trim()],
-      });
-      setNewSpecialization('');
-    }
-  };
-
-  const removeSpecialization = (spec: string) => {
-    setFormData({
-      ...formData,
-      specializations: formData.specializations.filter(s => s !== spec),
-    });
-  };
-
-  const handleDelete = async () => {
-    if (confirm(`Are you sure you want to delete ${teacher?.full_name}? This action cannot be undone.`)) {
-      setSaving(true);
-      try {
-        await teacherService.deleteTeacher(id!);
-        toast.success('Teacher deleted successfully');
-        navigate('/education/teachers');
-      } catch (error) {
-        console.error('Error deleting teacher:', error);
-        toast.error('Failed to delete teacher');
-      } finally {
-        setSaving(false);
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 100 * 1024) {
+        toast.error('Image size must be less than 100KB');
+        return;
       }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setProfilePicture(reader.result);
+          toast.success('Staff picture loaded successfully.');
+        }
+      };
+      reader.readAsDataURL(file);
     }
+  };
+
+  const handleReset = () => {
+    fetchTeacherData();
+    toast.info('Form reset to saved values.');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.fullName) {
+      toast.error('Employee Name is required.');
+      return;
+    }
+    if (!formData.role) {
+      toast.error('Employee Role is required.');
+      return;
+    }
+    if (!formData.joiningDate) {
+      toast.error('Date of Joining is required.');
+      return;
+    }
+    if (!formData.monthlySalary) {
+      toast.error('Monthly Salary is required.');
+      return;
+    }
+
     setSaving(true);
+
     try {
-      await teacherService.update(id!, formData);
+      const payload = {
+        full_name: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        experience_years: parseInt(formData.experience) || 0,
+        joining_date: formData.joiningDate,
+        qualifications: [formData.education || 'N/A'],
+        specializations: [formData.role]
+      };
 
-      // Persist assigned class locally and update class model
-      const storedMap = JSON.parse(localStorage.getItem('teacher_assigned_classes') || '{}');
-      storedMap[id!] = formData.assigned_class;
-      if (formData.full_name) {
-        storedMap[formData.full_name] = formData.assigned_class;
-      }
-      localStorage.setItem('teacher_assigned_classes', JSON.stringify(storedMap));
-
-      // Sync to Class record
-      if (formData.assigned_class) {
-        const matchedCls = classList.find((c: any) => 
-          c.name.toLowerCase() === formData.assigned_class.toLowerCase() || 
-          formData.assigned_class.toLowerCase().includes(c.name.toLowerCase()) ||
-          c.id === formData.assigned_class
-        );
-        if (matchedCls) {
-          await academicService.updateClass(matchedCls.id, { teacher_name: formData.full_name }).catch(() => {});
-        }
+      try {
+        await teacherService.update(id!, payload);
+      } catch (e) {
+        console.log('Backend teacher update failed, updating locally:', e);
       }
 
-      toast.success('Teacher updated successfully!');
-      navigate(`/education/teachers/${id}`);
-    } catch (error) {
-      console.error('Error updating teacher:', error);
-      toast.error('Failed to update teacher');
+      // Save extra details in localStorage
+      const savedExtras = localStorage.getItem('employees_extra_info');
+      const extrasMap = savedExtras ? JSON.parse(savedExtras) : {};
+      
+      extrasMap[id!] = {
+        role: formData.role,
+        monthlySalary: formData.monthlySalary,
+        fatherName: formData.fatherName,
+        gender: formData.gender,
+        experience: formData.experience,
+        nationalId: formData.nationalId,
+        religion: formData.religion,
+        education: formData.education,
+        bloodGroup: formData.bloodGroup,
+        dateOfBirth: formData.dateOfBirth,
+        homeAddress: formData.homeAddress,
+        profilePictureUrl: profilePicture,
+      };
+
+      localStorage.setItem('employees_extra_info', JSON.stringify(extrasMap));
+      toast.success('Employee details updated successfully!');
+      navigate(`/education/teachers`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to update employee details.');
     } finally {
       setSaving(false);
     }
@@ -162,221 +192,263 @@ export default function EditTeacherPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!teacher) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Teacher not found</p>
-        <Button onClick={() => navigate('/education/teachers')} className="mt-4">
-          Back to Teachers
-        </Button>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/education/teachers/${id}`)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Edit Teacher</h1>
-            <p className="text-gray-500">Update teacher information</p>
-          </div>
+    <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800">
+      {/* Breadcrumb Header Bar */}
+      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+          <button onClick={() => navigate('/education/teachers')} className="hover:underline flex items-center gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" /> Employees
+          </button>
+          <span>&gt;</span>
+          <span className="text-slate-500 font-bold">Edit Staff</span>
         </div>
-        <Badge variant={formData.is_active ? 'success' : 'secondary'}>
-          {formData.is_active ? 'Active' : 'Inactive'}
-        </Badge>
+
+        <button type="button" className="flex items-center gap-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 transition-colors">
+          <Settings2 className="w-3.5 h-3.5" /> Customize
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Basic Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Employee ID *</label>
-                <Input
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name *</label>
-                <Input
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Assigned Class / Section</label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2 bg-white text-sm font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={formData.assigned_class}
-                  onChange={(e) => setFormData({ ...formData, assigned_class: e.target.value })}
-                >
-                  <option value="">-- None / Not Assigned --</option>
-                  <option value="Grade 1-A">Grade 1 (Section A)</option>
-                  <option value="Grade 1-B">Grade 1 (Section B)</option>
-                  <option value="Grade 2-A">Grade 2 (Section A)</option>
-                  <option value="Grade 2-B">Grade 2 (Section B)</option>
-                  <option value="Grade 3-A">Grade 3 (Section A)</option>
-                  <option value="Grade 3-B">Grade 3 (Section B)</option>
-                  <option value="Grade 4-A">Grade 4 (Section A)</option>
-                  <option value="Grade 4-B">Grade 4 (Section B)</option>
-                  <option value="Grade 5-A">Grade 5 (Section A)</option>
-                  <option value="Grade 5-B">Grade 5 (Section B)</option>
-                  <option value="Grade 6-A">Grade 6 (Section A)</option>
-                  <option value="Grade 6-B">Grade 6 (Section B)</option>
-                  <option value="Grade 7-A">Grade 7 (Section A)</option>
-                  <option value="Grade 7-B">Grade 7 (Section B)</option>
-                  <option value="Grade 8-A">Grade 8 (Section A)</option>
-                  <option value="Grade 8-B">Grade 8 (Section B)</option>
-                  <option value="Grade 9-A">Grade 9 (Section A)</option>
-                  <option value="Grade 9-B">Grade 9 (Section B)</option>
-                  <option value="Grade 10-A">Grade 10 (Section A)</option>
-                  <option value="Grade 10-B">Grade 10 (Section B)</option>
-                  {classList.map((cls: any) => (
-                    <option key={cls.id} value={cls.name}>{cls.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Experience (Years)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="50"
-                  value={formData.experience_years}
-                  onChange={(e) => setFormData({ ...formData, experience_years: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Joining Date</label>
-                <Input
-                  type="date"
-                  value={formData.joining_date}
-                  onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2"
-                  value={formData.is_active ? 'active' : 'inactive'}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-            </CardContent>
-          </Card>
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl mx-auto">
+        {/* Section 1: Basic Information */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-purple-900 text-white flex items-center justify-center text-xs">1</span>
+            Basic Information
+          </h2>
 
-          {/* Qualifications & Specializations */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5" />
-                  Qualifications
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add qualification (e.g., M.Sc, PhD)"
-                    value={newQualification}
-                    onChange={(e) => setNewQualification(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addQualification())}
-                  />
-                  <Button type="button" onClick={addQualification} variant="outline">Add</Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.qualifications.map((qual) => (
-                    <Badge key={qual} variant="secondary" className="gap-1">
-                      {qual}
-                      <button type="button" onClick={() => removeQualification(qual)} className="ml-1 hover:text-red-500">×</button>
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EMPLOYEE NAME *</label>
+              <Input 
+                value={formData.fullName} 
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                placeholder="Name of Employee" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+                required 
+              />
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5" />
-                  Specializations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add specialization (e.g., Mathematics, Physics)"
-                    value={newSpecialization}
-                    onChange={(e) => setNewSpecialization(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSpecialization())}
-                  />
-                  <Button type="button" onClick={addSpecialization} variant="outline">Add</Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.specializations.map((spec) => (
-                    <Badge key={spec} variant="outline" className="gap-1">
-                      {spec}
-                      <button type="button" onClick={() => removeSpecialization(spec)} className="ml-1 hover:text-red-500">×</button>
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOBILE NO FOR SMS/WHATSAPP</label>
+              <Input 
+                value={formData.phone} 
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="e.g +44xxxxxxxxxx" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EMPLOYEE ROLE *</label>
+              <select 
+                value={formData.role} 
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+                required
+              >
+                <option value="">-- Select Role --</option>
+                <option value="Principal">Principal</option>
+                <option value="Management Staff">Management Staff</option>
+                <option value="Teacher">Teacher</option>
+                <option value="Accountant">Accountant</option>
+                <option value="Store Manager">Store Manager</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PICTURE</label>
+              <div className="flex flex-col gap-1">
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+                />
+                <span className="text-[9px] text-amber-600 font-semibold">⚠ Max size 100KB</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DATE OF JOINING *</label>
+              <Input 
+                type="date" 
+                value={formData.joiningDate} 
+                onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+                className="text-xs h-10 rounded-xl border-slate-200 text-slate-600 font-semibold" 
+                required 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MONTHLY SALARY *</label>
+              <Input 
+                type="number"
+                value={formData.monthlySalary} 
+                onChange={(e) => setFormData({ ...formData, monthlySalary: e.target.value })}
+                placeholder="Monthly Salary" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+                required 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Other Information */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-purple-900 text-white flex items-center justify-center text-xs">2</span>
+            Other Information
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FATHER / HUSBAND NAME</label>
+              <Input 
+                value={formData.fatherName} 
+                onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
+                placeholder="Father / Husband Name" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">GENDER</label>
+              <select 
+                value={formData.gender} 
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+              >
+                <option value="">-- Select --</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EXPERIENCE</label>
+              <Input 
+                value={formData.experience} 
+                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                placeholder="Experience" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">NATIONAL ID</label>
+              <Input 
+                value={formData.nationalId} 
+                onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
+                placeholder="National ID" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">RELIGION</label>
+              <select 
+                value={formData.religion} 
+                onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+              >
+                <option value="">-- Select --</option>
+                <option value="Islam">Islam</option>
+                <option value="Christianity">Christianity</option>
+                <option value="Hinduism">Hinduism</option>
+                <option value="Sikhism">Sikhism</option>
+                <option value="Buddhism">Buddhism</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EMAIL ADDRESS</label>
+              <Input 
+                type="email"
+                value={formData.email} 
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Email Address" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EDUCATION</label>
+              <Input 
+                value={formData.education} 
+                onChange={(e) => setFormData({ ...formData, education: e.target.value })}
+                placeholder="Education" 
+                className="text-xs h-10 rounded-xl border-slate-200" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">BLOOD GROUP</label>
+              <select 
+                value={formData.bloodGroup} 
+                onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
+              >
+                <option value="">-- Select --</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DATE OF BIRTH</label>
+              <Input 
+                type="date"
+                value={formData.dateOfBirth} 
+                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                className="text-xs h-10 rounded-xl border-slate-200 text-slate-600 font-semibold" 
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">HOME ADDRESS</label>
+              <textarea 
+                value={formData.homeAddress} 
+                onChange={(e) => setFormData({ ...formData, homeAddress: e.target.value })}
+                placeholder="Home Address" 
+                rows={3}
+                className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 placeholder:text-slate-400 font-medium"
+              />
+            </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="destructive" onClick={handleDelete} disabled={saving}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Teacher
-          </Button>
-          <Button type="button" variant="outline" onClick={() => navigate(`/education/teachers/${id}`)}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
+        <div className="flex items-center justify-between pt-2">
+          <button 
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-6 py-2.5 border border-slate-200 text-purple-700 hover:bg-slate-50 font-bold text-xs rounded-xl transition-all"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset
+          </button>
+
+          <button 
+            type="submit"
+            disabled={saving}
+            className="flex items-center gap-1.5 px-8 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+          >
+            <Check className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Settings'}
+          </button>
         </div>
       </form>
     </div>

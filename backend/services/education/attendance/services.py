@@ -256,9 +256,10 @@ def bulk_save_attendance_records(user, records: list) -> dict:
             if status_val == 'holiday' and not remarks:
                 remarks = 'Non-school day' if not is_school_day(record_date) else remarks
 
+            from django.core.exceptions import ValidationError
             try:
                 student = Student.objects.get(id=student_id)
-            except Student.DoesNotExist:
+            except (Student.DoesNotExist, ValidationError, ValueError):
                 errors.append(f'Student not found: {student_id}')
                 continue
 

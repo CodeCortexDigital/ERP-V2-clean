@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Calendar, Users, CheckCircle, XCircle, Clock, 
   Save, RefreshCw, AlertCircle, Eye, Search, X
@@ -25,6 +25,8 @@ interface AttendanceStudent {
   status: AttendanceStatus;
   savedStatus?: AttendanceStatus;
   isSaved: boolean;
+  guardian_name?: string;
+  profile_picture?: string;
 }
 
 function localDateInputValue(d = new Date()): string {
@@ -56,22 +58,18 @@ function matchAttendanceRecord(records: any[], student: { id: string; student_id
   });
 }
 
-/** Present on school days / holiday on Sunday; only keep absent/late/excused if a teacher saved it. */
+/** Use existing saved status if available; otherwise fall back to default for the day. */
 function resolveStatusForMarking(
   existing: { status?: string; marked_by_id?: string | null; marked_by_name?: string } | undefined,
   dateStr: string,
 ): AttendanceStatus {
-  const def = defaultStatusForDate(dateStr);
-  if (!existing?.status) return def;
-
-  const teacherMarked = Boolean(existing.marked_by_id || existing.marked_by_name);
-  if (!teacherMarked) return def;
+  if (!existing?.status) return defaultStatusForDate(dateStr);
 
   const s = String(existing.status).toLowerCase();
   if (s === 'present' || s === 'absent' || s === 'late' || s === 'holiday' || s === 'excused') {
     return s as AttendanceStatus;
   }
-  return def;
+  return defaultStatusForDate(dateStr);
 }
 
 export default function AttendancePage() {
@@ -120,7 +118,14 @@ export default function AttendancePage() {
   );
 
   // Statistics based on actual teacher data
-  const totalTeachers = teachers.length;
+  const totalTeachers = teachers.length;  const [subTab, setSubTab] = useState<'manual' | 'card'>('manual');
+  const [manualSubmitClicked, setManualSubmitClicked] = useState(false);
+  const [teacherSubmitClicked, setTeacherSubmitClicked] = useState(false);
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const typeParam = searchParams.get('type');
+  const activeView = tabParam || (typeParam === 'staff' ? 'teachers' : 'students');
+
   const teacherPresentCount = teachers.filter(t => t.status === 'present').length;
   const teacherAbsentCount = teachers.filter(t => t.status === 'absent').length;
   const teacherLeaveCount = teachers.filter(t => t.status === 'on_leave').length;
@@ -137,14 +142,22 @@ export default function AttendancePage() {
   }, [selectedClass]);
 
   useEffect(() => {
-    if (selectedClass && selectedSection && selectedDate) {
+    if (selectedClass && selectedSection && selectedDate && manualSubmitClicked) {
       fetchStudentsAndAttendance();
     }
   }, [selectedClass, selectedSection, selectedDate]);
 
-  useEffect(() => {
+  const handleTeacherManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTeacherSubmitClicked(true);
     fetchTeachersAndAttendance();
-  }, [selectedDate]);
+  };
+
+  useEffect(() => {
+    if (teacherSubmitClicked) {
+      fetchTeachersAndAttendance();
+    }
+  }, [selectedDate, teacherSubmitClicked]);
 
   const fetchTeachersAndAttendance = async () => {
     setLoadingTeachers(true);
@@ -153,15 +166,37 @@ export default function AttendancePage() {
       const tList = extractListData<any>(tRes.data);
       const activeTList = tList.filter((t: any) => t.is_active);
 
+      // Merge custom_teachers from localStorage (same logic as TeachersManagement)
+      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
+      const merged = [...activeTList];
+      customTeachers.forEach((ct: any) => {
+        if (!merged.some((t: any) => String(t.id) === String(ct.id))) {
+          merged.push(ct);
+        }
+      });
+
+      // Filter out deleted teachers (same logic as TeachersManagement)
+      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
+      const filteredTeacherList = merged.filter((t: any) => !deletedIds.includes(t.id));
+
+      // Deduplicate final teacher list by ID
+      const seenTeacherIds = new Set();
+      const finalTeacherList = filteredTeacherList.filter((t: any) => {
+        const tid = String(t.id);
+        if (seenTeacherIds.has(tid)) return false;
+        seenTeacherIds.add(tid);
+        return true;
+      });
+
       const attRes = await api.get(`/auth/academics/teacher-attendance/?date=${selectedDate}`);
       const attList = extractListData<any>(attRes.data);
 
-      const mappedTeachers = activeTList.map((t: any) => {
+      const mappedTeachers = finalTeacherList.map((t: any) => {
         const existing = attList.find((a: any) => String(a.teacher) === String(t.id));
         return {
           id: t.id,
-          employee_id: t.employee_id,
-          full_name: t.full_name,
+          employee_id: t.employee_id || t.id,
+          full_name: t.full_name || t.name || 'Unknown',
           specializations: t.specializations || [],
           status: existing ? existing.status : 'present',
           reason: existing ? existing.reason || '' : '',
@@ -231,6 +266,407 @@ export default function AttendancePage() {
     );
   };
 
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportData, setReportData] = useState<any[]>([]);
+
+  const fetchClassReportData = async () => {
+    setReportLoading(true);
+    try {
+      // 1. Fetch classes
+      const classRes = await classService.getAll().catch(() => ({ data: [] }));
+      const rawClasses = extractListData<any>(classRes.data || []);
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+      const rawAllClasses = [...rawClasses, ...customClasses];
+      const seenClasses = new Set();
+      const allClasses = rawAllClasses.filter((c: any) => {
+        const cid = String(c.id || c.name);
+        if (seenClasses.has(cid)) return false;
+        seenClasses.add(cid);
+        return true;
+      });
+
+      // 2. Fetch students
+      const studentRes = await studentService.getAll().catch(() => ({ data: [] }));
+      const rawStudents = extractListData<any>(studentRes.data || []);
+      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
+      const allStudents = [...rawStudents, ...customStudents];
+
+      // 3. Fetch attendance
+      let apiAttendance: any[] = [];
+      try {
+        const attRes = await attendanceService.getByDate(selectedDate);
+        apiAttendance = attRes.data || [];
+      } catch (err) {
+        console.log('No backend attendance found for report');
+      }
+
+      // Merge local attendance
+      const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
+      const matchingLocal = localRecords.filter((r: any) => r.date === selectedDate);
+      
+      const mergedAttendance = [...apiAttendance];
+      matchingLocal.forEach((lr: any) => {
+        const index = mergedAttendance.findIndex((a: any) => String(a.student_id) === String(lr.student_id));
+        if (index === -1) {
+          mergedAttendance.push(lr);
+        } else {
+          mergedAttendance[index] = { ...mergedAttendance[index], ...lr };
+        }
+      });
+
+      // 4. Group by class
+      const mappedData = allClasses.map((cls: any) => {
+        // Find students in this class
+        const classStudents = allStudents.filter((s: any) => {
+          const studentClass = s.current_class || s.class_id || s.class_ref || s.class_name;
+          return studentClass === cls.id || studentClass === cls.name;
+        });
+
+        let present = 0;
+        let absent = 0;
+        let leave = 0;
+        let total = 0;
+
+        classStudents.forEach((student: any) => {
+          const att = mergedAttendance.find((a: any) => 
+            String(a.student_id) === String(student.id) || 
+            (student.student_id && String(a.student_id) === String(student.student_id))
+          );
+          if (att) {
+            total++;
+            if (att.status === 'present' || att.status === 'late') present++;
+            else if (att.status === 'absent') absent++;
+            else if (att.status === 'excused' || att.status === 'on_leave' || att.status === 'leave') leave++;
+          }
+        });
+
+        return {
+          id: cls.id,
+          name: cls.name,
+          present,
+          absent,
+          leave,
+          total
+        };
+      });
+
+      setReportData(mappedData);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load class report data');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === 'class-report') {
+      fetchClassReportData();
+    }
+  }, [activeView, selectedDate]);
+
+  const [reportStartDate, setReportStartDate] = useState('2026-07-01');
+  const [reportEndDate, setReportEndDate] = useState('2026-07-02');
+  const [studentReportRecords, setStudentReportRecords] = useState<any[]>([]);
+  const [studentReportLoading, setStudentReportLoading] = useState(false);
+  const [reportSearchQuery, setReportSearchQuery] = useState('');
+
+  const formatReportDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [y, m, d] = parts;
+    return `${d}-${m}-${y.slice(2)}`;
+  };
+
+  const getDayOfWeek = (dateStr: string) => {
+    if (!dateStr) return '';
+    const dateObj = parseDateOnly(dateStr);
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[dateObj.getDay()];
+  };
+
+  const fetchStudentReportData = async () => {
+    setStudentReportLoading(true);
+    try {
+      // 1. Fetch classes
+      const classRes = await classService.getAll().catch(() => ({ data: [] }));
+      const rawClasses = extractListData<any>(classRes.data || []);
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+      const rawAllClasses = [...rawClasses, ...customClasses];
+      const seenClasses = new Set();
+      const allClasses = rawAllClasses.filter((c: any) => {
+        const cid = String(c.id || c.name);
+        if (seenClasses.has(cid)) return false;
+        seenClasses.add(cid);
+        return true;
+      });
+
+      // 2. Fetch students
+      const studentRes = await studentService.getAll().catch(() => ({ data: [] }));
+      const rawStudents = extractListData<any>(studentRes.data || []);
+      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
+      const allStudents = [...rawStudents, ...customStudents];
+
+      // 3. Fetch all attendance records in range
+      const datesInRange: string[] = [];
+      let current = parseDateOnly(reportStartDate);
+      const end = parseDateOnly(reportEndDate);
+      while (current <= end) {
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, '0');
+        const d = String(current.getDate()).padStart(2, '0');
+        datesInRange.push(`${y}-${m}-${d}`);
+        current.setDate(current.getDate() + 1);
+      }
+
+      let apiRecords: any[] = [];
+      for (const dateStr of datesInRange) {
+        try {
+          const res = await api.get(`/auth/attendance/?date=${dateStr}`).catch(() => ({ data: [] }));
+          const list = extractListData<any>(res.data || []);
+          list.forEach((r: any) => {
+            apiRecords.push({ ...r, date: dateStr });
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
+      const matchingLocal = localRecords.filter((r: any) => r.date >= reportStartDate && r.date <= reportEndDate);
+      
+      const mergedAttendance = [...apiRecords];
+      matchingLocal.forEach((lr: any) => {
+        const index = mergedAttendance.findIndex(
+          (a: any) => String(a.student_id) === String(lr.student_id) && a.date === lr.date
+        );
+        if (index === -1) {
+          mergedAttendance.push(lr);
+        } else {
+          mergedAttendance[index] = { ...mergedAttendance[index], ...lr };
+        }
+      });
+
+      // 4. Map to report format
+      const mappedRecords: any[] = [];
+      mergedAttendance.forEach((att: any) => {
+        const student = allStudents.find((s: any) => 
+          String(s.id) === String(att.student_id) || 
+          (s.student_id && String(s.student_id) === String(att.student_id))
+        );
+        if (!student) return;
+
+        const cls = allClasses.find((c: any) => {
+          const studentClass = student.current_class || student.class_id || student.class_ref || student.class_name;
+          return studentClass === c.id || studentClass === c.name;
+        });
+
+        const statusChar = att.status === 'present' || att.status === 'late'
+          ? 'P'
+          : att.status === 'absent'
+            ? 'A'
+            : att.status === 'excused' || att.status === 'on_leave' || att.status === 'leave'
+              ? 'L'
+              : 'H';
+
+        mappedRecords.push({
+          date: att.date,
+          formattedDate: formatReportDate(att.date),
+          day: getDayOfWeek(att.date),
+          roll: student.student_id || student.roll_number || '001',
+          name: student.full_name || 'Student Name',
+          className: cls ? cls.name : (student.current_class || 'Grade 1-A'),
+          statusChar
+        });
+      });
+
+      mappedRecords.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return a.name.localeCompare(b.name);
+      });
+
+      setStudentReportRecords(mappedRecords);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load student report records');
+    } finally {
+      setStudentReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === 'student-report') {
+      fetchStudentReportData();
+    }
+  }, [activeView, reportStartDate, reportEndDate]);
+
+  const handleCopyReport = () => {
+    const headers = ['DATE', 'DAY', 'ID', 'NAME', 'CLASS', 'STATUS'];
+    const rows = studentReportRecords.map(r => [
+      r.formattedDate,
+      r.day,
+      r.roll,
+      r.name,
+      r.className,
+      r.statusChar
+    ]);
+    const text = [headers.join('\t'), ...rows.map(row => row.join('\t'))].join('\n');
+    navigator.clipboard.writeText(text);
+    toast.success('Report data copied to clipboard!');
+  };
+
+  const handleExportCSV = (filename = 'students_attendance_record.csv') => {
+    const headers = ['DATE', 'DAY', 'ID', 'NAME', 'CLASS', 'STATUS'];
+    const rows = studentReportRecords.map(r => [
+      `"${r.formattedDate}"`,
+      `"${r.day}"`,
+      `"${r.roll}"`,
+      `"${r.name}"`,
+      `"${r.className}"`,
+      `"${r.statusChar}"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`${filename} exported successfully!`);
+  };
+
+  const handlePrintReport = () => {
+    window.print();
+  };
+
+  const [staffReportRecords, setStaffReportRecords] = useState<any[]>([]);
+  const [staffReportLoading, setStaffReportLoading] = useState(false);
+  const [staffReportSearchQuery, setStaffReportSearchQuery] = useState('');
+
+  const fetchStaffReportData = async () => {
+    setStaffReportLoading(true);
+    try {
+      // 1. Fetch teachers
+      const tRes = await api.get('/auth/academics/teachers/').catch(() => ({ data: [] }));
+      const tList = extractListData<any>(tRes.data || []);
+      const activeTList = tList.filter((t: any) => t.is_active);
+
+      // 2. Fetch all teacher attendance in range
+      const datesInRange: string[] = [];
+      let current = parseDateOnly(reportStartDate);
+      const end = parseDateOnly(reportEndDate);
+      while (current <= end) {
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, '0');
+        const d = String(current.getDate()).padStart(2, '0');
+        datesInRange.push(`${y}-${m}-${d}`);
+        current.setDate(current.getDate() + 1);
+      }
+
+      let apiRecords: any[] = [];
+      for (const dateStr of datesInRange) {
+        try {
+          const res = await api.get(`/auth/academics/teacher-attendance/?date=${dateStr}`).catch(() => ({ data: [] }));
+          const list = extractListData<any>(res.data || []);
+          list.forEach((r: any) => {
+            apiRecords.push({ ...r, date: dateStr });
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // 3. Map to report format
+      const mappedRecords: any[] = [];
+      apiRecords.forEach((att: any) => {
+        const teacher = activeTList.find((t: any) => String(t.id) === String(att.teacher));
+        if (!teacher) return;
+
+        const statusChar = att.status === 'present'
+          ? 'P'
+          : att.status === 'absent'
+            ? 'A'
+            : att.status === 'on_leave' || att.status === 'leave'
+              ? 'L'
+              : 'H';
+
+        mappedRecords.push({
+          date: att.date,
+          formattedDate: formatReportDate(att.date),
+          day: getDayOfWeek(att.date),
+          roll: teacher.employee_id || 'T-001',
+          name: teacher.full_name || 'Staff Name',
+          roleName: teacher.specializations && teacher.specializations.length > 0
+            ? teacher.specializations.join(', ')
+            : 'Teacher',
+          statusChar
+        });
+      });
+
+      mappedRecords.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return a.name.localeCompare(b.name);
+      });
+
+      setStaffReportRecords(mappedRecords);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load staff report records');
+    } finally {
+      setStaffReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === 'staff-report') {
+      fetchStaffReportData();
+    }
+  }, [activeView, reportStartDate, reportEndDate]);
+
+  const handleCopyStaffReport = () => {
+    const headers = ['DATE', 'DAY', 'ID', 'NAME', 'TYPE', 'STATUS', 'TIME (Card scanning)'];
+    const rows = staffReportRecords.map(r => [
+      r.formattedDate,
+      r.day,
+      r.roll,
+      r.name,
+      r.roleName,
+      r.statusChar,
+      '-'
+    ]);
+    const text = [headers.join('\t'), ...rows.map(row => row.join('\t'))].join('\n');
+    navigator.clipboard.writeText(text);
+    toast.success('Report data copied to clipboard!');
+  };
+
+  const handleExportStaffCSV = (filename = 'employees_attendance_record.csv') => {
+    const headers = ['DATE', 'DAY', 'ID', 'NAME', 'TYPE', 'STATUS', 'TIME (Card scanning)'];
+    const rows = staffReportRecords.map(r => [
+      `"${r.formattedDate}"`,
+      `"${r.day}"`,
+      `"${r.roll}"`,
+      `"${r.name}"`,
+      `"${r.roleName}"`,
+      `"${r.statusChar}"`,
+      `"-"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`${filename} exported successfully!`);
+  };
+
   const markAllTeachersPresent = () => {
     setTeachers((prev) =>
       prev.map((t) => ({
@@ -243,8 +679,16 @@ export default function AttendancePage() {
 
   const fetchClasses = async () => {
     try {
-      const response = await classService.getAll();
-      let classList: SchoolClass[] = response.data || [];
+      const response = await classService.getAll().catch(() => ({ data: [] }));
+      const rawClasses = extractListData<SchoolClass>(response.data || []);
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+      const seenClasses = new Set();
+      let classList: SchoolClass[] = [...rawClasses, ...customClasses].filter((c: any) => {
+        const cid = String(c.id || c.name);
+        if (seenClasses.has(cid)) return false;
+        seenClasses.add(cid);
+        return true;
+      });
 
       const userRole = String(role || user?.role || '').toLowerCase();
       const isTeacher = userRole === 'teacher' || (!isAdmin && (userRole as string) !== 'admin' && !user?.is_superuser && !user?.is_staff);
@@ -281,10 +725,17 @@ export default function AttendancePage() {
         }
       }
 
-      setClasses(classList);
-      if (classList.length > 0 && !selectedClass) {
-        setSelectedClass(classList[0].id);
-      }
+      // Deduplicate classList by ID or name
+      const uniqueClasses: SchoolClass[] = [];
+      const seenClassIds = new Set();
+      classList.forEach(c => {
+        const cid = c.id || c.name;
+        if (cid && !seenClassIds.has(cid)) {
+          seenClassIds.add(cid);
+          uniqueClasses.push(c);
+        }
+      });
+      setClasses(uniqueClasses);
     } catch (error) {
       console.error('Error fetching classes:', error);
       toast.error('Failed to load classes');
@@ -293,6 +744,11 @@ export default function AttendancePage() {
 
   // FIXED: Properly handle the sections API response format
   const fetchSections = async (classId: string) => {
+    if (!classId || classId.startsWith('cls-')) {
+      setSections([]);
+      setSelectedSection('');
+      return;
+    }
     try {
       const response = await classService.getSections(classId);
       
@@ -335,59 +791,94 @@ export default function AttendancePage() {
     }
   };
 
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClass) {
+      toast.error('Please select a class first');
+      return;
+    }
+    setManualSubmitClicked(true);
+    fetchStudentsAndAttendance();
+  };
+
   const fetchStudentsAndAttendance = async () => {
     setLoading(true);
     try {
-      const response = await studentService.getAll();
-      let allStudents: any[] = [];
+      const response = await studentService.getAll().catch(() => ({ data: [] }));
+      let rawStudents: any[] = [];
       if (Array.isArray(response.data)) {
-        allStudents = response.data;
+        rawStudents = response.data;
       } else if (response.data && Array.isArray((response.data as any).results)) {
-        allStudents = (response.data as any).results;
+        rawStudents = (response.data as any).results;
       } else if (response.data && Array.isArray((response.data as any).data)) {
-        allStudents = (response.data as any).data;
+        rawStudents = (response.data as any).data;
       }
       
+      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
+      const allStudents = [...rawStudents, ...customStudents];
+      
       const filtered = allStudents.filter((s: any) => {
-  const studentClass =
-    s.current_class || s.class_id || s.class_ref;
-
-  const studentSection =
-    s.current_section || s.section_id || s.section_ref;
-
-  const classMatch =
-    !selectedClass || studentClass === selectedClass;
-
-  const sectionMatch =
-    !selectedSection || studentSection === selectedSection;
-
-  return classMatch && sectionMatch && s.is_active === true;
-});
+        const studentClass = s.current_class || s.class_id || s.class_ref || s.class_name;
+        // Match either class name or ID/reference
+        const isMatch = !selectedClass || 
+          studentClass === selectedClass || 
+          (classes.find(c => c.id === selectedClass)?.name === studentClass);
+        
+        return isMatch;
+      });
+      
       let existingAttendance: any[] = [];
       let hasExisting = false;
+      
+      const isCustomClass = selectedClass && selectedClass.startsWith('cls-');
+      
+      if (!isCustomClass) {
+        try {
+          const attResponse = await attendanceService.getByDate(
+            selectedDate,
+            selectedClass || undefined,
+            selectedSection || undefined,
+          );
+          existingAttendance = attResponse.data || [];
+          // If there are ANY records for this date+class → already taken
+          hasExisting = existingAttendance.length > 0;
+        } catch (err) {
+          console.log('No existing attendance found');
+        }
+      }
+
+      // Merge from localStorage for offline/fallback persistence
       try {
-        const attResponse = await attendanceService.getByDate(
-          selectedDate,
-          selectedClass || undefined,
-          selectedSection || undefined,
+        const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
+        const matchingLocal = localRecords.filter((r: any) => 
+          r.date === selectedDate && 
+          (!selectedClass || r.class_id === selectedClass)
         );
-        existingAttendance = attResponse.data;
-        hasExisting = existingAttendance.some(
-          (a: any) => a.marked_by_id || a.marked_by_name,
-        );
-      } catch (err) {
-        console.log('No existing attendance found');
+        if (matchingLocal.length > 0) {
+          hasExisting = true;
+          matchingLocal.forEach((lr: any) => {
+            const index = existingAttendance.findIndex((a: any) => String(a.student_id) === String(lr.student_id));
+            if (index !== -1) {
+              existingAttendance[index] = { ...existingAttendance[index], ...lr, marked_by: 'local' };
+            } else {
+              existingAttendance.push({ ...lr, marked_by: 'local' });
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Error loading local attendance:', e);
       }
       
       const studentsWithStatus: AttendanceStudent[] = filtered.map((student) => {
-        console.log("BACKEND RECORDS:", existingAttendance);
         const existing = matchAttendanceRecord(existingAttendance, student);
         const status = resolveStatusForMarking(existing, selectedDate);
         const teacherMarked = Boolean(existing?.marked_by_id || existing?.marked_by_name || existing?.marked_by);
         return {
-          id: student.id,
-          student_id: student.student_id,
-          full_name: student.full_name,
+          id: student.id || `std-${Math.random()}`,
+          student_id: student.student_id || student.registration_no || '001',
+          full_name: student.full_name || student.name || 'Student Name',
+          guardian_name: student.parent_name || student.guardian_name || student.father_name || 'Guardian Name',
+          profile_picture: student.profile_picture || student.avatar || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150',
           status,
           savedStatus: teacherMarked ? (existing?.status as AttendanceStatus) : undefined,
           isSaved: teacherMarked,
@@ -441,8 +932,8 @@ export default function AttendancePage() {
       return;
     }
 
-    if (!selectedClass || !selectedSection) {
-      toast.error('Please select both class and section');
+    if (!selectedClass) {
+      toast.error('Please select a class');
       return;
     }
 
@@ -468,7 +959,14 @@ export default function AttendancePage() {
       
       console.log('Saving attendance records:', recordsToSave);
       
-      await attendanceService.bulkSave(selectedDate, recordsToSave);
+      const isCustomClass = selectedClass && selectedClass.startsWith('cls-');
+      if (!isCustomClass) {
+        try {
+          await attendanceService.bulkSave(selectedDate, recordsToSave);
+        } catch (apiErr) {
+          console.warn('Backend API bulkSave failed, falling back to localStorage persistence:', apiErr);
+        }
+      }
 
       // Store in localStorage for instant student dashboard & calendar synchronization
       try {
@@ -488,8 +986,6 @@ export default function AttendancePage() {
       setHasSavedData(true);
       
       toast.success(`Attendance saved successfully! (${students.length} students)`);
-      await fetchStudentsAndAttendance();
-      
     } catch (error: any) {
       console.error('Error saving attendance:', error);
       toast.error(error.response?.data?.error || error.response?.data?.message || 'Failed to save attendance');
@@ -634,602 +1130,1100 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="students" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-          <TabsTrigger value="students">🎓 Student Attendance</TabsTrigger>
-          <TabsTrigger value="teachers">💼 Teacher Attendance</TabsTrigger>
-        </TabsList>
+      <Tabs value={activeView} className="space-y-4">
 
         <TabsContent value="students" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-700">Student Attendance Marking</h2>
-            <Button 
-              onClick={saveAttendance} 
-              disabled={saving || students.length === 0 || !selectedClass || !selectedSection}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              {hasSavedData ? 'Update Attendance' : 'Save Attendance'}
-            </Button>
+          
+          {/* Top Breadcrumb Bar */}
+          <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
+            <div className="flex items-center gap-2 text-xs font-semibold text-purple-750">
+              <span className="text-slate-500 font-bold">Attendance</span>
+              <span>|</span>
+              <span className="text-slate-450 font-bold flex items-center gap-1">
+                📁 - Mark or update Student Attendance
+              </span>
+            </div>
           </div>
 
-          {nonSchoolDay && (
-            <Card className="border-purple-200 bg-purple-50">
-              <CardContent className="pt-4 text-sm text-purple-900">
-                <strong>Sunday / non-school day:</strong> students are marked as Holiday by default.
-                You can still record absent or late if needed, then save.
-              </CardContent>
-            </Card>
-          )}
+          {/* Sub-tabs Selection - Replicates Manual vs Card scanning tabs */}
+          <div className="flex border-b border-slate-150 print:hidden mb-1 select-none">
+            <button
+              onClick={() => {
+                setSubTab('manual');
+                setManualSubmitClicked(false);
+              }}
+              className={`px-6 py-2.5 text-xs font-bold transition-all border-t-2 border-x ${
+                subTab === 'manual' 
+                  ? 'bg-white border-t-[#5C53CD] border-x-slate-150 text-[#5C53CD] -mb-[1px] rounded-t-xl shadow-4xs' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Manual Attendance
+            </button>
+            <button
+              onClick={() => setSubTab('card')}
+              className={`px-6 py-2.5 text-xs font-bold transition-all border-t-2 border-x ${
+                subTab === 'card' 
+                  ? 'bg-white border-t-[#5C53CD] border-x-slate-150 text-[#5C53CD] -mb-[1px] rounded-t-xl shadow-4xs' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Card Scanning
+            </button>
+          </div>
 
-          {!nonSchoolDay && students.length > 0 && (
-            <Card className="border-green-100 bg-green-50">
-              <CardContent className="pt-4 text-sm text-green-900">
-                All students default to <strong>Present</strong> on school days. Mark only absent or late exceptions, then save.
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Class</label>
-                  <select
-                    className="w-full border rounded-lg px-3 py-2"
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                  >
-                    <option value="">Select Class</option>
-                    {classes.map(cls => (
-                      <option key={cls.id} value={cls.id}>{cls.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Section</label>
-                  <select
-                    className="w-full border rounded-lg px-3 py-2"
-                    value={selectedSection}
-                    onChange={(e) => setSelectedSection(e.target.value)}
-                    disabled={!selectedClass}
-                  >
-                    <option value="">Select Section</option>
-                    {sections.map(sec => (
-                      <option key={sec.id} value={sec.id}>{sec.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date</label>
-                  <input
-                    type="date"
-                    className="w-full border rounded-lg px-3 py-2"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
-                </div>
-                
-                <div className="flex items-end gap-2 flex-wrap">
-                  {!(selectedDate > localDateInputValue()) ? (
-                    <>
-                      {!nonSchoolDay && (
-                        <Button
-                          variant="outline"
-                          onClick={markAllPresent}
-                          className="flex-1 border-green-300 text-green-700 hover:bg-green-50 min-w-[120px]"
-                          disabled={students.length === 0}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          All Present
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        onClick={markAllAbsent}
-                        className="flex-1 border-red-300 text-red-700 hover:bg-red-50 min-w-[120px]"
-                        disabled={students.length === 0}
-                      >
-                        <XCircle className="w-4 h-4 mr-2" />
-                        All Absent
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      onClick={markAllExcused}
-                      className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50 min-w-[120px]"
-                      disabled={students.length === 0}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      All Excused/Leave
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={markAllHoliday}
-                    className="flex-1 border-purple-300 text-purple-700 hover:bg-purple-50 min-w-[120px]"
-                    disabled={students.length === 0}
-                  >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Holiday
-                  </Button>
+          {subTab === 'card' ? (
+            /* CARD SCANNING LOCKED VIEW - Matches Screenshot 2 exactly */
+            <div className="bg-white rounded-3xl border border-slate-150 shadow-sm p-12 text-center flex flex-col items-center justify-center space-y-4 min-h-[340px]">
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-[#1C1656] tracking-tight">Mark attendance with card scanning</h3>
+                <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold mt-1">
+                  <span className="flex items-center gap-1 text-[#5C53CD]"><span className="w-1.5 h-1.5 rounded-full bg-[#5C53CD] block"></span> Required*</span>
+                  <span className="flex items-center gap-1 text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span> Optional</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Search Bar */}
-          {students.length > 0 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search by student name or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full border rounded-lg pl-10 pr-10 py-2 text-sm"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+              {/* Scanning yellow ID badge icon */}
+              <div className="w-16 h-16 rounded-full bg-[#FFFBEB] flex items-center justify-center text-amber-500 shadow-inner">
+                <Users className="w-7 h-7" />
+              </div>
+
+              <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5 bg-slate-55 p-3.5 rounded-xl border border-slate-150">
+                🔒 This option is locked. Available in paid Desktop version.
+              </p>
             </div>
-          )}
-
-          {/* Statistics Cards */}
-          {students.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Total Students</p>
-                      <p className="text-2xl font-bold text-blue-600">{totalStudents}</p>
-                    </div>
-                    <Users className="w-8 h-8 text-blue-500" />
+          ) : (
+            /* MANUAL ATTENDANCE VIEW */
+            !manualSubmitClicked ? (
+              /* SELECTION FORM CARD - Matches Screenshot 1 exactly */
+              <div className="bg-white rounded-3xl border border-slate-150 shadow-sm p-12 text-center flex flex-col items-center justify-center space-y-6 max-w-2xl mx-auto">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black text-[#1C1656] tracking-tight">Add/update attendance</h3>
+                  <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold mt-1">
+                    <span className="flex items-center gap-1 text-[#5C53CD]"><span className="w-1.5 h-1.5 rounded-full bg-[#5C53CD] block"></span> Required*</span>
+                    <span className="flex items-center gap-1 text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span> Optional</span>
                   </div>
-                </CardContent>
-              </Card>
-              <Card className="border-green-200">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Present</p>
-                      <p className="text-2xl font-bold text-green-600">{presentCount}</p>
-                    </div>
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-red-200">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Absent</p>
-                      <p className="text-2xl font-bold text-red-600">{absentCount}</p>
-                    </div>
-                    <XCircle className="w-8 h-8 text-red-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-orange-200">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Late</p>
-                      <p className="text-2xl font-bold text-orange-600">{lateCount}</p>
-                    </div>
-                    <Clock className="w-8 h-8 text-orange-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Attendance Rate Progress */}
-          {students.length > 0 && (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Attendance Rate</span>
-                  <span className={attendanceRate >= 75 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                    {attendanceRate.toFixed(1)}%
-                  </span>
                 </div>
-                <Progress value={attendanceRate} />
-                {hasSavedData && (
-                  <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    Attendance already recorded for this date. You can update it.
+
+                <form onSubmit={handleManualSubmit} className="w-full max-w-md space-y-5 text-left">
+                  <div>
+                    <label className="block text-[9px] font-black tracking-wider text-slate-400 uppercase mb-2">DATE *</label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="date"
+                        className="w-full h-11 px-4 pr-10 rounded-xl border border-slate-205 bg-white text-xs font-semibold text-slate-650 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all shadow-4xs"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-black tracking-wider text-slate-400 uppercase mb-2">SEARCH CLASS *</label>
+                    <select
+                      className="w-full h-11 px-4 rounded-xl border border-slate-205 bg-white text-xs font-semibold text-slate-650 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all shadow-4xs"
+                      value={selectedClass}
+                      onChange={(e) => setSelectedClass(e.target.value)}
+                      required
+                    >
+                      <option value="">Select Class</option>
+                      {classes.map(cls => (
+                        <option key={cls.id} value={cls.id}>{cls.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="pt-2 flex justify-center">
+                    <button
+                      type="submit"
+                      className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center gap-1"
+                    >
+                      ✓ Submit
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              /* ── MARKING SHEET — eskooly style ─────────────────────────── */
+              <div className="space-y-4 max-w-2xl mx-auto">
+
+                {/* Stats row */}
+                {students.length > 0 && (
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { label: 'TOTAL STUDENTS', value: totalStudents, color: 'text-slate-700' },
+                      { label: 'PRESENT',         value: presentCount,  color: 'text-emerald-600' },
+                      { label: 'ABSENT',          value: absentCount,   color: 'text-rose-500' },
+                      { label: 'LATE',            value: lateCount,     color: 'text-amber-500' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                        <p className={`text-2xl font-black ${color}`}>{value}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+
+                {/* Main attendance card */}
+                <div className="bg-white rounded-2xl border border-slate-150 shadow-sm overflow-hidden">
+
+                  {/* Card header */}
+                  <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between">
+                    <div>
+                      <h3 className="text-base font-black text-slate-800">
+                        {classes.find(c => c.id === selectedClass)?.name || 'Class'}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                        {parseDateOnly(selectedDate).toLocaleDateString('en-GB', {
+                          day: '2-digit', month: 'short', year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    {hasSavedData && (
+                      <span className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>
+                        Already Taken
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Legend */}
+                  <div className="px-6 py-2.5 flex items-center gap-4 text-[10px] font-bold border-b border-slate-50 bg-slate-50/40">
+                    <span className="flex items-center gap-1.5 text-emerald-600">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/> Present
+                    </span>
+                    <span className="flex items-center gap-1.5 text-amber-500">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/> On Leave
+                    </span>
+                    <span className="flex items-center gap-1.5 text-rose-500">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"/> Absent
+                    </span>
+                  </div>
+
+                  {/* Student rows */}
+                  <div className="divide-y divide-slate-50">
+                    {loading ? (
+                      <div className="flex justify-center py-12">
+                        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"/>
+                      </div>
+                    ) : students.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400 text-sm font-semibold">
+                        No students found for this class
+                      </div>
+                    ) : (
+                      students.map((student) => (
+                        <div key={student.id} className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/50 transition-colors">
+
+                          {/* Avatar */}
+                          <div className="relative flex-shrink-0">
+                            {student.profile_picture && !student.profile_picture.includes('unsplash') ? (
+                              <img
+                                src={student.profile_picture}
+                                alt={student.full_name}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-slate-100"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center text-purple-700 font-black text-sm border-2 border-purple-100"
+                              hidden={!!(student.profile_picture && !student.profile_picture.includes('unsplash'))}
+                            >
+                              {student.full_name.charAt(0).toUpperCase()}
+                            </div>
+                          </div>
+
+                          {/* Name + ID */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-800 text-sm truncate capitalize">
+                              {student.full_name}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-semibold">{student.student_id} ↓</p>
+                          </div>
+
+                          {/* P / L / A buttons */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Present */}
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(student.id, 'present')}
+                              className={`w-8 h-8 rounded-full text-[11px] font-black transition-all border-2 ${
+                                student.status === 'present'
+                                  ? 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-200'
+                                  : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-500'
+                              }`}
+                            >P</button>
+
+                            {/* Leave */}
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(student.id, 'excused')}
+                              className={`w-8 h-8 rounded-full text-[11px] font-black transition-all border-2 ${
+                                student.status === 'excused'
+                                  ? 'bg-amber-400 border-amber-400 text-white shadow-md shadow-amber-200'
+                                  : 'bg-white border-slate-200 text-slate-400 hover:border-amber-300 hover:text-amber-500'
+                              }`}
+                            >L</button>
+
+                            {/* Absent */}
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(student.id, 'absent')}
+                              className={`w-8 h-8 rounded-full text-[11px] font-black transition-all border-2 ${
+                                student.status === 'absent'
+                                  ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-200'
+                                  : 'bg-white border-slate-200 text-slate-400 hover:border-rose-300 hover:text-rose-500'
+                              }`}
+                            >A</button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Update Attendance button */}
+                  {students.length > 0 && (
+                    <div className="px-6 py-5 border-t border-slate-100 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={saveAttendance}
+                        disabled={saving || students.length === 0}
+                        className="flex items-center gap-2 px-10 py-3 bg-[#5C53CD] hover:bg-[#4b43c0] disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-lg shadow-purple-200 transition-all"
+                      >
+                        {saving ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <span>✓</span>
+                        )}
+                        {hasSavedData ? 'Update Attendance' : 'Submit Attendance'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Back link */}
+                <div className="flex justify-start">
+                  <button
+                    onClick={() => setManualSubmitClicked(false)}
+                    className="text-xs text-slate-400 hover:text-slate-600 font-semibold flex items-center gap-1 transition-colors"
+                  >
+                    ← Back to selection
+                  </button>
+                </div>
+
+              </div>
+            )
           )}
 
-          {/* Students Table */}
-          {students.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No students found in this class/section</p>
-                <p className="text-sm text-gray-400 mt-1">Please select a different class or section</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Mark Attendance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Student ID</th>
-                        <th className="px-4 py-3 text-left">Student Name</th>
-                        <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-left">Saved</th>
-                        <th className="px-4 py-3 text-center">History</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStudents.map((student) => (
-                        <tr key={student.id} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 font-mono text-xs">{student.student_id}</td>
-                          <td className="px-4 py-3 font-medium">{student.full_name}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-2 flex-wrap">
-                              {!(selectedDate > localDateInputValue()) ? (
-                                <>
-                                  {!nonSchoolDay && (
-                                    <button
-                                      onClick={() => handleStatusChange(student.id, 'present')}
-                                      className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'present')}`}
-                                    >
-                                      <CheckCircle className="w-4 h-4" />
-                                      Present
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={() => handleStatusChange(student.id, 'absent')}
-                                    className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'absent')}`}
-                                  >
-                                    <XCircle className="w-4 h-4" />
-                                    Absent
-                                  </button>
-                                  <button
-                                    onClick={() => handleStatusChange(student.id, 'late')}
-                                    className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'late')}`}
-                                  >
-                                    <Clock className="w-4 h-4" />
-                                    Late
-                                  </button>
-                                </>
-                              ) : null}
-                              <button
-                                onClick={() => handleStatusChange(student.id, 'excused')}
-                                className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'excused')}`}
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                                Leave
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(student.id, 'holiday')}
-                                className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${getStatusButtonClass(student.status, 'holiday')}`}
-                              >
-                                <Calendar className="w-4 h-4" />
-                                Holiday
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            {student.isSaved ? (
-                              <Badge variant="success" className="flex items-center gap-1 w-fit">
-                                <CheckCircle className="w-3 h-3" /> Saved
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                                <Clock className="w-3 h-3" /> Not saved
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => handleViewHistory(student)}
-                              className="p-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-                              title="View Attendance History"
-                            >
-                              <Eye className="w-4 h-4 text-blue-600" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         <TabsContent value="teachers" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-700">
-              {isAdmin ? 'Teacher Attendance Marking' : 'Teacher Attendance View'}
-            </h2>
-            {isAdmin && (
-              <Button 
-                onClick={saveTeacherAttendance} 
-                disabled={savingTeachers || teachers.length === 0}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {savingTeachers ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                {teacherHasSavedData ? 'Update Attendance' : 'Save Attendance'}
-              </Button>
-            )}
+          
+          {/* Top Breadcrumb Bar */}
+          <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
+            <div className="flex items-center gap-2 text-xs font-semibold text-purple-750">
+              <span className="text-slate-500 font-bold">Attendance</span>
+              <span>|</span>
+              <span className="text-slate-450 font-bold flex items-center gap-1">
+                📁 - Mark or update Employee Attendance
+              </span>
+            </div>
           </div>
 
-          {/* Date Selector and Mark All Present for Teachers */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className={isAdmin ? "" : "col-span-4 md:col-span-1"}>
-                  <label className="block text-sm font-medium mb-1">Date</label>
-                  <input
-                    type="date"
-                    className="w-full border rounded-lg px-3 py-2"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
+          {/* Sub-tabs Selection - Replicates Manual vs Card scanning tabs */}
+          <div className="flex border-b border-slate-150 print:hidden mb-1 select-none">
+            <button
+              onClick={() => {
+                setSubTab('manual');
+                setTeacherSubmitClicked(false);
+              }}
+              className={`px-6 py-2.5 text-xs font-bold transition-all border-t-2 border-x ${
+                subTab === 'manual' 
+                  ? 'bg-white border-t-[#5C53CD] border-x-slate-150 text-[#5C53CD] -mb-[1px] rounded-t-xl shadow-4xs' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Manual Attendance
+            </button>
+            <button
+              onClick={() => setSubTab('card')}
+              className={`px-6 py-2.5 text-xs font-bold transition-all border-t-2 border-x ${
+                subTab === 'card' 
+                  ? 'bg-white border-t-[#5C53CD] border-x-slate-150 text-[#5C53CD] -mb-[1px] rounded-t-xl shadow-4xs' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Card Scanning
+            </button>
+          </div>
+
+          {subTab === 'card' ? (
+            /* CARD SCANNING LOCKED VIEW - Matches Screenshot 2 exactly */
+            <div className="bg-white rounded-3xl border border-slate-150 shadow-sm p-12 text-center flex flex-col items-center justify-center space-y-4 min-h-[340px]">
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-[#1C1656] tracking-tight">Mark attendance with card scanning</h3>
+                <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold mt-1">
+                  <span className="flex items-center gap-1 text-[#5C53CD]"><span className="w-1.5 h-1.5 rounded-full bg-[#5C53CD] block"></span> Required*</span>
+                  <span className="flex items-center gap-1 text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span> Optional</span>
                 </div>
-                {isAdmin && (
-                  <div className="flex items-end gap-2 flex-wrap col-span-3">
-                    <Button
-                      variant="outline"
-                      onClick={markAllTeachersPresent}
-                      className="border-green-300 text-green-700 hover:bg-green-50"
-                      disabled={teachers.length === 0}
+              </div>
+
+              {/* Scanning yellow ID badge icon */}
+              <div className="w-16 h-16 rounded-full bg-[#FFFBEB] flex items-center justify-center text-amber-500 shadow-inner">
+                <Users className="w-7 h-7" />
+              </div>
+
+              <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5 bg-slate-55 p-3.5 rounded-xl border border-slate-150">
+                🔒 This option is locked. Available in paid Desktop version.
+              </p>
+            </div>
+          ) : (
+            /* MANUAL ATTENDANCE VIEW */
+            !teacherSubmitClicked ? (
+              /* SELECTION FORM CARD - Matches Screenshot 1 format */
+              <div className="bg-white rounded-3xl border border-slate-150 shadow-sm p-12 text-center flex flex-col items-center justify-center space-y-6 max-w-2xl mx-auto">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black text-[#1C1656] tracking-tight">Add/update attendance</h3>
+                  <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold mt-1">
+                    <span className="flex items-center gap-1 text-[#5C53CD]"><span className="w-1.5 h-1.5 rounded-full bg-[#5C53CD] block"></span> Required*</span>
+                    <span className="flex items-center gap-1 text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 block"></span> Optional</span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleTeacherManualSubmit} className="w-full max-w-md space-y-5 text-left">
+                  <div>
+                    <label className="block text-[9px] font-black tracking-wider text-slate-400 uppercase mb-2">DATE *</label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="date"
+                        className="w-full h-11 px-4 pr-10 rounded-xl border border-slate-205 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all shadow-4xs"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-center">
+                    <button
+                      type="submit"
+                      className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center gap-1"
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark All Present
-                    </Button>
+                      ✓ Submit
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              /* MARKING SHEET SCREEN */
+              <div className="space-y-6">
+                
+                {/* Filters info header with back button */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-sm flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-[#5C53CD] font-bold">
+                      💼
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">
+                        Staff Members Attendance
+                      </h4>
+                      <p className="text-[10px] text-slate-450 font-bold mt-0.5">
+                        Marking Date: {selectedDate}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {isAdmin && (
+                      <Button 
+                        size="sm"
+                        onClick={saveTeacherAttendance} 
+                        disabled={savingTeachers || teachers.length === 0}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                      >
+                        {savingTeachers ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                        {teacherHasSavedData ? 'Update Attendance' : 'Save Attendance'}
+                      </Button>
+                    )}
+                    <button
+                      onClick={() => setTeacherSubmitClicked(false)}
+                      className="px-4 py-2 border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all"
+                    >
+                      ← Back
+                    </button>
+                  </div>
+                </div>
+
+                {/* Statistics Cards Row */}
+                {teachers.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Total Staff</span>
+                      <span className="text-xl font-black text-blue-600 block">{totalTeachers}</span>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border-l-4 border-l-[#10B981] border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-[#10B981] uppercase tracking-widest block">Present</span>
+                      <span className="text-xl font-black text-[#10B981] block">{teacherPresentCount}</span>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border-l-4 border-l-[#EF4444] border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-[#EF4444] uppercase tracking-widest block">Absent</span>
+                      <span className="text-xl font-black text-[#EF4444] block">{teacherAbsentCount}</span>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border-l-4 border-l-purple-500 border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-purple-500 uppercase tracking-widest block">On Leave</span>
+                      <span className="text-xl font-black text-purple-500 block">{teacherLeaveCount}</span>
+                    </div>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Teacher Search Bar */}
-          {teachers.length > 0 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search by teacher name or Employee ID..."
-                value={teacherSearchQuery}
-                onChange={(e) => setTeacherSearchQuery(e.target.value)}
-                className="w-full border rounded-lg pl-10 pr-10 py-2 text-sm"
-              />
-              {teacherSearchQuery && (
-                <button
-                  onClick={() => setTeacherSearchQuery('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {/* Staff Attendance marking list sheet */}
+                <div className="bg-white rounded-3xl border border-slate-150 shadow-sm p-8 space-y-6 max-w-4xl mx-auto text-center flex flex-col items-center">
+                  
+                  {/* Attendance Header Status Details */}
+                  <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold select-none">
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                      teacherHasSavedData ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-white'
+                    }`}>
+                      {teacherHasSavedData ? 'Attendance taken' : 'Not taken yet'}
+                    </span>
+                    <span className="text-blue-600 font-extrabold">Employees</span>
+                    <span className="text-slate-400">
+                      {new Date(selectedDate).toLocaleDateString('en-US', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black text-[#1C1656] tracking-tight">Mark Attendance</h3>
+                    {/* Status Legends */}
+                    <div className="flex items-center justify-center gap-3 text-[10px] font-bold mt-1">
+                      <span className="flex items-center gap-1 text-blue-600">
+                        <span className="w-2 h-2 rounded-full bg-blue-600 block"></span> Present
+                      </span>
+                      <span className="flex items-center gap-1 text-purple-600">
+                        <span className="w-2 h-2 rounded-full bg-purple-600 block"></span> On leave
+                      </span>
+                      <span className="flex items-center gap-1 text-rose-500">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 block"></span> Absent
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto w-full rounded-xl border border-slate-100 mt-2">
+                    <table className="w-full text-left border-collapse text-[11px]">
+                      <thead>
+                        <tr className="bg-slate-50/75 border-b border-slate-150 text-slate-400 font-bold uppercase tracking-wider select-none text-[9px]">
+                          <th className="py-3 px-4">ID</th>
+                          <th className="py-3 px-4">Employee Name</th>
+                          <th className="py-3 px-4">Father Name</th>
+                          <th className="py-3 px-4">Employee role</th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold text-[10px]">
+                        {teachers.map((teacher) => (
+                          <tr key={teacher.id} className="hover:bg-slate-50/30 transition-colors">
+                            {/* ID */}
+                            <td className="py-2.5 px-4 font-mono text-slate-500">{teacher.employee_id || '250922'}</td>
+                            
+                            {/* Name */}
+                            <td className="py-2.5 px-4 font-bold text-slate-800 text-left capitalize">
+                              {teacher.full_name?.toLowerCase()}
+                            </td>
+
+                            {/* Father Name */}
+                            <td className="py-2.5 px-4 text-slate-400 text-left">
+                              -
+                            </td>
+                            
+                            {/* Designation */}
+                            <td className="py-2.5 px-4 text-slate-505 text-left capitalize">
+                              {teacher.specializations && teacher.specializations.length > 0
+                                ? teacher.specializations.join(', ')
+                                : teacher.id === 'tch-1' ? 'Principal' : 'Teacher'}
+                            </td>
+
+                            {/* Status Buttons P, L, A */}
+                            <td className="py-2.5 px-4 text-center">
+                              <div className="flex justify-center gap-2 select-none">
+                                {/* Present */}
+                                <button
+                                  type="button"
+                                  disabled={!isAdmin}
+                                  onClick={() => handleTeacherStatusChange(teacher.id, 'present')}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all border ${
+                                    teacher.status === 'present'
+                                      ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                                      : 'bg-white border-slate-200 text-blue-600 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  P
+                                </button>
+
+                                {/* Leave */}
+                                <button
+                                  type="button"
+                                  disabled={!isAdmin}
+                                  onClick={() => handleTeacherStatusChange(teacher.id, 'on_leave')}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all border ${
+                                    teacher.status === 'on_leave'
+                                      ? 'bg-purple-600 border-purple-600 text-white shadow-xs'
+                                      : 'bg-white border-slate-200 text-purple-600 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  L
+                                </button>
+
+                                {/* Absent */}
+                                <button
+                                  type="button"
+                                  disabled={!isAdmin}
+                                  onClick={() => handleTeacherStatusChange(teacher.id, 'absent')}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all border ${
+                                    teacher.status === 'absent'
+                                      ? 'bg-rose-500 border-rose-500 text-white shadow-xs'
+                                      : 'bg-white border-slate-200 text-rose-500 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  A
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Centered Submit Button */}
+                  {isAdmin && (
+                    <div className="pt-4">
+                      <button
+                        type="button"
+                        onClick={saveTeacherAttendance}
+                        disabled={savingTeachers || teachers.length === 0}
+                        className="px-10 py-3.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center gap-1.5"
+                      >
+                        {savingTeachers ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <span>✓ Submit</span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )
+          )}
+
+        </TabsContent>
+
+        <TabsContent value="class-report" className="space-y-6">
+          
+          {/* Top Breadcrumb Bar */}
+          <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
+            <div className="flex items-center gap-2 text-xs font-semibold text-purple-750">
+              <span className="text-slate-500 font-bold">Attendance</span>
+              <span>|</span>
+              <span className="text-slate-450 font-bold flex items-center gap-1">
+                📁 - Class wise Attendance Report
+              </span>
+            </div>
+          </div>
+
+          {/* Date Selector Filter Card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-sm print:hidden max-w-sm">
+            <label className="block text-[9px] font-black tracking-wider text-slate-400 uppercase mb-2">SELECT REPORT DATE *</label>
+            <input
+              type="date"
+              className="w-full h-11 px-4 rounded-xl border border-slate-205 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all shadow-4xs"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              required
+            />
+          </div>
+
+          {reportLoading ? (
+            <div className="flex justify-center items-center h-48">
+              <RefreshCw className="animate-spin rounded-full h-8 w-8 text-[#5C53CD]" />
+            </div>
+          ) : (
+            /* Grid layout of class cards */
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {reportData.map((clsData) => (
+                <div key={clsData.id} className="bg-white rounded-3xl border border-slate-150 shadow-sm p-6 text-center flex flex-col justify-between min-h-[300px]">
+                  
+                  {/* Card Header */}
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                      Attendance report: {new Date(selectedDate).toLocaleDateString('en-US', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      })} for
+                    </p>
+                    <h4 className="text-sm font-black text-blue-600 uppercase tracking-tight">
+                      {clsData.name}
+                    </h4>
+                  </div>
+
+                  {/* Body Content */}
+                  {clsData.total === 0 ? (
+                    /* NOT MARKED YET VIEW - Replicates Screenshot 2/3 sad face */
+                    <div className="flex flex-col items-center justify-center space-y-3 py-6 select-none">
+                      <span className="text-4xl text-amber-400 block animate-bounce">😞</span>
+                      <p className="text-[10px] font-bold text-slate-450 uppercase tracking-wide">
+                        Attendance is not marked yet.
+                      </p>
+                    </div>
+                  ) : (
+                    /* MARKED VIEW - Replicates Screenshot 3 SVG Donut Chart */
+                    (() => {
+                      const radius = 35;
+                      const circ = 2 * Math.PI * radius; // ~219.9
+                      const pDash = (clsData.present / clsData.total) * circ;
+                      const lDash = (clsData.leave / clsData.total) * circ;
+                      const aDash = (clsData.absent / clsData.total) * circ;
+
+                      return (
+                        <div className="flex flex-col items-center justify-center space-y-4 py-2">
+                          <div className="relative w-28 h-28 flex items-center justify-center select-none">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                              {/* Gray base circle */}
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r={radius}
+                                fill="transparent"
+                                stroke="#f1f5f9"
+                                strokeWidth="12"
+                              />
+                              
+                              {/* Present (Blue) */}
+                              {pDash > 0 && (
+                                <circle
+                                  cx="50"
+                                  cy="50"
+                                  r={radius}
+                                  fill="transparent"
+                                  stroke="#3b82f6"
+                                  strokeWidth="12"
+                                  strokeDasharray={`${pDash} ${circ - pDash}`}
+                                  strokeDashoffset={0}
+                                  className="transition-all duration-500 ease-out"
+                                />
+                              )}
+
+                              {/* On Leave (Purple) */}
+                              {lDash > 0 && (
+                                <circle
+                                  cx="50"
+                                  cy="50"
+                                  r={radius}
+                                  fill="transparent"
+                                  stroke="#8b5cf6"
+                                  strokeWidth="12"
+                                  strokeDasharray={`${lDash} ${circ - lDash}`}
+                                  strokeDashoffset={-pDash}
+                                  className="transition-all duration-500 ease-out"
+                                />
+                              )}
+
+                              {/* Absent (Red) */}
+                              {aDash > 0 && (
+                                <circle
+                                  cx="50"
+                                  cy="50"
+                                  r={radius}
+                                  fill="transparent"
+                                  stroke="#ef4444"
+                                  strokeWidth="12"
+                                  strokeDasharray={`${aDash} ${circ - aDash}`}
+                                  strokeDashoffset={-(pDash + lDash)}
+                                  className="transition-all duration-500 ease-out"
+                                />
+                              )}
+                            </svg>
+                            
+                            {/* Centered Total Count */}
+                            <div className="absolute text-center">
+                              <p className="text-lg font-black text-slate-800">{clsData.total}</p>
+                              <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Total</p>
+                            </div>
+                          </div>
+
+                          {/* Legends under donut chart */}
+                          <div className="flex items-center justify-center gap-3 text-[9px] font-bold mt-2">
+                            <span className="flex items-center gap-1 text-blue-600">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 block"></span> P: {clsData.present}
+                            </span>
+                            <span className="flex items-center gap-1 text-purple-600">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-600 block"></span> L: {clsData.leave}
+                            </span>
+                            <span className="flex items-center gap-1 text-rose-500">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 block"></span> A: {clsData.absent}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+                  
+                  {/* Bottom Action spacer */}
+                  <div className="pt-2"></div>
+                </div>
+              ))}
+              {reportData.length === 0 && (
+                <div className="col-span-full bg-white p-12 text-center rounded-3xl border border-slate-150 shadow-sm text-slate-450 font-bold">
+                  No classes registered to display report.
+                </div>
               )}
             </div>
           )}
 
-          {/* Teacher Stats Cards */}
-          {teachers.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Total Teachers</p>
-                      <p className="text-2xl font-bold text-blue-600">{totalTeachers}</p>
-                    </div>
-                    <Users className="w-8 h-8 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-green-200">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Present</p>
-                      <p className="text-2xl font-bold text-green-600">{teacherPresentCount}</p>
-                    </div>
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-red-200">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Absent</p>
-                      <p className="text-2xl font-bold text-red-600">{teacherAbsentCount}</p>
-                    </div>
-                    <XCircle className="w-8 h-8 text-red-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-blue-200">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">On Leave</p>
-                      <p className="text-2xl font-bold text-blue-600">{teacherLeaveCount}</p>
-                    </div>
-                    <Calendar className="w-8 h-8 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+        </TabsContent>
 
-          {/* Teacher Attendance Rate Progress */}
-          {teachers.length > 0 && (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Teacher Attendance Rate</span>
-                  <span className={teacherAttendanceRate >= 90 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                    {teacherAttendanceRate}%
-                  </span>
-                </div>
-                <Progress value={teacherAttendanceRate} />
-                {teacherHasSavedData && (
-                  <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    {isAdmin 
-                      ? 'Teacher attendance already recorded for this date. You can update it.' 
-                      : 'Teacher attendance recorded for this date.'}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+        <TabsContent value="student-report" className="space-y-6">
+          
+          {/* Print only Header Title */}
+          <div className="hidden print:block text-center mb-6">
+            <h1 className="text-xl font-black text-slate-800">
+              Students attendance record ({new Date(reportStartDate).toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' })} - {new Date(reportEndDate).toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' })})
+            </h1>
+          </div>
 
-          {/* Teachers Table */}
-          {loadingTeachers ? (
-            <div className="flex justify-center items-center h-48">
-              <RefreshCw className="animate-spin rounded-full h-8 w-8 text-blue-600" />
+          {/* Top Breadcrumb Bar */}
+          <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
+            <div className="flex items-center gap-2 text-xs font-semibold text-purple-750">
+              <span className="text-slate-500 font-bold">Attendance</span>
+              <span>|</span>
+              <span className="text-slate-450 font-bold flex items-center gap-1">
+                📁 - Students Attendance Record
+              </span>
             </div>
-          ) : teachers.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No teachers found in the system</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>{isAdmin ? 'Mark Teacher Attendance' : 'Teacher Attendance Records'}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Employee ID</th>
-                        <th className="px-4 py-3 text-left">Teacher Name</th>
-                        <th className="px-4 py-3 text-left">Specializations</th>
-                        <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-left">Remarks / Reason</th>
-                        <th className="px-4 py-3 text-left">Saved</th>
+          </div>
+
+          {/* Blue Date Range Selector Card - Matches Screenshot 2 */}
+          <div className="bg-[#5C53CD] p-6 rounded-2xl border border-[#4c43bd] shadow-sm print:hidden text-white space-y-4 max-w-lg">
+            <div className="flex items-center gap-2 text-xs font-bold">
+              <Calendar className="w-4 h-4" />
+              <span>Select Date Range</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[9px] font-black tracking-wider text-purple-200 uppercase mb-1">Start Date</label>
+                <input
+                  type="date"
+                  className="w-full h-10 px-3 rounded-lg border-0 bg-white/10 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-white focus:bg-white/20 transition-all placeholder-white/50"
+                  value={reportStartDate}
+                  onChange={(e) => setReportStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-black tracking-wider text-purple-200 uppercase mb-1">End Date</label>
+                <input
+                  type="date"
+                  className="w-full h-10 px-3 rounded-lg border-0 bg-white/10 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-white focus:bg-white/20 transition-all placeholder-white/50"
+                  value={reportEndDate}
+                  onChange={(e) => setReportEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Data Table Card */}
+          <div className="bg-white rounded-3xl border border-slate-150 shadow-sm overflow-hidden p-6 print:border-0 print:shadow-none print:p-0">
+            {/* Top Toolbar: Buttons & Search */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-100 print:hidden mb-4">
+              <div className="flex flex-wrap items-center gap-1.5 select-none">
+                <button
+                  onClick={handleCopyReport}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={() => handleExportCSV('students_attendance_record.csv')}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  CSV
+                </button>
+                <button
+                  onClick={() => handleExportCSV('students_attendance_record.csv')}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  Excel
+                </button>
+                <button
+                  onClick={handlePrintReport}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  PDF
+                </button>
+                <button
+                  onClick={handlePrintReport}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  Print
+                </button>
+              </div>
+
+              {/* Search filter input */}
+              <div className="flex items-center gap-2 select-none text-[10px] font-bold text-slate-400">
+                <span>Search:</span>
+                <input
+                  type="text"
+                  className="h-8 px-3 rounded-lg border border-slate-200 text-[10px] font-semibold text-slate-655 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all"
+                  value={reportSearchQuery}
+                  onChange={(e) => setReportSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {studentReportLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <RefreshCw className="animate-spin rounded-full h-8 w-8 text-[#5C53CD]" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="overflow-x-auto rounded-xl border border-slate-100 print:border-slate-200">
+                  <table className="w-full text-left border-collapse text-[10px]">
+                    <thead>
+                      <tr className="bg-slate-50/75 border-b border-slate-150 text-slate-400 font-bold uppercase tracking-wider text-[9px] print:bg-slate-100 print:text-slate-700">
+                        <th className="py-2.5 px-4 text-center">DATE</th>
+                        <th className="py-2.5 px-4 text-center">DAY</th>
+                        <th className="py-2.5 px-4 text-center">ID</th>
+                        <th className="py-2.5 px-4">NAME</th>
+                        <th className="py-2.5 px-4">CLASS</th>
+                        <th className="py-2.5 px-4 text-center">STATUS</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {filteredTeachers.map((teacher) => (
-                        <tr key={teacher.id} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 font-mono text-xs">{teacher.employee_id}</td>
-                          <td className="px-4 py-3 font-medium">{teacher.full_name}</td>
-                          <td className="px-4 py-3 text-gray-500">
-                            {teacher.specializations && teacher.specializations.length > 0
-                              ? teacher.specializations.join(', ')
-                              : 'General'}
-                          </td>
-                          <td className="px-4 py-3">
-                            {isAdmin ? (
-                              <div className="flex gap-2 flex-wrap">
-                                <button
-                                  onClick={() => handleTeacherStatusChange(teacher.id, 'present')}
-                                  className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${
-                                    teacher.status === 'present'
-                                      ? 'bg-green-600 text-white border-green-600'
-                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 border'
-                                  }`}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                  Present
-                                </button>
-                                <button
-                                  onClick={() => handleTeacherStatusChange(teacher.id, 'absent')}
-                                  className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${
-                                    teacher.status === 'absent'
-                                      ? 'bg-red-600 text-white border-red-600'
-                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 border'
-                                  }`}
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                  Absent
-                                </button>
-                                <button
-                                  onClick={() => handleTeacherStatusChange(teacher.id, 'on_leave')}
-                                  className={`px-3 py-1 rounded-lg flex items-center gap-1 transition-all ${
-                                    teacher.status === 'on_leave'
-                                      ? 'bg-blue-600 text-white border-blue-600'
-                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 border'
-                                  }`}
-                                >
-                                  <Calendar className="w-4 h-4" />
-                                  On Leave
-                                </button>
-                              </div>
-                            ) : (
-                              <Badge
-                                variant={
-                                  teacher.status === 'present'
-                                    ? 'success'
-                                    : teacher.status === 'absent'
-                                      ? 'destructive'
-                                      : 'info'
-                                }
-                              >
-                                {teacher.status === 'present'
-                                  ? '✓ Present'
-                                  : teacher.status === 'absent'
-                                    ? '✗ Absent'
-                                    : '🍂 On Leave'}
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {isAdmin ? (
-                              <input
-                                type="text"
-                                placeholder="Remarks (e.g. Sick leave)"
-                                value={teacher.reason || ''}
-                                onChange={(e) => handleTeacherReasonChange(teacher.id, e.target.value)}
-                                className="border rounded px-2 py-1 text-xs w-full max-w-[200px]"
-                              />
-                            ) : (
-                              <span className="text-gray-600 text-xs">{teacher.reason || '-'}</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {teacher.isSaved ? (
-                              <Badge variant="success" className="flex items-center gap-1 w-fit">
-                                <CheckCircle className="w-3 h-3" /> Saved
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                                <Clock className="w-3 h-3" /> Not saved
-                              </Badge>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold print:divide-slate-200">
+                      {studentReportRecords
+                        .filter(r =>
+                          r.name.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                          r.roll.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                          r.className.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                          r.statusChar.toLowerCase().includes(reportSearchQuery.toLowerCase())
+                        )
+                        .map((rec, index) => (
+                          <tr key={index} className="hover:bg-slate-50/30 transition-colors print:hover:bg-transparent">
+                            <td className="py-2 px-4 text-center font-mono text-slate-500">{rec.formattedDate}</td>
+                            <td className="py-2 px-4 text-center text-slate-500">{rec.day}</td>
+                            <td className="py-2 px-4 text-center font-mono text-slate-500">{rec.roll}</td>
+                            <td className="py-2 px-4 font-bold text-slate-800 capitalize">{rec.name?.toLowerCase()}</td>
+                            <td className="py-2 px-4 text-slate-550 capitalize">{rec.className}</td>
+                            <td className="py-2 px-4 text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${
+                                rec.statusChar === 'P'
+                                  ? 'text-blue-600 bg-blue-50'
+                                  : rec.statusChar === 'L'
+                                    ? 'text-purple-600 bg-purple-50'
+                                    : 'text-rose-600 bg-rose-50'
+                              }`}>
+                                {rec.statusChar}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+
+                {/* Footer text */}
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 select-none print:hidden">
+                  <span>
+                    Showing 1 to {
+                      studentReportRecords.filter(r =>
+                        r.name.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                        r.roll.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                        r.className.toLowerCase().includes(reportSearchQuery.toLowerCase()) ||
+                        r.statusChar.toLowerCase().includes(reportSearchQuery.toLowerCase())
+                      ).length
+                    } of {studentReportRecords.length} entries
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+        </TabsContent>
+
+        <TabsContent value="staff-report" className="space-y-6">
+          
+          {/* Print only Header Title */}
+          <div className="hidden print:block text-center mb-6">
+            <h1 className="text-xl font-black text-slate-800">
+              Employees attendance record ({new Date(reportStartDate).toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' })} - {new Date(reportEndDate).toLocaleDateString('en-US', { day: '2-digit', month: 'long', year: 'numeric' })})
+            </h1>
+          </div>
+
+          {/* Top Breadcrumb Bar */}
+          <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
+            <div className="flex items-center gap-2 text-xs font-semibold text-purple-750">
+              <span className="text-slate-500 font-bold">Attendance</span>
+              <span>|</span>
+              <span className="text-slate-450 font-bold flex items-center gap-1">
+                📁 - Employees Attendance Record
+              </span>
+            </div>
+          </div>
+
+          {/* Blue Date Range Selector Card - Matches eSkooly */}
+          <div className="bg-[#5C53CD] p-6 rounded-2xl border border-[#4c43bd] shadow-sm print:hidden text-white space-y-4 max-w-lg">
+            <div className="flex items-center gap-2 text-xs font-bold">
+              <Calendar className="w-4 h-4" />
+              <span>Select Date Range</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[9px] font-black tracking-wider text-purple-200 uppercase mb-1">Start Date</label>
+                <input
+                  type="date"
+                  className="w-full h-10 px-3 rounded-lg border-0 bg-white/10 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-white focus:bg-white/20 transition-all placeholder-white/50"
+                  value={reportStartDate}
+                  onChange={(e) => setReportStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-black tracking-wider text-purple-200 uppercase mb-1">End Date</label>
+                <input
+                  type="date"
+                  className="w-full h-10 px-3 rounded-lg border-0 bg-white/10 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-white focus:bg-white/20 transition-all placeholder-white/50"
+                  value={reportEndDate}
+                  onChange={(e) => setReportEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Data Table Card */}
+          <div className="bg-white rounded-3xl border border-slate-150 shadow-sm overflow-hidden p-6 print:border-0 print:shadow-none print:p-0">
+            {/* Top Toolbar: Buttons & Search */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-100 print:hidden mb-4">
+              <div className="flex flex-wrap items-center gap-1.5 select-none">
+                <button
+                  onClick={handleCopyStaffReport}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={() => handleExportStaffCSV('employees_attendance_record.csv')}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  CSV
+                </button>
+                <button
+                  onClick={() => handleExportStaffCSV('employees_attendance_record.csv')}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  Excel
+                </button>
+                <button
+                  onClick={handlePrintReport}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  PDF
+                </button>
+                <button
+                  onClick={handlePrintReport}
+                  className="px-3.5 py-1.5 border border-slate-200 text-[10px] font-black text-slate-500 rounded-lg hover:bg-slate-50 transition-all uppercase shadow-4xs"
+                >
+                  Print
+                </button>
+              </div>
+
+              {/* Search filter input */}
+              <div className="flex items-center gap-2 select-none text-[10px] font-bold text-slate-400">
+                <span>Search:</span>
+                <input
+                  type="text"
+                  className="h-8 px-3 rounded-lg border border-slate-200 text-[10px] font-semibold text-slate-655 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all"
+                  value={staffReportSearchQuery}
+                  onChange={(e) => setStaffReportSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {staffReportLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <RefreshCw className="animate-spin rounded-full h-8 w-8 text-[#5C53CD]" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="overflow-x-auto rounded-xl border border-slate-100 print:border-slate-200">
+                  <table className="w-full text-left border-collapse text-[10px]">
+                    <thead>
+                      <tr className="bg-slate-50/75 border-b border-slate-150 text-slate-400 font-bold uppercase tracking-wider text-[9px] print:bg-slate-100 print:text-slate-700">
+                        <th className="py-2.5 px-4 text-center">DATE</th>
+                        <th className="py-2.5 px-4 text-center">DAY</th>
+                        <th className="py-2.5 px-4 text-center">ID</th>
+                        <th className="py-2.5 px-4">NAME</th>
+                        <th className="py-2.5 px-4">TYPE</th>
+                        <th className="py-2.5 px-4 text-center">STATUS</th>
+                        <th className="py-2.5 px-4 text-center">TIME <span className="text-[7px] font-normal lowercase italic">(card scanning)</span></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold print:divide-slate-200">
+                      {staffReportRecords
+                        .filter(r =>
+                          r.name.toLowerCase().includes(staffReportSearchQuery.toLowerCase()) ||
+                          r.roll.toLowerCase().includes(staffReportSearchQuery.toLowerCase()) ||
+                          r.roleName.toLowerCase().includes(staffReportSearchQuery.toLowerCase()) ||
+                          r.statusChar.toLowerCase().includes(staffReportSearchQuery.toLowerCase())
+                        )
+                        .map((rec, index) => (
+                          <tr key={index} className="hover:bg-slate-50/30 transition-colors print:hover:bg-transparent">
+                            <td className="py-2 px-4 text-center font-mono text-slate-500">{rec.formattedDate}</td>
+                            <td className="py-2 px-4 text-center text-slate-500">{rec.day}</td>
+                            <td className="py-2 px-4 text-center font-mono text-slate-500">{rec.roll}</td>
+                            <td className="py-2 px-4 font-bold text-slate-800 capitalize">{rec.name?.toLowerCase()}</td>
+                            <td className="py-2 px-4 text-slate-550 capitalize">{rec.roleName}</td>
+                            <td className="py-2 px-4 text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${
+                                rec.statusChar === 'P'
+                                  ? 'text-blue-600 bg-blue-50'
+                                  : rec.statusChar === 'L'
+                                    ? 'text-purple-600 bg-purple-50'
+                                    : 'text-rose-600 bg-rose-50'
+                              }`}>
+                                {rec.statusChar}
+                              </span>
+                            </td>
+                            <td className="py-2 px-4 text-center font-mono text-slate-400">-</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer text */}
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 select-none print:hidden">
+                  <span>
+                    Showing 1 to {
+                      staffReportRecords.filter(r =>
+                        r.name.toLowerCase().includes(staffReportSearchQuery.toLowerCase()) ||
+                        r.roll.toLowerCase().includes(staffReportSearchQuery.toLowerCase()) ||
+                        r.roleName.toLowerCase().includes(staffReportSearchQuery.toLowerCase()) ||
+                        r.statusChar.toLowerCase().includes(staffReportSearchQuery.toLowerCase())
+                      ).length
+                    } of {staffReportRecords.length} entries
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
         </TabsContent>
       </Tabs>
 

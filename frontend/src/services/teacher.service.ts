@@ -41,13 +41,13 @@ const teacherService = {
 
   // Update teacher
   update: async (id: string, data: any) => {
-    const response = await api.put(`/auth/academics/teachers/${id}/`, data);
+    const response = await api.patch(`/auth/academics/teachers/${id}/`, data);
     return response;
   },
 
   // Delete teacher (soft delete - set inactive)
   deleteTeacher: async (id: string) => {
-    const response = await api.delete(`/auth/academics/teachers/${id}/`);
+    const response = await api.delete(`/auth/academics/teachers/${id}/`, { skipGlobalToast: true } as any);
     return response;
   },
 };

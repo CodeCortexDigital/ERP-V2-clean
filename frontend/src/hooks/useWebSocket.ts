@@ -4,95 +4,96 @@ import { websocketService, type MessageHandler } from '../services/websocket.ser
 interface UseWebSocketOptions {
   autoConnect?: boolean;
   token?: string;
+  endpoint?: string; // 'notifications' | 'dashboard'
   onMessage?: (type: string, data: any) => void;
   onConnectionChange?: (connected: boolean) => void;
 }
 
 interface UseWebSocketReturn {
   isConnected: boolean;
-  connect: (token?: string) => Promise<void>;
+  connect: (token?: string) => void;
   disconnect: () => void;
   send: (type: string, data: any) => void;
   subscribe: (type: string, handler: MessageHandler) => () => void;
 }
 
 /**
- * Custom hook for WebSocket connection management
+ * Custom hook for WebSocket connection management.
+ * Supports multiple named endpoints via the `endpoint` option.
  */
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
-  const { autoConnect = true, token, onMessage, onConnectionChange } = options;
-  const [isConnected, setIsConnected] = useState(false);
+  const {
+    autoConnect = true,
+    token,
+    endpoint = 'notifications',
+    onMessage,
+    onConnectionChange,
+  } = options;
 
-  // Handle connection changes
-  const handleConnectionChange = useCallback((connected: boolean) => {
-    setIsConnected(connected);
-    onConnectionChange?.(connected);
-  }, [onConnectionChange]);
+  const [isConnected, setIsConnected] = useState(
+    () => websocketService.isConnected(endpoint)
+  );
 
-  // Handle incoming messages
-  const handleMessage = useCallback((message: { type: string; data: any }) => {
-    onMessage?.(message.type, message.data);
-  }, [onMessage]);
+  const handleConnectionChange = useCallback(
+    (connected: boolean) => {
+      setIsConnected(connected);
+      onConnectionChange?.(connected);
+    },
+    [onConnectionChange]
+  );
 
-  // Connect to WebSocket
-  const connect = useCallback(async (authToken?: string) => {
-    try {
-      await websocketService.connect(authToken || token);
-    } catch (error) {
-      console.error('Failed to connect to WebSocket:', error);
-      throw error;
-    }
-  }, [token]);
+  const handleMessage = useCallback(
+    (message: { type: string; data: any }) => {
+      onMessage?.(message.type, message.data);
+    },
+    [onMessage]
+  );
 
-  // Disconnect from WebSocket
+  const connect = useCallback(
+    (authToken?: string) => {
+      websocketService.connect(authToken ?? token, endpoint);
+    },
+    [token, endpoint]
+  );
+
   const disconnect = useCallback(() => {
-    websocketService.disconnect();
-  }, []);
+    websocketService.disconnect(endpoint);
+  }, [endpoint]);
 
-  // Send message through WebSocket
-  const send = useCallback((type: string, data: any) => {
-    websocketService.send(type, data);
-  }, []);
+  const send = useCallback(
+    (type: string, data: any) => {
+      websocketService.send(type, data, endpoint);
+    },
+    [endpoint]
+  );
 
-  // Subscribe to message type
-  const subscribe = useCallback((type: string, handler: MessageHandler) => {
-    return websocketService.subscribe(type, handler);
-  }, []);
+  const subscribe = useCallback(
+    (type: string, handler: MessageHandler) => {
+      return websocketService.subscribe(type, handler, endpoint);
+    },
+    [endpoint]
+  );
 
-  // Set up connection and message handlers
   useEffect(() => {
-    // Subscribe to connection changes
-    const unsubscribeConnection = websocketService.onConnectionChange(handleConnectionChange);
-    
-    // Subscribe to all messages if handler provided
-    let unsubscribeMessage: (() => void) | undefined;
+    const unsubConnection = websocketService.onConnectionChange(handleConnectionChange, endpoint);
+
+    let unsubMessage: (() => void) | undefined;
     if (onMessage) {
-      unsubscribeMessage = websocketService.subscribe('*', handleMessage);
+      unsubMessage = websocketService.subscribe('*', handleMessage, endpoint);
     }
 
-    // Auto-connect if enabled
     if (autoConnect) {
-      connect(token).catch(error => {
-        console.error('Auto-connect failed:', error);
-      });
+      connect(token);
     }
 
-    // Cleanup on unmount
     return () => {
-      unsubscribeConnection();
-      if (unsubscribeMessage) {
-        unsubscribeMessage();
-      }
+      unsubConnection();
+      unsubMessage?.();
     };
-  }, [autoConnect, token, handleConnectionChange, handleMessage, connect, onMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect, endpoint, token]);
 
-  return {
-    isConnected,
-    connect,
-    disconnect,
-    send,
-    subscribe,
-  };
+  return { isConnected, connect, disconnect, send, subscribe };
 }
 
 export default useWebSocket;
