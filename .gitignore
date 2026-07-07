@@ -56,3 +56,6 @@ yarn-error.log*
 *.log
 logs/
 .env
+# Media files
+backend/media/
+media/
