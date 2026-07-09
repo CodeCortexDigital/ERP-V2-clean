@@ -75,26 +75,19 @@ export default function GenerateFeesInvoicePage() {
     }
   }, [selectedClass, classes]);
 
-  // Calculate previous balance from ALL invoices (paid + unpaid)
-  const calculatePreviousBalance = (studentId: string, currentFeeMonth: string) => {
-    const savedInvoices = localStorage.getItem('custom_invoices');
-    if (!savedInvoices) return { total: 0, pending: [] };
-
+  // Calculate previous balance from backend invoices
+  const calculatePreviousBalance = async (studentId: string, currentFeeMonth: string) => {
     try {
-      const parsed = JSON.parse(savedInvoices);
-      
-      // Include ALL invoices with remaining_balance > 0
-      // EXCEPT the current month's invoices (if any)
-      const pending = parsed.filter((inv: any) => 
-        inv.student === studentId && 
-        inv.remaining_balance !== undefined && 
+      const res = await financeService.getInvoices({ student: studentId }).catch(() => ({ data: [] }));
+      const parsed = extractListData<any>(res.data || []);
+      const pending = parsed.filter((inv: any) =>
+        inv.student === studentId &&
+        inv.remaining_balance !== undefined &&
         inv.remaining_balance !== null &&
         inv.remaining_balance > 0 &&
-        inv.fee_month !== currentFeeMonth // Don't include current month
+        inv.fee_month !== currentFeeMonth
       );
-      
       const total = pending.reduce((sum: number, inv: any) => sum + (inv.remaining_balance || 0), 0);
-      
       return { total, pending };
     } catch (e) {
       return { total: 0, pending: [] };
@@ -109,13 +102,20 @@ export default function GenerateFeesInvoicePage() {
       return;
     }
 
-    const { total, pending } = calculatePreviousBalance(selectedStudent.id, feeMonth);
-    setPreviousBalance(total);
-    setPendingInvoices(pending);
-    
-    if (total > 0) {
-      toast.info(`Previous balance: Rs ${total.toLocaleString()} from ${pending.length} pending invoice(s)`);
-    }
+    let cancelled = false;
+    const loadPreviousBalance = async () => {
+      const { total, pending } = await calculatePreviousBalance(selectedStudent.id, feeMonth);
+      if (!cancelled) {
+        setPreviousBalance(total);
+        setPendingInvoices(pending);
+        if (total > 0) {
+          toast.info(`Previous balance: Rs ${total.toLocaleString()} from ${pending.length} pending invoice(s)`);
+        }
+      }
+    };
+
+    loadPreviousBalance();
+    return () => { cancelled = true; };
   }, [selectedStudent, feeMonth]);
 
   const fetchData = async () => {
@@ -128,17 +128,9 @@ export default function GenerateFeesInvoicePage() {
       const rawStudents = extractListData<any>(sRes.data || []);
       const rawClasses = extractListData<any>(cRes.data || []);
 
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const filteredDbStudents = rawStudents.filter(s => !deletedStudentIds.includes(s.id));
-
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...filteredDbStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-
       const classMap = new Map<string, any>();
       
-      [...rawClasses, ...customClasses].forEach((cls: any) => {
+      rawClasses.forEach((cls: any) => {
         classMap.set(cls.id, {
           ...cls,
           tuition_fee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? Number(cls.tuition_fee) : 0
@@ -173,7 +165,7 @@ export default function GenerateFeesInvoicePage() {
       const defaultStudents = [
         { id: 'std-1', student_id: '001', full_name: 'Sundas', class_name: 'Grade 1-A' }
       ];
-      setStudents(allStudents.length > 0 ? allStudents : defaultStudents);
+      setStudents(rawStudents.length > 0 ? rawStudents : defaultStudents);
 
       const savedBanks = localStorage.getItem('bank_details');
       if (savedBanks) {
@@ -238,8 +230,6 @@ export default function GenerateFeesInvoicePage() {
     setLoading(true);
     try {
       const generatedList: any[] = [];
-      const savedInvoices = localStorage.getItem('custom_invoices');
-      let allInvoices = savedInvoices ? JSON.parse(savedInvoices) : [];
 
       if (activeTab === 'student') {
         if (!selectedStudent) {
@@ -248,33 +238,10 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
-        // Calculate previous balance from ALL pending invoices (excluding current month)
-        const { total: prevBal, pending } = calculatePreviousBalance(selectedStudent.id, feeMonth);
-        
+        const { total: prevBal, pending } = await calculatePreviousBalance(selectedStudent.id, feeMonth);
         const currentFee = parseFloat(feeAmount);
         const totalAmount = currentFee + prevBal;
 
-        // FIXED: Update previous invoices - mark them as "Transferred"
-        if (pending.length > 0) {
-          const pendingIds = pending.map((p: any) => p.id);
-          allInvoices = allInvoices.map((inv: any) => {
-            if (pendingIds.includes(inv.id)) {
-              return {
-                ...inv,
-                status: 'paid' as const,
-                remaining_balance: 0,
-                paid_amount: inv.paid_amount || inv.amount,
-                transferred_to: `${feeMonth}`,
-                transferred_note: `Transferred to ${feeMonth} invoice`
-              };
-            }
-            return inv;
-          });
-          
-          toast.info(`${pending.length} pending invoice(s) marked as transferred to ${feeMonth}`);
-        }
-
-        // Create new invoice
         const newInv = {
           id: `inv-${Date.now()}`,
           invoice_number: `INV-${Date.now().toString().slice(-6)}`,
@@ -299,20 +266,7 @@ export default function GenerateFeesInvoicePage() {
           transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined
         };
 
-        allInvoices.push(newInv);
         generatedList.push(newInv);
-
-        // API Call
-        try {
-          await financeService.createInvoice({
-            student: selectedStudent.id,
-            amount: totalAmount,
-            due_date: dueDate,
-            description: newInv.description
-          });
-        } catch (e) {
-          console.log('Offline fallback for invoice creation');
-        }
       } else if (activeTab === 'class') {
         if (!selectedClass) {
           toast.error('Please select a class');
@@ -335,30 +289,8 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
-        let totalTransferred = 0;
-
-        classStudents.forEach((student, idx) => {
-          // Calculate previous balance for each student
-          const { total: prevBal, pending } = calculatePreviousBalance(student.id, feeMonth);
-          
-          if (pending.length > 0) {
-            const pendingIds = pending.map((p: any) => p.id);
-            allInvoices = allInvoices.map((inv: any) => {
-              if (pendingIds.includes(inv.id)) {
-                totalTransferred++;
-                return {
-                  ...inv,
-                  status: 'paid' as const,
-                  remaining_balance: 0,
-                  paid_amount: inv.paid_amount || inv.amount,
-                  transferred_to: `${feeMonth}`,
-                  transferred_note: `Transferred to ${feeMonth} invoice`
-                };
-              }
-              return inv;
-            });
-          }
-
+        for (const [idx, student] of classStudents.entries()) {
+          const { total: prevBal, pending } = await calculatePreviousBalance(student.id, feeMonth);
           const currentFee = parseFloat(feeAmount);
           const totalAmount = currentFee + prevBal;
 
@@ -385,12 +317,7 @@ export default function GenerateFeesInvoicePage() {
             pending_invoice_ids: pending.map((p: any) => p.id),
             transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined
           };
-          allInvoices.push(newInv);
           generatedList.push(newInv);
-        });
-
-        if (totalTransferred > 0) {
-          toast.info(`${totalTransferred} pending invoice(s) marked as transferred`);
         }
       } else if (activeTab === 'family') {
         if (!selectedFamily) {
@@ -414,30 +341,8 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
-        let totalTransferred = 0;
-
-        familyStudents.forEach((student, idx) => {
-          // Calculate previous balance for each student
-          const { total: prevBal, pending } = calculatePreviousBalance(student.id, feeMonth);
-          
-          if (pending.length > 0) {
-            const pendingIds = pending.map((p: any) => p.id);
-            allInvoices = allInvoices.map((inv: any) => {
-              if (pendingIds.includes(inv.id)) {
-                totalTransferred++;
-                return {
-                  ...inv,
-                  status: 'paid' as const,
-                  remaining_balance: 0,
-                  paid_amount: inv.paid_amount || inv.amount,
-                  transferred_to: `${feeMonth}`,
-                  transferred_note: `Transferred to ${feeMonth} invoice`
-                };
-              }
-              return inv;
-            });
-          }
-
+        for (const [idx, student] of familyStudents.entries()) {
+          const { total: prevBal, pending } = await calculatePreviousBalance(student.id, feeMonth);
           const currentFee = parseFloat(feeAmount);
           const totalAmount = currentFee + prevBal;
 
@@ -464,18 +369,35 @@ export default function GenerateFeesInvoicePage() {
             pending_invoice_ids: pending.map((p: any) => p.id),
             transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined
           };
-          allInvoices.push(newInv);
           generatedList.push(newInv);
-        });
-
-        if (totalTransferred > 0) {
-          toast.info(`${totalTransferred} pending invoice(s) marked as transferred`);
         }
       }
 
-      localStorage.setItem('custom_invoices', JSON.stringify(allInvoices));
-      toast.success(`Generated ${generatedList.length} fee invoice(s) successfully!`);
-      
+      const failedToCreate: any[] = [];
+      try {
+        await Promise.all(generatedList.map(async (inv) => {
+          try {
+            await financeService.createInvoice({
+              student: inv.student,
+              amount: inv.total_amount ?? inv.amount,
+              due_date: inv.due_date,
+              description: inv.description,
+              fee_month: inv.fee_month,
+            });
+          } catch (e) {
+            failedToCreate.push(inv);
+          }
+        }));
+      } catch (e) {
+        failedToCreate.push(...generatedList);
+      }
+
+      if (failedToCreate.length > 0) {
+        toast.error(`Generated ${generatedList.length} invoice(s), but ${failedToCreate.length} could not be saved to the database.`);
+      } else {
+        toast.success(`Generated ${generatedList.length} fee invoice(s) and saved to the database successfully!`);
+      }
+
       setGeneratedInvoices(generatedList);
     } catch (err) {
       toast.error('Failed to generate fee invoices');

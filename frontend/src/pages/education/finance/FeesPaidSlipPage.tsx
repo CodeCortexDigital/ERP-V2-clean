@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Search, Landmark, Printer, ArrowLeft, Check, AlertTriangle, CalendarDays, RefreshCw } from 'lucide-react';
 import studentService from '@/services/student.service';
+import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -73,24 +74,21 @@ export default function FeesPaidSlipPage() {
     try {
       const sRes = await studentService.getAll().catch(() => ({ data: [] }));
       const rawStudents = extractListData<any>(sRes.data || []);
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-      setStudents(allStudents);
+      setStudents(rawStudents);
 
       // Auto-select student if student or queryStudentId provided
       let targetStudent = null;
       if (isStudent) {
-        targetStudent = allStudents.find((s: any) => 
+        targetStudent = rawStudents.find((s: any) => 
           String(s.id) === String(user?.id) || 
           String(s.student_id) === String(user?.id) ||
           s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
         );
-        if (!targetStudent && allStudents.length > 0) {
-          targetStudent = allStudents[0];
+        if (!targetStudent && rawStudents.length > 0) {
+          targetStudent = rawStudents[0];
         }
       } else if (queryStudentId) {
-        targetStudent = allStudents.find((s: any) => 
+        targetStudent = rawStudents.find((s: any) => 
           String(s.id) === String(queryStudentId) || 
           String(s.student_id) === String(queryStudentId)
         );
@@ -101,19 +99,17 @@ export default function FeesPaidSlipPage() {
         setSearchQuery(`${targetStudent.full_name} (${targetStudent.student_id || 'N/A'})`);
         
         // Load invoices for target student automatically
-        const savedInvoices = localStorage.getItem('custom_invoices');
-        if (savedInvoices) {
-          const parsed: Invoice[] = JSON.parse(savedInvoices);
-          const matches = parsed.filter(inv => inv.student === targetStudent.id && inv.status === 'paid');
-          const matchingAll = parsed.filter(inv => inv.student === targetStudent.id);
-          
-          matches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          
-          if (matches.length > 0) {
-            setActiveReceipt(matches[0]);
-            setStudentHistory(matchingAll);
-            setFeeMonth(matches[0].fee_month);
-          }
+        const res = await financeService.getInvoices({ student: targetStudent.id }).catch(() => ({ data: [] }));
+        const parsed: Invoice[] = extractListData<any>(res.data || []);
+        const matches = parsed.filter(inv => inv.student === targetStudent.id && inv.status === 'paid');
+        const matchingAll = parsed.filter(inv => inv.student === targetStudent.id);
+        
+        matches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        if (matches.length > 0) {
+          setActiveReceipt(matches[0]);
+          setStudentHistory(matchingAll);
+          setFeeMonth(matches[0].fee_month);
         }
       }
     } catch (e) {
@@ -140,7 +136,7 @@ export default function FeesPaidSlipPage() {
     setSuggestions([]);
   };
 
-  const handleGenerateReceipt = (e: React.FormEvent) => {
+  const handleGenerateReceipt = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) {
       toast.error('Please select a student');
@@ -153,34 +149,30 @@ export default function FeesPaidSlipPage() {
 
     setLoading(true);
     try {
-      const savedInvoices = localStorage.getItem('custom_invoices');
-      if (savedInvoices) {
-        const parsed: Invoice[] = JSON.parse(savedInvoices);
-        const matches = parsed.filter(inv => 
-          inv.student === selectedStudent.id && 
-          inv.fee_month.toLowerCase().trim() === feeMonth.toLowerCase().trim() &&
-          inv.status === 'paid'
-        );
+      const res = await financeService.getInvoices({ student: selectedStudent.id }).catch(() => ({ data: [] }));
+      const parsed: Invoice[] = extractListData<any>(res.data || []);
+      const matches = parsed.filter(inv => 
+        inv.student === selectedStudent.id && 
+        inv.fee_month.toLowerCase().trim() === feeMonth.toLowerCase().trim() &&
+        inv.status === 'paid'
+      );
 
-        // Sort matches to prefer invoices that have payment details defined
-        matches.sort((a, b) => {
-          if (a.paid_amount !== undefined && b.paid_amount === undefined) return -1;
-          if (a.paid_amount === undefined && b.paid_amount !== undefined) return 1;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
+      // Sort matches to prefer invoices that have payment details defined
+      matches.sort((a, b) => {
+        if (a.paid_amount !== undefined && b.paid_amount === undefined) return -1;
+        if (a.paid_amount === undefined && b.paid_amount !== undefined) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
 
-        const found = matches[0];
-        const matchingAll = parsed.filter(inv => inv.student === selectedStudent.id);
+      const found = matches[0];
+      const matchingAll = parsed.filter(inv => inv.student === selectedStudent.id);
 
-        if (found) {
-          setActiveReceipt(found);
-          setStudentHistory(matchingAll);
-          toast.success('Fees Paid Slip generated successfully!');
-        } else {
-          toast.error(`No paid fee invoice found for this student in ${feeMonth}.`);
-        }
+      if (found) {
+        setActiveReceipt(found);
+        setStudentHistory(matchingAll);
+        toast.success('Fees Paid Slip generated successfully!');
       } else {
-        toast.error('No payments record database found.');
+        toast.error(`No paid fee invoice found for this student in ${feeMonth}.`);
       }
     } catch (err) {
       toast.error('Failed to generate receipt');

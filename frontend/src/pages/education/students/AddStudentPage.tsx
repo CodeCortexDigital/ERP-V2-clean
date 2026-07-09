@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  GraduationCap, Plus, Settings, Download, Laptop, RotateCcw, Check, ArrowLeft 
+  GraduationCap, Plus, Settings, Download, Laptop, RotateCcw, Check, ArrowLeft, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import studentService from '@/services/student.service';
@@ -33,11 +33,28 @@ export default function AddStudentPage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [lastRegId, setLastRegId] = useState<string | null>(null);
   const [profilePicture, setProfilePicture] = useState<string>('');
+
+  // Collapsible section states - only Student Information is expanded by default
+  const [sections, setSections] = useState({
+    studentInfo: true,   // Always expanded by default
+    otherInfo: false,
+    fatherInfo: false,
+    motherInfo: false,
+    documents: false,
+  });
+
+  const toggleSection = (section: keyof typeof sections) => {
+    setSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   const [formData, setFormData] = useState({
     // 1. Student Information
     student_name: '',
     registration_no: '',
-    class_name: 'Grade 1-A',
+    class_name: '',
     date_of_admission: today,
     discount_in_fee: '',
     mobile_sms: '',
@@ -82,43 +99,46 @@ export default function AddStudentPage() {
 
   React.useEffect(() => {
     // Load classes dynamically
-    academicService.getClasses().then((res) => {
-      const rawClasses = extractListData<any>(res.data || []);
-      const defaultClasses = [
-        { id: 'cls-1', name: 'Grade 1-A' },
-        { id: 'cls-2', name: 'Grade 1-B' },
-        { id: 'cls-3', name: 'Grade 2-A' }
-      ];
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      const combined = [...(rawClasses.length > 0 ? rawClasses : defaultClasses), ...customClasses];
-      const deletedClassIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
-      const final = combined.filter(c => !deletedClassIds.includes(c.id));
-      const sorted = final.slice().sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-      const uniqueByName = sorted.filter((c, idx, self) =>
-        self.findIndex(sc => sc.name.toLowerCase() === c.name.toLowerCase()) === idx
-      );
-      setClasses(uniqueByName);
-      if (uniqueByName.length > 0 && !formData.class_name) {
-        setFormData(prev => ({ ...prev, class_name: uniqueByName[0].name }));
+    const loadClasses = async () => {
+      try {
+        const res = await academicService.getClasses();
+        console.log('📚 Classes API response:', res);
+        
+        // Handle different response formats
+        let rawClasses = [];
+        if (Array.isArray(res)) {
+          rawClasses = res;
+        } else if (res?.data) {
+          rawClasses = Array.isArray(res.data) ? res.data : res.data?.results || [];
+        } else if (res?.results) {
+          rawClasses = res.results;
+        } else {
+          rawClasses = [];
+        }
+        
+        console.log('📚 Raw classes:', rawClasses);
+        
+        const sorted = rawClasses.slice().sort((a, b) => 
+          a.name?.localeCompare(b?.name, undefined, { numeric: true, sensitivity: 'base' }) || 0
+        );
+        
+        const uniqueByName = sorted.filter((c, idx, self) =>
+          self.findIndex(sc => sc.name?.toLowerCase() === c.name?.toLowerCase()) === idx
+        );
+        
+        console.log('📚 Unique classes:', uniqueByName);
+        setClasses(uniqueByName);
+        
+        if (uniqueByName.length > 0 && !formData.class_name) {
+          setFormData(prev => ({ ...prev, class_name: uniqueByName[0].name || '' }));
+        }
+      } catch (error) {
+        console.error('Error loading classes:', error);
+        setClasses([]);
       }
-    }).catch(() => {
-      const defaultClasses = [
-        { id: 'cls-1', name: 'Grade 1-A' },
-        { id: 'cls-2', name: 'Grade 1-B' }
-      ];
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      const combined = [...defaultClasses, ...customClasses];
-      const deletedClassIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
-      const final = combined.filter(c => !deletedClassIds.includes(c.id));
-      const sorted = final.slice().sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-      const uniqueByName = sorted.filter((c, idx, self) =>
-        self.findIndex(sc => sc.name.toLowerCase() === c.name.toLowerCase()) === idx
-      );
-      setClasses(uniqueByName);
-      if (uniqueByName.length > 0 && !formData.class_name) {
-        setFormData(prev => ({ ...prev, class_name: uniqueByName[0].name }));
-      }
-    });
+    };
+    
+    loadClasses();
 
     // Fetch last registration number using the existing student list endpoint
     api.get('/auth/students/?page_size=100').then((res) => {
@@ -127,9 +147,7 @@ export default function AddStudentPage() {
         ? data
         : (data?.results ?? data?.data ?? []);
       
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const allStudents = [...list, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
+      const allStudents = list;
       
       if (allStudents.length > 0) {
         let highestRegId = '';
@@ -156,32 +174,7 @@ export default function AddStudentPage() {
         setLastRegId('');
       }
     }).catch(() => {
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const activeCustom = customStudents.filter(s => !deletedStudentIds.includes(s.id));
-      
-      if (activeCustom.length > 0) {
-        let highestRegId = '';
-        let highestNum = -1;
-        activeCustom.forEach(s => {
-          const regId = (s.student_id ?? s.registration_no ?? '').toString();
-          if (regId) {
-            const numMatch = regId.match(/\d+/);
-            if (numMatch) {
-              const numVal = Number(numMatch[0]);
-              if (numVal > highestNum) {
-                highestNum = numVal;
-                highestRegId = regId;
-              }
-            } else if (!highestRegId) {
-              highestRegId = regId;
-            }
-          }
-        });
-        setLastRegId(highestRegId || '');
-      } else {
-        setLastRegId('');
-      }
+      setLastRegId('');
     });
   }, []);
 
@@ -286,32 +279,26 @@ export default function AddStudentPage() {
       // If check fails continue — backend unique constraint will catch it
     }
 
-    // ── Also check localStorage custom students ───────────────────────
-    const existingCustom: any[] = JSON.parse(localStorage.getItem('custom_students') || '[]');
-    const localDup = existingCustom.find(
-      (s: any) =>
-        (s.student_id ?? '').toString().toLowerCase() ===
-        formData.registration_no.toLowerCase()
-    );
-    if (localDup) {
-      toast.error(`Registration No "${formData.registration_no}" already exists (${localDup.full_name}).`);
-      setLoading(false);
-      return;
-    }
+    // Find the class ID from the selected class name
+    const selectedClass = classes.find(c => c.name === formData.class_name);
+    const classId = selectedClass?.id || null;
 
-    const newStudent = {
-      id: `std-${Date.now()}`,
+    // Build payload with current_class (ID) instead of class_name
+    const newStudentPayload = {
       student_id: formData.registration_no,
       full_name: formData.student_name,
-      class_name: formData.class_name || 'Grade 1-A',
-      profile_picture: profilePicture || '',
-      admission_date: formData.date_of_admission || new Date().toISOString().split('T')[0],
+      email: `${formData.student_name.toLowerCase().replace(/\s+/g, '')}@school.edu`,
       phone: formData.mobile_sms,
       father_name: formData.father_name,
       mother_name: formData.mother_name,
-      date_of_birth: formData.date_of_birth,
-      gender: formData.gender,
+      date_of_birth: formData.date_of_birth || null,
+      admission_date: formData.date_of_admission || new Date().toISOString().split('T')[0],
+      gender: formData.gender || 'other',
       address: formData.address,
+      is_active: formData.status === 'Active',
+      current_class: classId,  // Use class ID, not name
+      profile_picture: profilePicture || null,
+      discount_in_fee: formData.discount_in_fee || '0',
       identification_mark: formData.identification_mark,
       blood_group: formData.blood_group,
       disease: formData.disease,
@@ -324,39 +311,84 @@ export default function AddStudentPage() {
       osc: formData.osc,
       religion: formData.religion,
       select_family: formData.select_family,
-      total_siblings: formData.total_siblings,
-      is_active: formData.status === 'Active'
+      total_siblings: formData.total_siblings ? parseInt(formData.total_siblings) : 0,
+      father_national_id: formData.father_national_id,
+      father_occupation: formData.father_occupation,
+      father_education: formData.father_education,
+      father_mobile: formData.father_mobile,
+      father_profession: formData.father_profession,
+      father_income: formData.father_income ? parseFloat(formData.father_income) : 0,
+      mother_national_id: formData.mother_national_id,
+      mother_occupation: formData.mother_occupation,
+      mother_education: formData.mother_education,
+      mother_mobile: formData.mother_mobile,
+      mother_profession: formData.mother_profession,
+      mother_income: formData.mother_income ? parseFloat(formData.mother_income) : 0
     };
 
+    // Remove undefined or empty values
+    Object.keys(newStudentPayload).forEach(key => {
+      if (newStudentPayload[key] === undefined || newStudentPayload[key] === null || newStudentPayload[key] === '') {
+        delete newStudentPayload[key];
+      }
+    });
+
+    console.log('📤 Creating student with payload:', newStudentPayload);
+
     try {
-      const studentEmail = `${formData.student_name.toLowerCase().replace(/\s+/g, '')}@school.edu`;
-      await studentService.create({
-        full_name: formData.student_name,
-        student_id: newStudent.student_id,
-        email: studentEmail,
-        phone: formData.mobile_sms,
-        father_name: formData.father_name,
-        mother_name: formData.mother_name,
-        is_active: formData.status === 'Active'
-      });
+      await studentService.create(newStudentPayload);
+      toast.success('Student registered successfully!');
+      setLoading(false);
+      navigate('/education/students');
     } catch (err: any) {
+      console.error('Error creating student:', err);
       const errMsg = err?.response?.data?.student_id?.[0] ||
                      err?.response?.data?.detail ||
-                     err?.response?.data?.error || '';
-      if (errMsg.toLowerCase().includes('unique') || errMsg.toLowerCase().includes('already exist')) {
-        toast.error(`Registration No "${formData.registration_no}" is already taken. Please use a different number.`);
-        setLoading(false);
-        return;
-      }
-      console.log('Backend create fallback:', errMsg);
+                     err?.response?.data?.error ||
+                     'Failed to save student to backend.';
+      toast.error(`${errMsg}`);
+      setLoading(false);
     }
+  };
 
-    existingCustom.push(newStudent);
-    localStorage.setItem('custom_students', JSON.stringify(existingCustom));
+  // Render a collapsible section
+  const renderSection = (
+    title: string, 
+    number: number, 
+    sectionKey: keyof typeof sections, 
+    children: React.ReactNode,
+    isAlwaysExpanded: boolean = false
+  ) => {
+    const isExpanded = sections[sectionKey] || isAlwaysExpanded;
 
-    toast.success('Student registered successfully!');
-    setLoading(false);
-    navigate('/education/students');
+    return (
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div 
+          className={`flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors ${!isAlwaysExpanded ? 'border-b border-slate-100' : ''}`}
+          onClick={() => !isAlwaysExpanded && toggleSection(sectionKey)}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-full bg-indigo-950 text-white text-xs font-extrabold flex items-center justify-center flex-shrink-0">{number}</span>
+            <h2 className="font-bold text-slate-800 text-sm tracking-wider">{title}</h2>
+            {!isAlwaysExpanded && (
+              <span className="text-[10px] text-slate-400 ml-2">
+                {isExpanded ? '(Click to collapse)' : '(Click to expand)'}
+              </span>
+            )}
+          </div>
+          {!isAlwaysExpanded && (
+            <div className="text-slate-400">
+              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </div>
+          )}
+        </div>
+        {isExpanded && (
+          <div className="p-6 pt-4 space-y-6">
+            {children}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -413,13 +445,8 @@ export default function AddStudentPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* 1. STUDENT INFORMATION CARD */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">1</div>
-            <h2 className="font-bold text-slate-800 text-sm">Student Information</h2>
-          </div>
-
+        {/* 1. STUDENT INFORMATION CARD - Always Expanded */}
+        {renderSection('Student Information', 1, 'studentInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Column 1 */}
             <div className="space-y-4">
@@ -483,10 +510,18 @@ export default function AddStudentPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">SELECT CLASS *</label>
-                <select value={formData.class_name} onChange={(e) => handleChange('class_name', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                  {classes.map((c) => (
-                    <option key={c.id || c.name} value={c.name}>{c.name}</option>
-                  ))}
+                <select 
+                  value={formData.class_name} 
+                  onChange={(e) => handleChange('class_name', e.target.value)} 
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+                >
+                  {classes.length === 0 ? (
+                    <option value="">No classes available. Please add a class first.</option>
+                  ) : (
+                    classes.map((c) => (
+                      <option key={c.id || c.name} value={c.name}>{c.name}</option>
+                    ))
+                  )}
                 </select>
               </div>
               <div>
@@ -498,16 +533,12 @@ export default function AddStudentPage() {
                 <Input placeholder="e.g +44xxxxxxxxxx" value={formData.mobile_sms} onChange={(e) => handleChange('mobile_sms', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
               </div>
             </div>
-          </div>
-        </div>
+          </div>,
+          true // always expanded
+        )}
 
-        {/* 2. OTHER INFORMATION CARD */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">2</div>
-            <h2 className="font-bold text-slate-800 text-sm">Other Information</h2>
-          </div>
-
+        {/* 2. OTHER INFORMATION CARD - Collapsible */}
+        {renderSection('Other Information', 2, 'otherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Column 1 */}
             <div className="space-y-4">
@@ -612,15 +643,10 @@ export default function AddStudentPage() {
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 3. FATHER/GUARDIAN INFORMATION CARD */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">3</div>
-            <h2 className="font-bold text-slate-800 text-sm">Father/Guardian Information</h2>
-          </div>
-
+        {/* 3. FATHER/GUARDIAN INFORMATION CARD - Collapsible */}
+        {renderSection('Father/Guardian Information', 3, 'fatherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-4">
               <div>
@@ -659,15 +685,10 @@ export default function AddStudentPage() {
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 4. MOTHER INFORMATION CARD */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">4</div>
-            <h2 className="font-bold text-slate-800 text-sm">Mother Information</h2>
-          </div>
-
+        {/* 4. MOTHER INFORMATION CARD - Collapsible */}
+        {renderSection('Mother Information', 4, 'motherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-4">
               <div>
@@ -706,21 +727,16 @@ export default function AddStudentPage() {
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 5. DOCUMENTS UPLOAD CARD */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">5</div>
-            <h2 className="font-bold text-slate-800 text-sm">Documents Upload</h2>
-          </div>
-
+        {/* 5. DOCUMENTS UPLOAD CARD - Collapsible */}
+        {renderSection('Documents Upload', 5, 'documents',
           <div className="bg-purple-50/60 p-8 rounded-2xl border border-purple-100 text-center flex flex-col items-center justify-center space-y-2">
             <Laptop className="w-8 h-8 text-purple-600 mb-1" />
             <h4 className="font-bold text-slate-800 text-sm">Desktop Subscription Required</h4>
             <p className="text-xs text-slate-500">Document upload is available with the Desktop Version only.</p>
           </div>
-        </div>
+        )}
 
         {/* BOTTOM ACTION BAR CARD */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center gap-4">

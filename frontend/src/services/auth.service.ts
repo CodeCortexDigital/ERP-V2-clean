@@ -1,3 +1,4 @@
+// frontend/src/services/auth.service.ts
 import api from './api';
 
 export interface LoginResponse {
@@ -30,38 +31,91 @@ export interface LoginResponse {
 }
 
 const authService = {
-  // Normal login
-  login: (userId: string, password: string) => 
-    api.post<LoginResponse>('/auth/login/', { user_id: userId, password }),
-  
-  // Demo login - one click test account
-  demoLogin: (name?: string) => 
-    api.post<LoginResponse>('/auth/demo/', { name: name || 'Demo User' }),
-  
-  // Firebase / Google OAuth login
-  googleLogin: (token: string) => 
-    api.post<LoginResponse>('/auth/firebase/login/', { id_token: token }),
-  
-  // Get current user
-  getCurrentUser: () => 
-    api.get('/auth/me/'),
-  
-  // Logout
-  logout: () => 
-    api.post('/auth/logout/', {}),
+  // ✅ Login is at /auth/login/ under the v1 API prefix
+  login: async (email: string, password: string) => {
+    const response = await api.post<LoginResponse>('/auth/login/', { 
+      email: email, 
+      password: password 
+    });
+    if (response.data) {
+      if (response.data.access) {
+        localStorage.setItem('access_token', response.data.access);
+      }
+      if (response.data.refresh) {
+        localStorage.setItem('refresh_token', response.data.refresh);
+      }
+    }
+    return response;
+  },
 
-  // Reset password for admin/user using admin reset key or current password
-  resetPassword: (payload: {
-    identifier: string;
-    new_password: string;
-    reset_key?: string;
-    current_password?: string;
-  }) => 
-    api.post('/auth/reset-password/', payload),
-  
-  // Refresh token
-  refreshToken: (refresh: string) => 
-    api.post<{ access: string }>('/auth/refresh/', { refresh }),
+  // ✅ Demo login
+  demoLogin: async (name?: string) => {
+    const response = await api.post<LoginResponse>('/auth/demo/', { name: name || 'Demo User' });
+    if (response.data) {
+      if (response.data.access) {
+        localStorage.setItem('access_token', response.data.access);
+      }
+      if (response.data.refresh) {
+        localStorage.setItem('refresh_token', response.data.refresh);
+      }
+    }
+    return response;
+  },
+
+  // ✅ Firebase login
+  googleLogin: async (token: string) => {
+    const response = await api.post<LoginResponse>('/auth/firebase/login/', { id_token: token });
+    if (response.data) {
+      if (response.data.access) {
+        localStorage.setItem('access_token', response.data.access);
+      }
+      if (response.data.refresh) {
+        localStorage.setItem('refresh_token', response.data.refresh);
+      }
+    }
+    return response;
+  },
+
+  // ✅ Get current user
+  getCurrentUser: async () => {
+    const response = await api.get('/auth/me/');
+    return response;
+  },
+
+  // ✅ Logout
+  logout: async () => {
+    const response = await api.post('/auth/logout/', {});
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    return response;
+  },
+
+  // ✅ Refresh token
+  refreshToken: async (refresh: string) => {
+    const response = await api.post<{ access: string }>('/auth/token/refresh/', { refresh });
+    if (response.data && response.data.access) {
+      localStorage.setItem('access_token', response.data.access);
+    }
+    return response;
+  },
+
+  // ✅ Helpers
+  isAuthenticated: () => {
+    return !!localStorage.getItem('access_token');
+  },
+
+  getAccessToken: () => {
+    return localStorage.getItem('access_token');
+  },
+
+  getRefreshToken: () => {
+    return localStorage.getItem('refresh_token');
+  },
+
+  clearTokens: () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+  }
 };
 
 export default authService;

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Landmark, Mail, Phone, Send, ArrowRight, List, CalendarDays, AlertCircle } from 'lucide-react';
 import studentService from '@/services/student.service';
+import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 
 interface Invoice {
@@ -67,17 +68,10 @@ export default function FeesDefaultersPage() {
     try {
       const sRes = await studentService.getAll().catch(() => ({ data: [] }));
       const rawStudents = extractListData<any>(sRes.data || []);
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-      setStudents(allStudents);
+      setStudents(rawStudents);
 
-      const savedInvoices = localStorage.getItem('custom_invoices');
-      if (savedInvoices) {
-        setInvoices(JSON.parse(savedInvoices));
-      } else {
-        setInvoices([]);
-      }
+      const res = await financeService.getInvoices().catch(() => ({ data: [] }));
+      setInvoices(extractListData<any>(res.data || []));
     } catch (e) {
       console.error(e);
       toast.error('Failed to load data');
@@ -198,7 +192,7 @@ export default function FeesDefaultersPage() {
     toast.success(`Fee reminder notifications successfully sent to all ${defaulterStudents.length} defaulters!`);
   };
 
-  const handleCarryForward = () => {
+  const handleCarryForward = async () => {
     if (defaulterStudents.length === 0) {
       toast.info('No defaulter balances to carry forward');
       return;
@@ -218,9 +212,15 @@ export default function FeesDefaultersPage() {
       return inv;
     });
 
-    localStorage.setItem('custom_invoices', JSON.stringify(updatedInvoices));
+    await Promise.all(updatedInvoices.filter(inv => defaulterInvoiceIds.includes(inv.id)).map(inv =>
+      financeService.updateInvoice(inv.id, {
+        carried_forward: true,
+        carried_forward_to: inv.carried_forward_to,
+        carried_forward_date: inv.carried_forward_date
+      }).catch(() => undefined)
+    ));
+
     setInvoices(updatedInvoices);
-    
     toast.success(`Carried forward pending balances for ${defaulterStudents.length} students successfully!`);
   };
 

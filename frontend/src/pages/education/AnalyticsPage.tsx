@@ -142,25 +142,7 @@ export default function AnalyticsPage() {
       const customStudentsList = JSON.parse(localStorage.getItem('custom_students') || '[]');
       
       const defaultStudents = [
-        { 
-          id: 'std-1', 
-          student_id: '001', 
-          full_name: 'Urwah', 
-          class_name: 'Grade 1-A',
-          gender: 'female',
-          date_of_birth: '2019-04-12',
-          admission_date: '2023-09-01'
-        },
-        {
-          id: 's-fallback-1',
-          student_id: '002',
-          full_name: 'Sundas Azhar',
-          class_name: 'Grade 8-B',
-          gender: 'female',
-          date_of_birth: '2012-10-23',
-          admission_date: '2020-06-29'
-        }
-      ];
+        ];
 
       const combinedRaw = [...(rawStudentsList.length > 0 ? rawStudentsList : defaultStudents), ...customStudentsList];
       

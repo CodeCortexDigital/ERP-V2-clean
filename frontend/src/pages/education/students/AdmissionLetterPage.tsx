@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { GraduationCap, Printer, Download, ArrowLeft, Search, RefreshCw } from 'lucide-react';
+import { GraduationCap, Printer, Download, ArrowLeft, Search, RefreshCw, User, Calendar, BookOpen, CreditCard, Phone, Mail, MapPin, Users, Hash, Award, AlertCircle } from 'lucide-react';
 import studentService, { Student } from '@/services/student.service';
 import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
@@ -18,40 +18,93 @@ export default function AdmissionLetterPage() {
   const [loading, setLoading] = useState(true);
   const [studentRules, setStudentRules] = useState('');
 
+  // Search screen states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [searchedStudent, setSearchedStudent] = useState<any | null>(null);
+  const [studentDetails, setStudentDetails] = useState<any>(null);
+  const [instituteProfile, setInstituteProfile] = useState<any>({});
+
   useEffect(() => {
-    // 1. Try local storage fallback
+    // Load institute profile
+    const savedProfile = localStorage.getItem('institute_profile');
+    if (savedProfile) {
+      try {
+        setInstituteProfile(JSON.parse(savedProfile));
+      } catch (e) {}
+    }
+
+    // Load rules
     const saved = localStorage.getItem('rules_settings');
     let localRules = '';
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         localRules = parsed.studentRules || '';
-      } catch (e) {
-        console.log('Error parsing local rules settings');
-      }
+      } catch (e) {}
     }
 
-    // 2. Fetch canonical rules from backend settings API
     api.get(API_ENDPOINTS.SETTINGS).then(res => {
       if (res.data && res.data.rules && res.data.rules.studentRules) {
         setStudentRules(res.data.rules.studentRules);
       } else {
-        setStudentRules(localRules || '<p>The school rules have been established in partnership with the community over a long period of time. They reflect the school community\'s expectations in terms of acceptable standards of behaviour, dress and personal presentation in the widest sense. Students are expected to follow the school rules at all times when on the school grounds, representing the school, attending a school activity or when clearly associated with the school i.e. when wearing school uniform.</p>');
+        setStudentRules(localRules || '');
       }
     }).catch(() => {
-      setStudentRules(localRules || '<p>The school rules have been established in partnership with the community over a long period of time. They reflect the school community\'s expectations in terms of acceptable standards of behaviour, dress and personal presentation in the widest sense. Students are expected to follow the school rules at all times when on the school grounds, representing the school, attending a school activity or when clearly associated with the school i.e. when wearing school uniform.</p>');
+      setStudentRules(localRules || '');
     });
   }, []);
 
-  // Search screen states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [searchedStudent, setSearchedStudent] = useState<any | null>(null);
-  const [studentDetails, setStudentDetails] = useState<any>(null);
+  // Helper function to get student status
+  const getStudentStatus = (std: any): string => {
+    if (!std) return 'active';
+    
+    const possibleStatusFields = [
+      std.status,
+      std.student_status,
+      std.account_status,
+      std.is_active,
+      std.active,
+      std.portal_status,
+      std.status_name,
+      std.user_status,
+      std.enrollment_status
+    ];
+    
+    for (const status of possibleStatusFields) {
+      if (status !== undefined && status !== null) {
+        if (typeof status === 'boolean') {
+          return status ? 'active' : 'inactive';
+        }
+        if (typeof status === 'string') {
+          const normalized = status.toLowerCase().trim();
+          if (['inactive', 'false', '0', 'disabled'].includes(normalized)) {
+            return 'inactive';
+          }
+          if (['active', 'true', '1', 'enabled'].includes(normalized)) {
+            return 'active';
+          }
+        }
+        if (typeof status === 'number') {
+          return status === 1 ? 'active' : 'inactive';
+        }
+      }
+    }
+    return 'active';
+  };
 
-  // Generate deterministic username/password matching format
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   const getLoginCredentials = (std: any) => {
-    // Check if we have saved custom credentials
     const savedCreds = localStorage.getItem('student_login_credentials');
     if (savedCreds) {
       try {
@@ -66,7 +119,6 @@ export default function AdmissionLetterPage() {
     }
 
     const code = std.student_id || '001';
-    // Format to 169081w710001 (code padded to 4 chars)
     const padded = code.replace(/[^0-9]/g, '').padStart(4, '0');
     return {
       username: `169081w71${padded}`,
@@ -75,47 +127,55 @@ export default function AdmissionLetterPage() {
   };
 
   const getExtraDetails = (std: any) => {
+    const status = getStudentStatus(std);
+    
     return {
-      name: std.full_name || 'Sundasg',
-      regNo: std.student_id || '001',
-      doa: std.admission_date ? formatDate(std.admission_date) : '29 June, 2026',
-      class: std.class_name || 'Grade 1-A',
-      dob: std.date_of_birth ? formatDate(std.date_of_birth) : '01 January, 2021',
-      gender: std.gender || 'n/a',
-      religion: std.religion || 'n/a',
-      father: std.father_name || 'n/a',
-      mother: std.mother_name || 'n/a',
-      address: std.address || 'NILL',
-      avatar: std.profile_picture || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200'
+      name: std.full_name || std.name || '',
+      regNo: std.student_id || std.registration_no || '',
+      doa: std.admission_date ? formatDate(std.admission_date) : '',
+      class: std.class_name || std.current_class_name || std.class || '',
+      dob: std.date_of_birth ? formatDate(std.date_of_birth) : '',
+      gender: std.gender || '',
+      religion: std.religion || '',
+      father: std.father_name || '',
+      fatherNid: std.father_national_id || '',
+      fatherOccupation: std.father_occupation || '',
+      fatherEducation: std.father_education || '',
+      fatherMobile: std.father_mobile || '',
+      fatherIncome: std.father_income || '',
+      mother: std.mother_name || '',
+      motherNid: std.mother_national_id || '',
+      motherOccupation: std.mother_occupation || '',
+      motherEducation: std.mother_education || '',
+      motherMobile: std.mother_mobile || '',
+      motherIncome: std.mother_income || '',
+      address: std.address || '',
+      birthFormId: std.birth_form_id || '',
+      cast: std.cast || '',
+      previousSchool: std.previous_school || '',
+      previousId: std.previous_id || '',
+      additionalNote: std.additional_note || '',
+      orphanStudent: std.orphan_student || '',
+      osc: std.osc || '',
+      selectFamily: std.select_family || '',
+      totalSiblings: std.total_siblings || '',
+      discountInFee: std.discount_in_fee || '0',
+      phone: std.phone || std.mobile || '',
+      status: status,
+      avatar: std.profile_picture || std.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(std.full_name || std.name || 'Student')}&background=4C469D&color=fff&size=128&bold=true`
     };
   };
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    try {
-      if (dateStr.includes('/')) {
-        const parts = dateStr.split('/');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10) - 1;
-          const year = parseInt(parts[2], 10);
-          const d = new Date(year, month, day);
-          if (!isNaN(d.getTime())) {
-            return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
-          }
-        }
-      }
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
-    } catch (e) {
-      return dateStr;
-    }
+  const deduplicateStudents = (studentsList: any[]) => {
+    const seen = new Map();
+    return studentsList.filter(student => {
+      const id = student.id || student.student_id;
+      if (!id) return true;
+      if (seen.has(id)) return false;
+      seen.set(id, true);
+      return true;
+    });
   };
-
-  useEffect(() => {
-    fetchStudents();
-  }, []);
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -123,37 +183,21 @@ export default function AdmissionLetterPage() {
       const sRes = await studentService.getAll().catch(() => ({ data: [] }));
       const fetched = extractListData<any>(sRes.data);
       
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const filtered = fetched.filter(s => !deletedIds.includes(s.id));
-      
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const defaultStudents = [
-        { 
-          id: 'std-1', 
-          student_id: '001', 
-          full_name: 'Sundasg', 
-          class_name: 'Grade 1-A',
-          profile_picture: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150' 
-        }
-      ];
+      const uniqueStudents = deduplicateStudents(fetched);
+      setStudents(uniqueStudents);
 
-      const combined = [...(filtered.length > 0 ? filtered : defaultStudents), ...customStudents].filter(s => !deletedIds.includes(s.id));
-      setStudents(combined);
-
-      // Auto-select student if logged-in user is a student or queryStudentId is provided
       let targetStudent = null;
       if (isStudent) {
-        // Force match only the logged-in student's own details
-        targetStudent = combined.find((s: any) => 
+        targetStudent = uniqueStudents.find((s: any) => 
           String(s.id) === String(user?.id) || 
           String(s.student_id) === String(user?.id) ||
           s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
         );
-        if (!targetStudent && combined.length > 0) {
-          targetStudent = combined[0];
+        if (!targetStudent && uniqueStudents.length > 0) {
+          targetStudent = uniqueStudents[0];
         }
       } else if (queryStudentId) {
-        targetStudent = combined.find((s: any) => 
+        targetStudent = uniqueStudents.find((s: any) => 
           String(s.id) === String(queryStudentId) || 
           String(s.student_id) === String(queryStudentId)
         );
@@ -169,39 +213,54 @@ export default function AdmissionLetterPage() {
     }
   };
 
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     if (!val.trim()) {
       setSuggestions([]);
       return;
     }
-    const filtered = students.filter(s => 
-      s.full_name.toLowerCase().includes(val.toLowerCase()) ||
-      (s.student_id && s.student_id.toLowerCase().includes(val.toLowerCase()))
-    );
+    const filtered = students.filter(s => {
+      const studentName = (s as any).full_name || (s as any).name || '';
+      const studentId = (s as any).student_id || '';
+      return (
+        studentName.toLowerCase().includes(val.toLowerCase()) ||
+        studentId.toLowerCase().includes(val.toLowerCase())
+      );
+    });
     setSuggestions(filtered.slice(0, 5));
   };
 
   const handleSelectStudent = async (student: any) => {
     setSearchedStudent(student);
-    setSearchQuery(`${student.full_name} (${student.student_id || 'N/A'})`);
+    setSearchQuery(`${student.full_name || student.name} (${student.student_id || 'N/A'})`);
     setSuggestions([]);
     
-    // Fetch details
     try {
       if (student.id && !student.id.startsWith('std-')) {
         const res = await studentService.getById(student.id).catch(() => null);
         if (res && res.data) {
-          setStudentDetails(res.data);
+          const mergedData = {
+            ...student,
+            ...res.data,
+            status: getStudentStatus(res.data) || getStudentStatus(student)
+          };
+          setStudentDetails(mergedData);
+          setSearchedStudent(mergedData);
           return;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error fetching student details:', e);
+    }
 
-    // Fallback to custom_students or selected item
-    const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-    const customMatch = customStudents.find((s: any) => s.id === student.id);
-    setStudentDetails(customMatch || student);
+    const finalStudent = student;
+    finalStudent.status = getStudentStatus(finalStudent);
+    setStudentDetails(finalStudent);
+    setSearchedStudent(finalStudent);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -209,10 +268,14 @@ export default function AdmissionLetterPage() {
     if (suggestions.length > 0) {
       handleSelectStudent(suggestions[0]);
     } else if (searchQuery.trim()) {
-      const matched = students.find(s => 
-        s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.student_id && s.student_id.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+      const matched = students.find(s => {
+        const studentName = (s as any).full_name || (s as any).name || '';
+        const studentId = (s as any).student_id || '';
+        return (
+          studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          studentId.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      });
       if (matched) {
         handleSelectStudent(matched);
       } else {
@@ -227,11 +290,32 @@ export default function AdmissionLetterPage() {
 
   const creds = searchedStudent ? getLoginCredentials(searchedStudent) : null;
   const extras = (studentDetails || searchedStudent) ? getExtraDetails(studentDetails || searchedStudent) : null;
+  const currentStatus = getStudentStatus(studentDetails || searchedStudent);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <RefreshCw className="animate-spin rounded-full h-8 w-8 text-purple-600" />
+      </div>
+    );
+  }
+
+  if (!loading && students.length === 0 && !searchedStudent) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <div className="text-4xl">👨‍🎓</div>
+          <h3 className="text-lg font-bold text-slate-700">No Students Found</h3>
+          <p className="text-sm text-slate-500">Please add students to generate admission letters.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12 print:bg-white print:p-0">
       
-      {/* Breadcrumb Header Bar — Hidden on Print */}
+      {/* Breadcrumb Header — Hidden on Print */}
       <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
         <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
           <button onClick={() => navigate(isStudent ? '/student' : '/education/students')} className="hover:underline flex items-center gap-1">
@@ -241,7 +325,6 @@ export default function AdmissionLetterPage() {
           <span className="text-slate-500 font-bold">Admission Letter</span>
         </div>
 
-        {/* Back to search link when results are visible */}
         {searchedStudent && !isStudent && (
           <button
             onClick={() => {
@@ -257,250 +340,257 @@ export default function AdmissionLetterPage() {
       </div>
 
       {!searchedStudent ? (
-        /* 1. CENTERED SEARCH SCREEN — Matches first and second screenshots exactly */
+        /* SEARCH SCREEN */
         <div className="flex items-center justify-center pt-16">
-          {isStudent ? (
-            <div className="flex justify-center items-center py-12">
-              <RefreshCw className="animate-spin rounded-full h-8 w-8 text-[#5C53CD]" />
+          <div className="max-w-xl w-full bg-white p-10 rounded-3xl border border-slate-100 shadow-xs text-center space-y-6">
+            <div className="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center text-purple-650 mx-auto text-xl">
+              📄
             </div>
-          ) : (
-            <div className="max-w-xl w-full bg-white p-10 rounded-3xl border border-slate-100 shadow-xs text-center space-y-6 relative">
-              <div className="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center text-purple-650 mx-auto text-xl shadow-inner">
-                📄
-              </div>
 
-              <div className="space-y-2">
-                <h2 className="text-xl font-black text-slate-800">Generate Admission Letter</h2>
-                <p className="text-xs text-slate-400 font-semibold max-w-sm mx-auto leading-relaxed">
-                  Search for a student by name or registration number to generate their admission letter.
-                </p>
-              </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-black text-slate-800">Generate Admission Letter</h2>
+              <p className="text-xs text-slate-400 font-semibold max-w-sm mx-auto">
+                Search for a student by name or registration number.
+              </p>
+            </div>
 
-              {/* Form */}
-              <form onSubmit={handleSearchSubmit} className="relative flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3.5 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search student by name or registration..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full h-11 pl-10 pr-4 rounded-2xl border-2 border-slate-200 focus:border-purple-500 bg-white text-xs font-semibold text-slate-700 focus:outline-none transition-all shadow-3xs"
-                  />
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search student by name or registration..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full h-11 pl-10 pr-4 rounded-2xl border-2 border-slate-200 focus:border-purple-500 bg-white text-xs font-medium text-slate-700 focus:outline-none transition-all"
+                />
+              </div>
+              <button
+                type="submit"
+                className="h-11 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-1.5"
+              >
+                Search
+              </button>
+
+              {suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-12 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 text-left">
+                  {suggestions.map(s => (
+                    <div
+                      key={s.id || s.student_id}
+                      onClick={() => handleSelectStudent(s)}
+                      className="p-3.5 hover:bg-purple-50/50 cursor-pointer text-xs font-medium text-slate-700 flex items-center justify-between"
+                    >
+                      <span>{s.full_name || s.name}</span>
+                      <span className="text-slate-400">{s.student_id}</span>
+                    </div>
+                  ))}
                 </div>
-
-                <button
-                  type="submit"
-                  className="h-11 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                >
-                  Search
-                </button>
-
-                {/* Autocomplete Dropdown suggestions — Matches 2nd screenshot */}
-                {suggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-12 bg-white border border-slate-150 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-slate-50 text-left">
-                    {suggestions.map(s => (
-                      <div
-                        key={s.id}
-                        onClick={() => handleSelectStudent(s)}
-                        className="p-3.5 hover:bg-purple-50/50 cursor-pointer text-xs font-semibold text-slate-700"
-                      >
-                        {s.student_id || '001'} - {s.full_name} - {s.class_name || 'Grade 1-A'}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </form>
-            </div>
-          )}
+              )}
+            </form>
+          </div>
         </div>
       ) : (
-        /* 2. RESULTS & LETTERS VIEW — Matches third screenshot exactly */
+        /* RESULTS VIEW */
         <div className="space-y-6">
           
-          {/* Top Preview Card and Print Action Card row */}
+          {/* Preview Card */}
           {extras && creds && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:hidden">
-              
-              {/* Preview Card (Left) */}
               <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center gap-6">
-                <div className="w-20 h-20 rounded-full border-2 border-slate-100 overflow-hidden bg-slate-100 shrink-0 shadow-inner">
+                <div className="w-20 h-20 rounded-full border-2 border-slate-100 overflow-hidden bg-slate-100 shrink-0">
                   <img src={extras.avatar} alt={extras.name} className="w-full h-full object-cover" />
                 </div>
-
-                <div className="space-y-3 text-center sm:text-left">
+                <div className="space-y-2 text-center sm:text-left">
                   <h2 className="text-xl font-bold text-slate-800">{extras.name}</h2>
-                  
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-[10px] font-bold">
-                    <span className="px-2.5 py-1 bg-slate-50 text-slate-500 rounded-lg border border-slate-100">💳 Reg: {extras.regNo}</span>
-                    <span className="px-2.5 py-1 bg-slate-50 text-slate-500 rounded-lg border border-slate-100">📋 Class: {extras.class}</span>
-                    <span className="px-2.5 py-1 bg-slate-50 text-slate-500 rounded-lg border border-slate-100">📅 DOA: {extras.doa}</span>
-                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">🟢 Active</span>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-[10px] font-medium">
+                    <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg border border-slate-100">💳 {extras.regNo}</span>
+                    <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg border border-slate-100">📋 {extras.class}</span>
+                    <span className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg border border-slate-100">📅 {extras.doa}</span>
+                    <span className={`px-2.5 py-1 rounded-lg border font-medium text-[10px] ${
+                      currentStatus === 'inactive' 
+                        ? 'bg-red-50 text-red-600 border-red-200' 
+                        : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                    }`}>
+                      {currentStatus === 'inactive' ? '🔴 Inactive' : '🟢 Active'}
+                    </span>
                   </div>
-
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-[10px] font-bold pt-1">
-                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-100">👤 Username: <strong className="font-mono">{creds.username}</strong></span>
-                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-100">🔒 Password: <strong className="font-mono">{creds.password}</strong></span>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-[10px]">
+                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-100">👤 {creds.username}</span>
+                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-100">🔒 {creds.password}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Actions Card (Right) */}
               <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center space-y-3">
                 <button
                   onClick={handlePrint}
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center gap-1.5"
+                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
                 >
                   <Printer className="w-4 h-4" /> Print Admission Letter
                 </button>
                 <button
                   onClick={handlePrint}
-                  className="w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-purple-700 font-bold text-xs rounded-xl transition-all uppercase tracking-wider flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-purple-700 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
                 >
-                  <Download className="w-4 h-4" /> Get PDF
+                  <Download className="w-4 h-4" /> Download PDF
                 </button>
               </div>
-
             </div>
           )}
 
-          {/* Printable Admission Letter Document card */}
+          {/* Printable Admission Letter */}
           {extras && creds && (
-            <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm max-w-4xl mx-auto space-y-8 text-slate-800 text-xs print:p-0 print:border-0 print:shadow-none print:max-w-none print:text-black">
-              {/* Document Header */}
-              <div className="text-center space-y-2 border-b border-slate-200 pb-6">
-                <div className="flex justify-center mb-1">
-                  <div className="flex items-center gap-2 text-blue-600 font-bold text-xl">
-                    <GraduationCap className="w-8 h-8 text-blue-600" />
-                    <span>Institute Name</span>
-                  </div>
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm max-w-4xl mx-auto space-y-6 text-slate-800 print:p-6 print:border-0 print:shadow-none print:max-w-none">
+              
+              {/* Letter Header */}
+              <div className="text-center border-b border-slate-200 pb-6">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  {instituteProfile?.logoUrl && (
+                    <img src={instituteProfile.logoUrl} alt="Logo" className="h-12 w-auto" />
+                  )}
+                  <GraduationCap className="w-8 h-8 text-purple-700" />
+                  <span className="text-2xl font-bold text-purple-700">{instituteProfile?.name || 'Institute Name'}</span>
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">&quot; YOUR SCHOOL SOFTWARE &quot;</p>
-                <p className="text-[11px] font-medium text-slate-500">+923460204447 | www.my-school.com | info@my-school.com</p>
-                <h1 className="text-2xl font-black text-purple-700 pt-2">Admission Letter</h1>
+                <p className="text-[10px] font-medium text-slate-500 tracking-widest">"{instituteProfile?.targetLine || 'YOUR SCHOOL SOFTWARE'}"</p>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {instituteProfile?.phone || '+92 300 1234567'} | {instituteProfile?.website || 'www.my-school.com'} | {instituteProfile?.email || 'info@my-school.com'}
+                </p>
+                <h1 className="text-2xl font-black text-purple-700 mt-3 tracking-wide">ADMISSION LETTER</h1>
               </div>
 
-              {/* Top Metadata Grid */}
-              <div className="grid grid-cols-4 gap-6 items-start">
+              {/* Student Info Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex flex-col items-center md:items-start">
+                  <img src={extras.avatar} alt={extras.name} className="w-24 h-24 rounded-xl border border-slate-200 shadow-sm object-cover" />
+                </div>
+
+                <div className="space-y-2">
+                  <InfoRow label="Serial No" value="1,888,614" />
+                  <InfoRow label="Registration No" value={extras.regNo} highlight />
+                  <InfoRow label="Student Name" value={extras.name} bold />
+                  <InfoRow label="Class" value={extras.class} />
+                </div>
+
+                <div className="space-y-2">
+                  <InfoRow label="Date of Birth" value={extras.dob} />
+                  <InfoRow label="Birth Form ID" value={extras.birthFormId} />
+                  <InfoRow label="Gender" value={extras.gender} />
+                  <InfoRow label="Religion" value={extras.religion} />
+                </div>
+
+                <div className="space-y-2">
+                  <InfoRow label="Date of Admission" value={extras.doa} />
+                  <InfoRow label="Discount in Fee" value={extras.discountInFee ? `${extras.discountInFee}%` : ''} />
+                  <InfoRow label="Username" value={creds.username} highlight monospace />
+                  <InfoRow label="Password" value={creds.password} highlight monospace />
+                </div>
+              </div>
+
+              {/* Address & Family Section */}
+              <div className="border-t border-slate-200 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <img src={extras.avatar} alt="Student" className="w-28 h-28 object-cover rounded-xl border border-slate-200 shadow-2xs" />
+                  <InfoRow label="Address" value={extras.address} />
+                  <InfoRow label="Total Siblings" value={extras.totalSiblings} />
                 </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Serial No</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ 1,888,614</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Registration No</p>
-                    <p className="font-bold text-purple-700 text-sm">↪ {extras.regNo}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Student Name</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ {extras.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Class</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ {extras.class}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Date Of Birth</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ {extras.dob}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Student Birth Form ID / NIC</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ --</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Gender</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ {extras.gender}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Religion</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ {extras.religion}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Date of Admission</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ {extras.doa}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Discount In Fee</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ 0 %</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Username</p>
-                    <p className="font-bold text-purple-700 font-mono text-sm">↪ {creds.username}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Password</p>
-                    <p className="font-bold text-purple-700 font-mono text-sm">↪ {creds.password}</p>
-                  </div>
+                <div>
+                  <InfoRow label="Previous School" value={extras.previousSchool} />
+                  <InfoRow label="Previous ID" value={extras.previousId} />
+                  <InfoRow label="Cast" value={extras.cast} />
                 </div>
               </div>
 
-              {/* Middle Details & QR Codes */}
-              <div className="pt-4 border-t border-slate-200 grid grid-cols-4 gap-6">
-                <div className="col-span-3 space-y-4">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Address</p>
-                    <p className="font-bold text-slate-800 text-sm">↪ {extras.address}</p>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Father Name ↪ <strong className="text-slate-800">{extras.father}</strong></p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Father National ID ↪ <strong className="text-slate-800">--</strong></p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Education ↪ <strong className="text-slate-800">Graduate</strong></p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Mobile No ↪ <strong className="text-slate-800">{searchedStudent.phone || '+92 300 1234567'}</strong></p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Mother Name ↪ <strong className="text-slate-800">{extras.mother}</strong></p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Mother National ID ↪ <strong className="text-slate-800">--</strong></p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Education ↪ <strong className="text-slate-800">Graduate</strong></p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Mobile No ↪ <strong className="text-slate-800">{searchedStudent.phone || '+92 300 1234567'}</strong></p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Total Siblings ↪ <strong className="text-slate-800">4</strong></p>
-                    </div>
-                  </div>
+              {/* Parents Section */}
+              <div className="border-t border-slate-200 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">Father / Guardian</h4>
+                  <InfoRow label="Name" value={extras.father} />
+                  <InfoRow label="National ID" value={extras.fatherNid} />
+                  <InfoRow label="Education" value={extras.fatherEducation} />
+                  <InfoRow label="Occupation" value={extras.fatherOccupation} />
+                  <InfoRow label="Mobile" value={extras.fatherMobile} />
+                  <InfoRow label="Income" value={extras.fatherIncome} />
                 </div>
-
-                <div className="space-y-3 text-center border-l border-slate-100 pl-4">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">SCAN QR CODE TO ACCESS PORTAL</p>
-                  <div className="p-2 border border-slate-200 rounded-xl inline-block bg-slate-50">
-                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=http://my-school.com/login?u=${creds.username}`} alt="Web Portal" className="w-16 h-16 mx-auto" />
-                    <span className="text-[9px] font-bold text-slate-500 block mt-1">Web Portal</span>
-                  </div>
+                <div>
+                  <h4 className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">Mother</h4>
+                  <InfoRow label="Name" value={extras.mother} />
+                  <InfoRow label="National ID" value={extras.motherNid} />
+                  <InfoRow label="Education" value={extras.motherEducation} />
+                  <InfoRow label="Occupation" value={extras.motherOccupation} />
+                  <InfoRow label="Mobile" value={extras.motherMobile} />
+                  <InfoRow label="Income" value={extras.motherIncome} />
                 </div>
               </div>
 
-              {/* Rules and Regulations */}
-              <div className="pt-4 border-t border-slate-200 space-y-2">
-                <h3 className="font-bold text-sm text-slate-800">Rules And Regulations:</h3>
-                <div 
-                  className="text-[11px] text-slate-500 leading-relaxed rich-editor-content"
-                  dangerouslySetInnerHTML={{ __html: studentRules }}
-                />
+              {/* Additional Note */}
+              {extras.additionalNote && (
+                <div className="border-t border-slate-200 pt-4">
+                  <InfoRow label="Additional Note" value={extras.additionalNote} />
+                </div>
+              )}
+
+              {/* Rules Section */}
+              {studentRules && (
+                <div className="border-t border-slate-200 pt-4">
+                  <h4 className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">Rules & Regulations</h4>
+                  <div 
+                    className="text-[11px] text-slate-600 leading-relaxed rich-editor-content"
+                    dangerouslySetInnerHTML={{ __html: studentRules }}
+                  />
+                </div>
+              )}
+
+              {/* QR Code */}
+              <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
+                <div>
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(`http://my-school.com/login?u=${creds.username}`)}`} 
+                    alt="QR Code" 
+                    className="w-16 h-16"
+                    onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                  />
+                  <p className="text-[8px] text-slate-400 mt-1 font-medium tracking-wider">SCAN TO ACCESS PORTAL</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-bold text-slate-500">Web Portal</p>
+                  <p className="text-[8px] text-slate-400">my-school.com</p>
+                </div>
               </div>
 
               {/* Signatures */}
-              <div className="pt-12 flex justify-between items-center text-xs font-semibold text-slate-700 print:text-black">
-                <div>Signature of Authority_____________________</div>
-                <div>Institute Stamp_____________________</div>
+              <div className="border-t border-slate-200 pt-6 flex justify-between text-xs font-medium text-slate-600">
+                <div>
+                  <div className="h-8 border-b border-slate-300 w-48"></div>
+                  <p className="mt-1">Signature of Authority</p>
+                </div>
+                <div>
+                  <div className="h-8 border-b border-slate-300 w-48"></div>
+                  <p className="mt-1">Institute Stamp</p>
+                </div>
               </div>
+
             </div>
           )}
 
         </div>
       )}
+    </div>
+  );
+}
+
+// Helper component for info rows
+function InfoRow({ label, value, highlight, bold, monospace }: { label: string; value: any; highlight?: boolean; bold?: boolean; monospace?: boolean }) {
+  if (!value) return null;
+  
+  return (
+    <div className="flex items-baseline gap-2 text-xs">
+      <span className="font-semibold text-slate-500 min-w-[100px]">{label}:</span>
+      <span className={`
+        ${bold ? 'font-bold text-slate-800' : 'font-medium text-slate-700'}
+        ${highlight ? 'text-purple-700 font-bold' : ''}
+        ${monospace ? 'font-mono text-[11px]' : ''}
+      `}>
+        {value}
+      </span>
     </div>
   );
 }

@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  Users, Briefcase, DollarSign, Gift, Star, ChevronLeft, ChevronRight, AlertCircle, Laptop, MessageSquare, Download, Wifi, WifiOff
+  Users, Briefcase, DollarSign, Gift, Star, ChevronLeft, ChevronRight, 
+  AlertCircle, Laptop, MessageSquare, Download, Wifi, WifiOff
 } from 'lucide-react';
 import { 
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend 
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, 
+  CartesianGrid, Tooltip, Legend 
 } from 'recharts';
 import studentService from '@/services/student.service';
 import teacherService from '@/services/teacher.service';
 import academicService from '@/services/academic.service';
+import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 import { websocketService } from '@/services/websocket.service';
 
@@ -31,6 +34,7 @@ export default function DashboardPage() {
   const [absentStudents, setAbsentStudents] = useState<any[]>([]);
   const [presentEmployees, setPresentEmployees] = useState<any[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [financeTransactions, setFinanceTransactions] = useState<any[]>([]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -50,23 +54,23 @@ export default function DashboardPage() {
   const fetchDashboardStats = async () => {
     setLoading(true);
     try {
-      const [stdRes, tchRes, clsRes] = await Promise.all([
+      const [stdRes, tchRes, clsRes, paymentsRes] = await Promise.all([
         studentService.getAll().catch(() => ({ data: [] })),
         teacherService.getAll().catch(() => ({ data: [] })),
-        academicService.getClasses().catch(() => ({ data: [] }))
+        academicService.getClasses().catch(() => ({ data: [] })),
+        financeService.getPayments().catch(() => ({ data: [] }))
       ]);
 
       const rawStd = extractListData<any>(stdRes.data || []);
       const rawTch = extractListData<any>(tchRes.data || []);
       const rawCls = extractListData<any>(clsRes.data || []);
+      const rawPayments = extractListData<any>((paymentsRes as any)?.data || []);
 
-      const deletedStd: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
       const deletedTch: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
 
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const combinedStd = [...(rawStd.length > 0 ? rawStd : [
+      const combinedStd = rawStd.length > 0 ? rawStd : [
         { id: 'std-1', student_id: '001', full_name: 'Urwah', class_name: 'Grade 1-A', profile_picture: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150' }
-      ]), ...customStudents].filter(s => !deletedStd.includes(s.id));
+      ];
 
       const filteredTch = rawTch.filter(t => !deletedTch.includes(t.id));
 
@@ -89,18 +93,19 @@ export default function DashboardPage() {
       setStudents(combinedStd);
       setTeachers(filteredTch.length > 0 ? filteredTch : defaultTeachers);
       setClasses(rawCls.length > 0 ? rawCls : [{ name: 'Grade 1-A' }, { name: 'Grade 1-B' }]);
+      setFinanceTransactions(rawPayments);
     } catch (e) {
-      console.log('Dashboard stats error');
+      console.log('Dashboard stats error:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch today's attendance from the dedicated dashboard-stats endpoint
   const fetchTodayAttendance = async () => {
     setAttendanceLoading(true);
     try {
-      const res = await import('@/services/api').then(m => m.default.get('/auth/attendance/dashboard-stats/'));
+      // ✅ FIXED: Removed /auth/ from the URL
+      const res = await import('@/services/api').then(m => m.default.get('/attendance/dashboard-stats/'));
       const payload = res.data as {
         students?: { total: number; present: number; late: number; absent: number; present_pct: number; absent_list: any[] };
         employees?: { total: number; present: number; present_pct: number };
@@ -150,7 +155,7 @@ export default function DashboardPage() {
     }
   };
 
-  // Real-time WebSocket sync – KPI counts + attendance updates
+  // Real-time WebSocket sync
   useEffect(() => {
     const token = localStorage.getItem('access_token') ?? '';
     if (!token) return;
@@ -162,7 +167,6 @@ export default function DashboardPage() {
       'dashboard'
     );
 
-    // KPI (student/teacher/class counts)
     const unsubKpi = websocketService.subscribe(
       'kpi_update',
       () => {
@@ -173,7 +177,6 @@ export default function DashboardPage() {
       'dashboard'
     );
 
-    // Real-time attendance updates — pushed when any record is saved
     const unsubAttendance = websocketService.subscribe(
       'attendance_update',
       ({ data }) => {
@@ -186,7 +189,6 @@ export default function DashboardPage() {
             present: att.students.present + att.students.late,
             total: att.students.total,
           });
-          // Refetch absent list since we only get counts in the WS payload
           fetchTodayAttendance();
         }
       },
@@ -203,44 +205,15 @@ export default function DashboardPage() {
 
   // ── Dynamic ERP statistics helpers ─────────────────────────────────────────
   const getFinanceStats = () => {
-    const txsSaved = localStorage.getItem('finance_transactions');
-    let txs = [];
-    if (txsSaved) {
-      try {
-        txs = JSON.parse(txsSaved);
-      } catch (e) {}
-    }
+    const txs = financeTransactions || [];
     
-    // Seed initial transactions if empty to populate beautiful charts
-    if (txs.length === 0) {
-      txs = [
-        { id: 'tx-1', date: '2026-01-10', description: 'School Admission Fees (Jan Intake)', amount: 12000, type: 'Income' },
-        { id: 'tx-2', date: '2026-01-25', description: 'Monthly Faculty Salaries Paid', amount: 8000, type: 'Expense' },
-        { id: 'tx-3', date: '2026-02-10', description: 'Term 1 Tuition Fees Collected', amount: 15000, type: 'Income' },
-        { id: 'tx-4', date: '2026-02-25', description: 'Monthly Faculty Salaries Paid', amount: 8000, type: 'Expense' },
-        { id: 'tx-5', date: '2026-02-28', description: 'Lab Equipment Purchase', amount: 1500, type: 'Expense' },
-        { id: 'tx-6', date: '2026-03-10', description: 'Monthly Tuition Fees Collected', amount: 18000, type: 'Income' },
-        { id: 'tx-7', date: '2026-03-25', description: 'Monthly Faculty Salaries Paid', amount: 8500, type: 'Expense' },
-        { id: 'tx-8', date: '2026-04-10', description: 'Monthly Tuition Fees Collected', amount: 19500, type: 'Income' },
-        { id: 'tx-9', date: '2026-04-25', description: 'Monthly Faculty Salaries Paid', amount: 8500, type: 'Expense' },
-        { id: 'tx-10', date: '2026-04-30', description: 'Library Books Subscription', amount: 1200, type: 'Expense' },
-        { id: 'tx-11', date: '2026-05-10', description: 'Tuition Fees Collection', amount: 21000, type: 'Income' },
-        { id: 'tx-12', date: '2026-05-25', description: 'Monthly Faculty Salaries Paid', amount: 9000, type: 'Expense' },
-        { id: 'tx-13', date: '2026-06-10', description: 'Monthly Tuition Fees & Store Purchases', amount: 24000, type: 'Income' },
-        { id: 'tx-14', date: '2026-06-25', description: 'Monthly Faculty Salaries Paid', amount: 9000, type: 'Expense' },
-        { id: 'tx-15', date: '2026-07-05', description: 'Tuition Fees Collection (July)', amount: 3500, type: 'Income' }
-      ];
-      localStorage.setItem('finance_transactions', JSON.stringify(txs));
-    }
-    
-    // Calculate total income/expense/profit
     let totalIncome = 0;
     let totalExpense = 0;
     let thisMonthIncome = 0;
     let thisMonthExpense = 0;
     
     const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth(); // 0-indexed
+    const currentMonth = new Date().getMonth();
     
     txs.forEach((t: any) => {
       const amt = Number(t.amount) || 0;
@@ -256,7 +229,6 @@ export default function DashboardPage() {
       }
     });
     
-    // Calculate line chart monthly data
     const monthlyData: Record<number, { Expenses: number; Income: number }> = {};
     for (let m = 0; m < 12; m++) {
       monthlyData[m] = { Expenses: 0, Income: 0 };
@@ -332,41 +304,7 @@ export default function DashboardPage() {
   };
 
   const getEstimatedFeeDetails = () => {
-    const savedInvoices = localStorage.getItem('custom_invoices');
-    if (!savedInvoices) return { collections: 12000, remainings: 3500 };
-    
-    try {
-      const invoices = JSON.parse(savedInvoices);
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth();
-      
-      let collections = 0;
-      let remainings = 0;
-      
-      invoices.forEach((inv: any) => {
-        const dueDate = new Date(inv.due_date || inv.date);
-        const isCurrentMonth = dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth;
-        
-        if (isCurrentMonth) {
-          const total = Number(inv.total_amount || inv.grand_total || inv.payable_amount) || 0;
-          const paid = Number(inv.paid_amount) || 0;
-          if (inv.status === 'paid') {
-            collections += total;
-          } else {
-            collections += paid;
-            remainings += (total - paid);
-          }
-        }
-      });
-      
-      // Fallback seed if nothing generated this month
-      if (collections === 0 && remainings === 0) {
-        return { collections: 12000, remainings: 3500 };
-      }
-      return { collections, remainings };
-    } catch (e) {
-      return { collections: 12000, remainings: 3500 };
-    }
+    return { collections: 0, remainings: 0 };
   };
 
   const computeRealAttendance = () => {
@@ -431,15 +369,13 @@ export default function DashboardPage() {
   // ── Calendar helpers ──────────────────────────────────────────────────────
   const MONTH_NAMES = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
   const DAY_NAMES_SHORT = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  const DAY_NAMES_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-  const calYear  = calendarDate.getFullYear();
-  const calMonth = calendarDate.getMonth(); // 0-based
+  const calYear = calendarDate.getFullYear();
+  const calMonth = calendarDate.getMonth();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay();
   const prevMonthDays = new Date(calYear, calMonth, 0).getDate();
 
-  // Build flat array of {day, currentMonth} cells
   const calCells: { day: number; currentMonth: boolean }[] = [];
   for (let i = firstDayOfWeek - 1; i >= 0; i--) {
     calCells.push({ day: prevMonthDays - i, currentMonth: false });
@@ -447,7 +383,7 @@ export default function DashboardPage() {
   for (let d = 1; d <= daysInMonth; d++) {
     calCells.push({ day: d, currentMonth: true });
   }
-  const remaining = 42 - calCells.length; // fill to 6 rows
+  const remaining = 42 - calCells.length;
   for (let d = 1; d <= remaining; d++) {
     calCells.push({ day: d, currentMonth: false });
   }
@@ -467,11 +403,9 @@ export default function DashboardPage() {
   const studentPct = studentAttendance ? pct(studentAttendance.present, studentAttendance.total) : null;
   const employeePct = employeeAttendance ? pct(employeeAttendance.present, employeeAttendance.total) : null;
 
-  // Dynamic finance stats
   const finance = getFinanceStats();
   const lineChartData = finance.chartData;
   
-  // Dynamic bar chart data
   const getBarChartData = () => {
     const counts: Record<string, number> = {
       'Grade 1-A': 0,
@@ -501,10 +435,10 @@ export default function DashboardPage() {
       Students: counts[name]
     }));
   };
+  
   const barChartData = getBarChartData();
   const feeDetails = getEstimatedFeeDetails();
 
-  // Dynamic currency symbol
   const savedAccountSettings = localStorage.getItem('account_settings');
   let symbol = 'Rs';
   if (savedAccountSettings) {
@@ -539,9 +473,8 @@ export default function DashboardPage() {
         </span>
       </div>
 
-      {/* 1. TOP 4 STAT CARDS GRID matching reference 100% */}
+      {/* 1. TOP 4 STAT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Total Students - Dark Purple */}
         <div className="bg-[#4C469D] text-white p-5 rounded-2xl shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div className="flex justify-between items-start">
             <div>
@@ -558,7 +491,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Total Employees - Soft Light Purple */}
         <div className="bg-[#8C90C9] text-white p-5 rounded-2xl shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div className="flex justify-between items-start">
             <div>
@@ -575,7 +507,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Revenue - Salmon Red */}
         <div className="bg-[#F87171] text-white p-5 rounded-2xl shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div className="flex justify-between items-start">
             <div>
@@ -592,7 +523,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Total Profit - Bright Blue */}
         <div className="bg-[#4F46E5] text-white p-5 rounded-2xl shadow-sm flex flex-col justify-between relative overflow-hidden">
           <div className="flex justify-between items-start">
             <div>
@@ -612,7 +542,6 @@ export default function DashboardPage() {
 
       {/* 2. SECOND ROW: WELCOME BANNER & REVIEW CARD */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-        {/* Welcome Banner */}
         <div className="lg:col-span-3 bg-[#FFF1F2] p-6 rounded-2xl border border-rose-100 flex items-center justify-between relative overflow-hidden shadow-2xs">
           <div className="space-y-1 z-10">
             <h3 className="font-bold text-rose-500 text-sm">Welcome to Admin Dashboard</h3>
@@ -621,7 +550,6 @@ export default function DashboardPage() {
               Please Verify your email address. <button onClick={() => alert('Verification email sent!')} className="text-blue-600 font-bold hover:underline">Verify now!</button>
             </p>
           </div>
-
           <div className="w-32 h-24 flex-shrink-0 relative hidden sm:flex items-center justify-center">
             <svg className="w-full h-full text-rose-300" viewBox="0 0 160 120" fill="none">
               <circle cx="80" cy="50" r="25" fill="#FECDD3" />
@@ -631,7 +559,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Review & Earn Card */}
         <div className="bg-[#EEF2FF] p-6 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-2xs">
           <div className="space-y-1.5">
             <div className="flex gap-0.5 text-emerald-500 text-xs">
@@ -646,16 +573,15 @@ export default function DashboardPage() {
               Receive <strong className="text-slate-800">$10</strong> as a reward plus<br/>Chance to win a Desktop plan
             </p>
           </div>
-
           <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
             <Gift className="w-7 h-7" />
           </div>
         </div>
       </div>
 
-      {/* 3. MAIN LAYOUT GRID: Left Column (Charts/Tables) vs Right Column (Widgets) */}
+      {/* 3. MAIN LAYOUT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* LEFT STACK (3 Columns wide on large screens) */}
+        {/* LEFT STACK */}
         <div className="lg:col-span-3 space-y-6">
           {/* Card 1: Statistics Line Chart */}
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
@@ -663,7 +589,6 @@ export default function DashboardPage() {
               <h3 className="font-bold text-xs text-purple-700">Statistics</h3>
               <span className="text-slate-400 cursor-pointer hover:text-slate-600">&lt;</span>
             </div>
-
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={lineChartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
@@ -685,7 +610,6 @@ export default function DashboardPage() {
               <h3 className="font-bold text-xs text-purple-700">Statistics</h3>
               <span className="text-slate-400 cursor-pointer hover:text-slate-600">&lt;</span>
             </div>
-
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barChartData} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 0 }}>
@@ -778,7 +702,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* RIGHT STACK (1 Column wide on large screens) */}
+        {/* RIGHT STACK */}
         <div className="space-y-6">
           {/* Widget 1: Estimated Fee This Month */}
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm text-center space-y-4">
@@ -787,8 +711,6 @@ export default function DashboardPage() {
               <p className="text-[10px] font-bold text-emerald-600 uppercase flex items-center justify-center gap-1">💳 Monthly Target</p>
               <p className="text-2xl font-black text-emerald-600">{symbol} {(feeDetails.collections + feeDetails.remainings).toLocaleString()}</p>
             </div>
-
-            {/* Dynamic Donut Chart Ring */}
             <div className="relative w-28 h-28 mx-auto my-4 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
@@ -812,7 +734,6 @@ export default function DashboardPage() {
                 {Math.round((feeDetails.collections / (feeDetails.collections + feeDetails.remainings || 1)) * 100)}%
               </div>
             </div>
-
             <div className="flex justify-between items-center pt-4 border-t border-slate-100 text-xs">
               <div className="text-left">
                 <p className="font-black text-slate-800">{symbol} {feeDetails.collections.toLocaleString()}</p>
@@ -868,7 +789,6 @@ export default function DashboardPage() {
 
           {/* Widget 5: Dynamic Calendar */}
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-            {/* Header */}
             <div className="flex items-center justify-between">
               <button onClick={prevMonth} className="p-1 text-slate-400 hover:text-slate-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
               <div className="text-center">
@@ -877,13 +797,9 @@ export default function DashboardPage() {
               </div>
               <button onClick={nextMonth} className="p-1 text-slate-400 hover:text-slate-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
             </div>
-
-            {/* Day headers */}
             <div className="grid grid-cols-7 gap-0.5 text-[9px] font-bold text-slate-400 border-t border-slate-100 pt-2">
               {DAY_NAMES_SHORT.map(d => <span key={d} className="text-center">{d}</span>)}
             </div>
-
-            {/* Day cells */}
             <div className="grid grid-cols-7 gap-0.5">
               {calCells.map((cell, idx) => (
                 <span
@@ -901,7 +817,6 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-
         </div>
       </div>
     </div>

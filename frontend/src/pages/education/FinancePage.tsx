@@ -302,33 +302,8 @@ export default function FinancePage() {
 
       console.log("API Response:", response.data);
 
-      const invoiceData = Array.isArray(response.data)
-        ? response.data
-        : (response.data?.results || []);
-
-      const customInvoices = JSON.parse(localStorage.getItem('custom_invoices') || '[]');
-      const mergedInvoices = [...invoiceData];
-      customInvoices.forEach((ci: any) => {
-        if (!mergedInvoices.some(inv => inv.id === ci.id || inv.id === ci.invoice_number)) {
-          mergedInvoices.push({
-            id: ci.id,
-            invoice_number: ci.invoice_number,
-            amount: ci.amount,
-            due_date: ci.due_date,
-            description: ci.description,
-            status: ci.status || 'unpaid',
-            student_detail: {
-              id: ci.student,
-              full_name: ci.student_name,
-              student_id: ci.student_id_code,
-              current_class_name: ci.class_name
-            },
-            created_at: ci.created_at
-          });
-        }
-      });
-
-      setInvoices(mergedInvoices);
+      const invoiceData = extractListData<any>(response.data || []);
+      setInvoices(invoiceData);
 
     } catch (error) {
       console.error("Invoice fetch error:", error);

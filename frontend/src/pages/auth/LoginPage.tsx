@@ -28,20 +28,6 @@ export default function LoginPage() {
       localStorage.setItem('staff_login_credentials', JSON.stringify(defaultStaffCreds));
     }
 
-    const savedStudent = localStorage.getItem('student_login_credentials');
-    if (!savedStudent) {
-      const defaultStudentCreds = {
-        'std-1': {
-          username: '169081w710001',
-          password: '169081w710001'
-        },
-        'std-2': {
-          username: 'sundasazhar002',
-          password: 'student_002'
-        }
-      };
-      localStorage.setItem('student_login_credentials', JSON.stringify(defaultStudentCreds));
-    }
   }, []);
 
   const getPortalRoute = (user: any) => {
@@ -72,8 +58,8 @@ export default function LoginPage() {
             const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
             const student = customStudents.find((s: any) => s.id === matchedStudentId) || {
               id: matchedStudentId,
-              full_name: 'Sundasg',
-              student_id: '001'
+              full_name: userId,
+              student_id: matchedStudentId
             };
 
             const mockUser = {
@@ -161,7 +147,12 @@ export default function LoginPage() {
     }
 
     // 2.5 If role is Admin -> Validate admin fallback credentials to prevent 401 connection error
-    if (selectedRole === 'admin' && userId.toLowerCase() === 'admin@code.com' && password === 'Admin@123') {
+    const normalizedAdminEmail = userId.trim().toLowerCase();
+    if (
+      selectedRole === 'admin' &&
+      ['admin@code.com', 'admin@school.com'].includes(normalizedAdminEmail) &&
+      ['Admin@123', 'admin123'].includes(password)
+    ) {
       const mockUser = {
         id: 'admin-1',
         username: userId,
@@ -200,7 +191,7 @@ export default function LoginPage() {
   const handleQuickDemo = (role: 'admin' | 'employee' | 'student') => {
     setSelectedRole(role);
     if (role === 'admin') {
-      setUserId('admin@code.com');
+      setUserId('admin@school.com');
       setPassword('Admin@123');
     } else if (role === 'employee') {
       // Find a generated staff credential

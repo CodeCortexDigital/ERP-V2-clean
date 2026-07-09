@@ -1,660 +1,824 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { 
-  GraduationCap, Plus, Trash2, Edit3, X, RefreshCw, Layers, Users, BookOpen, CheckCircle2, AlertCircle, ArrowLeft, RotateCcw,
-  LayoutGrid, List, ChevronDown, ChevronUp
+  GraduationCap, Plus, Trash2, Edit3, RefreshCw, X, Check, 
+  Building2, Users, Clock, BookOpen, Calendar 
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
-import academicService from '@/services/academic.service';
-import sectionService from '@/services/section.service';
-import studentService from '@/services/student.service';
+import academicService, { AcademicYear } from '@/services/academic.service';
 import teacherService from '@/services/teacher.service';
+import studentService from '@/services/student.service';
 import { extractListData } from '@/services/api';
-import { toast } from 'sonner';
 
 interface SchoolClass {
   id: string;
   name: string;
   code: string;
-  teacher_name?: string;
-  tuition_fee?: number;
-  students_count?: number;
-  boys_count?: number;
-  girls_count?: number;
-  na_count?: number;
-  subjects_count?: number;
-  sections?: { id: string; name: string }[];
+  description: string;
+  academic_year: string;
+  academic_year_name?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Classroom {
+  id: string;
+  name: string;
+  code: string;
+  capacity: number;
+  floor: number;
+  building: string;
+  is_active: boolean;
+}
+
+interface Period {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  day_of_week: number;
+  is_active: boolean;
 }
 
 export default function AcademicsPage() {
-  const location = useLocation();
   const navigate = useNavigate();
-
-  const isNewClassView = location.search.includes('action=new-class');
-  const isEditClassView = location.search.includes('action=edit-class');
-  
-  const queryParams = new URLSearchParams(location.search);
-  const editId = queryParams.get('id');
-
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [classForm, setClassForm] = useState({
-    id: '',
-    name: '',
-    tuitionFee: '',
-    teacherName: ''
+  const [activeTab, setActiveTab] = useState<'classes' | 'classrooms' | 'periods'>('classes');
+  
+  // Class state
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
+  const [classForm, setClassForm] = useState({ name: '', code: '', description: '', academic_year: '' });
+  const [showClassModal, setShowClassModal] = useState(false);
+  
+  // Classroom state
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [editingClassroom, setEditingClassroom] = useState<Classroom | null>(null);
+  const [classroomForm, setClassroomForm] = useState({ 
+    name: '', code: '', capacity: 30, floor: 1, building: 'Main' 
   });
+  const [showClassroomModal, setShowClassroomModal] = useState(false);
+  
+  // Period state
+  const [periods, setPeriods] = useState<Period[]>([]);
+  const [editingPeriod, setEditingPeriod] = useState<Period | null>(null);
+  const [periodForm, setPeriodForm] = useState({ 
+    name: '', start_time: '08:00', end_time: '08:45', day_of_week: 1 
+  });
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
 
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+  // Academic Years state
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Search and filter
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    fetchClassesAndSections();
+    fetchAllData();
   }, []);
 
+  // When academicYears changes, update the classes to include academic year names
   useEffect(() => {
-    if (isEditClassView && editId && classes.length > 0) {
-      const target = classes.find(c => c.id === editId || c.code === editId);
-      if (target) {
-        setClassForm({
-          id: target.id,
-          name: target.name,
-          tuitionFee: target.tuition_fee !== undefined && target.tuition_fee !== null ? String(target.tuition_fee) : '',
-          teacherName: target.teacher_name || ''
-        });
-      }
+    if (academicYears.length > 0 && classes.length > 0) {
+      setClasses(prev => 
+        prev.map(cls => ({
+          ...cls,
+          academic_year_name: academicYears.find(y => y.id === cls.academic_year)?.name || cls.academic_year || '--'
+        }))
+      );
     }
-  }, [isEditClassView, editId, classes]);
+  }, [academicYears]);
 
-  const fetchClassesAndSections = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [classesRes, teachersRes, studentsRes] = await Promise.all([
-        academicService.getClasses().catch(() => ({ data: [] })),
-        teacherService.getAll().catch(() => ({ data: [] })),
-        studentService.getAll().catch(() => ({ data: [] }))
+      // Fetch academic years first
+      await fetchAcademicYears();
+      // Then fetch classes, classrooms, periods
+      await Promise.all([
+        fetchClasses(),
+        fetchClassrooms(),
+        fetchPeriods()
       ]);
-
-      const rawClasses = extractListData<SchoolClass>(classesRes.data || []);
-      const rawTeachers = extractListData<any>(teachersRes.data || []);
-      const rawStudents = extractListData<any>(studentsRes.data || []);
-
-      // Merge custom teachers and filter deleted ones to match Employees list
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      const mergedTeachers = [...rawTeachers];
-      customTeachers.forEach((ct: any) => {
-        if (!mergedTeachers.some(t => String(t.id) === String(ct.id))) {
-          mergedTeachers.push(ct);
-        }
-      });
-      const deletedTeacherIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const filteredTeachers = mergedTeachers.filter((t: any) => !deletedTeacherIds.includes(t.id));
-
-      const defaultTeachers = [
-        {
-          id: 't-1',
-          employee_id: '250622',
-          full_name: 'Maryam Fatima',
-          email: 'maryam.fatima@school.edu',
-          phone: '+92 300 1234567',
-          qualifications: ['Master of Education'],
-          specializations: ['Teacher'],
-          experience_years: 5,
-          joining_date: '2026-06-29',
-          is_active: true,
-          profile_picture: null
-        }
-      ];
-
-      setTeachers(filteredTeachers.length > 0 ? filteredTeachers : defaultTeachers);
-
-      // Load custom students to get full list
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const allStudents = [...rawStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-
-      // FIXED: No default classes with hardcoded 3500 fee
-      const defaultClasses: SchoolClass[] = [];
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-
-      // FIXED: Merge classes without overwriting tuition_fee
-      const classMap = new Map<string, any>();
-      
-      [...rawClasses, ...customClasses].forEach(cls => {
-        classMap.set(cls.id, {
-          ...cls,
-          tuition_fee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? Number(cls.tuition_fee) : 0
-        });
-      });
-
-      const combinedRaw = Array.from(classMap.values());
-
-      const mappedClasses = combinedRaw.map((cls) => {
-        // Calculate counts dynamically from all students list
-        const classStudents = allStudents.filter(s => {
-          const sClass = s.class_name || s.current_class_name || s.current_class || '';
-          return sClass.toLowerCase().trim() === cls.name.toLowerCase().trim();
-        });
-
-        const boys = classStudents.filter(s => {
-          const g = (s.gender || '').toLowerCase().trim();
-          return g === 'male' || g === 'boy';
-        }).length;
-
-        const girls = classStudents.filter(s => {
-          const g = (s.gender || '').toLowerCase().trim();
-          return g === 'female' || g === 'girl';
-        }).length;
-
-        const na = classStudents.length - boys - girls;
-
-        return {
-          ...cls,
-          students_count: classStudents.length,
-          boys_count: boys,
-          girls_count: girls,
-          na_count: na,
-          tuition_fee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? Number(cls.tuition_fee) : 0
-        };
-      });
-
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
-      const finalClasses = mappedClasses.filter(c => !deletedIds.includes(c.id));
-      const sortedClasses = finalClasses.slice().sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-      // Remove duplicate class names (case‑insensitive)
-      const uniqueByName = sortedClasses.filter((c, idx, self) =>
-        self.findIndex(sc => sc.name.toLowerCase() === c.name.toLowerCase()) === idx
-      );
-      setClasses(uniqueByName);
-    } catch (err) {
-      toast.error('Failed to load academic classes');
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load academic data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveClass = async () => {
-    if (!classForm.name) {
-      toast.error('Please enter Class Name');
-      return;
-    }
-
-    if (isEditClassView) {
+  const fetchClasses = async () => {
+    try {
+      const response = await academicService.classes.getAll();
+      const data = Array.isArray(response) ? response : [];
+      // Add academic_year_name to each class
+      const mappedData = data.map((cls: any) => ({
+        ...cls,
+        academic_year_name: academicYears.find(y => y.id === cls.academic_year)?.name || cls.academic_year || '--'
+      }));
+      setClasses(mappedData);
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
       try {
-        await academicService.updateClass(classForm.id, {
-          name: classForm.name,
-          code: classForm.name.substring(0, 5).toUpperCase(),
-          tuition_fee: Number(classForm.tuitionFee)
-        });
-      } catch (err) {
-        console.log('Backend class update failed, updating locally:', err);
-      }
-
-      setClasses(prev => prev.map(c => c.id === classForm.id ? {
-        ...c,
-        name: classForm.name,
-        tuition_fee: Number(classForm.tuitionFee),
-        teacher_name: classForm.teacherName
-      } : c));
-      
-      // Update custom_classes if present
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      let updatedCustom = customClasses.map((c: any) => c.id === classForm.id ? {
-        ...c,
-        name: classForm.name,
-        tuition_fee: Number(classForm.tuitionFee),
-        teacher_name: classForm.teacherName
-      } : c);
-      // If the class wasn't in custom_classes (i.e., it's a default class), add it
-      if (!customClasses.some((c: any) => c.id === classForm.id)) {
-        updatedCustom.push({
-          id: classForm.id,
-          name: classForm.name,
-          tuition_fee: Number(classForm.tuitionFee),
-          teacher_name: classForm.teacherName
-        });
-      }
-      localStorage.setItem('custom_classes', JSON.stringify(updatedCustom));
-
-      toast.success('Class information updated successfully!');
-    } else {
-      const newCls = {
-        id: `cls-${Date.now()}`,
-        name: classForm.name,
-        code: classForm.name.substring(0, 5).toUpperCase(),
-        teacher_name: classForm.teacherName,
-        tuition_fee: Number(classForm.tuitionFee),
-        students_count: 0,
-        boys_count: 0,
-        girls_count: 0,
-        na_count: 0
-      };
-
-      try {
-        await academicService.createClass(newCls);
+        const localClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+        if (Array.isArray(localClasses) && localClasses.length > 0) {
+          setClasses(localClasses);
+          toast.warning('Using cached data from localStorage');
+        } else {
+          setClasses([]);
+        }
       } catch (e) {
-        console.log('Backend create class fallback');
+        setClasses([]);
       }
-
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      customClasses.push(newCls);
-      localStorage.setItem('custom_classes', JSON.stringify(customClasses));
-
-      setClasses(prev => [...prev, newCls]);
-      toast.success('Class created successfully!');
     }
-
-    setClassForm({ id: '', name: '', tuitionFee: '', teacherName: '' });
-    navigate('/education/academics');
   };
 
-  const handleDeleteClass = async (cls: SchoolClass) => {
-    if ((cls.students_count || 0) > 0) {
-      toast.error(`⚠️ Cannot delete ${cls.name}: Active students are attached to this class.`);
+  const fetchClassrooms = async () => {
+    try {
+      const data = await academicService.classrooms.getAll();
+      setClassrooms(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching classrooms:', error);
+      try {
+        const localRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
+        if (Array.isArray(localRooms) && localRooms.length > 0) {
+          setClassrooms(localRooms);
+        } else {
+          setClassrooms([]);
+        }
+      } catch (e) {
+        setClassrooms([]);
+      }
+    }
+  };
+
+  const fetchPeriods = async () => {
+    try {
+      const data = await academicService.periods.getAll();
+      setPeriods(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching periods:', error);
+      try {
+        const localPeriods = JSON.parse(localStorage.getItem('custom_periods') || '[]');
+        if (Array.isArray(localPeriods) && localPeriods.length > 0) {
+          setPeriods(localPeriods);
+        } else {
+          setPeriods([]);
+        }
+      } catch (e) {
+        setPeriods([]);
+      }
+    }
+  };
+
+  const fetchAcademicYears = async () => {
+    try {
+      const data = await academicService.academicYears.getAll();
+      console.log('📚 Academic Years fetched:', data);
+      const years = Array.isArray(data) ? data : data?.results || [];
+      setAcademicYears(years);
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error('Error fetching academic years:', error);
+      setAcademicYears([]);
+    }
+  };
+
+  // ----- CLASS CRUD -----
+  const handleSaveClass = async () => {
+    if (!classForm.name.trim()) {
+      toast.error('Class name is required');
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete ${cls.name}?`)) return;
+    if (!classForm.code.trim()) {
+      toast.error('Class code is required');
+      return;
+    }
 
     try {
-      await academicService.deleteClass(cls.id);
-    } catch (err) {
-      console.log('Backend delete class fallback');
+      const payload: any = {
+        name: classForm.name.trim(),
+        code: classForm.code.trim().toUpperCase(),
+        description: classForm.description || '',
+        is_active: true
+      };
+
+      if (classForm.academic_year && classForm.academic_year !== '' && classForm.academic_year !== 'null') {
+        payload.academic_year = classForm.academic_year;
+      } else {
+        payload.academic_year = null;
+      }
+
+      console.log('📤 Sending class payload:', payload);
+
+      if (editingClass) {
+        const updated = await academicService.classes.update(editingClass.id, payload);
+        if (updated && updated.id) {
+          await fetchClasses();
+          toast.success('Class updated successfully');
+        }
+      } else {
+        const created = await academicService.classes.create(payload);
+        if (created && created.id) {
+          await fetchClasses();
+          toast.success('Class created successfully');
+        }
+      }
+      setShowClassModal(false);
+      setEditingClass(null);
+      setClassForm({ name: '', code: '', description: '', academic_year: '' });
+    } catch (error: any) {
+      console.error('Error saving class:', error);
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        console.error('Backend error details:', errorData);
+        if (typeof errorData === 'object') {
+          Object.keys(errorData).forEach(field => {
+            const message = Array.isArray(errorData[field]) 
+              ? errorData[field].join(', ') 
+              : errorData[field];
+            toast.error(`${field}: ${message}`);
+          });
+        } else {
+          toast.error(errorData.message || 'Failed to save class');
+        }
+      } else {
+        toast.error('Failed to save class');
+      }
     }
-
-    // Persist deleted class ID in localStorage
-    const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
-    if (!deletedIds.includes(cls.id)) {
-      deletedIds.push(cls.id);
-      localStorage.setItem('deleted_class_ids', JSON.stringify(deletedIds));
-    }
-
-    // Remove from custom_classes if present
-    const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-    const updatedCustom = customClasses.filter((c: any) => c.id !== cls.id);
-    localStorage.setItem('custom_classes', JSON.stringify(updatedCustom));
-
-    setClasses(prev => prev.filter(c => c.id !== cls.id));
-    toast.success(`${cls.name} deleted permanently`);
   };
 
-  // VIEW 1: NEW CLASS VIEW
-  if (isNewClassView) {
+  const handleDeleteClass = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this class?')) return;
+    
+    try {
+      await academicService.classes.delete(id);
+      setClasses(classes.filter(c => c.id !== id));
+      toast.success('Class deleted successfully');
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      toast.error('Failed to delete class');
+    }
+  };
+
+  // ----- CLASSROOM CRUD -----
+  const handleSaveClassroom = async () => {
+    if (!classroomForm.name.trim()) {
+      toast.error('Classroom name is required');
+      return;
+    }
+
+    try {
+      if (editingClassroom) {
+        const updated = await academicService.classrooms.update(editingClassroom.id, classroomForm);
+        if (updated && updated.id) {
+          setClassrooms(classrooms.map(c => c.id === updated.id ? updated : c));
+          toast.success('Classroom updated successfully');
+        }
+      } else {
+        const created = await academicService.classrooms.create(classroomForm);
+        if (created && created.id) {
+          setClassrooms([created, ...classrooms]);
+          toast.success('Classroom created successfully');
+        }
+      }
+      setShowClassroomModal(false);
+      setEditingClassroom(null);
+      setClassroomForm({ name: '', code: '', capacity: 30, floor: 1, building: 'Main' });
+    } catch (error) {
+      console.error('Error saving classroom:', error);
+      toast.error('Failed to save classroom');
+    }
+  };
+
+  const handleDeleteClassroom = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this classroom?')) return;
+    
+    try {
+      await academicService.classrooms.delete(id);
+      setClassrooms(classrooms.filter(c => c.id !== id));
+      toast.success('Classroom deleted successfully');
+    } catch (error) {
+      console.error('Error deleting classroom:', error);
+      toast.error('Failed to delete classroom');
+    }
+  };
+
+  // ----- PERIOD CRUD -----
+  const handleSavePeriod = async () => {
+    if (!periodForm.name.trim()) {
+      toast.error('Period name is required');
+      return;
+    }
+
+    try {
+      if (editingPeriod) {
+        const updated = await academicService.periods.update(editingPeriod.id, periodForm);
+        if (updated && updated.id) {
+          setPeriods(periods.map(p => p.id === updated.id ? updated : p));
+          toast.success('Period updated successfully');
+        }
+      } else {
+        const created = await academicService.periods.create(periodForm);
+        if (created && created.id) {
+          setPeriods([created, ...periods]);
+          toast.success('Period created successfully');
+        }
+      }
+      setShowPeriodModal(false);
+      setEditingPeriod(null);
+      setPeriodForm({ name: '', start_time: '08:00', end_time: '08:45', day_of_week: 1 });
+    } catch (error) {
+      console.error('Error saving period:', error);
+      toast.error('Failed to save period');
+    }
+  };
+
+  const handleDeletePeriod = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this period?')) return;
+    
+    try {
+      await academicService.periods.delete(id);
+      setPeriods(periods.filter(p => p.id !== id));
+      toast.success('Period deleted successfully');
+    } catch (error) {
+      console.error('Error deleting period:', error);
+      toast.error('Failed to delete period');
+    }
+  };
+
+  // Filter data based on search
+  const getFilteredData = () => {
+    const term = searchTerm.toLowerCase();
+    
+    if (activeTab === 'classes') {
+      const classesArray = Array.isArray(classes) ? classes : [];
+      return classesArray.filter(c => 
+        c && c.name && c.name.toLowerCase().includes(term) || 
+        (c && c.code && c.code.toLowerCase().includes(term))
+      );
+    } else if (activeTab === 'classrooms') {
+      const classroomsArray = Array.isArray(classrooms) ? classrooms : [];
+      return classroomsArray.filter(c => 
+        c && c.name && c.name.toLowerCase().includes(term) || 
+        (c && c.building && c.building.toLowerCase().includes(term))
+      );
+    } else {
+      const periodsArray = Array.isArray(periods) ? periods : [];
+      return periodsArray.filter(p => 
+        p && p.name && p.name.toLowerCase().includes(term)
+      );
+    }
+  };
+
+  const filteredData = getFilteredData();
+  const safeFilteredData = Array.isArray(filteredData) ? filteredData : [];
+  const totalEntries = safeFilteredData.length;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = safeFilteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(totalEntries / itemsPerPage) || 1;
+
+  const classCount = Array.isArray(classes) ? classes.length : 0;
+  const classroomCount = Array.isArray(classrooms) ? classrooms.length : 0;
+  const periodCount = Array.isArray(periods) ? periods.length : 0;
+
+  if (loading) {
     return (
-      <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
-        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
-          <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
-            <span className="cursor-pointer hover:underline" onClick={() => navigate('/education/academics')}>Classes</span>
-            <span>&gt;</span>
-            <span className="text-slate-500">Add New Class</span>
-          </div>
-        </div>
-
-        <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 mt-4">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">1</div>
-            <h2 className="font-bold text-slate-800 text-sm">New Class Details</h2>
-          </div>
-
-          <div className="space-y-5">
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">CLASS NAME *</label>
-              <Input placeholder="e.g. Grade 5 - A" value={classForm.name} onChange={(e) => setClassForm({...classForm, name: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY TUITION FEES *</label>
-              <Input placeholder="Enter fee amount" value={classForm.tuitionFee} onChange={(e) => setClassForm({...classForm, tuitionFee: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT CLASS TEACHER *</label>
-              <select value={classForm.teacherName} onChange={(e) => setClassForm({...classForm, teacherName: e.target.value})} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                <option value="">-- Choose a teacher --</option>
-                {teachers.map((t) => <option key={t.id || t.full_name} value={t.full_name}>{t.full_name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-6 border-t border-slate-100">
-            <button onClick={() => navigate('/education/academics')} className="flex items-center gap-1.5 px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-colors"><ArrowLeft className="w-4 h-4" /> Back</button>
-            <button onClick={handleSaveClass} className="flex items-center gap-1.5 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all"><Plus className="w-4 h-4" /> Create Class</button>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-transparent mx-auto"></div>
+          <p className="text-sm text-slate-500">Loading academic data...</p>
         </div>
       </div>
     );
   }
 
-  // VIEW 2: EDIT CLASS VIEW
-  if (isEditClassView) {
-    return (
-      <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
-        <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
-          <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
-            <span className="cursor-pointer hover:underline" onClick={() => navigate('/education/academics')}>Classes</span>
-            <span>&gt;</span>
-            <span className="text-slate-500">Edit Class Information</span>
-          </div>
-        </div>
-
-        <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6 mt-4">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="w-7 h-7 rounded-full bg-indigo-950 text-white flex items-center justify-center text-xs font-bold">1</div>
-            <h2 className="font-bold text-slate-800 text-sm">Edit Class Information</h2>
-          </div>
-
-          <div className="space-y-5">
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">CLASS NAME *</label>
-              <Input value={classForm.name} onChange={(e) => setClassForm({...classForm, name: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY FEES *</label>
-              <Input value={classForm.tuitionFee} onChange={(e) => setClassForm({...classForm, tuitionFee: e.target.value})} className="text-xs h-11 rounded-xl border-slate-200" />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT CLASS TEACHER *</label>
-              <select value={classForm.teacherName} onChange={(e) => setClassForm({...classForm, teacherName: e.target.value})} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                <option value="">-- Choose a teacher --</option>
-                {teachers.map((t) => <option key={t.id || t.full_name} value={t.full_name}>{t.full_name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-6 border-t border-slate-100">
-            <button onClick={() => navigate('/education/academics')} className="flex items-center gap-1.5 px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-colors"><ArrowLeft className="w-4 h-4" /> Back</button>
-            <button onClick={handleSaveClass} className="flex items-center gap-1.5 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all"><RotateCcw className="w-4 h-4" /> Update Class</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // VIEW 3: ALL CLASSES GRID
   return (
-    <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
-      {/* Breadcrumb Header */}
-      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
+    <div className="space-y-6 bg-slate-50 min-h-screen p-4 text-slate-800">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
-          <span className="cursor-pointer hover:underline" onClick={() => navigate('/dashboard')}>Classes</span>
+          <GraduationCap className="w-4 h-4" />
+          <span>Academics</span>
           <span>&gt;</span>
-          <span className="text-slate-500">All Classes</span>
+          <span className="text-slate-500">
+            {activeTab === 'classes' ? 'Classes' : activeTab === 'classrooms' ? 'Classrooms' : 'Periods'}
+          </span>
         </div>
+        <button 
+          onClick={fetchAllData} 
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold transition-colors"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Reload
+        </button>
+      </div>
 
-        <div className="flex items-center gap-3">
-          {/* View Mode Toggle Buttons */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${
-                viewMode === 'list' ? 'bg-white text-purple-650 shadow-3xs' : 'text-slate-450 hover:text-slate-700'
-              }`}
-              title="List View"
-            >
-              <List className="w-4.5 h-4.5" />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md transition-all ${
-                viewMode === 'grid' ? 'bg-white text-purple-650 shadow-3xs' : 'text-slate-450 hover:text-slate-700'
-              }`}
-              title="Grid View"
-            >
-              <LayoutGrid className="w-4.5 h-4.5" />
-            </button>
+      {/* Tabs */}
+      <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-xs flex gap-1">
+        <button
+          onClick={() => { setActiveTab('classes'); setCurrentPage(1); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            activeTab === 'classes' 
+              ? 'bg-purple-600 text-white shadow-md' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" /> Classes ({classCount})
+        </button>
+        <button
+          onClick={() => { setActiveTab('classrooms'); setCurrentPage(1); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            activeTab === 'classrooms' 
+              ? 'bg-purple-600 text-white shadow-md' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Building2 className="w-4 h-4" /> Classrooms ({classroomCount})
+        </button>
+        <button
+          onClick={() => { setActiveTab('periods'); setCurrentPage(1); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            activeTab === 'periods' 
+              ? 'bg-purple-600 text-white shadow-md' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Clock className="w-4 h-4" /> Periods ({periodCount})
+        </button>
+      </div>
+
+      {/* Search and Add */}
+      <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Input
+              placeholder={`Search ${activeTab}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="text-xs h-10 rounded-lg border-slate-200"
+            />
           </div>
-
           <button
             onClick={() => {
-              setClassForm({ id: '', name: '', tuitionFee: '', teacherName: '' });
-              navigate('/education/academics?action=new-class');
+              if (activeTab === 'classes') {
+                // Navigate to Add Class page instead of opening modal
+                navigate('/education/academics/classes/add');
+              } else if (activeTab === 'classrooms') {
+                setEditingClassroom(null);
+                setClassroomForm({ name: '', code: '', capacity: 30, floor: 1, building: 'Main' });
+                setShowClassroomModal(true);
+              } else {
+                setEditingPeriod(null);
+                setPeriodForm({ name: '', start_time: '08:00', end_time: '08:45', day_of_week: 1 });
+                setShowPeriodModal(true);
+              }
             }}
-            className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs h-8.5 rounded-lg shadow-2xs px-3 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-lg shadow-md transition-all"
           >
-            <Plus className="w-3.5 h-3.5" /> Add Class
+            <Plus className="w-4 h-4" /> Add {activeTab === 'classes' ? 'Class' : activeTab === 'classrooms' ? 'Classroom' : 'Period'}
           </button>
         </div>
       </div>
 
-      {viewMode === 'list' ? (
-        <div className="space-y-3 pt-2">
-          {classes.map((cls) => {
-            const isExpanded = expandedClassId === cls.id;
-            return (
-              <div 
-                key={cls.id} 
-                className="bg-white rounded-xl border border-slate-100 shadow-3xs hover:border-purple-100 transition-all overflow-hidden"
-              >
-                {/* Compact Row Header */}
-                <div 
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer select-none"
-                  onClick={() => setExpandedClassId(isExpanded ? null : cls.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-650 flex items-center justify-center">
-                      <GraduationCap className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xs text-slate-800">{cls.name}</h3>
-                      <span className="text-[10px] text-slate-400 font-semibold">
-                        Class Teacher: {cls.teacher_name || 'Not Assigned'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4 sm:gap-8">
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Students</span>
-                      <span className="text-xs font-bold text-slate-800">{cls.students_count || 0} enrolled</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-wider">Tuition Fees</span>
-                      <span className="text-xs font-bold text-slate-800">PKR {cls.tuition_fee || 0} / month</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setClassForm({ id: cls.id, name: cls.name, tuitionFee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? String(cls.tuition_fee) : '', teacherName: cls.teacher_name || '' });
-                          navigate(`/education/academics?action=edit-class&id=${cls.id}`);
-                        }}
-                        className="p-1.5 text-slate-455 hover:text-purple-600 bg-slate-50 hover:bg-purple-50 rounded-lg border border-slate-100 transition-colors"
-                        title="Edit Class"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteClass(cls);
-                        }}
-                        className="p-1.5 text-slate-455 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-100 transition-colors"
-                        title="Delete Class"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <div className="p-1 text-slate-455 hover:text-slate-700">
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded Details Body */}
-                {isExpanded && (
-                  <div className="px-4 pb-4 border-t border-slate-50 pt-4 bg-slate-50/20">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Left: Students Gender Breakdown */}
-                      {(() => {
-                        const total = cls.students_count || 0;
-                        const boysPercent = total > 0 ? Math.round((cls.boys_count / total) * 100) : 0;
-                        const girlsPercent = total > 0 ? Math.round((cls.girls_count / total) * 100) : 0;
-                        const naPercent = total > 0 ? Math.round((cls.na_count / total) * 100) : 0;
-
-                        return (
-                          <div className="space-y-3">
-                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Students Gender Breakdown</h4>
-                            <div className="flex items-center gap-6">
-                              <div className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[8px] font-black ${boysPercent > 0 ? 'border-blue-500 text-blue-600' : 'border-slate-100 text-slate-400'}`}>
-                                  {boysPercent}%
-                                </div>
-                                <div>
-                                  <span className="text-[9px] text-slate-400 block font-bold">Boys</span>
-                                  <span className="text-xs font-bold text-slate-800">{cls.boys_count || 0}</span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[8px] font-black ${girlsPercent > 0 ? 'border-rose-500 text-rose-600' : 'border-slate-100 text-slate-400'}`}>
-                                  {girlsPercent}%
-                                </div>
-                                <div>
-                                  <span className="text-[9px] text-slate-400 block font-bold">Girls</span>
-                                  <span className="text-xs font-bold text-slate-800">{cls.girls_count || 0}</span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[8px] font-black ${naPercent > 0 ? 'border-slate-400 text-slate-500' : 'border-slate-100 text-slate-400'}`}>
-                                  {naPercent}%
-                                </div>
-                                <div>
-                                  <span className="text-[9px] text-slate-400 block font-bold">N/A</span>
-                                  <span className="text-xs font-bold text-slate-800">{cls.na_count || 0}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Right: Quick Action Links */}
-                      <div className="space-y-3">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Actions & Navigation</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => navigate(`/education/curriculum?action=assign&class=${cls.name}`)}
-                            className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-black rounded-lg transition-colors border border-purple-100"
-                          >
-                            📚 Assign Subjects
-                          </button>
-                          <button
-                            onClick={() => navigate(`/education/timetable/editor?class_id=${cls.name}`)}
-                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black rounded-lg transition-colors border border-blue-100"
-                          >
-                            📅 Edit Timetable
-                          </button>
-                          <button
-                            onClick={() => navigate(`/education/timetable/view?class_id=${cls.name}`)}
-                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-lg transition-colors border border-emerald-100"
-                          >
-                            👁️ View Timetable
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                {activeTab === 'classes' && (
+                  <>
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Code</th>
+                    <th className="py-3 px-4">Academic Year</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
+                  </>
                 )}
-              </div>
-            );
-          })}
+                {activeTab === 'classrooms' && (
+                  <>
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Code</th>
+                    <th className="py-3 px-4">Capacity</th>
+                    <th className="py-3 px-4">Building</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
+                  </>
+                )}
+                {activeTab === 'periods' && (
+                  <>
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Start</th>
+                    <th className="py-3 px-4">End</th>
+                    <th className="py-3 px-4">Day</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody key={refreshKey}>
+              {currentItems.length > 0 ? (
+                currentItems.map((item: any) => (
+                  <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    {activeTab === 'classes' && (
+                      <>
+                        <td className="py-3 px-4 font-bold text-slate-800">{item.name || '--'}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{item.code || '--'}</td>
+                        <td className="py-3 px-4 text-slate-600">
+                          {item.academic_year_name || item.academic_year || '--'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.is_active !== false 
+                              ? 'bg-emerald-50 text-emerald-700' 
+                              : 'bg-rose-50 text-rose-700'
+                          }`}>
+                            {item.is_active !== false ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => navigate(`/education/academics/classes/edit/${item.id}`)}
+                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors"
+                              title="Edit Class"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClass(item.id)}
+                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 transition-colors"
+                              title="Delete Class"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                    {activeTab === 'classrooms' && (
+                      <>
+                        <td className="py-3 px-4 font-bold text-slate-800">{item.name || '--'}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{item.code || '--'}</td>
+                        <td className="py-3 px-4 text-slate-600">{item.capacity || 0}</td>
+                        <td className="py-3 px-4 text-slate-600">{item.building || 'Main'}</td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingClassroom(item);
+                                setClassroomForm({
+                                  name: item.name || '',
+                                  code: item.code || '',
+                                  capacity: item.capacity || 30,
+                                  floor: item.floor || 1,
+                                  building: item.building || 'Main'
+                                });
+                                setShowClassroomModal(true);
+                              }}
+                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClassroom(item.id)}
+                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                    {activeTab === 'periods' && (
+                      <>
+                        <td className="py-3 px-4 font-bold text-slate-800">{item.name || '--'}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{item.start_time || '--'}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{item.end_time || '--'}</td>
+                        <td className="py-3 px-4 text-slate-600">
+                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][(item.day_of_week || 1) - 1] || '--'}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingPeriod(item);
+                                setPeriodForm({
+                                  name: item.name || '',
+                                  start_time: item.start_time || '08:00',
+                                  end_time: item.end_time || '08:45',
+                                  day_of_week: item.day_of_week || 1
+                                });
+                                setShowPeriodModal(true);
+                              }}
+                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePeriod(item.id)}
+                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
+                    No {activeTab} found. Click "Add {activeTab === 'classes' ? 'Class' : activeTab === 'classrooms' ? 'Classroom' : 'Period'}" to create one.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        /* Classes Cards Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
-          {classes.map((cls) => (
-          <div key={cls.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs space-y-6 relative overflow-hidden border-t-4 border-purple-600 hover:shadow-md transition-all">
-            {/* Card Header */}
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-base text-slate-800">{cls.name}</h3>
-              <div className="flex items-center gap-1.5">
-                <button 
-                  onClick={() => {
-                    setClassForm({ id: cls.id, name: cls.name, tuitionFee: cls.tuition_fee !== undefined && cls.tuition_fee !== null ? String(cls.tuition_fee) : '', teacherName: cls.teacher_name || '' });
-                    navigate(`/education/academics?action=edit-class&id=${cls.id}`);
-                  }}
-                  className="p-1.5 text-slate-400 hover:text-purple-600 bg-slate-50 hover:bg-purple-50 rounded-lg border border-slate-200 transition-colors"
-                  title="Edit Class"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                </button>
-                <button 
-                  onClick={() => handleDeleteClass(cls)} 
-                  className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-lg border border-slate-200 transition-colors"
-                  title="Delete Class"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+
+        {/* Pagination */}
+        {totalEntries > 0 && (
+          <div className="flex justify-between items-center text-xs font-semibold text-slate-500 px-4 py-3 border-t border-slate-100">
+            <div>
+              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, totalEntries)} of {totalEntries}
             </div>
-
-            {/* Card Body Top Student Count */}
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-purple-50 flex flex-col items-center justify-center text-purple-600 shrink-0">
-                <GraduationCap className="w-7 h-7" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-black text-slate-800 leading-tight">{cls.students_count || 0}</span>
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">STUDENTS</span>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Previous
+              </button>
+              <button className="px-3 py-1.5 bg-purple-600 text-white rounded-lg font-bold">
+                {currentPage}
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Next
+              </button>
             </div>
-
-            {/* Gender Circular Progress Row */}
-            {(() => {
-              const total = cls.students_count || 0;
-              const boysPercent = total > 0 ? Math.round((cls.boys_count / total) * 100) : 0;
-              const girlsPercent = total > 0 ? Math.round((cls.girls_count / total) * 100) : 0;
-              const naPercent = total > 0 ? Math.round((cls.na_count / total) * 100) : 0;
-
-              return (
-                <div className="grid grid-cols-3 gap-2 pt-2 text-center border-t border-slate-100/80">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-[10px] font-bold ${boysPercent > 0 ? 'border-blue-500 border-t-blue-300 text-blue-600' : 'border-slate-100 text-slate-400'}`}>
-                      {boysPercent}%
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 mt-1.5">Boys</span>
-                    <span className="text-xs font-bold text-slate-700">{cls.boys_count || 0}</span>
-                  </div>
-
-                  <div className="flex flex-col items-center">
-                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-[10px] font-bold ${girlsPercent > 0 ? 'border-rose-500 border-t-rose-300 text-rose-600' : 'border-slate-100 text-slate-400'}`}>
-                      {girlsPercent}%
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 mt-1.5">Girls</span>
-                    <span className="text-xs font-bold text-slate-700">{cls.girls_count || 0}</span>
-                  </div>
-
-                  <div className="flex flex-col items-center">
-                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-[10px] font-bold ${naPercent > 0 ? 'border-slate-400 border-t-slate-300 text-slate-500' : 'border-slate-100 text-slate-400'}`}>
-                      {naPercent}%
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 mt-1.5">N/A</span>
-                    <span className="text-xs font-bold text-slate-700">{cls.na_count || 0}</span>
-                  </div>
-                </div>
-              );
-            })()}
           </div>
-        ))}
-
-        {/* Dashed Add New Class Card */}
-        <div 
-          onClick={() => {
-            setClassForm({ id: '', name: '', tuitionFee: '', teacherName: '' });
-            navigate('/education/academics?action=new-class');
-          }} 
-          className="bg-white rounded-2xl p-8 border-2 border-dashed border-slate-200 hover:border-purple-400 flex flex-col items-center justify-center text-center cursor-pointer min-h-[220px] transition-all group shadow-2xs"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-purple-600 group-hover:bg-purple-700 text-white flex items-center justify-center shadow-md mb-3 transition-colors">
-            <Plus className="w-8 h-8" />
-          </div>
-          <h3 className="font-bold text-slate-800 text-sm">Add New Class</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Create a new class with sections</p>
-        </div>
+        )}
       </div>
+
+      {/* Modal - Classroom */}
+      {showClassroomModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">
+              {editingClassroom ? 'Edit Classroom' : 'Add New Classroom'}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Name *</label>
+                <Input
+                  value={classroomForm.name}
+                  onChange={(e) => setClassroomForm({ ...classroomForm, name: e.target.value })}
+                  placeholder="e.g., Room 101"
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Code</label>
+                <Input
+                  value={classroomForm.code}
+                  onChange={(e) => setClassroomForm({ ...classroomForm, code: e.target.value })}
+                  placeholder="e.g., R101"
+                  className="text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Capacity</label>
+                  <Input
+                    type="number"
+                    value={classroomForm.capacity}
+                    onChange={(e) => setClassroomForm({ ...classroomForm, capacity: parseInt(e.target.value) || 0 })}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Floor</label>
+                  <Input
+                    type="number"
+                    value={classroomForm.floor}
+                    onChange={(e) => setClassroomForm({ ...classroomForm, floor: parseInt(e.target.value) || 1 })}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Building</label>
+                <Input
+                  value={classroomForm.building}
+                  onChange={(e) => setClassroomForm({ ...classroomForm, building: e.target.value })}
+                  placeholder="e.g., Main, East, West"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => { setShowClassroomModal(false); setEditingClassroom(null); }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveClassroom}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-lg transition-colors"
+              >
+                {editingClassroom ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal - Period */}
+      {showPeriodModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">
+              {editingPeriod ? 'Edit Period' : 'Add New Period'}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Name *</label>
+                <Input
+                  value={periodForm.name}
+                  onChange={(e) => setPeriodForm({ ...periodForm, name: e.target.value })}
+                  placeholder="e.g., Period 1, Math Period"
+                  className="text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Start Time</label>
+                  <Input
+                    type="time"
+                    value={periodForm.start_time}
+                    onChange={(e) => setPeriodForm({ ...periodForm, start_time: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">End Time</label>
+                  <Input
+                    type="time"
+                    value={periodForm.end_time}
+                    onChange={(e) => setPeriodForm({ ...periodForm, end_time: e.target.value })}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Day</label>
+                <select
+                  value={periodForm.day_of_week}
+                  onChange={(e) => setPeriodForm({ ...periodForm, day_of_week: parseInt(e.target.value) })}
+                  className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value={1}>Monday</option>
+                  <option value={2}>Tuesday</option>
+                  <option value={3}>Wednesday</option>
+                  <option value={4}>Thursday</option>
+                  <option value={5}>Friday</option>
+                  <option value={6}>Saturday</option>
+                  <option value={7}>Sunday</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => { setShowPeriodModal(false); setEditingPeriod(null); }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePeriod}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-lg transition-colors"
+              >
+                {editingPeriod ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -91,50 +91,23 @@ print("\n🏫 3. Creating Classes and Sections...")
 
 # Primary Classes (Grade 0-4)
 primary_classes = [
-    {'name': 'Play Group', 'code': 'PG', 'grade': 0, 'program': 'PREP'},
-    {'name': 'Nursery', 'code': 'NUR', 'grade': 1, 'program': 'PREP'},
-    {'name': 'Prep', 'code': 'PREP', 'grade': 2, 'program': 'PREP'},
-    {'name': 'Grade 1', 'code': 'G1', 'grade': 3, 'program': 'PREP'},
-    {'name': 'Grade 2', 'code': 'G2', 'grade': 4, 'program': 'PREP'},
-    {'name': 'Grade 3', 'code': 'G3', 'grade': 5, 'program': 'PREP'},
-    {'name': 'Grade 4', 'code': 'G4', 'grade': 6, 'program': 'PREP'},
-    {'name': 'Grade 5', 'code': 'G5', 'grade': 7, 'program': 'PREP'},
-]
+    ]
 
 # Middle Classes (Grade 6-8)
 middle_classes = [
-    {'name': 'Grade 6', 'code': 'G6', 'grade': 8, 'program': 'MID'},
-    {'name': 'Grade 7', 'code': 'G7', 'grade': 9, 'program': 'MID'},
-    {'name': 'Grade 8', 'code': 'G8', 'grade': 10, 'program': 'MID'},
-]
+    ]
 
 # Matric Classes (Grade 9-10)
 matric_classes = [
-    {'name': 'Grade 9', 'code': 'G9', 'grade': 11, 'program': 'MATRIC'},
-    {'name': 'Grade 10', 'code': 'G10', 'grade': 12, 'program': 'MATRIC'},
-]
+    ]
 
 # College/Intermediate Classes (Grade 11-12)
 college_classes = [
-    {'name': 'F.Sc Pre-Engineering (11)', 'code': 'FSC_E_11', 'grade': 13, 'program': 'FSC_PRE_ENG'},
-    {'name': 'F.Sc Pre-Engineering (12)', 'code': 'FSC_E_12', 'grade': 14, 'program': 'FSC_PRE_ENG'},
-    {'name': 'F.Sc Pre-Medical (11)', 'code': 'FSC_M_11', 'grade': 13, 'program': 'FSC_PRE_MED'},
-    {'name': 'F.Sc Pre-Medical (12)', 'code': 'FSC_M_12', 'grade': 14, 'program': 'FSC_PRE_MED'},
-    {'name': 'ICS (11)', 'code': 'ICS_11', 'grade': 13, 'program': 'ICS'},
-    {'name': 'ICS (12)', 'code': 'ICS_12', 'grade': 14, 'program': 'ICS'},
-]
+    ]
 
 # University Classes (BS Programs)
 bs_classes = [
-    {'name': 'BS CS Semester 1', 'code': 'BS_CS_1', 'grade': 15, 'program': 'BS_CS'},
-    {'name': 'BS CS Semester 2', 'code': 'BS_CS_2', 'grade': 16, 'program': 'BS_CS'},
-    {'name': 'BS CS Semester 3', 'code': 'BS_CS_3', 'grade': 17, 'program': 'BS_CS'},
-    {'name': 'BS CS Semester 4', 'code': 'BS_CS_4', 'grade': 18, 'program': 'BS_CS'},
-    {'name': 'BS SE Semester 1', 'code': 'BS_SE_1', 'grade': 15, 'program': 'BS_SE'},
-    {'name': 'BS SE Semester 2', 'code': 'BS_SE_2', 'grade': 16, 'program': 'BS_SE'},
-    {'name': 'BBA Semester 1', 'code': 'BBA_1', 'grade': 15, 'program': 'BBA'},
-    {'name': 'BBA Semester 2', 'code': 'BBA_2', 'grade': 16, 'program': 'BBA'},
-]
+   ]
 
 all_classes = primary_classes + middle_classes + matric_classes + college_classes + bs_classes
 

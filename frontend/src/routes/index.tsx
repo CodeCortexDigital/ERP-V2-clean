@@ -15,7 +15,7 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
 // Lazy-loaded pages for code splitting
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const AnalyticsPage = lazy(() => import('../pages/Analytics'));
-const SettingsPage = lazy(() => import('../pages/settings/SettingsPage'));
+const SettingsPage = lazy(() => import('../pages/settings/oldSettingsPage'));
 const StudentDashboard = lazy(() => import('../pages/portals/student/StudentDashboard'));
 const TeacherDashboard = lazy(() => import('../pages/portals/teacher/TeacherDashboard'));
 const ParentDashboard = lazy(() => import('../pages/portals/parent/ParentDashboard'));

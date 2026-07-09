@@ -22,39 +22,9 @@ export default function TeachersManagement() {
     try {
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const fetched = extractListData<Teacher>(tRes.data);
-      
-      // Load custom_teachers from localStorage
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      
-      // Merge them, avoiding duplicate IDs
-      const merged = [...fetched];
-      customTeachers.forEach((ct: any) => {
-        if (!merged.some(t => String(t.id) === String(ct.id))) {
-          merged.push(ct);
-        }
-      });
 
-      // Filter out deleted ones locally
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const filtered = merged.filter(t => !deletedIds.includes(t.id));
-      
-      const defaultTeachers = [
-        {
-          id: 't-1',
-          employee_id: '250622',
-          full_name: 'Maryam Fatima',
-          email: 'maryam.fatima@school.edu',
-          phone: '+92 300 1234567',
-          qualifications: ['Master of Education'],
-          specializations: ['Teacher'],
-          experience_years: 5,
-          joining_date: '2026-06-29',
-          is_active: true,
-          profile_picture: null
-        }
-      ];
-
-      setTeachers(filtered.length > 0 ? filtered : defaultTeachers);
+      const activeTeachers = fetched.filter((teacher) => teacher.is_active !== false);
+      setTeachers(activeTeachers);
     } catch (error) {
       console.error('Error fetching employees:', error);
     } finally {
@@ -70,35 +40,11 @@ export default function TeachersManagement() {
       console.log('Backend delete employee fallback');
     }
 
-    const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-    deletedIds.push(id);
-    localStorage.setItem('deleted_teacher_ids', JSON.stringify(deletedIds));
-    
-    // Also remove from local extra details map
-    const savedExtras = localStorage.getItem('employees_extra_info');
-    if (savedExtras) {
-      try {
-        const extrasMap = JSON.parse(savedExtras);
-        delete extrasMap[id];
-        localStorage.setItem('employees_extra_info', JSON.stringify(extrasMap));
-      } catch (e) {}
-    }
-
     toast.success('Employee deleted successfully.');
     fetchTeachers();
   };
 
-  // Get custom extra details (like role) from localStorage
   const getEmployeeRole = (teacher: Teacher) => {
-    const savedExtras = localStorage.getItem('employees_extra_info');
-    if (savedExtras) {
-      try {
-        const extrasMap = JSON.parse(savedExtras);
-        if (extrasMap[teacher.id]?.role) {
-          return extrasMap[teacher.id].role;
-        }
-      } catch (e) {}
-    }
     return teacher.specializations?.[0] || 'Teacher';
   };
 

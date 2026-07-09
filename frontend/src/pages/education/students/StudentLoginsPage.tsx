@@ -22,6 +22,46 @@ export default function StudentLoginsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Specific placeholder detection - only filter out known test/placeholder students
+  const isPlaceholderStudent = (student: any) => {
+    if (!student) return true;
+    
+    const id = String(student.id || '').trim();
+    const studentId = String(student.student_id || '').trim();
+    const fullName = String(student.full_name || student.name || '').trim().toLowerCase();
+    
+    // Only filter out very specific known placeholders
+    if (id === 'std-1' || id === 'std-2' || id === 'std-3') return true;
+    if (studentId === '001' || studentId === '002' || studentId === '003') return true;
+    
+    // Only filter out exact placeholder names (not substrings)
+    const placeholderNames = ['urwah', 'urwah azhar', 'sundas', 'sundasg', 'sundas azhar'];
+    if (placeholderNames.includes(fullName)) return true;
+    
+    return false;
+  };
+
+  // Deduplicate students by ID
+  const deduplicateStudents = (studentsList: any[]) => {
+    const seen = new Map();
+    const result: any[] = [];
+    
+    for (const student of studentsList) {
+      // Skip placeholder students
+      if (isPlaceholderStudent(student)) continue;
+      
+      // Use both id and student_id for deduplication
+      const idKey = student.id || student.student_id;
+      
+      if (!seen.has(idKey)) {
+        seen.set(idKey, true);
+        result.push(student);
+      }
+    }
+    
+    return result;
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -37,24 +77,22 @@ export default function StudentLoginsPage() {
       const rawStudents = extractListData<any>(sRes.data || []);
       const rawClasses = extractListData<any>(cRes.data || []);
 
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const filteredDbStudents = rawStudents.filter(s => !deletedStudentIds.includes(s.id));
-
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...filteredDbStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-
-      const defaultClasses = [
-        { id: 'cls-1', name: 'Grade 1-A' },
-        { id: 'cls-2', name: 'Grade 1-B' }
-      ];
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      const combinedClasses = [...(rawClasses.length > 0 ? rawClasses : defaultClasses), ...customClasses];
-      const deletedClassIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
+      console.log('Raw students from API:', rawStudents);
+      const filteredStudents = rawStudents.filter(s => !isPlaceholderStudent(s));
+      const finalStudentsList = deduplicateStudents(filteredStudents);
       
-      // Unique class list by name
+      console.log('Unique students after deduplication:', finalStudentsList);
+      console.log('Number of unique students:', finalStudentsList.length);
+
+      setStudents(finalStudentsList);
+
+      // Process classes with deduplication
+      const filteredClasses = rawClasses.filter((c: any) => c && c.name);
+
+      // Deduplicate classes by name
       const uniqueClasses: any[] = [];
       const seenNames = new Set<string>();
-      for (const c of combinedClasses.filter(c => !deletedClassIds.includes(c.id))) {
+      for (const c of filteredClasses) {
         if (!c.name) continue;
         const normalized = c.name.trim().toLowerCase();
         if (!seenNames.has(normalized)) {
@@ -63,19 +101,6 @@ export default function StudentLoginsPage() {
         }
       }
 
-      const defaultStudents = [
-        { 
-          id: 'std-1', 
-          student_id: '001', 
-          full_name: 'Sundasg', 
-          class_name: 'Grade 1-A',
-          father_name: 'azhar',
-          phone: '+92 300 1234567' 
-        }
-      ];
-
-      const finalStudentsList = allStudents.length > 0 ? allStudents : defaultStudents;
-      setStudents(finalStudentsList);
       setClasses(uniqueClasses);
 
       // Load saved credentials from localStorage
@@ -109,6 +134,7 @@ export default function StudentLoginsPage() {
       setCredentials(updatedCreds);
       localStorage.setItem('student_login_credentials', JSON.stringify(updatedCreds));
     } catch (err) {
+      console.error('Error fetching data:', err);
       toast.error('Failed to load students login list');
     } finally {
       setLoading(false);
@@ -138,12 +164,16 @@ export default function StudentLoginsPage() {
 
   // Filter students based on selection & search
   const filteredStudents = students.filter(s => {
+    // Skip placeholder students
+    if (isPlaceholderStudent(s)) return false;
+    
     const sClass = s.class_name || s.current_class_name || s.current_class || '';
     const classMatch = selectedClass === '' || sClass.toLowerCase().trim() === selectedClass.toLowerCase().trim();
     
     const query = searchTerm.toLowerCase();
     const searchMatch = 
       (s.full_name || '').toLowerCase().includes(query) ||
+      (s.name || '').toLowerCase().includes(query) ||
       (s.student_id || '').toLowerCase().includes(query) ||
       (s.father_name || '').toLowerCase().includes(query);
 
@@ -156,6 +186,18 @@ export default function StudentLoginsPage() {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredStudents.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(totalEntries / itemsPerPage) || 1;
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-transparent mx-auto"></div>
+          <p className="text-sm text-slate-500">Loading students...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12">
@@ -273,134 +315,144 @@ export default function StudentLoginsPage() {
 
         {/* Dynamic HTML Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                <th className="py-3 px-4">ID</th>
-                <th className="py-3 px-4">Student Name</th>
-                <th className="py-3 px-4">Class</th>
-                <th className="py-3 px-4">Username</th>
-                <th className="py-3 px-4">Password</th>
-                <th className="py-3 px-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems.length > 0 ? (
-                currentItems.map((s) => {
-                  const sClass = s.class_name || s.current_class_name || s.current_class || 'Grade 1-A';
-                  const cred = credentials[s.id] || { username: '', password: '' };
-                  const isVisible = visiblePasswords[s.id] || false;
-
-                  return (
-                    <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-500">{s.student_id}</td>
-                      <td className="py-3.5 px-4 font-bold text-slate-800">{s.full_name}</td>
-                      <td className="py-3.5 px-4 font-extrabold text-slate-600">{sClass}</td>
-                      
-                      {/* Username input field with User icon prefix */}
-                      <td className="py-3.5 px-4">
-                        <div className="relative flex items-center max-w-[200px]">
-                          <User className="absolute left-3 w-4 h-4 text-purple-400" />
-                          <input
-                            type="text"
-                            value={cred.username}
-                            onChange={(e) => {
-                              const updated = { ...credentials };
-                              updated[s.id] = { ...cred, username: e.target.value };
-                              setCredentials(updated);
-                            }}
-                            className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Password input field with Lock icon prefix and Show/Hide button */}
-                      <td className="py-3.5 px-4">
-                        <div className="relative flex items-center max-w-[200px]">
-                          <Lock className="absolute left-3 w-4 h-4 text-purple-400" />
-                          <input
-                            type={isVisible ? "text" : "password"}
-                            value={cred.password || ''}
-                            onChange={(e) => {
-                              const updated = { ...credentials };
-                              updated[s.id] = { ...cred, password: e.target.value };
-                              setCredentials(updated);
-                            }}
-                            className="w-full h-9 pl-9 pr-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs font-mono"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = { ...visiblePasswords };
-                              updated[s.id] = !isVisible;
-                              setVisiblePasswords(updated);
-                            }}
-                            className="absolute right-3 text-slate-400 hover:text-slate-600"
-                          >
-                            {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* Actions: Save & Send */}
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleSaveCredentials(s.id)}
-                            className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-2xs"
-                            title="Save Credentials"
-                          >
-                            <Save className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleSendCredentials(s.id)}
-                            className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-2xs"
-                            title="Send login info"
-                          >
-                            <Mail className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
-                    No matching student login records found.
-                  </td>
+          {students.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4">👨‍🎓</div>
+              <h3 className="text-lg font-bold text-slate-700">No Students Found</h3>
+              <p className="text-sm text-slate-500 mt-2">Please add students to manage their login credentials.</p>
+            </div>
+          ) : (
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                  <th className="py-3 px-4">ID</th>
+                  <th className="py-3 px-4">Student Name</th>
+                  <th className="py-3 px-4">Class</th>
+                  <th className="py-3 px-4">Username</th>
+                  <th className="py-3 px-4">Password</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {currentItems.length > 0 ? (
+                  currentItems.map((s) => {
+                    const sClass = s.class_name || s.current_class_name || s.current_class || 'Grade 1-A';
+                    const cred = credentials[s.id] || { username: '', password: '' };
+                    const isVisible = visiblePasswords[s.id] || false;
+
+                    return (
+                      <tr key={s.id || s.student_id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-500">{s.student_id || s.registration_no || '--'}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800">{s.full_name || s.name || '--'}</td>
+                        <td className="py-3.5 px-4 font-extrabold text-slate-600">{sClass}</td>
+                        
+                        {/* Username input field with User icon prefix */}
+                        <td className="py-3.5 px-4">
+                          <div className="relative flex items-center max-w-[200px]">
+                            <User className="absolute left-3 w-4 h-4 text-purple-400" />
+                            <input
+                              type="text"
+                              value={cred.username}
+                              onChange={(e) => {
+                                const updated = { ...credentials };
+                                updated[s.id] = { ...cred, username: e.target.value };
+                                setCredentials(updated);
+                              }}
+                              className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Password input field with Lock icon prefix and Show/Hide button */}
+                        <td className="py-3.5 px-4">
+                          <div className="relative flex items-center max-w-[200px]">
+                            <Lock className="absolute left-3 w-4 h-4 text-purple-400" />
+                            <input
+                              type={isVisible ? "text" : "password"}
+                              value={cred.password || ''}
+                              onChange={(e) => {
+                                const updated = { ...credentials };
+                                updated[s.id] = { ...cred, password: e.target.value };
+                                setCredentials(updated);
+                              }}
+                              className="w-full h-9 pl-9 pr-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...visiblePasswords };
+                                updated[s.id] = !isVisible;
+                                setVisiblePasswords(updated);
+                              }}
+                              className="absolute right-3 text-slate-400 hover:text-slate-600"
+                            >
+                              {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Actions: Save & Send */}
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleSaveCredentials(s.id)}
+                              className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-2xs"
+                              title="Save Credentials"
+                            >
+                              <Save className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleSendCredentials(s.id)}
+                              className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-2xs"
+                              title="Send login info"
+                            >
+                              <Mail className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400 font-bold">
+                      No matching student login records found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Footer pagination info bar */}
-        <div className="flex justify-between items-center text-xs font-semibold text-slate-500 pt-4 border-t border-slate-5">
-          <div>
-            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, totalEntries)} of {totalEntries} entries
-          </div>
+        {students.length > 0 && (
+          <div className="flex justify-between items-center text-xs font-semibold text-slate-500 pt-4 border-t border-slate-50">
+            <div>
+              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, totalEntries)} of {totalEntries} entries
+            </div>
 
-          <div className="flex items-center gap-1.5 text-[11px]">
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
-            >
-              Previous
-            </button>
-            <button className="px-3 py-1.5 bg-[#4C469D] text-white rounded-lg font-bold">
-              {currentPage}
-            </button>
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
-            >
-              Next
-            </button>
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+              >
+                Previous
+              </button>
+              <button className="px-3 py-1.5 bg-[#4C469D] text-white rounded-lg font-bold">
+                {currentPage}
+              </button>
+              <button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Landmark, Search, Printer, Calendar, TrendingUp, AlertCircle, CheckCircle, Wallet, Users, CalendarDays } from 'lucide-react';
 import studentService from '@/services/student.service';
+import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 
 interface Invoice {
@@ -52,19 +53,10 @@ export default function FeesReportPage() {
       // Fetch students
       const sRes = await studentService.getAll().catch(() => ({ data: [] }));
       const rawStudents = extractListData<any>(sRes.data || []);
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-      setStudents(allStudents);
+      setStudents(rawStudents);
 
-      // Fetch invoices from localStorage
-      const savedInvoices = localStorage.getItem('custom_invoices');
-      if (savedInvoices) {
-        const parsed = JSON.parse(savedInvoices);
-        setInvoices(parsed);
-      } else {
-        setInvoices([]);
-      }
+      const res = await financeService.getInvoices().catch(() => ({ data: [] }));
+      setInvoices(extractListData<any>(res.data || []));
     } catch (e) {
       console.error(e);
       toast.error('Failed to load report data');

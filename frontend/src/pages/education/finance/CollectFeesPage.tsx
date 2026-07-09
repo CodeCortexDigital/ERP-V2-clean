@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Search, Landmark, ShieldAlert, Check, AlertTriangle, Printer } from 'lucide-react';
 import studentService from '@/services/student.service';
+import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 
 interface Invoice {
@@ -109,10 +110,7 @@ export default function CollectFeesPage() {
     try {
       const sRes = await studentService.getAll().catch(() => ({ data: [] }));
       const rawStudents = extractListData<any>(sRes.data || []);
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-      setStudents(allStudents);
+      setStudents(rawStudents);
     } catch (e) {
       console.error(e);
     }
@@ -131,34 +129,28 @@ export default function CollectFeesPage() {
     setSuggestions(filtered.slice(0, 5));
   };
 
-  const handleSelectStudent = (student: any) => {
+  const handleSelectStudent = async (student: any) => {
     setSelectedStudent(student);
     setSearchQuery(`${student.full_name} (${student.student_id || 'N/A'})`);
     setSuggestions([]);
 
-    const savedInvoices = localStorage.getItem('custom_invoices');
-    if (savedInvoices) {
-      try {
-        const parsed: Invoice[] = JSON.parse(savedInvoices);
-        const matchingUnpaid = parsed.filter(inv => 
-          inv.student === student.id && 
-          (inv.status === 'unpaid' || (inv.status === 'paid' && inv.remaining_balance !== undefined && inv.remaining_balance > 0))
-        );
-        const matchingAll = parsed.filter(inv => inv.student === student.id);
-        
-        setUnpaidInvoices(matchingUnpaid);
-        setStudentHistory(matchingAll);
-        
-        if (matchingUnpaid.length > 0) {
-          handleOpenCollectionForm(matchingUnpaid[0]);
-        } else {
-          setActiveInvoice(null);
-        }
-      } catch (e) {
-        setUnpaidInvoices([]);
+    // Try backend first
+    try {
+      const res = await financeService.getInvoices({ student: student.id });
+      const data = extractListData<any>(res.data || []);
+      const matchingUnpaid = data.filter((inv: any) => inv.student === student.id && (inv.status === 'unpaid' || (inv.status === 'paid' && inv.remaining_balance !== undefined && inv.remaining_balance > 0)));
+      const matchingAll = data.filter((inv: any) => inv.student === student.id);
+
+      setUnpaidInvoices(matchingUnpaid);
+      setStudentHistory(matchingAll);
+
+      if (matchingUnpaid.length > 0) {
+        handleOpenCollectionForm(matchingUnpaid[0]);
+      } else {
         setActiveInvoice(null);
       }
-    } else {
+      return;
+    } catch (e) {
       setUnpaidInvoices([]);
       setActiveInvoice(null);
     }
@@ -205,7 +197,7 @@ export default function CollectFeesPage() {
     setCollectionDate(new Date().toISOString().split('T')[0]);
   };
 
-  const handleSubmitCollection = () => {
+  const handleSubmitCollection = async () => {
     if (!activeInvoice) return;
     setLoading(true);
     try {
@@ -224,48 +216,30 @@ export default function CollectFeesPage() {
 
       const remainingBal = calculatedTotal - deposit;
 
-      const savedInvoices = localStorage.getItem('custom_invoices');
-      if (savedInvoices) {
-        const parsed: Invoice[] = JSON.parse(savedInvoices);
-        const updated = parsed.map(inv => {
-          if (inv.id === activeInvoice.id) {
-            const totalPaidSoFar = (inv.paid_amount || 0) + deposit;
-            return { 
-              ...inv, 
-              status: 'paid' as const,
-              paid_amount: totalPaidSoFar,
-              remaining_balance: remainingBal,
-              particulars_payments: {
-                monthlyFee: Number(monthlyFee),
-                admissionFee: Number(admissionFee),
-                regFee: Number(regFee),
-                artFee: Number(artFee),
-                transportFee: Number(transportFee),
-                booksFee: Number(booksFee),
-                uniformFee: Number(uniformFee),
-                fineFee: Number(fineFee),
-                othersFee: Number(othersFee),
-                prevBalance: Number(prevBalance),
-                discountFee: Number(discountFee)
-              }
-            };
-          }
-          return inv;
-        });
-        localStorage.setItem('custom_invoices', JSON.stringify(updated));
-      }
-
-      const savedTxs = localStorage.getItem('finance_transactions');
-      const transactions = savedTxs ? JSON.parse(savedTxs) : [];
-      const newTx = {
-        id: `tx-${Date.now()}`,
-        date: collectionDate,
-        description: `Fee Collection - ${activeInvoice.student_name} (${activeInvoice.invoice_number})`,
+      await financeService.createPayment({
+        invoice_id: activeInvoice.id,
         amount: deposit,
-        type: 'Income' as const
-      };
-      transactions.push(newTx);
-      localStorage.setItem('finance_transactions', JSON.stringify(transactions));
+        date: collectionDate,
+        particulars_payments: {
+          monthlyFee: Number(monthlyFee),
+          admissionFee: Number(admissionFee),
+          regFee: Number(regFee),
+          artFee: Number(artFee),
+          transportFee: Number(transportFee),
+          booksFee: Number(booksFee),
+          uniformFee: Number(uniformFee),
+          fineFee: Number(fineFee),
+          othersFee: Number(othersFee),
+          prevBalance: Number(prevBalance),
+          discountFee: Number(discountFee)
+        }
+      });
+
+      await financeService.updateInvoice(activeInvoice.id, {
+        paid_amount: (activeInvoice.paid_amount || 0) + deposit,
+        remaining_balance: remainingBal,
+        status: 'paid'
+      });
 
       setSubmittedReceipt({
         invoice_number: activeInvoice.invoice_number,
@@ -306,66 +280,45 @@ export default function CollectFeesPage() {
       return;
     }
 
-    setLoading(true);
-    try {
-      const savedInvoices = localStorage.getItem('custom_invoices');
-      if (!savedInvoices) {
-        toast.info('No pending invoices found for family');
-        setLoading(false);
-        return;
-      }
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await financeService.getInvoices().catch(() => ({ data: [] }));
+        const parsed: Invoice[] = extractListData<any>(res.data || []);
 
-      const parsed: Invoice[] = JSON.parse(savedInvoices);
-      const familyStudents = students.filter(s => {
-        const sFam = s.select_family || s.guardian_name || '';
-        return sFam.toLowerCase().trim() === selectedFamily.toLowerCase().trim();
-      });
+        const familyStudents = students.filter(s => {
+          const sFam = s.select_family || s.guardian_name || '';
+          return sFam.toLowerCase().trim() === selectedFamily.toLowerCase().trim();
+        });
+        const familyStudentIds = familyStudents.map(s => s.id);
 
-      const familyStudentIds = familyStudents.map(s => s.id);
-      
-      let count = 0;
-      let totalCollected = 0;
-      const updated = parsed.map(inv => {
-        if (familyStudentIds.includes(inv.student) && inv.fee_month === feeMonth && inv.status === 'unpaid') {
-          count++;
-          totalCollected += inv.amount;
-          return { 
-            ...inv, 
-            status: 'paid' as const,
-            paid_amount: inv.amount,
-            remaining_balance: 0
-          };
+        const toCollect = parsed.filter(inv => familyStudentIds.includes(inv.student) && inv.fee_month === feeMonth && inv.status === 'unpaid');
+
+        if (toCollect.length === 0) {
+          toast.info(`No unpaid invoices found for family in ${feeMonth}`);
+          setLoading(false);
+          return;
         }
-        return inv;
-      });
 
-      if (count === 0) {
-        toast.info(`No unpaid invoices found for family in ${feeMonth}`);
+        let totalCollected = 0;
+
+        await Promise.all(toCollect.map(async (inv) => {
+          try {
+            await financeService.updateInvoice(inv.id, { paid_amount: inv.amount, remaining_balance: 0, status: 'paid' });
+            totalCollected += inv.amount;
+          } catch (e) {
+            console.error('Family payment update failed', e);
+          }
+        }));
+
+        toast.success(`Successfully collected Rs ${totalCollected} from ${toCollect.length} family invoices!`);
+        setSelectedFamily('');
+      } catch (e) {
+        toast.error('Failed to submit family payments');
+      } finally {
         setLoading(false);
-        return;
       }
-
-      localStorage.setItem('custom_invoices', JSON.stringify(updated));
-
-      const savedTxs = localStorage.getItem('finance_transactions');
-      const transactions = savedTxs ? JSON.parse(savedTxs) : [];
-      const newTx = {
-        id: `tx-${Date.now()}`,
-        date: new Date().toISOString().split('T')[0],
-        description: `Family Fee Collection - ${selectedFamily} (${feeMonth})`,
-        amount: totalCollected,
-        type: 'Income' as const
-      };
-      transactions.push(newTx);
-      localStorage.setItem('finance_transactions', JSON.stringify(transactions));
-
-      toast.success(`Successfully collected Rs ${totalCollected} from ${count} family invoices!`);
-      setSelectedFamily('');
-    } catch (e) {
-      toast.error('Failed to submit family payments');
-    } finally {
-      setLoading(false);
-    }
+    })();
   };
 
   const handleTriggerPrint = (mode: 'detailed' | 'mini') => {

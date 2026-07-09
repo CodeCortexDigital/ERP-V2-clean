@@ -1,4 +1,160 @@
+// frontend/src/services/finance.service.ts
 import api, { extractListData } from './api';
+
+export interface FeeStructure {
+  id: string;
+  name: string;
+  class_id: string;
+  class_name?: string;
+  amount: number;
+  frequency: 'monthly' | 'quarterly' | 'semester' | 'annual';
+  description: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoice_number: string;
+  student: string;
+  student_name?: string;
+  class_id?: string;
+  class_name?: string;
+  amount: number;
+  paid_amount: number;
+  balance_due: number;
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'partially_paid';
+  due_date: string;
+  issue_date: string;
+  items: Array<{
+    description: string;
+    amount: number;
+    quantity: number;
+  }>;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Payment {
+  id: string;
+  invoice: string;
+  invoice_number?: string;
+  student: string;
+  student_name?: string;
+  amount: number;
+  payment_method: 'cash' | 'bank_transfer' | 'credit_card' | 'check' | 'online';
+  transaction_id?: string;
+  payment_date: string;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  remarks?: string;
+  receipt_number?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InstallmentPlan {
+  id: string;
+  name: string;
+  description: string;
+  total_installments: number;
+  frequency: 'monthly' | 'quarterly' | 'semester';
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Scholarship {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  type: 'percentage' | 'fixed';
+  amount: number;
+  eligibility_criteria: any;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StudentScholarship {
+  id: string;
+  student: string;
+  scholarship: string;
+  scholarship_name?: string;
+  amount: number;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LateFeeRule {
+  id: string;
+  name: string;
+  days_after_due: number;
+  fee_percentage: number;
+  fee_fixed_amount: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TransactionLog {
+  id: string;
+  transaction_id: string;
+  invoice?: string;
+  student?: string;
+  amount: number;
+  type: 'income' | 'expense' | 'refund' | 'adjustment';
+  category: string;
+  description: string;
+  date: string;
+  created_at?: string;
+}
+
+export interface FinanceSettings {
+  id: string;
+  currency: string;
+  currency_symbol: string;
+  late_fee_enabled: boolean;
+  auto_invoice_generation: boolean;
+  default_payment_method: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FinanceSummary {
+  total_revenue: number;
+  total_expenses: number;
+  total_profit: number;
+  pending_invoices: number;
+  overdue_invoices: number;
+  paid_invoices: number;
+  collection_rate: number;
+  monthly_income: number;
+  monthly_expenses: number;
+}
+
+// Helper to normalize invoice data
+const normalizeInvoice = (inv: any): Invoice => ({
+  ...inv,
+  id: String(inv.id),
+  invoice_number: inv.invoice_number || inv.invoice_no || '',
+  student: String(inv.student),
+  student_name: inv.student_name || inv.student__full_name || '',
+  class_name: inv.class_name || inv.class__name || '',
+  amount: Number(inv.amount) || 0,
+  paid_amount: Number(inv.paid_amount) || 0,
+  balance_due: Number(inv.balance_due) || (Number(inv.amount) - Number(inv.paid_amount)) || 0,
+  status: inv.status || 'draft',
+  items: Array.isArray(inv.items) ? inv.items : [],
+});
+
+const normalizeInvoiceList = (invoices: any[]): Invoice[] => 
+  invoices.map(normalizeInvoice);
 
 const EMPTY_DEFAULTERS = {
   total_defaulters: 0,
@@ -6,29 +162,92 @@ const EMPTY_DEFAULTERS = {
   defaulters: [] as unknown[],
 };
 
+// ✅ FIXED: All URLs use / instead of /auth/finance/
 const financeService = {
-  // Fee Structures
-  getFeeStructures: (params?: any) => api.get('/auth/finance/fee-structures/', { params }),
-  getFeeStructure: (id: string) => api.get(`/auth/finance/fee-structures/${id}/`),
-  createFeeStructure: (data: any) => api.post('/auth/finance/fee-structures/', data),
-  updateFeeStructure: (id: string, data: any) => api.put(`/auth/finance/fee-structures/${id}/`, data),
-  deleteFeeStructure: (id: string) => api.delete(`/auth/finance/fee-structures/${id}/`),
+  // ==================== Fee Structures ====================
+  getFeeStructures: async (params?: { class_id?: string; is_active?: boolean }) => {
+    const response = await api.get('/fee-structures/', { params });
+    return response;
+  },
+  getFeeStructure: async (id: string) => {
+    const response = await api.get(`/fee-structures/${id}/`);
+    return response;
+  },
+  createFeeStructure: async (data: Partial<FeeStructure>) => {
+    const response = await api.post('/fee-structures/', data);
+    return response;
+  },
+  updateFeeStructure: async (id: string, data: Partial<FeeStructure>) => {
+    const response = await api.patch(`/fee-structures/${id}/`, data);
+    return response;
+  },
+  deleteFeeStructure: async (id: string) => {
+    const response = await api.delete(`/fee-structures/${id}/`);
+    return response;
+  },
 
-  // Invoices
-  getInvoices: (params?: any) => api.get('/auth/finance/invoices/', { params }),
-  getInvoice: (id: string) => api.get(`/auth/finance/invoices/${id}/`),
-  createInvoice: (data: any) => api.post('/auth/finance/invoices/', data),
-  updateInvoice: (id: string, data: any) => api.patch(`/auth/finance/invoices/${id}/`, data),
-  deleteInvoice: (id: string) => api.delete(`/auth/finance/invoices/${id}/`),
-  bulkDeleteInvoices: (ids: string[]) => api.post('/auth/finance/invoices/bulk-delete/', { invoice_ids: ids }),
+  // ==================== Invoices ====================
+  getInvoices: async (params?: { 
+    student_id?: string; 
+    class_id?: string; 
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+    page?: number;
+  }) => {
+    const response = await api.get('/invoices/', { params });
+    if (response.data) {
+      const invoices = extractListData<Invoice>(response.data);
+      response.data = normalizeInvoiceList(invoices);
+    }
+    return response;
+  },
+  getInvoice: async (id: string) => {
+    const response = await api.get(`/invoices/${id}/`);
+    if (response.data) {
+      response.data = normalizeInvoice(response.data);
+    }
+    return response;
+  },
+  createInvoice: async (data: Partial<Invoice>) => {
+    const response = await api.post('/invoices/', data);
+    if (response.data) {
+      response.data = normalizeInvoice(response.data);
+    }
+    return response;
+  },
+  updateInvoice: async (id: string, data: Partial<Invoice>) => {
+    const response = await api.patch(`/invoices/${id}/`, data);
+    if (response.data) {
+      response.data = normalizeInvoice(response.data);
+    }
+    return response;
+  },
+  deleteInvoice: async (id: string) => {
+    const response = await api.delete(`/invoices/${id}/`);
+    return response;
+  },
+  bulkDeleteInvoices: async (ids: string[]) => {
+    const response = await api.post('/invoices/bulk-delete/', { invoice_ids: ids });
+    return response;
+  },
 
-  // Invoice Receipts
-  getInvoiceReceipt: (invoiceId: string) => api.get(`/auth/finance/invoices/${invoiceId}/receipt/`),
+  // ==================== Invoice Receipts ====================
+  getInvoiceReceipt: async (invoiceId: string) => {
+    const response = await api.get(`/invoices/${invoiceId}/receipt/`);
+    return response;
+  },
 
-  // Payments (list/create — not gated; session/webhook are online-payment features)
-  getPayments: async (params?: any) => {
+  // ==================== Payments ====================
+  getPayments: async (params?: { 
+    invoice_id?: string; 
+    student_id?: string; 
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+  }) => {
     try {
-      const response = await api.get('/auth/finance/payments/', { params });
+      const response = await api.get('/payments/', { params });
       return { ...response, data: extractListData(response.data) };
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status;
@@ -40,105 +259,255 @@ const financeService = {
       throw error;
     }
   },
-  getPayment: (id: string) => api.get(`/auth/finance/payments/${id}/`),
-  createPayment: (data: any) => {
+  getPayment: async (id: string) => {
+    const response = await api.get(`/payments/${id}/`);
+    return response;
+  },
+  createPayment: async (data: Partial<Payment>) => {
     const payload = {
       ...data,
       invoice: data.invoice_id ?? data.invoice,
     };
     delete payload.invoice_id;
-    return api.post('/auth/finance/payments/', payload);
+    const response = await api.post('/payments/', payload);
+    return response;
   },
-  deletePayment: (id: string) => api.delete(`/auth/finance/payments/${id}/`),
+  deletePayment: async (id: string) => {
+    const response = await api.delete(`/payments/${id}/`);
+    return response;
+  },
 
-  // Payment Receipts
-  getPaymentReceipt: (paymentId: string) => api.get(`/auth/finance/payments/${paymentId}/receipt/`),
+  // ==================== Payment Receipts ====================
+  getPaymentReceipt: async (paymentId: string) => {
+    const response = await api.get(`/payments/${paymentId}/receipt/`);
+    return response;
+  },
 
-  createOnlinePaymentSession: (invoiceId: string, data: any) => api.post(`/auth/finance/payments/session/`, { invoice_id: invoiceId, ...data }),
+  // ==================== Online Payments ====================
+  createOnlinePaymentSession: async (invoiceId: string, data: any) => {
+    const response = await api.post('/payments/session/', { invoice_id: invoiceId, ...data });
+    return response;
+  },
+  getPaymentGateways: async () => {
+    const response = await api.get('/payment-gateways/');
+    return response;
+  },
+  getPaymentTransactions: async (params?: any) => {
+    const response = await api.get('/payment-transactions/', { params });
+    return response;
+  },
 
-  getPaymentGateways: () => api.get('/auth/finance/payment-gateways/'),
-  getPaymentTransactions: (params?: any) => api.get('/auth/finance/payment-transactions/', { params }),
+  // ==================== Summary ====================
+  getSummary: async (params?: { date?: string; period?: 'day' | 'week' | 'month' | 'year' }) => {
+    const response = await api.get('/finance-summary/', { params });
+    return response;
+  },
 
-  // Summary
-  getSummary: () => api.get('/auth/finance/summary/'),
+  // ==================== Export/Import ====================
+  exportInvoicesCSV: async (params?: any) => {
+    const response = await api.get('/export/invoices/csv/', { params, responseType: 'blob' });
+    return response;
+  },
+  exportPaymentsCSV: async (params?: any) => {
+    const response = await api.get('/export/payments/csv/', { params, responseType: 'blob' });
+    return response;
+  },
+  generateFinanceReportPDF: async (params?: any) => {
+    const response = await api.get('/reports/finance/pdf/', { params, responseType: 'blob' });
+    return response;
+  },
 
-  // Export/Import
-  exportInvoicesCSV: (params?: any) => api.get('/auth/finance/export/invoices/csv/', { params, responseType: 'blob' }),
-  exportPaymentsCSV: (params?: any) => api.get('/auth/finance/export/payments/csv/', { params, responseType: 'blob' }),
-  generateFinanceReportPDF: (params?: any) => api.get('/auth/finance/reports/pdf/', { params, responseType: 'blob' }),
+  // ==================== Installment Plans ====================
+  getInstallmentPlans: async (params?: { is_active?: boolean }) => {
+    const response = await api.get('/installment-plans/', { params });
+    return response;
+  },
+  getInstallmentPlan: async (id: string) => {
+    const response = await api.get(`/installment-plans/${id}/`);
+    return response;
+  },
+  createInstallmentPlan: async (data: Partial<InstallmentPlan>) => {
+    const response = await api.post('/installment-plans/', data);
+    return response;
+  },
+  updateInstallmentPlan: async (id: string, data: Partial<InstallmentPlan>) => {
+    const response = await api.patch(`/installment-plans/${id}/`, data);
+    return response;
+  },
+  deleteInstallmentPlan: async (id: string) => {
+    const response = await api.delete(`/installment-plans/${id}/`);
+    return response;
+  },
 
-  // Advanced Features
-  // Installment Plans
-  getInstallmentPlans: (params?: any) => api.get('/auth/finance/installment-plans/', { params }),
-  getInstallmentPlan: (id: string) => api.get(`/auth/finance/installment-plans/${id}/`),
-  createInstallmentPlan: (data: any) => api.post('/auth/finance/installment-plans/', data),
-  updateInstallmentPlan: (id: string, data: any) => api.put(`/auth/finance/installment-plans/${id}/`, data),
-  deleteInstallmentPlan: (id: string) => api.delete(`/auth/finance/installment-plans/${id}/`),
+  // ==================== Scholarships ====================
+  getScholarships: async (params?: { is_active?: boolean }) => {
+    const response = await api.get('/scholarships/', { params });
+    return response;
+  },
+  getScholarship: async (id: string) => {
+    const response = await api.get(`/scholarships/${id}/`);
+    return response;
+  },
+  createScholarship: async (data: Partial<Scholarship>) => {
+    const response = await api.post('/scholarships/', data);
+    return response;
+  },
+  updateScholarship: async (id: string, data: Partial<Scholarship>) => {
+    const response = await api.patch(`/scholarships/${id}/`, data);
+    return response;
+  },
+  deleteScholarship: async (id: string) => {
+    const response = await api.delete(`/scholarships/${id}/`);
+    return response;
+  },
 
-  // Scholarships
-  getScholarships: (params?: any) => api.get('/auth/finance/scholarships/', { params }),
-  getScholarship: (id: string) => api.get(`/auth/finance/scholarships/${id}/`),
-  createScholarship: (data: any) => api.post('/auth/finance/scholarships/', data),
-  updateScholarship: (id: string, data: any) => api.put(`/auth/finance/scholarships/${id}/`, data),
-  deleteScholarship: (id: string) => api.delete(`/auth/finance/scholarships/${id}/`),
+  // ==================== Student Scholarships ====================
+  getStudentScholarships: async (params?: { student_id?: string; is_active?: boolean }) => {
+    const response = await api.get('/student-scholarships/', { params });
+    return response;
+  },
+  getStudentScholarship: async (id: string) => {
+    const response = await api.get(`/student-scholarships/${id}/`);
+    return response;
+  },
+  createStudentScholarship: async (data: Partial<StudentScholarship>) => {
+    const response = await api.post('/student-scholarships/', data);
+    return response;
+  },
+  updateStudentScholarship: async (id: string, data: Partial<StudentScholarship>) => {
+    const response = await api.patch(`/student-scholarships/${id}/`, data);
+    return response;
+  },
+  deleteStudentScholarship: async (id: string) => {
+    const response = await api.delete(`/student-scholarships/${id}/`);
+    return response;
+  },
 
-  // Student Scholarships
-  getStudentScholarships: (params?: any) => api.get('/auth/finance/student-scholarships/', { params }),
-  getStudentScholarship: (id: string) => api.get(`/auth/finance/student-scholarships/${id}/`),
-  createStudentScholarship: (data: any) => api.post('/auth/finance/student-scholarships/', data),
-  updateStudentScholarship: (id: string, data: any) => api.put(`/auth/finance/student-scholarships/${id}/`, data),
-  deleteStudentScholarship: (id: string) => api.delete(`/auth/finance/student-scholarships/${id}/`),
+  // ==================== Late Fee Rules ====================
+  getLateFeeRules: async (params?: { is_active?: boolean }) => {
+    const response = await api.get('/late-fee-rules/', { params });
+    return response;
+  },
+  getLateFeeRule: async (id: string) => {
+    const response = await api.get(`/late-fee-rules/${id}/`);
+    return response;
+  },
+  createLateFeeRule: async (data: Partial<LateFeeRule>) => {
+    const response = await api.post('/late-fee-rules/', data);
+    return response;
+  },
+  updateLateFeeRule: async (id: string, data: Partial<LateFeeRule>) => {
+    const response = await api.patch(`/late-fee-rules/${id}/`, data);
+    return response;
+  },
+  deleteLateFeeRule: async (id: string) => {
+    const response = await api.delete(`/late-fee-rules/${id}/`);
+    return response;
+  },
 
-  // Late Fee Rules
-  getLateFeeRules: (params?: any) => api.get('/auth/finance/late-fee-rules/', { params }),
-  getLateFeeRule: (id: string) => api.get(`/auth/finance/late-fee-rules/${id}/`),
-  createLateFeeRule: (data: any) => api.post('/auth/finance/late-fee-rules/', data),
-  updateLateFeeRule: (id: string, data: any) => api.put(`/auth/finance/late-fee-rules/${id}/`, data),
-  deleteLateFeeRule: (id: string) => api.delete(`/auth/finance/late-fee-rules/${id}/`),
+  // ==================== Transaction Logs ====================
+  getTransactionLogs: async (params?: { 
+    student_id?: string; 
+    type?: string; 
+    start_date?: string;
+    end_date?: string;
+  }) => {
+    const response = await api.get('/transaction-logs/', { params });
+    return response;
+  },
 
-  // Transaction Logs
-  getTransactionLogs: (params?: any) => api.get('/auth/finance/transaction-logs/', { params }),
-
-  // Analytics
-  getMonthlyRevenueChart: (params?: any) => api.get('/auth/finance/analytics/monthly-revenue/', { params }),
-  getDefaulterReport: async (params?: any) => {
+  // ==================== Analytics ====================
+  getMonthlyRevenueChart: async (params?: { year?: number; class_id?: string }) => {
+    const response = await api.get('/analytics/monthly-revenue/', { params });
+    return response;
+  },
+  getDefaulterReport: async (params?: { class_id?: string; threshold_days?: number }) => {
     try {
-      return await api.get('/auth/finance/analytics/defaulters/', { params });
+      return await api.get('/analytics/defaulters/', { params });
     } catch {
       return { data: EMPTY_DEFAULTERS, status: 200, statusText: 'OK', headers: {}, config: {} } as Awaited<
         ReturnType<typeof api.get>
       >;
     }
   },
-  getClassWiseCollection: (params?: any) => api.get('/auth/finance/analytics/class-collection/', { params }),
-  getFinancialForecast: (params?: any) => api.get('/auth/finance/analytics/forecast/', { params }),
+  getClassWiseCollection: async (params?: { academic_year_id?: string }) => {
+    const response = await api.get('/analytics/class-collection/', { params });
+    return response;
+  },
+  getFinancialForecast: async (params?: { months?: number }) => {
+    const response = await api.get('/analytics/forecast/', { params });
+    return response;
+  },
 
+  // ==================== Finance Settings ====================
+  getSettings: async () => {
+    const response = await api.get('/finance-settings/');
+    return response;
+  },
+  updateSettings: async (data: Partial<FinanceSettings>) => {
+    const response = await api.patch('/finance-settings/', data);
+    return response;
+  },
 
-  // Finance Settings
-  getSettings: () => api.get('/auth/finance/settings/'),
-  updateSettings: (data: any) => api.put('/auth/finance/settings/', data),
+  // ==================== Actions ====================
+  createInstallmentInvoice: async (invoiceId: string) => {
+    const response = await api.post(`/invoices/${invoiceId}/create-installments/`);
+    return response;
+  },
+  applyScholarshipToInvoice: async (invoiceId: string, data: any) => {
+    const response = await api.post(`/invoices/${invoiceId}/apply-scholarship/`, data);
+    return response;
+  },
 
-  // Actions
-  createInstallmentInvoice: (invoiceId: string) => api.post(`/auth/finance/invoices/${invoiceId}/create-installments/`),
-  applyScholarshipToInvoice: (invoiceId: string, data: any) => api.post(`/auth/finance/invoices/${invoiceId}/apply-scholarship/`, data),
+  // ==================== PDF Reports ====================
+  generateInvoicePDF: async (invoiceId: string) => {
+    const response = await api.get(`/reports/invoice/${invoiceId}/pdf/`, { responseType: 'blob' });
+    return response;
+  },
+  generateDefaulterReportPDF: async () => {
+    const response = await api.get('/reports/defaulters/pdf/', { responseType: 'blob' });
+    return response;
+  },
+  generateMonthlyFinanceReportPDF: async () => {
+    const response = await api.get('/reports/monthly/finance/pdf/', { responseType: 'blob' });
+    return response;
+  },
 
-  // PDF Reports
-  generateInvoicePDF: (invoiceId: string) => api.get(`/auth/finance/reports/invoice/${invoiceId}/pdf/`, { responseType: 'blob' }),
-  generateDefaulterReportPDF: () => api.get('/auth/finance/reports/defaulters/pdf/', { responseType: 'blob' }),
-  generateMonthlyFinanceReportPDF: () => api.get('/auth/finance/reports/monthly/pdf/', { responseType: 'blob' }),
+  // ==================== Email Communication ====================
+  sendFeeReminder: async (invoiceId: string) => {
+    const response = await api.post(`/communication/reminder/${invoiceId}/`);
+    return response;
+  },
+  sendPaymentConfirmation: async (paymentId: string) => {
+    const response = await api.post(`/communication/confirmation/${paymentId}/`);
+    return response;
+  },
+  sendDefaulterNotice: async (invoiceId: string) => {
+    const response = await api.post(`/communication/defaulter-notice/${invoiceId}/`);
+    return response;
+  },
+  sendDefaulterWhatsAppNotice: async (invoiceId: string) => {
+    const response = await api.post(`/communication/defaulter-whatsapp/${invoiceId}/`);
+    return response;
+  },
+  bulkSendReminders: async (data: any) => {
+    const response = await api.post('/communication/bulk-reminders/', data);
+    return response;
+  },
 
-  // Email Communication
-  sendFeeReminder: (invoiceId: string) => api.post(`/auth/finance/communication/reminder/${invoiceId}/`),
-  sendPaymentConfirmation: (paymentId: string) => api.post(`/auth/finance/communication/confirmation/${paymentId}/`),
-  sendDefaulterNotice: (invoiceId: string) => api.post(`/auth/finance/communication/defaulter-notice/${invoiceId}/`),
-  sendDefaulterWhatsAppNotice: (invoiceId: string) => api.post(`/auth/finance/communication/defaulter-whatsapp/${invoiceId}/`),
-  bulkSendReminders: (data: any) => api.post('/auth/finance/communication/bulk-reminders/', data),
-
-  // ─── Admin Trigger Endpoints ───────────────────────────────────────────────
-  // Manually trigger scheduled jobs (normally run by cron on 1st, 5th, 10th)
-  runMonthlyInvoices: () => api.post('/auth/finance/admin/run-monthly-invoices/'),
-  triggerApplyLateFees: () => api.post('/auth/finance/admin/apply-late-fees/'),
-  triggerSendReminders: () => api.post('/auth/finance/admin/send-reminders/'),
+  // ==================== Admin Trigger Endpoints ====================
+  runMonthlyInvoices: async () => {
+    const response = await api.post('/admin/run-monthly-invoices/');
+    return response;
+  },
+  triggerApplyLateFees: async () => {
+    const response = await api.post('/admin/apply-late-fees/');
+    return response;
+  },
+  triggerSendReminders: async () => {
+    const response = await api.post('/admin/send-reminders/');
+    return response;
+  }
 };
 
 export default financeService;

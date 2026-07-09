@@ -69,12 +69,7 @@ print("✅ Programs ready")
 
 # 3. Create Classes
 classes_data = [
-    ('Play Group', 'PG', 'PREP'), ('Nursery', 'NUR', 'PREP'), ('Prep', 'PREP', 'PREP'),
-    ('Grade 1', 'G1', 'PREP'), ('Grade 2', 'G2', 'PREP'), ('Grade 3', 'G3', 'PREP'),
-    ('Grade 4', 'G4', 'PREP'), ('Grade 5', 'G5', 'PREP'),
-    ('Grade 6', 'G6', 'MID'), ('Grade 7', 'G7', 'MID'), ('Grade 8', 'G8', 'MID'),
-    ('Grade 9', 'G9', 'MATRIC'), ('Grade 10', 'G10', 'MATRIC'),
-]
+    ]
 
 sections_per_class = {'PREP': 4, 'MID': 4, 'MATRIC': 2}  # Boys/Girls for MATRIC
 

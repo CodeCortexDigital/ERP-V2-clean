@@ -57,9 +57,12 @@ function getEndpointUrl(endpoint: string, token: string): string | null {
 /** Build from VITE_API_URL if the specific WS URL is not set */
 function buildFallbackUrl(path: string): string | undefined {
   const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) || 'http://127.0.0.1:8000';
-  // Convert http → ws, https → wss
-  const wsBase = apiUrl.replace(/^http/, 'ws');
-  return `${wsBase}/${path}`;
+  const normalizedApiUrl = apiUrl.replace(/\/+$/, '');
+  const rootBase = normalizedApiUrl
+    .replace(/\/api\/v\d+$/i, '')
+    .replace(/\/api$/i, '');
+  const wsBase = rootBase.replace(/^http/, 'ws');
+  return `${wsBase}/${path.replace(/^\/+/, '')}`;
 }
 
 // ---------------------------------------------------------------------------

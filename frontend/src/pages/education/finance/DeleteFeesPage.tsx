@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Landmark, Trash2, ShieldAlert, CheckSquare, Square, Filter } from 'lucide-react';
 import studentService from '@/services/student.service';
+import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 
 interface Invoice {
@@ -41,17 +42,10 @@ export default function DeleteFeesPage() {
     try {
       const sRes = await studentService.getAll().catch(() => ({ data: [] }));
       const rawStudents = extractListData<any>(sRes.data || []);
-      const deletedStudentIds: string[] = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents].filter(s => !deletedStudentIds.includes(s.id));
-      setStudents(allStudents);
+      setStudents(rawStudents);
 
-      const savedInvoices = localStorage.getItem('custom_invoices');
-      if (savedInvoices) {
-        setInvoices(JSON.parse(savedInvoices));
-      } else {
-        setInvoices([]);
-      }
+      const res = await financeService.getInvoices().catch(() => ({ data: [] }));
+      setInvoices(extractListData<any>(res.data || []));
     } catch (e) {
       console.error(e);
     }
@@ -89,7 +83,7 @@ export default function DeleteFeesPage() {
     }
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) {
       toast.error('Please select at least one invoice to delete');
       return;
@@ -100,8 +94,8 @@ export default function DeleteFeesPage() {
 
     setLoading(true);
     try {
+      await Promise.all(selectedIds.map(id => financeService.deleteInvoice(id).catch(() => undefined)));
       const updated = invoices.filter(inv => !selectedIds.includes(inv.id));
-      localStorage.setItem('custom_invoices', JSON.stringify(updated));
       setInvoices(updated);
       setSelectedIds([]);
       toast.success(`Successfully deleted ${selectedIds.length} invoice(s)!`);
@@ -112,7 +106,7 @@ export default function DeleteFeesPage() {
     }
   };
 
-  const handleDeleteAllMatching = () => {
+  const handleDeleteAllMatching = async () => {
     if (filteredInvoices.length === 0) {
       toast.info('No invoices found matching criteria');
       return;
@@ -124,8 +118,8 @@ export default function DeleteFeesPage() {
     setLoading(true);
     try {
       const matchingIds = filteredInvoices.map(inv => inv.id);
+      await Promise.all(matchingIds.map(id => financeService.deleteInvoice(id).catch(() => undefined)));
       const updated = invoices.filter(inv => !matchingIds.includes(inv.id));
-      localStorage.setItem('custom_invoices', JSON.stringify(updated));
       setInvoices(updated);
       setSelectedIds([]);
       toast.success(`Successfully deleted all ${filteredInvoices.length} matching invoices!`);

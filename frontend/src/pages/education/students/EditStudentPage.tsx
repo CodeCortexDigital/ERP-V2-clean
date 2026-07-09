@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  GraduationCap, ArrowLeft, RotateCcw, Check, Upload, Trash2, FileText
+  GraduationCap, ArrowLeft, RotateCcw, Check, Upload, Trash2, FileText, ChevronDown, ChevronRight, User, X
 } from 'lucide-react';
 import studentService from '@/services/student.service';
 import academicService from '@/services/academic.service';
@@ -22,7 +22,21 @@ export default function EditStudentPage() {
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [isNewStudent, setIsNewStudent] = useState(false);
 
-  // Get today's date in YYYY-MM-DD format
+  const [sections, setSections] = useState({
+    studentInfo: true,
+    otherInfo: false,
+    fatherInfo: false,
+    motherInfo: false,
+    documents: false,
+  });
+
+  const toggleSection = (section: keyof typeof sections) => {
+    setSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   const getTodayDate = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -32,7 +46,6 @@ export default function EditStudentPage() {
   };
 
   const [formData, setFormData] = useState({
-    // 1. Student Information
     student_name: '',
     registration_no: '',
     class_name: '',
@@ -41,8 +54,6 @@ export default function EditStudentPage() {
     mobile_sms: '',
     profile_picture: '',
     status: 'Active',
-
-    // 2. Other Information
     date_of_birth: '',
     gender: '',
     identification_mark: '',
@@ -59,8 +70,6 @@ export default function EditStudentPage() {
     religion: '',
     select_family: '',
     total_siblings: '',
-
-    // 3. Father Information
     father_name: '',
     father_national_id: '',
     father_occupation: '',
@@ -68,8 +77,6 @@ export default function EditStudentPage() {
     father_mobile: '',
     father_profession: '',
     father_income: '',
-
-    // 4. Mother Information
     mother_name: '',
     mother_national_id: '',
     mother_occupation: '',
@@ -79,14 +86,15 @@ export default function EditStudentPage() {
     mother_income: ''
   });
 
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string>('');
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+
   useEffect(() => {
-    // Check if this is a new student (no id parameter or id is 'new')
     const isNew = !id || id === 'new';
     setIsNewStudent(isNew);
     
     if (isNew) {
       setLoading(false);
-      // Set today's date for new student
       setFormData(prev => ({
         ...prev,
         date_of_admission: getTodayDate()
@@ -99,19 +107,19 @@ export default function EditStudentPage() {
   const fetchClassesAndStudent = async () => {
     setLoading(true);
     try {
-      // Fetch classes
-      const cRes = await academicService.getClasses().catch(() => ({ data: [] }));
-      const rawClasses = extractListData<any>(cRes.data || []);
-      const defaultClasses = [
-        { id: 'cls-1', name: 'Grade 1-A' },
-        { id: 'cls-2', name: 'Grade 1-B' }
-      ];
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      const combinedClasses = [...(rawClasses.length > 0 ? rawClasses : defaultClasses), ...customClasses];
-      const deletedClassIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
-      const finalClasses = combinedClasses.filter(c => !deletedClassIds.includes(c.id));
+      const cRes = await academicService.getClasses().catch(() => ([]));
+      let rawClasses = [];
+      if (Array.isArray(cRes)) {
+        rawClasses = cRes;
+      } else if (cRes?.data) {
+        rawClasses = Array.isArray(cRes.data) ? cRes.data : cRes.data?.results || [];
+      } else if (cRes?.results) {
+        rawClasses = cRes.results;
+      } else {
+        rawClasses = [];
+      }
       
-      // Deduplicate classes by ID or name
+      const finalClasses = rawClasses.filter((c: any) => c && c.id && c.name);
       const uniqueClasses: any[] = [];
       const seenClassIds = new Set();
       finalClasses.forEach(c => {
@@ -121,35 +129,50 @@ export default function EditStudentPage() {
           uniqueClasses.push(c);
         }
       });
+      
       setClasses(uniqueClasses);
 
-      if (id) {
-        let studentData = null;
-
-        // Only fetch from backend if it is a real database ID
-        if (!id.startsWith('std-')) {
-          const res = await studentService.getById(id).catch(() => null);
-          studentData = res?.data;
-        }
-
-        // Fallback to local storage
-        if (!studentData) {
-          const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-          studentData = customStudents.find((s: any) => s.id === id || s.student_id === id);
-        }
-
+      if (id && !id.startsWith('std-')) {
+        const res = await studentService.getById(id).catch(() => null);
+        const studentData = res?.data;
+        
         if (studentData) {
-          // Map backend/localStorage fields
+          let className = studentData.class_name || 
+                          studentData.current_class_name || 
+                          studentData.current_class || 
+                          '';
+          
+          if (typeof className === 'object' && className !== null) {
+            className = className.name || '';
+          }
+          
+          if (className && !uniqueClasses.find(c => c.name === className)) {
+            const foundClass = uniqueClasses.find(c => c.id === studentData.current_class);
+            if (foundClass) {
+              className = foundClass.name;
+            }
+          }
+          
+          if (!className && studentData.current_class) {
+            const foundClass = uniqueClasses.find(c => c.id === studentData.current_class);
+            if (foundClass) {
+              className = foundClass.name;
+            }
+          }
+          
           const s = studentData;
+          const profilePic = s.profile_picture && !s.profile_picture.includes('unsplash') 
+            ? s.profile_picture 
+            : '';
+          
           setFormData({
             student_name:      s.full_name        ?? s.student_name     ?? '',
             registration_no:   s.student_id       ?? s.registration_no  ?? '',
-            class_name:        s.class_name       ?? s.current_class_name ?? s.current_class ?? '',
+            class_name:        className || '',
             date_of_admission: s.admission_date   ?? s.date_of_admission ?? getTodayDate(),
             discount_in_fee:   s.discount_in_fee  != null ? String(s.discount_in_fee) : '',
             mobile_sms:        s.phone            ?? s.mobile_sms       ?? '',
-            profile_picture:   (s.profile_picture && !s.profile_picture.includes('unsplash'))
-                                 ? s.profile_picture : '',
+            profile_picture:   profilePic,
             status:            s.is_active === false ? 'Inactive' : 'Active',
 
             date_of_birth:       s.date_of_birth       ?? '',
@@ -186,15 +209,25 @@ export default function EditStudentPage() {
             mother_income:       s.mother_income       != null ? String(s.mother_income) : '',
           });
 
-          // Load documents if stored
+          if (profilePic) {
+            setProfilePicturePreview(profilePic);
+          }
+
           const savedDocs = localStorage.getItem(`docs_${id}`);
           if (savedDocs) {
             setUploadedDocs(JSON.parse(savedDocs));
           }
         }
+      } else {
+        setIsNewStudent(true);
+        setFormData(prev => ({
+          ...prev,
+          date_of_admission: getTodayDate()
+        }));
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error fetching data:', err);
+      toast.error('Failed to load student data');
     } finally {
       setLoading(false);
     }
@@ -247,27 +280,79 @@ export default function EditStudentPage() {
         mother_profession: '',
         mother_income: ''
       }));
+      setProfilePicturePreview('');
+      setProfilePictureFile(null);
     } else {
       fetchClassesAndStudent();
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 300;
+          const MAX_HEIGHT = 300;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Convert to JPEG with 80% quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 100 * 1024) {
-        toast.error('Image size must be less than 100KB');
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('Image size must be less than 2MB');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          handleChange('profile_picture', reader.result);
-          toast.success('Profile picture updated locally.');
-        }
-      };
-      reader.readAsDataURL(file);
+      
+      try {
+        const compressedBase64 = await compressImage(file);
+        setProfilePicturePreview(compressedBase64);
+        setProfilePictureFile(file);
+        setFormData(prev => ({ ...prev, profile_picture: compressedBase64 }));
+        toast.success('Profile picture loaded successfully.');
+      } catch (err) {
+        console.error('Error compressing image:', err);
+        toast.error('Failed to process image');
+      }
     }
+  };
+
+  const handleRemoveImage = () => {
+    setProfilePicturePreview('');
+    setProfilePictureFile(null);
+    setFormData(prev => ({ ...prev, profile_picture: '' }));
   };
 
   const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,132 +383,172 @@ export default function EditStudentPage() {
     }
     toast.success('Document removed.');
   };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!formData.student_name) {
+    toast.error('Please enter Student Name');
+    return;
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.student_name) {
-      toast.error('Please enter Student Name');
-      return;
+  setSaving(true);
+
+  const selectedClass = classes.find(c => c.name === formData.class_name);
+  const classId = selectedClass?.id || null;
+
+  // Create FormData for file upload
+  const formDataToSend = new FormData();
+
+  // Append all fields
+  formDataToSend.append('full_name', formData.student_name);
+  formDataToSend.append('student_id', formData.registration_no || `STU-${Date.now()}`);
+  formDataToSend.append('email', `${formData.student_name.toLowerCase().replace(/\s+/g, '')}@school.edu`);
+  formDataToSend.append('is_active', String(formData.status === 'Active'));
+  
+  if (formData.mobile_sms) formDataToSend.append('phone', formData.mobile_sms);
+  if (formData.date_of_admission) formDataToSend.append('admission_date', formData.date_of_admission);
+  if (classId) formDataToSend.append('current_class', classId);
+  if (formData.gender) formDataToSend.append('gender', formData.gender);
+  if (formData.address) formDataToSend.append('address', formData.address);
+  if (formData.date_of_birth) formDataToSend.append('date_of_birth', formData.date_of_birth);
+  if (formData.discount_in_fee) formDataToSend.append('discount_in_fee', formData.discount_in_fee);
+  
+  // Optional fields
+  if (formData.identification_mark) formDataToSend.append('identification_mark', formData.identification_mark);
+  if (formData.blood_group) formDataToSend.append('blood_group', formData.blood_group);
+  if (formData.disease) formDataToSend.append('disease', formData.disease);
+  if (formData.birth_form_id) formDataToSend.append('birth_form_id', formData.birth_form_id);
+  if (formData.cast) formDataToSend.append('cast', formData.cast);
+  if (formData.previous_school) formDataToSend.append('previous_school', formData.previous_school);
+  if (formData.previous_id) formDataToSend.append('previous_id', formData.previous_id);
+  if (formData.additional_note) formDataToSend.append('additional_note', formData.additional_note);
+  if (formData.orphan_student) formDataToSend.append('orphan_student', formData.orphan_student);
+  if (formData.osc) formDataToSend.append('osc', formData.osc);
+  if (formData.religion) formDataToSend.append('religion', formData.religion);
+  if (formData.select_family) formDataToSend.append('select_family', formData.select_family);
+  if (formData.total_siblings) formDataToSend.append('total_siblings', formData.total_siblings);
+
+  // Father fields
+  if (formData.father_name) formDataToSend.append('father_name', formData.father_name);
+  if (formData.father_national_id) formDataToSend.append('father_national_id', formData.father_national_id);
+  if (formData.father_occupation) formDataToSend.append('father_occupation', formData.father_occupation);
+  if (formData.father_education) formDataToSend.append('father_education', formData.father_education);
+  if (formData.father_mobile) formDataToSend.append('father_mobile', formData.father_mobile);
+  if (formData.father_profession) formDataToSend.append('father_profession', formData.father_profession);
+  if (formData.father_income) formDataToSend.append('father_income', formData.father_income);
+
+  // Mother fields
+  if (formData.mother_name) formDataToSend.append('mother_name', formData.mother_name);
+  if (formData.mother_national_id) formDataToSend.append('mother_national_id', formData.mother_national_id);
+  if (formData.mother_occupation) formDataToSend.append('mother_occupation', formData.mother_occupation);
+  if (formData.mother_education) formDataToSend.append('mother_education', formData.mother_education);
+  if (formData.mother_mobile) formDataToSend.append('mother_mobile', formData.mother_mobile);
+  if (formData.mother_profession) formDataToSend.append('mother_profession', formData.mother_profession);
+  if (formData.mother_income) formDataToSend.append('mother_income', formData.mother_income);
+
+  // Handle profile picture - send as file if uploaded, otherwise skip
+  if (profilePictureFile) {
+    // Convert base64 to Blob/File
+    const response = await fetch(profilePicturePreview);
+    const blob = await response.blob();
+    const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
+    formDataToSend.append('profile_picture', file);
+  }
+
+  // Log FormData contents for debugging
+  console.log('📤 Sending FormData:');
+  for (const [key, value] of formDataToSend.entries()) {
+    console.log(`${key}: ${value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value}`);
+  }
+
+  try {
+    let response = null;
+    if (id && !isNewStudent && !id.startsWith('std-')) {
+      // Use the service with FormData - you may need to modify studentService.update to accept FormData
+      response = await studentService.updateWithFile(id, formDataToSend);
+    } else if (isNewStudent) {
+      response = await studentService.createWithFile(formDataToSend);
     }
 
-    setSaving(true);
-
-    const payload = {
-      full_name: formData.student_name,
-      student_id: formData.registration_no || `STU-${Date.now()}`,
-      email: `${formData.student_name.toLowerCase().replace(/\s+/g, '')}@school.edu`,
-      phone: formData.mobile_sms,
-      father_name: formData.father_name,
-      mother_name: formData.mother_name,
-      address: formData.address,
-      date_of_birth: formData.date_of_birth,
-      gender: formData.gender,
-      admission_date: formData.date_of_admission,
-      class_name: formData.class_name,
-      profile_picture: formData.profile_picture,
-      discount_in_fee: formData.discount_in_fee, // Include discount in payload
-      is_active: formData.status === 'Active',
-      // Additional fields for full save
-      identification_mark: formData.identification_mark,
-      blood_group: formData.blood_group,
-      disease: formData.disease,
-      birth_form_id: formData.birth_form_id,
-      cast: formData.cast,
-      previous_school: formData.previous_school,
-      previous_id: formData.previous_id,
-      additional_note: formData.additional_note,
-      orphan_student: formData.orphan_student,
-      osc: formData.osc,
-      religion: formData.religion,
-      select_family: formData.select_family,
-      total_siblings: formData.total_siblings,
-      father_national_id: formData.father_national_id,
-      father_occupation: formData.father_occupation,
-      father_education: formData.father_education,
-      father_mobile: formData.father_mobile,
-      father_profession: formData.father_profession,
-      father_income: formData.father_income,
-      mother_national_id: formData.mother_national_id,
-      mother_occupation: formData.mother_occupation,
-      mother_education: formData.mother_education,
-      mother_mobile: formData.mother_mobile,
-      mother_profession: formData.mother_profession,
-      mother_income: formData.mother_income
-    };
-
-    try {
-      // Try backend patch or create
-      let response = null;
-      if (id && !isNewStudent && !id.startsWith('std-')) {
-        response = await studentService.update(id, payload).catch(() => null);
-      } else if (isNewStudent) {
-        // For new student, use create endpoint
-        response = await studentService.create(payload).catch(() => null);
-      }
-
-      // Sync local storage custom_students list
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const studentId = id && !isNewStudent ? id : `STU-${Date.now()}`;
-      const targetIndex = customStudents.findIndex((s: any) => s.id === studentId || s.student_id === studentId);
-      
-      const customObj = {
-        id: studentId,
-        student_id: formData.registration_no || studentId,
-        full_name: formData.student_name,
-        class_name: formData.class_name,
-        is_active: formData.status === 'Active',
-        profile_picture: formData.profile_picture,
-        admission_date: formData.date_of_admission,
-        phone: formData.mobile_sms,
-        father_name: formData.father_name,
-        mother_name: formData.mother_name,
-        date_of_birth: formData.date_of_birth,
-        gender: formData.gender,
-        address: formData.address,
-        identification_mark: formData.identification_mark,
-        blood_group: formData.blood_group,
-        disease: formData.disease,
-        birth_form_id: formData.birth_form_id,
-        cast: formData.cast,
-        previous_school: formData.previous_school,
-        previous_id: formData.previous_id,
-        additional_note: formData.additional_note,
-        orphan_student: formData.orphan_student,
-        osc: formData.osc,
-        religion: formData.religion,
-        select_family: formData.select_family,
-        total_siblings: formData.total_siblings,
-        discount_in_fee: formData.discount_in_fee, // Save discount
-        father_national_id: formData.father_national_id,
-        father_occupation: formData.father_occupation,
-        father_education: formData.father_education,
-        father_mobile: formData.father_mobile,
-        father_profession: formData.father_profession,
-        father_income: formData.father_income,
-        mother_national_id: formData.mother_national_id,
-        mother_occupation: formData.mother_occupation,
-        mother_education: formData.mother_education,
-        mother_mobile: formData.mother_mobile,
-        mother_profession: formData.mother_profession,
-        mother_income: formData.mother_income
-      };
-
-      if (targetIndex !== -1) {
-        customStudents[targetIndex] = customObj;
+    toast.success(isNewStudent ? 'Student created successfully!' : 'Student record updated successfully!');
+    
+    setProfilePictureFile(null);
+    
+    setTimeout(() => {
+      navigate('/education/students');
+    }, 1500);
+  } catch (err: any) {
+    console.error('Error saving student:', err);
+    
+    const errorData = err.response?.data;
+    console.log('📥 Error response:', errorData);
+    
+    if (errorData) {
+      if (typeof errorData === 'object') {
+        const errorMessages = [];
+        for (const [field, message] of Object.entries(errorData)) {
+          if (Array.isArray(message)) {
+            errorMessages.push(`${field}: ${message.join(', ')}`);
+          } else if (typeof message === 'string') {
+            errorMessages.push(`${field}: ${message}`);
+          }
+        }
+        if (errorMessages.length > 0) {
+          toast.error(errorMessages[0]);
+          console.error('Validation errors:', errorMessages);
+        } else {
+          toast.error('Failed to save student. Please check all fields.');
+        }
+      } else if (typeof errorData === 'string') {
+        toast.error(errorData);
       } else {
-        customStudents.push(customObj);
+        toast.error('Failed to save student. Please try again.');
       }
-      localStorage.setItem('custom_students', JSON.stringify(customStudents));
-
-      toast.success(isNewStudent ? 'Student created successfully!' : 'Student record updated successfully!');
-      setTimeout(() => {
-        navigate('/education/students');
-      }, 1000);
-    } catch (err) {
+    } else if (err.message) {
+      toast.error(err.message);
+    } else {
       toast.error(isNewStudent ? 'Failed to create student.' : 'Failed to update student records.');
-    } finally {
-      setSaving(false);
     }
+  } finally {
+    setSaving(false);
+  }
+};
+  const renderSection = (
+    title: string, 
+    number: number, 
+    sectionKey: keyof typeof sections, 
+    children: React.ReactNode,
+    isAlwaysExpanded: boolean = false
+  ) => {
+    const isExpanded = sections[sectionKey] || isAlwaysExpanded;
+
+    return (
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div 
+          className={`flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors ${!isAlwaysExpanded ? 'border-b border-slate-100' : ''}`}
+          onClick={() => !isAlwaysExpanded && toggleSection(sectionKey)}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full bg-purple-700 text-white text-xs font-extrabold flex items-center justify-center flex-shrink-0">{number}</span>
+            <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">{title}</h2>
+            {!isAlwaysExpanded && (
+              <span className="text-[10px] text-slate-400 ml-2">
+                {isExpanded ? '(Click to collapse)' : '(Click to expand)'}
+              </span>
+            )}
+          </div>
+          {!isAlwaysExpanded && (
+            <div className="text-slate-400">
+              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </div>
+          )}
+        </div>
+        {isExpanded && (
+          <div className="p-6 pt-4 space-y-6">
+            {children}
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (loading) {
@@ -436,7 +561,6 @@ export default function EditStudentPage() {
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12 print:hidden">
-      
       {/* Top Header Section */}
       <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
@@ -455,27 +579,51 @@ export default function EditStudentPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* 1. Student Information */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-            <span className="w-6 h-6 rounded-full bg-purple-700 text-white text-xs font-extrabold flex items-center justify-center">1</span>
-            <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Student Information</h2>
-          </div>
-
+        {/* 1. Student Information - Always Expanded */}
+        {renderSection('Student Information', 1, 'studentInfo', 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Picture Column */}
             <div className="md:col-span-1 flex flex-col items-center justify-center space-y-3 border-r border-slate-100 pr-2">
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase">PICTURE</label>
-              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-100 bg-slate-100 shadow-2xs">
-                <img src={formData.profile_picture || '/default-avatar.png'} alt="Profile preview" className="w-full h-full object-cover" />
+              <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-slate-100 bg-slate-100 shadow-2xs">
+                {profilePicturePreview || formData.profile_picture ? (
+                  <img 
+                    src={profilePicturePreview || formData.profile_picture} 
+                    alt="Profile preview" 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                    <User className="w-10 h-10 text-slate-400" />
+                  </div>
+                )}
+                {profilePicturePreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              <label className="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5">
-                <Upload className="w-3.5 h-3.5" />
-                Choose Image
-                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-              </label>
-              <span className="text-[10px] text-amber-500 font-medium">⚠️ Max size 100KB</span>
+              
+              <div className="flex flex-col items-center gap-2">
+                <label className="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5" />
+                  {profilePicturePreview ? 'Change Image' : 'Choose Image'}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleImageChange} 
+                    className="hidden" 
+                  />
+                </label>
+                <span className="text-[10px] text-amber-500 font-medium">⚠️ Max size 2MB</span>
+                {profilePicturePreview && (
+                  <span className="text-[10px] text-emerald-500 font-medium">✅ Image loaded</span>
+                )}
+              </div>
             </div>
 
             {/* Inputs Column 1 */}
@@ -535,9 +683,13 @@ export default function EditStudentPage() {
                   className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
                 >
                   <option value="">Select Class</option>
-                  {classes.map(c => (
-                    <option key={c.id || c.name} value={c.name}>{c.name}</option>
-                  ))}
+                  {classes.length === 0 ? (
+                    <option value="">No classes available</option>
+                  ) : (
+                    classes.map(c => (
+                      <option key={c.id || c.name} value={c.name}>{c.name}</option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -563,70 +715,32 @@ export default function EditStudentPage() {
                 />
               </div>
             </div>
-          </div>
-        </div>
+          </div>,
+          true
+        )}
 
-        {/* 2. Other Information */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-            <span className="w-6 h-6 rounded-full bg-purple-700 text-white text-xs font-extrabold flex items-center justify-center">2</span>
-            <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Other Information</h2>
-          </div>
-
+        {/* 2. Other Information - Collapsible */}
+        {renderSection('Other Information', 2, 'otherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* ... (same as before) ... */}
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DATE OF BIRTH</label>
               <input type="date" value={formData.date_of_birth} onChange={(e) => handleChange('date_of_birth', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">STUDENT BIRTH FORM ID / NIC</label>
-              <input type="text" placeholder="Student Birth Form ID / NIC" value={formData.birth_form_id} onChange={(e) => handleChange('birth_form_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ORPHAN STUDENT</label>
-              <select value={formData.orphan_student} onChange={(e) => handleChange('orphan_student', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                <option value="NO">NO</option>
-                <option value="YES">YES</option>
-              </select>
             </div>
 
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">GENDER</label>
               <select value={formData.gender} onChange={(e) => handleChange('gender', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
                 <option value="">Select Gender</option>
-                <option value="Female">Female</option>
-                <option value="Male">Male</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CAST</label>
-              <input type="text" placeholder="Cast" value={formData.cast} onChange={(e) => handleChange('cast', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OSC</label>
-              <select value={formData.osc} onChange={(e) => handleChange('osc', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                <option value="">Select</option>
-                <option value="OSC">OSC</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ANY IDENTIFICATION MARK?</label>
-              <input type="text" placeholder="Any Identification Mark?" value={formData.identification_mark} onChange={(e) => handleChange('identification_mark', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PREVIOUS SCHOOL</label>
-              <input type="text" placeholder="Previous School" value={formData.previous_school} onChange={(e) => handleChange('previous_school', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">RELIGION</label>
-              <select value={formData.religion} onChange={(e) => handleChange('religion', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                <option value="">Select Religion</option>
-                <option value="Muslim">Muslim</option>
-                <option value="Christian">Christian</option>
-                <option value="Hindu">Hindu</option>
-              </select>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">IDENTIFICATION MARK</label>
+              <input type="text" value={formData.identification_mark} onChange={(e) => handleChange('identification_mark', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="e.g. Mole on left cheek" />
             </div>
 
             <div>
@@ -634,174 +748,197 @@ export default function EditStudentPage() {
               <select value={formData.blood_group} onChange={(e) => handleChange('blood_group', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
                 <option value="">Select Blood Group</option>
                 <option value="A+">A+</option>
-                <option value="O+">O+</option>
-                <option value="B+">B+</option>
-                <option value="AB+">AB+</option>
                 <option value="A-">A-</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PREVIOUS ID / BOARD ROLL NO</label>
-              <input type="text" placeholder="Previous ID / Board Roll No" value={formData.previous_id} onChange={(e) => handleChange('previous_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">SELECT FAMILY</label>
-              <select value={formData.select_family} onChange={(e) => handleChange('select_family', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                <option value="">Select</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DISEASE IF ANY?</label>
-              <input type="text" placeholder="Disease If Any?" value={formData.disease} onChange={(e) => handleChange('disease', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DISEASE / MEDICAL CONDITION</label>
+              <input type="text" value={formData.disease} onChange={(e) => handleChange('disease', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Any allergies or conditions" />
             </div>
+
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ANY ADDITIONAL NOTE</label>
-              <input type="text" placeholder="Any Additional Note" value={formData.additional_note} onChange={(e) => handleChange('additional_note', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ADDRESS</label>
+              <input type="text" value={formData.address} onChange={(e) => handleChange('address', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Full address" />
             </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">BIRTH FORM ID</label>
+              <input type="text" value={formData.birth_form_id} onChange={(e) => handleChange('birth_form_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Birth certificate number" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CAST</label>
+              <input type="text" value={formData.cast} onChange={(e) => handleChange('cast', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Cast/Community" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PREVIOUS SCHOOL</label>
+              <input type="text" value={formData.previous_school} onChange={(e) => handleChange('previous_school', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Last school attended" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PREVIOUS STUDENT ID</label>
+              <input type="text" value={formData.previous_id} onChange={(e) => handleChange('previous_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Previous school student ID" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ADDITIONAL NOTE</label>
+              <input type="text" value={formData.additional_note} onChange={(e) => handleChange('additional_note', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Any additional notes" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ORPHAN STUDENT</label>
+              <select value={formData.orphan_student} onChange={(e) => handleChange('orphan_student', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
+                <option value="">Select</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OSC</label>
+              <input type="text" value={formData.osc} onChange={(e) => handleChange('osc', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="OSC number" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">RELIGION</label>
+              <input type="text" value={formData.religion} onChange={(e) => handleChange('religion', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Religion" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FAMILY TYPE</label>
+              <input type="text" value={formData.select_family} onChange={(e) => handleChange('select_family', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="e.g. Nuclear, Joint" />
+            </div>
+
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">TOTAL SIBLINGS</label>
-              <input type="text" placeholder="Total Siblings" value={formData.total_siblings} onChange={(e) => handleChange('total_siblings', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <input type="number" value={formData.total_siblings} onChange={(e) => handleChange('total_siblings', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Number of siblings" min="0" />
             </div>
           </div>
+        )}
 
-          <div>
-            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ADDRESS</label>
-            <input type="text" placeholder="Address" value={formData.address} onChange={(e) => handleChange('address', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
-          </div>
-        </div>
-
-        {/* 3. Father/Guardian Information */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-            <span className="w-6 h-6 rounded-full bg-purple-700 text-white text-xs font-extrabold flex items-center justify-center">3</span>
-            <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Father/Guardian Information</h2>
-          </div>
-
+        {/* 3. Father/Guardian Information - Collapsible */}
+        {renderSection('Father / Guardian Information', 3, 'fatherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FATHER NAME</label>
-              <input type="text" placeholder="Father Name" value={formData.father_name} onChange={(e) => handleChange('father_name', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FATHER'S NAME</label>
+              <input type="text" value={formData.father_name} onChange={(e) => handleChange('father_name', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Father's full name" />
             </div>
+
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FATHER NATIONAL ID</label>
-              <input type="text" placeholder="Father National ID" value={formData.father_national_id} onChange={(e) => handleChange('father_national_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">NATIONAL ID</label>
+              <input type="text" value={formData.father_national_id} onChange={(e) => handleChange('father_national_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="NID number" />
             </div>
+
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OCCUPATION</label>
-              <input type="text" placeholder="Occupation" value={formData.father_occupation} onChange={(e) => handleChange('father_occupation', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <input type="text" value={formData.father_occupation} onChange={(e) => handleChange('father_occupation', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Occupation" />
             </div>
 
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EDUCATION</label>
-              <input type="text" placeholder="Education" value={formData.father_education} onChange={(e) => handleChange('father_education', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <input type="text" value={formData.father_education} onChange={(e) => handleChange('father_education', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Highest education" />
             </div>
+
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOBILE NO</label>
-              <input type="text" placeholder="Mobile No" value={formData.father_mobile} onChange={(e) => handleChange('father_mobile', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOBILE NUMBER</label>
+              <input type="text" value={formData.father_mobile} onChange={(e) => handleChange('father_mobile', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Father's mobile" />
             </div>
+
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PROFESSION</label>
-              <input type="text" placeholder="Profession" value={formData.father_profession} onChange={(e) => handleChange('father_profession', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <input type="text" value={formData.father_profession} onChange={(e) => handleChange('father_profession', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Profession" />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">INCOME</label>
-              <input type="text" placeholder="Income" value={formData.father_income} onChange={(e) => handleChange('father_income', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ANNUAL INCOME</label>
+              <input type="text" value={formData.father_income} onChange={(e) => handleChange('father_income', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Annual income" />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 4. Mother Information */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-            <span className="w-6 h-6 rounded-full bg-purple-700 text-white text-xs font-extrabold flex items-center justify-center">4</span>
-            <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Mother Information</h2>
-          </div>
-
+        {/* 4. Mother Information - Collapsible */}
+        {renderSection('Mother Information', 4, 'motherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOTHER NAME</label>
-              <input type="text" placeholder="Mother Name" value={formData.mother_name} onChange={(e) => handleChange('mother_name', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOTHER'S NAME</label>
+              <input type="text" value={formData.mother_name} onChange={(e) => handleChange('mother_name', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Mother's full name" />
             </div>
+
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOTHER NATIONAL ID</label>
-              <input type="text" placeholder="Mother National ID" value={formData.mother_national_id} onChange={(e) => handleChange('mother_national_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">NATIONAL ID</label>
+              <input type="text" value={formData.mother_national_id} onChange={(e) => handleChange('mother_national_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="NID number" />
             </div>
+
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OCCUPATION</label>
-              <input type="text" placeholder="Occupation" value={formData.mother_occupation} onChange={(e) => handleChange('mother_occupation', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <input type="text" value={formData.mother_occupation} onChange={(e) => handleChange('mother_occupation', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Occupation" />
             </div>
 
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">EDUCATION</label>
-              <input type="text" placeholder="Education" value={formData.mother_education} onChange={(e) => handleChange('mother_education', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <input type="text" value={formData.mother_education} onChange={(e) => handleChange('mother_education', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Highest education" />
             </div>
+
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOBILE NO</label>
-              <input type="text" placeholder="Mobile No" value={formData.mother_mobile} onChange={(e) => handleChange('mother_mobile', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOBILE NUMBER</label>
+              <input type="text" value={formData.mother_mobile} onChange={(e) => handleChange('mother_mobile', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Mother's mobile" />
             </div>
+
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PROFESSION</label>
-              <input type="text" placeholder="Profession" value={formData.mother_profession} onChange={(e) => handleChange('mother_profession', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <input type="text" value={formData.mother_profession} onChange={(e) => handleChange('mother_profession', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Profession" />
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">INCOME</label>
-              <input type="text" placeholder="Income" value={formData.mother_income} onChange={(e) => handleChange('mother_income', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" />
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ANNUAL INCOME</label>
+              <input type="text" value={formData.mother_income} onChange={(e) => handleChange('mother_income', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Annual income" />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 5. Documents Upload */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-            <span className="w-6 h-6 rounded-full bg-purple-700 text-white text-xs font-extrabold flex items-center justify-center">5</span>
-            <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Documents Upload</h2>
-          </div>
-
+        {/* 5. Documents Upload - Collapsible */}
+        {renderSection('Documents Upload', 5, 'documents',
           <div className="space-y-4">
-            <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-              <Upload className="w-8 h-8 text-purple-500 mb-2" />
-              <p className="text-xs font-bold text-slate-700 mb-1">Drag and drop or browse files to upload</p>
-              <p className="text-[10px] text-slate-400 font-medium mb-3">PDF, JPG, PNG or DOC (Max 5MB)</p>
-              <label className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md transition-colors flex items-center gap-1.5">
-                Choose Files
-                <input type="file" multiple onChange={handleDocUpload} className="hidden" />
+            <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-8 hover:border-purple-300 transition-colors">
+              <FileText className="w-10 h-10 text-slate-400 mb-3" />
+              <p className="text-xs font-semibold text-slate-500">Drag & drop files here or click to upload</p>
+              <label className="mt-3 px-4 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5">
+                <Upload className="w-3.5 h-3.5" />
+                Upload Documents
+                <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" multiple onChange={handleDocUpload} className="hidden" />
               </label>
+              <span className="mt-2 text-[10px] text-slate-400">Supported: PDF, DOC, DOCX, JPG, PNG</span>
             </div>
 
             {uploadedDocs.length > 0 && (
-              <div className="space-y-2.5">
-                <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Uploaded Documents ({uploadedDocs.length})</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {uploadedDocs.map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-700 truncate">{doc.name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">{doc.size}</p>
-                        </div>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => deleteDoc(idx)}
-                        className="w-8 h-8 rounded-lg hover:bg-red-50 text-red-500 flex items-center justify-center transition-colors shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Uploaded Files ({uploadedDocs.length})</h3>
+                {uploadedDocs.map((doc, index) => (
+                  <div key={index} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-4 h-4 text-purple-600" />
+                      <span className="text-xs font-medium text-slate-700">{doc.name}</span>
+                      <span className="text-[10px] text-slate-400">({doc.size})</span>
                     </div>
-                  ))}
-                </div>
+                    <button type="button" onClick={() => deleteDoc(index)} className="text-red-400 hover:text-red-600 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Action Buttons: Reset & Update */}
+        {/* Action Buttons */}
         <div className="flex items-center justify-center gap-3 pt-4">
           <button 
             type="button" 

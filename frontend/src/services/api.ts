@@ -1,10 +1,11 @@
+// frontend/src/services/api.ts
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import { setupApiErrorInterceptor } from '@/utils/errorHandler';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// ✅ Use the Vite proxy-aware API base URL so requests hit the backend consistently in dev and prod
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
-/** Normalize list endpoints: plain array or paginated `{ results }`. */
 export function extractListData<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object' && Array.isArray((data as { results?: T[] }).results)) {
@@ -13,7 +14,6 @@ export function extractListData<T>(data: unknown): T[] {
   return [];
 }
 
-/** Unwrap Django StandardizedJSONRenderer: { success, data, errors } */
 export function unwrapApiResponse<T = unknown>(response: AxiosResponse): AxiosResponse<T> {
   const body = response.data as Record<string, unknown> | null;
   if (body && typeof body === 'object' && 'success' in body) {
@@ -24,12 +24,20 @@ export function unwrapApiResponse<T = unknown>(response: AxiosResponse): AxiosRe
   return response as AxiosResponse<T>;
 }
 
+function getCSRFToken(): string | null {
+  const cookieValue = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('csrftoken='));
+  return cookieValue ? cookieValue.split('=')[1] : null;
+}
+
 const api: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 30_000,
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
@@ -37,6 +45,14 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  if (config.method !== 'get') {
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+      config.headers['X-CSRFToken'] = csrfToken;
+    }
+  }
+  
   return config;
 });
 

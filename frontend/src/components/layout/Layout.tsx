@@ -1,60 +1,75 @@
-import { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
-import Header from './Header';
-import { Sidebar } from './Sidebar';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import Header from '@/components/layout/Header';
+import Sidebar from '@/components/layout/Sidebar';  // Default import
+import { useAuth } from '@/contexts/AuthContext';
 import { useUIStore } from '@/store/uiStore';
-import { AIChatbot } from '../ai/AIChatbot';
 
-export default function Layout() {
-  const { sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+interface LayoutProps {
+  children?: React.ReactNode;
+}
 
+export function Layout({ children }: LayoutProps) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const { sidebarCollapsed } = useUIStore();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Check mobile on mount and resize
   useEffect(() => {
     const checkMobile = () => {
-      if (window.innerWidth >= 768) {
+      if (window.innerWidth < 768) {
         setMobileSidebarOpen(false);
       }
     };
     
     checkMobile();
     window.addEventListener('resize', checkMobile);
+    
     return () => window.removeEventListener('resize', checkMobile);
-  }, [setMobileSidebarOpen]);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  // Toggle mobile sidebar
+  const toggleMobileSidebar = () => {
+    setMobileSidebarOpen(!mobileSidebarOpen);
+  };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background text-foreground">
-      {/* Desktop Sidebar - Fixed, no scroll */}
-      <div className={`hidden md:block transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'} flex-shrink-0`}>
-        <div className="fixed h-screen" style={{ width: sidebarCollapsed ? '5rem' : '16rem' }}>
-          <div className="bg-gray-900 text-white h-full overflow-hidden flex flex-col">
-            <Sidebar />
-          </div>
-        </div>
+    <div className="flex h-screen bg-slate-50">
+      {/* Sidebar - Desktop */}
+      <div className="hidden md:block">
+        <Sidebar />
       </div>
 
-      {/* Mobile Sidebar Drawer */}
+      {/* Sidebar - Mobile */}
       {mobileSidebarOpen && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-          <div className="fixed top-0 left-0 h-full w-64 z-50 md:hidden">
-            <div className="bg-gray-900 text-white h-full overflow-y-auto">
-              <Sidebar isMobile onClose={() => setMobileSidebarOpen(false)} />
-            </div>
-          </div>
-        </>
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
       )}
+      <div className={`md:hidden fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ${
+        mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <Sidebar isMobile onClose={() => setMobileSidebarOpen(false)} />
+      </div>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onMobileMenuToggle={() => setMobileSidebarOpen(true)} />
-
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet />
+        <Header 
+          onMobileMenuToggle={toggleMobileSidebar}
+        />
+        <main className="flex-1 overflow-y-auto p-4">
+          {children || <Outlet />}
         </main>
       </div>
-      <AIChatbot />
     </div>
   );
 }
+// Remove any duplicate exports and add only this at the end
+export default Layout;
