@@ -13,7 +13,7 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 // Students
 import StudentsListPage from './pages/education/students/StudentsListPage'
 import StudentProfilePage from './pages/education/students/StudentProfilePage'
-// ✅ REMOVED: StudentHistoryPage (file doesn't exist)
+import StudentHistoryPage from './pages/education/students/StudentHistoryPage' // ✅ ADD THIS
 import EditStudentPage from './pages/education/students/EditStudentPage'
 import AddStudentPage from './pages/education/students/AddStudentPage'
 import AdmissionLetterPage from './pages/education/students/AdmissionLetterPage'
@@ -23,8 +23,6 @@ import StudentLoginsPage from './pages/education/students/StudentLoginsPage'
 import PromoteStudentsPage from './pages/education/students/PromoteStudentsPage'
 import FamiliesPage from './pages/education/students/FamiliesPage'
 import ActiveInactivePage from './pages/education/students/ActiveInactivePage'
-
-// ✅ REMOVED: Courses import (file doesn't exist)
 
 // Teachers
 import TeachersManagementPage from './pages/education/teachers/TeachersManagement'
@@ -173,7 +171,9 @@ function App() {
                     ============================================================ */}
                 <Route path="education" element={<Navigate to="/education/academics" replace />} />
                 
-                {/* Students */}
+                {/* ============================================================
+                    STUDENTS ROUTES - ORDER MATTERS! Put specific routes first
+                    ============================================================ */}
                 <Route path="education/students" element={<StudentsListPage />} />
                 <Route path="education/students/add" element={<AddStudentPage />} />
                 <Route path="education/students/families" element={<FamiliesPage />} />
@@ -183,12 +183,13 @@ function App() {
                 <Route path="education/students/print-list" element={<PrintBasicListPage />} />
                 <Route path="education/students/logins" element={<StudentLoginsPage />} />
                 <Route path="education/students/promote" element={<PromoteStudentsPage />} />
-                <Route path="education/students/:id" element={<StudentProfilePage />} />
+                
+                {/* ✅ FIXED: Specific routes BEFORE the dynamic :id route */}
+                <Route path="education/students/:id/history" element={<StudentHistoryPage />} />
                 <Route path="education/students/:id/edit" element={<EditStudentPage />} />
-                {/* ✅ REMOVED: Student History Route (file doesn't exist) */}
+                <Route path="education/students/:id" element={<StudentProfilePage />} />
                 
                 {/* Teachers */}
-                {/* ✅ REMOVED: Courses route (file doesn't exist) */}
                 <Route path="education/teachers" element={<TeachersManagementPage />} />
                 <Route path="education/teachers/add" element={<AddTeacherPage />} />
                 <Route path="education/teachers/job-letter" element={<JobLetterPage />} />

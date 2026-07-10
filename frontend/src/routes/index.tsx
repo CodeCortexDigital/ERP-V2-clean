@@ -20,8 +20,14 @@ const StudentDashboard = lazy(() => import('../pages/portals/student/StudentDash
 const TeacherDashboard = lazy(() => import('../pages/portals/teacher/TeacherDashboard'));
 const ParentDashboard = lazy(() => import('../pages/portals/parent/ParentDashboard'));
 
-// Education Module
+// Education Module - Students
 const StudentsListPage = lazy(() => import('../pages/education/StudentsListPage'));
+const StudentProfilePage = lazy(() => import('../pages/education/students/StudentProfilePage'));
+const StudentHistoryPage = lazy(() => import('../pages/education/students/StudentHistoryPage')); // ✅ ADD THIS
+const AddStudentPage = lazy(() => import('../pages/education/students/AddStudentPage'));
+const EditStudentPage = lazy(() => import('../pages/education/students/EditStudentPage'));
+
+// Education Module - Other
 const CoursesListPage = lazy(() => import('../pages/education/CoursesListPage'));
 const AcademicsPage = lazy(() => import('../pages/education/AcademicsPage'));
 const CurriculumManagement = lazy(() => import('../pages/education/curriculum/SyllabusManagement'));
@@ -48,6 +54,11 @@ const WeekdayManagementPage = lazy(() => import('../pages/education/timetable/We
 const ClassroomManagementPage = lazy(() => import('../pages/education/timetable/ClassroomManagementPage'));
 const ClassTimetableListPage = lazy(() => import('../pages/education/timetable/ClassTimetableListPage'));
 const TeacherTimetableListPage = lazy(() => import('../pages/education/timetable/TeacherTimetableListPage'));
+
+// Academics - Classes
+const AllClassesPage = lazy(() => import('../pages/education/academics/AllClassesPage'));
+const AddClassPage = lazy(() => import('../pages/education/academics/AddClassPage'));
+const EditClassPage = lazy(() => import('../pages/education/academics/EditClassPage'));
 
 // Loading component for Suspense
 const PageLoader = () => (
@@ -132,18 +143,66 @@ export const routes: RouteObject[] = [
         element: <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>,
       },
       
-      // Education Module
+      // ============================================================
+      // EDUCATION MODULE - STUDENTS (UPDATED)
+      // ============================================================
       {
         path: 'education/students',
-        element: <Suspense fallback={<PageLoader />}><StudentsListPage /></Suspense>,
+        children: [
+          {
+            index: true,
+            element: <Suspense fallback={<PageLoader />}><StudentsListPage /></Suspense>,
+          },
+          {
+            path: 'add',
+            element: <Suspense fallback={<PageLoader />}><AddStudentPage /></Suspense>,
+          },
+          {
+            path: ':id',
+            element: <Suspense fallback={<PageLoader />}><StudentProfilePage /></Suspense>,
+          },
+          {
+            path: ':id/edit',
+            element: <Suspense fallback={<PageLoader />}><EditStudentPage /></Suspense>,
+          },
+          {
+            path: ':id/history', // ✅ ADD THIS ROUTE
+            element: <Suspense fallback={<PageLoader />}><StudentHistoryPage /></Suspense>,
+          },
+        ],
       },
+      
+      // ============================================================
+      // EDUCATION MODULE - ACADEMICS / CLASSES (UPDATED)
+      // ============================================================
+      {
+        path: 'education/academics',
+        children: [
+          {
+            index: true,
+            element: <Suspense fallback={<PageLoader />}><AcademicsPage /></Suspense>,
+          },
+          {
+            path: 'classes',
+            element: <Suspense fallback={<PageLoader />}><AllClassesPage /></Suspense>,
+          },
+          {
+            path: 'classes/add',
+            element: <Suspense fallback={<PageLoader />}><AddClassPage /></Suspense>,
+          },
+          {
+            path: 'classes/edit/:id',
+            element: <Suspense fallback={<PageLoader />}><EditClassPage /></Suspense>,
+          },
+        ],
+      },
+      
+      // ============================================================
+      // EDUCATION MODULE - OTHER
+      // ============================================================
       {
         path: 'education/courses',
         element: <Suspense fallback={<PageLoader />}><CoursesListPage /></Suspense>,
-      },
-      {
-        path: 'education/academics',
-        element: <Suspense fallback={<PageLoader />}><AcademicsPage /></Suspense>,
       },
       {
         path: 'education/curriculum',
@@ -201,97 +260,125 @@ export const routes: RouteObject[] = [
         path: 'education/attendance/analytics',
         element: <Suspense fallback={<PageLoader />}><AttendanceAnalyticsDashboard /></Suspense>,
       },
+      
+      // ============================================================
+      // TIMETABLE MODULE
+      // ============================================================
       {
         path: 'education/timetable',
-        element: <Suspense fallback={<PageLoader />}><TimetableManagement /></Suspense>,
+        children: [
+          {
+            index: true,
+            element: <Suspense fallback={<PageLoader />}><TimetableManagement /></Suspense>,
+          },
+          {
+            path: 'editor',
+            element: <Suspense fallback={<PageLoader />}><TimetableEditorPage /></Suspense>,
+          },
+          {
+            path: 'view',
+            element: <Suspense fallback={<PageLoader />}><TimetableViewPage /></Suspense>,
+          },
+          {
+            path: 'periods',
+            element: <Suspense fallback={<PageLoader />}><PeriodManagementPage /></Suspense>,
+          },
+          {
+            path: 'weekdays',
+            element: <Suspense fallback={<PageLoader />}><WeekdayManagementPage /></Suspense>,
+          },
+          {
+            path: 'rooms',
+            element: <Suspense fallback={<PageLoader />}><ClassroomManagementPage /></Suspense>,
+          },
+          {
+            path: 'class',
+            element: <Suspense fallback={<PageLoader />}><ClassTimetableListPage /></Suspense>,
+          },
+          {
+            path: 'teacher',
+            element: <Suspense fallback={<PageLoader />}><TeacherTimetableListPage /></Suspense>,
+          },
+        ],
       },
-      {
-        path: 'education/timetable/editor',
-        element: <Suspense fallback={<PageLoader />}><TimetableEditorPage /></Suspense>,
-      },
-      {
-        path: 'education/timetable/view',
-        element: <Suspense fallback={<PageLoader />}><TimetableViewPage /></Suspense>,
-      },
-      {
-        path: 'education/timetable/periods',
-        element: <Suspense fallback={<PageLoader />}><PeriodManagementPage /></Suspense>,
-      },
-      {
-        path: 'education/timetable/weekdays',
-        element: <Suspense fallback={<PageLoader />}><WeekdayManagementPage /></Suspense>,
-      },
-      {
-        path: 'education/timetable/rooms',
-        element: <Suspense fallback={<PageLoader />}><ClassroomManagementPage /></Suspense>,
-      },
-      {
-        path: 'education/timetable/class',
-        element: <Suspense fallback={<PageLoader />}><ClassTimetableListPage /></Suspense>,
-      },
-      {
-        path: 'education/timetable/teacher',
-        element: <Suspense fallback={<PageLoader />}><TeacherTimetableListPage /></Suspense>,
-      },
+      
+      // ============================================================
+      // PORTALS
+      // ============================================================
       {
         path: 'student',
-        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
-      },
-      {
-        path: 'student/profile',
-        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
-      },
-      {
-        path: 'student/attendance',
-        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
-      },
-      {
-        path: 'student/results',
-        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
-      },
-      {
-        path: 'student/fees',
-        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
-      },
-      {
-        path: 'student/timetable',
-        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
-      },
-      {
-        path: 'student/notifications',
-        element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+        children: [
+          {
+            index: true,
+            element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+          },
+          {
+            path: 'profile',
+            element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+          },
+          {
+            path: 'attendance',
+            element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+          },
+          {
+            path: 'results',
+            element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+          },
+          {
+            path: 'fees',
+            element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+          },
+          {
+            path: 'timetable',
+            element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+          },
+          {
+            path: 'notifications',
+            element: <Suspense fallback={<PageLoader />}><StudentDashboard /></Suspense>,
+          },
+        ],
       },
       {
         path: 'teacher',
-        element: <Suspense fallback={<PageLoader />}><TeacherDashboard /></Suspense>,
-      },
-      {
-        path: 'teacher/students',
-        element: <Suspense fallback={<PageLoader />}><TeacherDashboard /></Suspense>,
+        children: [
+          {
+            index: true,
+            element: <Suspense fallback={<PageLoader />}><TeacherDashboard /></Suspense>,
+          },
+          {
+            path: 'students',
+            element: <Suspense fallback={<PageLoader />}><TeacherDashboard /></Suspense>,
+          },
+        ],
       },
       {
         path: 'parent',
-        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
-      },
-      {
-        path: 'parent/children',
-        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
-      },
-      {
-        path: 'parent/attendance',
-        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
-      },
-      {
-        path: 'parent/results',
-        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
-      },
-      {
-        path: 'parent/fees',
-        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
-      },
-      {
-        path: 'parent/notifications',
-        element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+        children: [
+          {
+            index: true,
+            element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+          },
+          {
+            path: 'children',
+            element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+          },
+          {
+            path: 'attendance',
+            element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+          },
+          {
+            path: 'results',
+            element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+          },
+          {
+            path: 'fees',
+            element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+          },
+          {
+            path: 'notifications',
+            element: <Suspense fallback={<PageLoader />}><ParentDashboard /></Suspense>,
+          },
+        ],
       },
     ],
   },

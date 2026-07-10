@@ -14,6 +14,7 @@ from api.versioning import VersionedViewMixin, get_serializer_class
 from api.v1.serializers import StudentSerializerV1
 from services.core.accounts.decorators import ensure_student_access
 from services.education.students.models import Student
+from services.core.audit.models import AuditLog
 from services.education.students.views import (
     StudentDetailView as _StudentDetailView,
     StudentListCreateView as _StudentListCreateView,
@@ -32,11 +33,226 @@ class StudentListCreateView(VersionedViewMixin, _StudentListCreateView):
 class StudentDetailView(VersionedViewMixin, _StudentDetailView):
     serializer_class = StudentSerializerV1
     serializer_classes_by_version = {'v1': StudentSerializerV1}
+    
+    def perform_update(self, serializer):
+        """Override to add audit logging when student is updated"""
+        # Get the instance before update
+        instance = self.get_object()
+        
+        # Get old class and section names
+        old_class = instance.current_class
+        old_class_name = old_class.name if old_class else None
+        old_section = instance.current_section
+        old_section_name = old_section.name if old_section else None
+        
+        # Save the updated instance
+        updated_instance = serializer.save()
+        
+        # Get new class and section names
+        new_class = updated_instance.current_class
+        new_class_name = new_class.name if new_class else None
+        new_section = updated_instance.current_section
+        new_section_name = new_section.name if new_section else None
+        
+        # Build old data with human-readable values
+        old_data = {
+            'full_name': instance.full_name,
+            'email': instance.email,
+            'phone': instance.phone,
+            'student_id': instance.student_id,
+            'date_of_birth': str(instance.date_of_birth) if instance.date_of_birth else None,
+            'admission_date': str(instance.admission_date) if instance.admission_date else None,
+            'gender': instance.gender,
+            'current_class': old_class_name,
+            'current_class_id': str(old_class.id) if old_class else None,
+            'current_section': old_section_name,
+            'guardian_name': instance.guardian_name,
+            'father_name': instance.father_name,
+            'mother_name': instance.mother_name,
+            'guardian_phone': instance.guardian_phone,
+            'address': instance.address,
+            'city': instance.city,
+            'state': instance.state,
+            'postal_code': instance.postal_code,
+            'is_active': instance.is_active,
+        }
+        
+        # Build new data with human-readable values
+        new_data = {
+            'full_name': updated_instance.full_name,
+            'email': updated_instance.email,
+            'phone': updated_instance.phone,
+            'student_id': updated_instance.student_id,
+            'date_of_birth': str(updated_instance.date_of_birth) if updated_instance.date_of_birth else None,
+            'admission_date': str(updated_instance.admission_date) if updated_instance.admission_date else None,
+            'gender': updated_instance.gender,
+            'current_class': new_class_name,
+            'current_class_id': str(new_class.id) if new_class else None,
+            'current_section': new_section_name,
+            'guardian_name': updated_instance.guardian_name,
+            'father_name': updated_instance.father_name,
+            'mother_name': updated_instance.mother_name,
+            'guardian_phone': updated_instance.guardian_phone,
+            'address': updated_instance.address,
+            'city': updated_instance.city,
+            'state': updated_instance.state,
+            'postal_code': updated_instance.postal_code,
+            'is_active': updated_instance.is_active,
+        }
+        
+        # Find what changed with user-friendly descriptions
+        changes = []
+        action_type = 'updated'
+        action_description = "Student information updated"
+        
+        # Check for class change
+        if old_class_name != new_class_name:
+            old_display = old_class_name or 'No Class'
+            new_display = new_class_name or 'No Class'
+            changes.append(f"Class: {old_display} → {new_display}")
+            action_type = 'class_updated'
+            action_description = f"Class changed from '{old_display}' to '{new_display}'"
+        
+        # Check for section change
+        if old_section_name != new_section_name:
+            old_display = old_section_name or 'No Section'
+            new_display = new_section_name or 'No Section'
+            changes.append(f"Section: {old_display} → {new_display}")
+            if action_type == 'updated':
+                action_type = 'section_updated'
+                action_description = f"Section changed from '{old_display}' to '{new_display}'"
+        
+        # Check for name change
+        if old_data['full_name'] != new_data['full_name']:
+            changes.append(f"Name: {old_data['full_name']} → {new_data['full_name']}")
+            action_type = 'name_updated'
+            action_description = f"Name changed from '{old_data['full_name']}' to '{new_data['full_name']}'"
+        
+        # Check for email change
+        if old_data['email'] != new_data['email']:
+            old_display = old_data['email'] or 'None'
+            new_display = new_data['email'] or 'None'
+            changes.append(f"Email: {old_display} → {new_display}")
+            if action_type == 'updated':
+                action_type = 'email_updated'
+                action_description = f"Email changed from '{old_display}' to '{new_display}'"
+        
+        # Check for phone change
+        if old_data['phone'] != new_data['phone']:
+            old_display = old_data['phone'] or 'None'
+            new_display = new_data['phone'] or 'None'
+            changes.append(f"Phone: {old_display} → {new_display}")
+            if action_type == 'updated':
+                action_type = 'phone_updated'
+                action_description = f"Phone changed from '{old_display}' to '{new_display}'"
+        
+        # Check for guardian changes
+        if old_data['guardian_name'] != new_data['guardian_name']:
+            old_display = old_data['guardian_name'] or 'None'
+            new_display = new_data['guardian_name'] or 'None'
+            changes.append(f"Guardian: {old_display} → {new_display}")
+            if action_type == 'updated':
+                action_type = 'guardian_updated'
+                action_description = f"Guardian changed from '{old_display}' to '{new_display}'"
+        
+        # Check for father name change
+        if old_data['father_name'] != new_data['father_name']:
+            old_display = old_data['father_name'] or 'None'
+            new_display = new_data['father_name'] or 'None'
+            changes.append(f"Father: {old_display} → {new_display}")
+        
+        # Check for mother name change
+        if old_data['mother_name'] != new_data['mother_name']:
+            old_display = old_data['mother_name'] or 'None'
+            new_display = new_data['mother_name'] or 'None'
+            changes.append(f"Mother: {old_display} → {new_display}")
+        
+        # Check for address change
+        if old_data['address'] != new_data['address']:
+            old_display = old_data['address'] or 'None'
+            new_display = new_data['address'] or 'None'
+            changes.append(f"Address: {old_display} → {new_display}")
+            if action_type == 'updated':
+                action_type = 'address_updated'
+                action_description = f"Address updated"
+        
+        # Check for status change
+        if old_data['is_active'] != new_data['is_active']:
+            old_status = 'Active' if old_data['is_active'] else 'Inactive'
+            new_status = 'Active' if new_data['is_active'] else 'Inactive'
+            changes.append(f"Status: {old_status} → {new_status}")
+            if action_type == 'updated':
+                action_type = 'status_updated'
+                action_description = f"Status changed from '{old_status}' to '{new_status}'"
+        
+        # Check for gender change
+        if old_data['gender'] != new_data['gender']:
+            old_display = old_data['gender'] or 'None'
+            new_display = new_data['gender'] or 'None'
+            changes.append(f"Gender: {old_display} → {new_display}")
+        
+        # Log the update to AuditLog
+        try:
+            # Create a description
+            if changes:
+                description = ", ".join(changes)
+                if action_type == 'updated':
+                    action_description = description
+            else:
+                description = "No changes made"
+            
+            audit_log = AuditLog.objects.create(
+                user=self.request.user,
+                action=action_type,
+                resource_type='Student',
+                resource_id=str(updated_instance.id),
+                old_data=old_data,
+                new_data=new_data,
+                ip_address=self.request.META.get('REMOTE_ADDR', ''),
+                user_agent=self.request.META.get('HTTP_USER_AGENT', '')
+            )
+            
+            # Log what happened
+            print(f"✅ Audit logged: {updated_instance.full_name} - {action_description}")
+                
+        except Exception as e:
+            print(f"❌ Failed to log audit: {e}")
+    
+    def perform_destroy(self, instance):
+        """Override to add audit logging when student is deleted"""
+        try:
+            old_class_name = instance.current_class.name if instance.current_class else None
+            
+            AuditLog.objects.create(
+                user=self.request.user,
+                action='deleted',
+                resource_type='Student',
+                resource_id=str(instance.id),
+                old_data={
+                    'full_name': instance.full_name,
+                    'student_id': instance.student_id,
+                    'email': instance.email,
+                    'current_class': old_class_name,
+                },
+                new_data={},
+                ip_address=self.request.META.get('REMOTE_ADDR', ''),
+                user_agent=self.request.META.get('HTTP_USER_AGENT', '')
+            )
+            print(f"✅ Audit logged: Student deleted - {instance.full_name}")
+        except Exception as e:
+            print(f"❌ Failed to log deletion: {e}")
+        
+        instance.delete()
 
+
+# ============================================================
+# STUDENT BY ID VIEW
+# ============================================================
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_student_by_id(request, student_id):
+    """Get student by student_id field"""
     try:
         student = Student.objects.select_related('current_class', 'current_section', 'tenant').get(
             student_id=student_id,
@@ -292,13 +508,10 @@ def get_scholarships(request):
 @permission_classes([IsAuthenticated])
 def subjects_list_view(request):
     """Get all subjects or create a new subject"""
-    print(f"🔵 subjects_list_view called with method: {request.method}")
-    
     try:
         from services.education.academics.models import Subject
         from services.education.academics.serializers import SubjectSerializer
     except ImportError as e:
-        print(f"❌ Import error: {e}")
         return Response(
             {'error': 'Academics module not available'},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
@@ -313,9 +526,6 @@ def subjects_list_view(request):
         })
     
     elif request.method == 'POST':
-        print(f"📥 POST data: {request.data}")
-        
-        # Create data dict with proper values
         data = {
             'name': request.data.get('name', '').strip(),
             'code': request.data.get('code', '').strip().upper(),
@@ -323,9 +533,6 @@ def subjects_list_view(request):
             'description': request.data.get('description', '').strip(),
         }
         
-        print(f"📦 Processed data: {data}")
-        
-        # Validate
         if not data['name']:
             return Response(
                 {'error': 'Subject name is required'},
@@ -336,18 +543,13 @@ def subjects_list_view(request):
         if serializer.is_valid():
             try:
                 subject = serializer.save()
-                print(f"✅ Subject created: {subject.name} (ID: {subject.id})")
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except Exception as e:
-                print(f"❌ Save error: {e}")
-                import traceback
-                traceback.print_exc()
                 return Response(
                     {'error': str(e)},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         else:
-            print(f"❌ Validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -428,7 +630,6 @@ def class_subjects_list_view(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if class exists
         try:
             school_class = SchoolClass.objects.get(id=class_ref_id)
         except SchoolClass.DoesNotExist:
@@ -437,7 +638,6 @@ def class_subjects_list_view(request):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Check if subject exists
         try:
             subject = Subject.objects.get(id=subject_id)
         except Subject.DoesNotExist:
@@ -446,14 +646,12 @@ def class_subjects_list_view(request):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Check if already assigned
         if ClassSubject.objects.filter(class_ref_id=class_ref_id, subject_id=subject_id).exists():
             return Response(
                 {'error': 'This subject is already assigned to this class'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Create the assignment
         class_subject = ClassSubject.objects.create(
             class_ref=school_class,
             subject=subject
@@ -562,6 +760,7 @@ def class_detail_view(request, id):
         school_class.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 # ============================================================
 # ACADEMIC YEARS - Full CRUD support
 # ============================================================
@@ -638,6 +837,234 @@ def academic_year_detail_view(request, id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# ============================================================
+# STUDENT HISTORY & TIMELINE VIEWS
+# ============================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_history(request, id):
+    """Get student's action history"""
+    try:
+        from services.education.students.models import Student
+        from services.core.audit.models import AuditLog
+        
+        try:
+            student = Student.objects.get(id=id)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        audit_logs = AuditLog.objects.filter(
+            resource_id=str(id),
+            resource_type='Student'
+        ).order_by('-timestamp')[:100]
+        
+        history_data = []
+        for log in audit_logs:
+            # Format old and new data for display
+            old_data = log.old_data or {}
+            new_data = log.new_data or {}
+            
+            # Get the class names if present
+            old_class = old_data.get('current_class') if old_data else None
+            new_class = new_data.get('current_class') if new_data else None
+            
+            # Create a description based on the action
+            if log.action == 'class_updated':
+                description = f"Class changed from '{old_class or 'None'}' to '{new_class or 'None'}'"
+            elif log.action == 'updated':
+                # Find what changed
+                changes = []
+                for key in ['full_name', 'email', 'phone', 'guardian_name']:
+                    if old_data.get(key) != new_data.get(key):
+                        old_val = old_data.get(key) or 'None'
+                        new_val = new_data.get(key) or 'None'
+                        changes.append(f"{key}: {old_val} → {new_val}")
+                description = ", ".join(changes) if changes else "Student updated"
+            else:
+                description = f"{log.action} performed on student"
+            
+            history_data.append({
+                'id': str(log.id),
+                'action_type': log.action,
+                'action': log.action,
+                'description': description,
+                'timestamp': log.timestamp.isoformat(),
+                'user': log.user.username if log.user else 'System',
+                'previous_value': old_data,
+                'new_value': new_data,
+                'ip_address': log.ip_address
+            })
+        
+        return Response({
+            'results': history_data,
+            'count': len(history_data)
+        })
+        
+    except Exception as e:
+        return Response({
+            'results': [],
+            'count': 0,
+            'message': str(e)
+        })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_history_summary(request, id):
+    """Get student history summary statistics"""
+    try:
+        from services.education.students.models import Student
+        from services.core.audit.models import AuditLog
+        
+        try:
+            student = Student.objects.get(id=id)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        audit_logs = AuditLog.objects.filter(
+            resource_id=str(id),
+            resource_type='Student'
+        )
+        
+        total_actions = audit_logs.count()
+        action_counts = {}
+        for log in audit_logs:
+            action = log.action
+            action_counts[action] = action_counts.get(action, 0) + 1
+        
+        return Response({
+            'total_actions': total_actions,
+            'action_counts': action_counts,
+            'last_action': audit_logs.first().timestamp if audit_logs.exists() else None,
+            'first_action': audit_logs.last().timestamp if audit_logs.exists() else None,
+        })
+        
+    except Exception as e:
+        return Response({
+            'total_actions': 0,
+            'action_counts': {},
+            'last_action': None,
+            'first_action': None,
+        })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_timeline(request, id):
+    """Get student timeline (all events in chronological order)"""
+    try:
+        from services.education.students.models import Student
+        from services.core.audit.models import AuditLog
+        from django.utils import timezone
+        
+        try:
+            student = Student.objects.get(id=id)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        audit_logs = AuditLog.objects.filter(
+            resource_id=str(id),
+            resource_type='Student'
+        ).order_by('timestamp')
+        
+        timeline = []
+        
+        # Add creation event
+        timeline.append({
+            'id': f'created-{student.id}',
+            'type': 'created',
+            'title': 'Student Created',
+            'description': f'Student "{student.full_name}" was added to the system',
+            'timestamp': student.created_at.isoformat() if student.created_at else timezone.now().isoformat(),
+            'icon': 'UserPlus',
+            'color': 'emerald'
+        })
+        
+        # Add audit events
+        for log in audit_logs:
+            timeline.append({
+                'id': str(log.id),
+                'type': 'action',
+                'title': log.action.title(),
+                'description': log.action,
+                'timestamp': log.timestamp.isoformat(),
+                'icon': 'Activity',
+                'color': 'purple',
+                'user': log.user.username if log.user else 'System'
+            })
+        
+        timeline.sort(key=lambda x: x['timestamp'])
+        
+        return Response({
+            'results': timeline,
+            'count': len(timeline)
+        })
+        
+    except Exception as e:
+        return Response({
+            'results': [],
+            'count': 0,
+            'message': str(e)
+        })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def log_student_action(request, id):
+    """Log a custom action for a student"""
+    try:
+        from services.education.students.models import Student
+        from services.core.audit.models import AuditLog
+        
+        try:
+            student = Student.objects.get(id=id)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        action = request.data.get('action', '')
+        if not action:
+            return Response(
+                {'error': 'Action is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        audit_log = AuditLog.objects.create(
+            user=request.user,
+            action=action,
+            resource_type='Student',
+            resource_id=str(id),
+            old_data=request.data.get('previous_value', {}),
+            new_data=request.data.get('new_value', {}),
+            ip_address=request.META.get('REMOTE_ADDR', ''),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+        
+        return Response({
+            'id': str(audit_log.id),
+            'action': action,
+            'timestamp': audit_log.timestamp.isoformat(),
+            'message': 'Action logged successfully'
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({
+            'error': str(e),
+            'message': 'Failed to log action'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 __all__ = [
     'StudentListCreateView',
@@ -661,4 +1088,10 @@ __all__ = [
     'class_subject_detail_view',
     'classes_list_view',
     'class_detail_view',
+    'academic_years_list_view',
+    'academic_year_detail_view',
+    'get_student_history',
+    'get_student_history_summary',
+    'get_student_timeline',
+    'log_student_action',
 ]
