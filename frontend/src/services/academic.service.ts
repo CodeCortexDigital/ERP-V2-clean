@@ -55,8 +55,12 @@ export interface ClassSubject {
   id: string;
   class_ref: string;
   subject: string;
+  class_name?: string;
+  subject_name?: string;
   created_at: string;
 }
+
+const API_BASE = '/auth/academics';
 
 const academicService = {
   // ============================================================
@@ -86,7 +90,7 @@ const academicService = {
   },
 
   // ============================================================
-  // CLASSES - Use /classes/ (with fallback)
+  // CLASSES
   // ============================================================
   classes: {
     getAll: async (params?: any) => {
@@ -99,8 +103,7 @@ const academicService = {
         });
         return extractListData<SchoolClass>(response.data);
       } catch (error) {
-        console.warn('Failed to fetch classes from /classes/, using fallback data');
-        // Return fallback data from students
+        console.warn('Failed to fetch classes, using fallback data');
         return [
           { id: 'class-1', name: 'Grade 1A', code: 'GRD1A' },
           { id: 'class-2', name: 'Grade 1B', code: 'GRD1B' },
@@ -269,36 +272,58 @@ const academicService = {
   },
 
   // ============================================================
-  // CLASS SUBJECTS (Assignments)
+  // CLASS SUBJECTS (Assignments) - ✅ FIXED
   // ============================================================
   classSubjects: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`/class-subjects/`, { params });
+        const response = await api.get(`${API_BASE}/class-subjects/`, { params });
         return extractListData<ClassSubject>(response.data);
-      } catch {
+      } catch (error) {
+        console.error('Failed to fetch class subjects:', error);
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`/class-subjects/${id}/`);
+      const response = await api.get(`${API_BASE}/class-subjects/${id}/`);
       return response.data;
     },
     create: async (data: Partial<ClassSubject>) => {
-      const response = await api.post(`/class-subjects/`, data);
-      return response.data;
+      try {
+        // Validate required fields
+        if (!data.class_ref) {
+          throw new Error('Class is required');
+        }
+        if (!data.subject) {
+          throw new Error('Subject is required');
+        }
+
+        const payload = {
+          class_ref: data.class_ref,
+          subject: data.subject
+        };
+        
+        const response = await api.post(`${API_BASE}/class-subjects/`, payload);
+        return response.data;
+      } catch (error: any) {
+        console.error('Error creating class subject:', error);
+        if (error.response?.data) {
+          throw error;
+        }
+        throw new Error('Failed to assign subject to class');
+      }
     },
     update: async (id: string, data: Partial<ClassSubject>) => {
-      const response = await api.patch(`/class-subjects/${id}/`, data);
+      const response = await api.patch(`${API_BASE}/class-subjects/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`/class-subjects/${id}/`);
+      const response = await api.delete(`${API_BASE}/class-subjects/${id}/`);
       return response.data;
     },
     getByClass: async (classId: string) => {
       try {
-        const response = await api.get(`/class-subjects/`, { 
+        const response = await api.get(`${API_BASE}/class-subjects/`, { 
           params: { class_ref: classId } 
         });
         return extractListData<ClassSubject>(response.data);
