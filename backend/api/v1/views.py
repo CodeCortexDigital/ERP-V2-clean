@@ -1066,6 +1066,103 @@ def log_student_action(request, id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# ============================================================
+# TEACHER VIEWS
+# ============================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def teachers_list_view(request):
+    """Get all teachers or create a new teacher"""
+    try:
+        from services.education.academics.models import Teacher
+        from services.education.academics.serializers import TeacherSerializer
+        from django.db.models import Q
+    except ImportError as e:
+        return Response(
+            {'error': f'Academics module not available: {str(e)}'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    if request.method == 'GET':
+        # Get query params for filtering
+        is_active = request.query_params.get('is_active')
+        search = request.query_params.get('search')
+        
+        queryset = Teacher.objects.all()
+        
+        if is_active is not None:
+            is_active_bool = is_active.lower() == 'true'
+            queryset = queryset.filter(is_active=is_active_bool)
+        
+        if search:
+            queryset = queryset.filter(
+                Q(full_name__icontains=search) |
+                Q(email__icontains=search) |
+                Q(employee_id__icontains=search)
+            )
+        
+        queryset = queryset.order_by('full_name')
+        
+        serializer = TeacherSerializer(queryset, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        serializer = TeacherSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                teacher = serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def teacher_detail_view(request, id):
+    """Get, update or delete a specific teacher"""
+    try:
+        from services.education.academics.models import Teacher
+        from services.education.academics.serializers import TeacherSerializer
+    except ImportError as e:
+        return Response(
+            {'error': f'Academics module not available: {str(e)}'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    try:
+        teacher = Teacher.objects.get(id=id)
+    except Teacher.DoesNotExist:
+        return Response(
+            {'error': 'Teacher not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'GET':
+        serializer = TeacherSerializer(teacher)
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = TeacherSerializer(teacher, data=request.data, partial=request.method == 'PATCH')
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        # Soft delete
+        teacher.is_active = False
+        teacher.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 __all__ = [
     'StudentListCreateView',
     'StudentDetailView',
@@ -1094,4 +1191,6 @@ __all__ = [
     'get_student_history_summary',
     'get_student_timeline',
     'log_student_action',
+    'teachers_list_view',
+    'teacher_detail_view',
 ]

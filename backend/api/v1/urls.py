@@ -22,6 +22,14 @@ urlpatterns = [
     path('auth/students/', include('api.v1.student_urls')),
     
     # ============================================================
+    # TEACHERS - ✅ ADD THESE ENDPOINTS
+    # ============================================================
+    path('teachers/', views.teachers_list_view, name='teacher-list'),
+    path('teachers/<str:id>/', views.teacher_detail_view, name='teacher-detail'),
+    path('auth/teachers/', views.teachers_list_view, name='auth-teacher-list'),
+    path('auth/teachers/<str:id>/', views.teacher_detail_view, name='auth-teacher-detail'),
+    
+    # ============================================================
     # PAYMENTS & ATTENDANCE
     # ============================================================
     path('payments/', views.get_payments_list, name='payments-list'),
@@ -35,6 +43,46 @@ urlpatterns = [
     path('invoices/', views.get_payments_list, name='invoices-list'),
     
     # ============================================================
+    # SUBJECTS
+    # ============================================================
+    path('subjects/', views.subjects_list_view, name='subjects-list'),
+    path('subjects/<str:id>/', views.subject_detail_view, name='subject-detail'),
+    path('auth/subjects/', views.subjects_list_view, name='auth-subjects-list'),
+    path('auth/subjects/<str:id>/', views.subject_detail_view, name='auth-subject-detail'),
+    
+    # ============================================================
+    # CLASS SUBJECTS
+    # ============================================================
+    path('class-subjects/', views.class_subjects_list_view, name='class-subjects-list'),
+    path('class-subjects/<str:id>/', views.class_subject_detail_view, name='class-subject-detail'),
+    path('auth/class-subjects/', views.class_subjects_list_view, name='auth-class-subjects-list'),
+    path('auth/class-subjects/<str:id>/', views.class_subject_detail_view, name='auth-class-subject-detail'),
+    
+    # ============================================================
+    # CLASSES
+    # ============================================================
+    path('classes/', views.classes_list_view, name='classes-list'),
+    path('classes/<str:id>/', views.class_detail_view, name='class-detail'),
+    path('auth/classes/', views.classes_list_view, name='auth-classes-list'),
+    path('auth/classes/<str:id>/', views.class_detail_view, name='auth-class-detail'),
+    
+    # ============================================================
+    # ACADEMIC YEARS
+    # ============================================================
+    path('academic-years/', views.academic_years_list_view, name='academic-years-list'),
+    path('academic-years/<str:id>/', views.academic_year_detail_view, name='academic-year-detail'),
+    path('auth/academic-years/', views.academic_years_list_view, name='auth-academic-years-list'),
+    path('auth/academic-years/<str:id>/', views.academic_year_detail_view, name='auth-academic-year-detail'),
+    
+    # ============================================================
+    # STUDENT HISTORY
+    # ============================================================
+    path('students/<str:id>/history/', views.get_student_history, name='student-history'),
+    path('students/<str:id>/history/summary/', views.get_student_history_summary, name='student-history-summary'),
+    path('students/<str:id>/timeline/', views.get_student_timeline, name='student-timeline'),
+    path('students/<str:id>/log-action/', views.log_student_action, name='student-log-action'),
+    
+    # ============================================================
     # LEGACY NESTED PATHS (Backward Compatible)
     # ============================================================
     path('auth/academics/', include('services.education.academics.urls')),
@@ -43,35 +91,6 @@ urlpatterns = [
     path('auth/exams/', include('services.education.exams.urls')),
     path('auth/admissions/', include('services.education.admissions.urls')),
     path('auth/analytics/', include('services.analytics.urls')),
-    
-    # ============================================================
-    # API ACADEMICS - NEW PATH
-    # ============================================================
-    # Academic Years
-    path('academics/academic-years/', views.academic_years_list_view, name='api-academics-academic-years-list'),
-    path('academics/academic-years/<str:id>/', views.academic_year_detail_view, name='api-academics-academic-year-detail'),
-    
-    # Subjects
-    path('academics/subjects/', views.subjects_list_view, name='api-academics-subjects-list'),
-    path('academics/subjects/<str:id>/', views.subject_detail_view, name='api-academics-subject-detail'),
-    
-    # Class Subjects
-    path('academics/class-subjects/', views.class_subjects_list_view, name='api-academics-class-subjects-list'),
-    path('academics/class-subjects/<str:id>/', views.class_subject_detail_view, name='api-academics-class-subject-detail'),
-    
-    # Classes
-    path('academics/classes/', views.classes_list_view, name='api-academics-classes-list'),
-    path('academics/classes/<str:id>/', views.class_detail_view, name='api-academics-class-detail'),
-    
-    # Auth versions
-    path('auth/academics-api/academic-years/', views.academic_years_list_view, name='auth-api-academics-academic-years-list'),
-    path('auth/academics-api/academic-years/<str:id>/', views.academic_year_detail_view, name='auth-api-academics-academic-year-detail'),
-    path('auth/academics-api/subjects/', views.subjects_list_view, name='auth-api-academics-subjects-list'),
-    path('auth/academics-api/subjects/<str:id>/', views.subject_detail_view, name='auth-api-academics-subject-detail'),
-    path('auth/academics-api/class-subjects/', views.class_subjects_list_view, name='auth-api-academics-class-subjects-list'),
-    path('auth/academics-api/class-subjects/<str:id>/', views.class_subject_detail_view, name='auth-api-academics-class-subject-detail'),
-    path('auth/academics-api/classes/', views.classes_list_view, name='auth-api-academics-classes-list'),
-    path('auth/academics-api/classes/<str:id>/', views.class_detail_view, name='auth-api-academics-class-detail'),
     
     # ============================================================
     # OTHER SERVICES

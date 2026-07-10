@@ -60,43 +60,43 @@ export interface ClassSubject {
   created_at: string;
 }
 
-// ✅ USE THE CORRECT URL PREFIX
-const API_PREFIX = '/academics';
+// ✅ Use correct URL prefixes
+const API_PREFIX = '/auth/academics';
 
 const academicService = {
   // ============================================================
-  // ACADEMIC YEARS - Using /academics/ path
+  // ACADEMIC YEARS
   // ============================================================
   academicYears: {
     getAll: async (params?: any) => {
-      const response = await api.get(`${API_PREFIX}/academic-years/`, { params });
+      const response = await api.get(`/academic-years/`, { params });
       return extractListData<AcademicYear>(response.data);
     },
     getById: async (id: string) => {
-      const response = await api.get(`${API_PREFIX}/academic-years/${id}/`);
+      const response = await api.get(`/academic-years/${id}/`);
       return response.data;
     },
     create: async (data: Partial<AcademicYear>) => {
-      const response = await api.post(`${API_PREFIX}/academic-years/`, data);
+      const response = await api.post(`/academic-years/`, data);
       return response.data;
     },
     update: async (id: string, data: Partial<AcademicYear>) => {
-      const response = await api.patch(`${API_PREFIX}/academic-years/${id}/`, data);
+      const response = await api.patch(`/academic-years/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`${API_PREFIX}/academic-years/${id}/`);
+      const response = await api.delete(`/academic-years/${id}/`);
       return response.data;
     }
   },
 
   // ============================================================
-  // CLASSES - Using /academics/ path
+  // CLASSES - ✅ FIXED: Use /classes/ 
   // ============================================================
   classes: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`${API_PREFIX}/classes/`, { 
+        const response = await api.get(`/classes/`, { 
           params: { 
             page_size: 100,
             ...params 
@@ -110,7 +110,7 @@ const academicService = {
     },
     getById: async (id: string) => {
       try {
-        const response = await api.get(`${API_PREFIX}/classes/${id}/`);
+        const response = await api.get(`/classes/${id}/`);
         return response.data;
       } catch {
         return { id, name: 'Unknown Class', code: 'N/A' };
@@ -119,157 +119,155 @@ const academicService = {
     create: async (data: Partial<SchoolClass>) => {
       const payload = {
         name: data.name?.trim(),
-        code: data.code?.trim().toUpperCase(),
+        code: data.code?.trim().toUpperCase().replace(/\s/g, ''),
         description: data.description || '',
         academic_year: data.academic_year || null,
         teacher_name: data.teacher_name || '',
         is_active: data.is_active !== false
       };
-      const response = await api.post(`${API_PREFIX}/classes/`, payload);
+      const response = await api.post(`/classes/`, payload);
       return response.data;
     },
     update: async (id: string, data: Partial<SchoolClass>) => {
       const payload = {
         name: data.name?.trim(),
-        code: data.code?.trim().toUpperCase(),
+        code: data.code?.trim().toUpperCase().replace(/\s/g, ''),
         description: data.description || '',
         academic_year: data.academic_year || null,
         teacher_name: data.teacher_name || '',
         is_active: data.is_active !== false
       };
-      const response = await api.patch(`${API_PREFIX}/classes/${id}/`, payload);
+      const response = await api.patch(`/classes/${id}/`, payload);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`${API_PREFIX}/classes/${id}/`);
+      const response = await api.delete(`/classes/${id}/`);
       return response.data;
     }
   },
 
   // ============================================================
-  // CLASSROOMS - Using /academics/ path
+  // CLASSROOMS
   // ============================================================
   classrooms: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`${API_PREFIX}/classrooms/`, { params });
+        const response = await api.get(`/classrooms/`, { params });
         return extractListData<Classroom>(response.data);
       } catch {
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`${API_PREFIX}/classrooms/${id}/`);
+      const response = await api.get(`/classrooms/${id}/`);
       return response.data;
     },
     create: async (data: Partial<Classroom>) => {
-      const response = await api.post(`${API_PREFIX}/classrooms/`, data);
+      const response = await api.post(`/classrooms/`, data);
       return response.data;
     },
     update: async (id: string, data: Partial<Classroom>) => {
-      const response = await api.patch(`${API_PREFIX}/classrooms/${id}/`, data);
+      const response = await api.patch(`/classrooms/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`${API_PREFIX}/classrooms/${id}/`);
+      const response = await api.delete(`/classrooms/${id}/`);
       return response.data;
     }
   },
 
   // ============================================================
-  // PERIODS - Using /academics/ path
+  // PERIODS
   // ============================================================
   periods: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`${API_PREFIX}/periods/`, { params });
+        const response = await api.get(`/periods/`, { params });
         return extractListData<Period>(response.data);
       } catch {
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`${API_PREFIX}/periods/${id}/`);
+      const response = await api.get(`/periods/${id}/`);
       return response.data;
     },
     create: async (data: Partial<Period>) => {
-      const response = await api.post(`${API_PREFIX}/periods/`, data);
+      const response = await api.post(`/periods/`, data);
       return response.data;
     },
     update: async (id: string, data: Partial<Period>) => {
-      const response = await api.patch(`${API_PREFIX}/periods/${id}/`, data);
+      const response = await api.patch(`/periods/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`${API_PREFIX}/periods/${id}/`);
+      const response = await api.delete(`/periods/${id}/`);
       return response.data;
     }
   },
 
   // ============================================================
-  // TIMETABLE - Using /academics/ path
+  // TIMETABLE
   // ============================================================
   timetable: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`${API_PREFIX}/timetable-entries/`, { params });
+        const response = await api.get(`/timetable-entries/`, { params });
         return extractListData<any>(response.data);
       } catch {
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`${API_PREFIX}/timetable-entries/${id}/`);
+      const response = await api.get(`/timetable-entries/${id}/`);
       return response.data;
     },
     create: async (data: any) => {
-      const response = await api.post(`${API_PREFIX}/timetable-entries/`, data);
+      const response = await api.post(`/timetable-entries/`, data);
       return response.data;
     },
     update: async (id: string, data: any) => {
-      const response = await api.patch(`${API_PREFIX}/timetable-entries/${id}/`, data);
+      const response = await api.patch(`/timetable-entries/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`${API_PREFIX}/timetable-entries/${id}/`);
+      const response = await api.delete(`/timetable-entries/${id}/`);
       return response.data;
     }
   },
 
   // ============================================================
-  // SUBJECTS - ✅ Using /academics/ path (FIXED)
+  // SUBJECTS
   // ============================================================
   subjects: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`${API_PREFIX}/subjects/`, { params });
+        const response = await api.get(`/subjects/`, { params });
         return extractListData<Subject>(response.data);
       } catch {
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`${API_PREFIX}/subjects/${id}/`);
+      const response = await api.get(`/subjects/${id}/`);
       return response.data;
     },
     create: async (data: Partial<Subject>) => {
-      // ✅ NOW USING: /api/v1/academics/subjects/
-      console.log('📤 Creating subject at:', `${API_PREFIX}/subjects/`);
-      const response = await api.post(`${API_PREFIX}/subjects/`, data);
+      const response = await api.post(`/subjects/`, data);
       return response.data;
     },
     update: async (id: string, data: Partial<Subject>) => {
-      const response = await api.patch(`${API_PREFIX}/subjects/${id}/`, data);
+      const response = await api.patch(`/subjects/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`${API_PREFIX}/subjects/${id}/`);
+      const response = await api.delete(`/subjects/${id}/`);
       return response.data;
     }
   },
 
   // ============================================================
-  // CLASS SUBJECTS - ✅ Using /academics/ path (FIXED)
+  // CLASS SUBJECTS (Assignments)
   // ============================================================
   classSubjects: {
     getAll: async (params?: any) => {
@@ -298,8 +296,6 @@ const academicService = {
           subject: data.subject
         };
         
-        // ✅ NOW USING: /api/v1/academics/class-subjects/
-        console.log('📤 Creating class-subject at:', `${API_PREFIX}/class-subjects/`);
         const response = await api.post(`${API_PREFIX}/class-subjects/`, payload);
         return response.data;
       } catch (error: any) {

@@ -78,11 +78,26 @@ const teacherService = {
   // Get a single teacher by ID
   // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getById: async (id: string) => {
-    const response = await api.get(`/auth/teachers/${id}/`);
-    if (response.data) {
-      response.data = normalizeTeacher(response.data);
+    try {
+      const response = await api.get(`/auth/teachers/${id}/`);
+      if (response.data) {
+        response.data = normalizeTeacher(response.data);
+      }
+      return response;
+    } catch (error) {
+      console.error('Error fetching teacher:', error);
+      // Try fallback to /teachers/ without auth
+      try {
+        const response = await api.get(`/teachers/${id}/`);
+        if (response.data) {
+          response.data = normalizeTeacher(response.data);
+        }
+        return response;
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        throw error;
+      }
     }
-    return response;
   },
 
   // Get teacher by employee_id
