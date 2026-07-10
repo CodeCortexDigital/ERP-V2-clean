@@ -3,7 +3,7 @@ import axios from 'axios';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import { setupApiErrorInterceptor } from '@/utils/errorHandler';
 
-// ✅ Use the Vite proxy-aware API base URL so requests hit the backend consistently in dev and prod
+// ✅ Use relative URL for proxy
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export function extractListData<T>(data: unknown): T[] {

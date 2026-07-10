@@ -11,21 +11,21 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true, // Listen on all addresses
+    host: true,
     hmr: {
       overlay: true,
-      // Use the same port for HMR
       clientPort: 5173,
       protocol: 'ws',
     },
     watch: {
-      usePolling: true, // Helps with WSL2 file system issues
+      usePolling: true,
     },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path, // Keep the path as is
       }
     }
   }

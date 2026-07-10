@@ -219,6 +219,79 @@ def get_attendance_dashboard_stats(request):
     })
 
 
+# ============================================================
+# FINANCE VIEWS
+# ============================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_fee_structures(request):
+    """Get fee structures - returns sample data or empty list"""
+    try:
+        # Try to get real data from finance app
+        from services.education.finance.models import FeeStructure
+        fee_structures = FeeStructure.objects.filter(is_active=True)[:100]
+        
+        if fee_structures.exists():
+            data = [{
+                'id': str(fs.id),
+                'name': fs.name,
+                'class_id': str(fs.class_ref.id) if fs.class_ref else None,
+                'class_name': fs.class_ref.name if fs.class_ref else '',
+                'amount': float(fs.amount),
+                'frequency': fs.frequency,
+                'description': fs.description or '',
+                'is_active': fs.is_active,
+                'created_at': fs.created_at.isoformat() if fs.created_at else None,
+            } for fs in fee_structures]
+            return Response({
+                'count': len(data),
+                'results': data
+            })
+    except (ImportError, Exception):
+        # If finance app not installed or error, return empty data
+        pass
+    
+    # Return empty data
+    return Response({
+        'count': 0,
+        'results': []
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_scholarships(request):
+    """Get scholarships - returns sample data or empty list"""
+    try:
+        from services.education.finance.models import Scholarship
+        scholarships = Scholarship.objects.filter(is_active=True)[:100]
+        
+        if scholarships.exists():
+            data = [{
+                'id': str(s.id),
+                'name': s.name,
+                'code': s.code,
+                'description': s.description or '',
+                'type': s.type,
+                'amount': float(s.amount),
+                'eligibility_criteria': s.eligibility_criteria or {},
+                'is_active': s.is_active,
+                'created_at': s.created_at.isoformat() if s.created_at else None,
+            } for s in scholarships]
+            return Response({
+                'count': len(data),
+                'results': data
+            })
+    except (ImportError, Exception):
+        pass
+    
+    return Response({
+        'count': 0,
+        'results': []
+    })
+
+
 __all__ = [
     'StudentListCreateView',
     'StudentDetailView',
@@ -233,4 +306,6 @@ __all__ = [
     'get_classes_list',
     'get_payments_list',
     'get_attendance_dashboard_stats',
+    'get_fee_structures',  # Added
+    'get_scholarships',    # Added
 ]

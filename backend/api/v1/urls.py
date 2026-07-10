@@ -42,6 +42,13 @@ urlpatterns = [
     path('attendance/dashboard-stats/', views.get_attendance_dashboard_stats, name='attendance-dashboard-stats'),
     
     # ============================================================
+    # FINANCE ENDPOINTS
+    # ============================================================
+    path('fee-structures/', views.get_fee_structures, name='fee-structures'),
+    path('scholarships/', views.get_scholarships, name='scholarships'),
+    path('invoices/', views.get_payments_list, name='invoices-list'),
+    
+    # ============================================================
     # LEGACY NESTED PATHS (Backward Compatible)
     # ============================================================
     path('auth/academics/', include('services.education.academics.urls')),
