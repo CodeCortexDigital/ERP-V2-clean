@@ -198,6 +198,7 @@ function App() {
                 <Route path="education/teachers/:id" element={<TeacherProfilePage />} />
                 <Route path="education/teachers/:id/edit" element={<EditTeacherPage />} />
                 
+
                 {/* Exams */}
                 <Route path="education/exams" element={<ExamsPage />} />
                 <Route path="education/exams/list" element={<ExamsListPage />} />
