@@ -45,17 +45,27 @@ urlpatterns = [
     path('auth/analytics/', include('services.analytics.urls')),
     
     # ============================================================
-    # API ACADEMICS - NEW PATH (avoid conflict with auth/academics/)
+    # API ACADEMICS - NEW PATH
     # ============================================================
-    # Use /api/v1/academics/ instead of /api/v1/subjects/
+    # Academic Years
+    path('academics/academic-years/', views.academic_years_list_view, name='api-academics-academic-years-list'),
+    path('academics/academic-years/<str:id>/', views.academic_year_detail_view, name='api-academics-academic-year-detail'),
+    
+    # Subjects
     path('academics/subjects/', views.subjects_list_view, name='api-academics-subjects-list'),
     path('academics/subjects/<str:id>/', views.subject_detail_view, name='api-academics-subject-detail'),
+    
+    # Class Subjects
     path('academics/class-subjects/', views.class_subjects_list_view, name='api-academics-class-subjects-list'),
     path('academics/class-subjects/<str:id>/', views.class_subject_detail_view, name='api-academics-class-subject-detail'),
+    
+    # Classes
     path('academics/classes/', views.classes_list_view, name='api-academics-classes-list'),
     path('academics/classes/<str:id>/', views.class_detail_view, name='api-academics-class-detail'),
     
-    # Also add auth versions
+    # Auth versions
+    path('auth/academics-api/academic-years/', views.academic_years_list_view, name='auth-api-academics-academic-years-list'),
+    path('auth/academics-api/academic-years/<str:id>/', views.academic_year_detail_view, name='auth-api-academics-academic-year-detail'),
     path('auth/academics-api/subjects/', views.subjects_list_view, name='auth-api-academics-subjects-list'),
     path('auth/academics-api/subjects/<str:id>/', views.subject_detail_view, name='auth-api-academics-subject-detail'),
     path('auth/academics-api/class-subjects/', views.class_subjects_list_view, name='auth-api-academics-class-subjects-list'),

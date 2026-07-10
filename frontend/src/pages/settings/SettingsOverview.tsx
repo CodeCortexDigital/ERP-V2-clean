@@ -1,58 +1,129 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Building2, Receipt, Landmark, BookOpenCheck, Award,
-  Palette, ShieldCheck, Tag, LayoutGrid
+import { 
+  Building2, 
+  CreditCard, 
+  Percent, 
+  FileText, 
+  BookOpen, 
+  Palette, 
+  User,
+  Shield,
+  Award,
+  Users,
+  DollarSign,
+  School,
+  Calendar,
+  Settings,
+  LayoutGrid,
+  List,
+  Plus
 } from 'lucide-react';
 
-const settingsItems = [
-  { id: 'profile', label: 'Institute Profile', icon: Building2, desc: 'School name, logo, address' },
-  { id: 'fee-particulars', label: 'Fee Particulars', icon: Receipt, desc: 'Manage fee categories' },
-  { id: 'fee-structure', label: 'Fee Structure', icon: Receipt, desc: 'Set fees per class' },
-  { id: 'discount-type', label: 'Discount Type', icon: Tag, desc: 'Manage scholarships' },
-  { id: 'bank-accounts', label: 'Accounts For Fees Invoice', icon: Landmark, desc: 'Bank account details' },
-  { id: 'rules', label: 'Rules & Regulations', icon: BookOpenCheck, desc: 'Student & employee rules' },
-  { id: 'grading', label: 'Marks Grading', icon: Award, desc: 'Grade scale settings' },
-  { id: 'theme', label: 'Theme & Language', icon: Palette, desc: 'Customize appearance' },
-  { id: 'account', label: 'Account Settings', icon: ShieldCheck, desc: 'Profile & security' },
+const settingsCards = [
+  {
+    id: 'profile',
+    title: 'Institute Profile',
+    description: 'Manage school information, logo, and contact details',
+    icon: Building2,
+    color: 'bg-blue-50 text-blue-600',
+    path: '/settings/profile'
+  },
+  {
+    id: 'fee-particulars',
+    title: 'Fee Particulars',
+    description: 'Configure fee components and structures',
+    icon: CreditCard,
+    color: 'bg-emerald-50 text-emerald-600',
+    path: '/settings/fee-particulars'
+  },
+  {
+    id: 'fee-structure',
+    title: 'Fee Structure',
+    description: 'Set up fee plans and payment schedules',
+    icon: DollarSign,
+    color: 'bg-purple-50 text-purple-600',
+    path: '/settings/fee-structure'
+  },
+  {
+    id: 'discount-type',
+    title: 'Discount Type',
+    description: 'Manage fee waivers, percentage, and fixed amount discounts',
+    icon: Percent,
+    color: 'bg-amber-50 text-amber-600',
+    path: '/settings/discount-type'
+  },
+  {
+    id: 'bank-accounts',
+    title: 'Accounts For Fees Invoice',
+    description: 'Configure bank accounts for fee collection',
+    icon: School,
+    color: 'bg-indigo-50 text-indigo-600',
+    path: '/settings/bank-accounts'
+  },
+  {
+    id: 'rules',
+    title: 'Rules & Regulations',
+    description: 'Define school policies and rules',
+    icon: Shield,
+    color: 'bg-rose-50 text-rose-600',
+    path: '/settings/rules'
+  },
+  {
+    id: 'grading',
+    title: 'Marks Grading',
+    description: 'Configure grade scales and grading systems',
+    icon: Award,
+    color: 'bg-cyan-50 text-cyan-600',
+    path: '/settings/grading'
+  },
+  {
+    id: 'theme',
+    title: 'Theme & Language',
+    description: 'Customize appearance and language settings',
+    icon: Palette,
+    color: 'bg-fuchsia-50 text-fuchsia-600',
+    path: '/settings/theme'
+  },
+  {
+    id: 'account',
+    title: 'Account Settings',
+    description: 'Manage your profile and security settings',
+    icon: User,
+    color: 'bg-slate-50 text-slate-600',
+    path: '/settings/account'
+  }
 ];
 
 export default function SettingsOverview() {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
-          <LayoutGrid className="w-6 h-6" />
+    <div>
+      {/* Page description */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Settings className="w-4 h-4 text-purple-600" />
+          <h2 className="text-sm font-semibold text-slate-700">Configure your school settings</h2>
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">General Settings</h2>
-          <p className="text-xs text-slate-500">
-            Configure institutional parameters, branding, bank accounts, and grading standards.
-          </p>
-        </div>
+        <p className="text-xs text-slate-500 ml-6">Manage all your school configurations from one place</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {settingsItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={() => navigate(`/settings/${item.id}`)}
-              className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:border-purple-500 hover:shadow-md transition-all text-left group"
-            >
-              <div className="p-2.5 bg-purple-50 rounded-xl group-hover:bg-purple-100 transition-colors">
-                <Icon className="w-5 h-5 text-purple-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-slate-800">{item.label}</h4>
-                <p className="text-[11px] text-slate-400 truncate">{item.desc}</p>
-              </div>
-            </button>
-          );
-        })}
+      {/* Settings Grid - Cards, NOT sidebar */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {settingsCards.map((card) => (
+          <button
+            key={card.id}
+            onClick={() => navigate(card.path)}
+            className="bg-white p-6 rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-md transition-all text-left group"
+          >
+            <div className={`w-12 h-12 rounded-lg ${card.color} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}>
+              <card.icon className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-sm text-slate-800">{card.title}</h3>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{card.description}</p>
+          </button>
+        ))}
       </div>
     </div>
   );

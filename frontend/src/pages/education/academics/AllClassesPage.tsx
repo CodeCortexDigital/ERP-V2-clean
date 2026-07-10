@@ -1,4 +1,3 @@
-// frontend/src/pages/education/academics/AllClassesPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -41,35 +40,27 @@ export default function AllClassesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch all students
+      // Fetch all students with their class data
       const studentsRes = await studentService.getAll().catch(() => ({ data: [] }));
       const allStudents = extractListData<any>(studentsRes.data || []);
+      console.log('📚 All Students:', allStudents);
       
-      // Fetch all classes - DIRECT APPROACH
+      // Fetch all classes
       const response = await academicService.classes.getAll();
       console.log('📚 Full API Response:', response);
       
       // Get the results array directly
       let rawClasses = [];
       if (response && typeof response === 'object') {
-        // If response has results property (paginated)
         if (response.results && Array.isArray(response.results)) {
           rawClasses = response.results;
-        } 
-        // If response is an array
-        else if (Array.isArray(response)) {
+        } else if (Array.isArray(response)) {
           rawClasses = response;
-        }
-        // If response has data property
-        else if (response.data && Array.isArray(response.data)) {
+        } else if (response.data && Array.isArray(response.data)) {
           rawClasses = response.data;
-        }
-        // If response.data has results
-        else if (response.data && response.data.results && Array.isArray(response.data.results)) {
+        } else if (response.data && response.data.results && Array.isArray(response.data.results)) {
           rawClasses = response.data.results;
-        }
-        // Try to get any array from the response
-        else {
+        } else {
           for (const key of ['items', 'list', 'classes']) {
             if (response[key] && Array.isArray(response[key])) {
               rawClasses = response[key];
@@ -82,29 +73,48 @@ export default function AllClassesPage() {
       console.log('📚 Raw Classes (extracted):', rawClasses);
       console.log('📚 Number of classes found:', rawClasses.length);
 
-      // Map classes - SHOW ALL CLASSES, NO FILTERING
+      // Build a map of class IDs to class names for quick lookup
+      const classMap = new Map();
+      rawClasses.forEach((cls: any) => {
+        classMap.set(cls.id, cls.name);
+      });
+      console.log('📚 Class Map:', classMap);
+
+      // Map classes with student counts
       const mappedClasses = rawClasses.map((cls: any) => {
-        // Find students for this class by name match
+        const classId = cls.id;
+        const className = cls.name || 'Unnamed Class';
+        
+        // ✅ FIXED: Match students by class ID, not name
         const classStudents = allStudents.filter((s: any) => {
-          const studentClass = (s.class_name || s.current_class_name || s.current_class || s.class || '').toLowerCase();
-          const className = (cls.name || '').toLowerCase();
-          return studentClass === className;
+          // Check if student's current_class matches this class ID
+          const studentClassId = s.current_class || s.class_id || s.class_ref || '';
+          // Also check if student has class_name that matches
+          const studentClassName = s.class_name || s.current_class_name || '';
+          
+          // Match by ID (primary) or by name (fallback)
+          const matchesById = studentClassId === classId;
+          const matchesByName = studentClassName === className;
+          
+          return matchesById || matchesByName;
         });
 
         const total = classStudents.length;
-        const boys = classStudents.filter((s: any) => 
-          (s.gender || '').toLowerCase() === 'male'
-        ).length;
-        const girls = classStudents.filter((s: any) => 
-          (s.gender || '').toLowerCase() === 'female'
-        ).length;
+        const boys = classStudents.filter((s: any) => {
+          const gender = (s.gender || '').toLowerCase();
+          return gender === 'male' || gender === 'm' || gender === 'boy';
+        }).length;
+        const girls = classStudents.filter((s: any) => {
+          const gender = (s.gender || '').toLowerCase();
+          return gender === 'female' || gender === 'f' || gender === 'girl';
+        }).length;
 
         const boysPct = total > 0 ? Math.round((boys / total) * 100) : 0;
         const girlsPct = total > 0 ? Math.round((girls / total) * 100) : 0;
 
         return {
-          id: cls.id || `class-${Date.now()}-${Math.random()}`,
-          name: cls.name || 'Unnamed Class',
+          id: classId || `class-${Date.now()}-${Math.random()}`,
+          name: className,
           code: cls.code || '',
           totalStudents: total,
           boys,

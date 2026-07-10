@@ -562,6 +562,82 @@ def class_detail_view(request, id):
         school_class.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+# ============================================================
+# ACADEMIC YEARS - Full CRUD support
+# ============================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def academic_years_list_view(request):
+    """Get all academic years or create a new one"""
+    try:
+        from services.education.academics.models import AcademicYear
+        from services.education.academics.serializers import AcademicYearSerializer
+    except ImportError:
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    if request.method == 'GET':
+        academic_years = AcademicYear.objects.all().order_by('-start_date')
+        serializer = AcademicYearSerializer(academic_years, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        serializer = AcademicYearSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def academic_year_detail_view(request, id):
+    """Get, update or delete a specific academic year"""
+    try:
+        from services.education.academics.models import AcademicYear
+        from services.education.academics.serializers import AcademicYearSerializer
+    except ImportError:
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    try:
+        academic_year = AcademicYear.objects.get(id=id)
+    except AcademicYear.DoesNotExist:
+        return Response(
+            {'error': 'Academic year not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'GET':
+        serializer = AcademicYearSerializer(academic_year)
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = AcademicYearSerializer(academic_year, data=request.data, partial=request.method == 'PATCH')
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        academic_year.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 
 __all__ = [
     'StudentListCreateView',

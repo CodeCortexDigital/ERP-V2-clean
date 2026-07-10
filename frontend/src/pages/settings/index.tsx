@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Settings } from 'lucide-react';
+import { Settings, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Import all settings pages
@@ -15,7 +15,6 @@ import MarksGrading from './MarksGrading';
 import ThemeLanguage from './ThemeLanguage';
 import AccountSettings from './AccountSettings';
 import SettingsSidebar from './components/SettingsSidebar';
-import SettingsHeader from './components/SettingsHeader';
 
 export default function SettingsPage() {
   const location = useLocation();
@@ -43,34 +42,53 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-full bg-slate-50 min-h-screen">
-      {/* Sidebar - hidden for student */}
+      {/* Sidebar - only one sidebar */}
       {!isStudent && (
-        <div className="w-64 flex-shrink-0 bg-white border-r border-slate-200 p-4">
+        <div className="w-64 flex-shrink-0 bg-white border-r border-slate-200 overflow-y-auto">
           <SettingsSidebar currentPath={location.pathname} />
         </div>
       )}
 
       {/* Main Content */}
-      <div className="flex-1 p-4 space-y-4 overflow-auto">
-        <SettingsHeader 
-          title={pageTitle} 
-          isStudent={isStudent}
-          onBack={() => navigate(isStudent ? '/student' : '/dashboard')}
-        />
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate(isStudent ? '/student' : '/dashboard')}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Go back"
+              >
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
+              </button>
+              <div className="flex items-center gap-2">
+                <Settings className="w-5 h-5 text-purple-600" />
+                <h1 className="text-xl font-bold text-slate-800">{pageTitle}</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">v2.0</span>
+            </div>
+          </div>
+        </div>
 
-        <Routes>
-          <Route path="/" element={<SettingsOverview />} />
-          <Route path="/profile" element={<InstituteProfile />} />
-          <Route path="/fee-particulars" element={<FeeParticulars />} />
-          <Route path="/fee-structure" element={<FeeStructure />} />
-          <Route path="/discount-type" element={<DiscountType />} />
-          <Route path="/bank-accounts" element={<FeeChallanDetails />} />
-          <Route path="/rules" element={<RulesRegulations />} />
-          <Route path="/grading" element={<MarksGrading />} />
-          <Route path="/theme" element={<ThemeLanguage />} />
-          <Route path="/account" element={<AccountSettings />} />
-          <Route path="*" element={<Navigate to="/settings" replace />} />
-        </Routes>
+        {/* Content */}
+        <div className="flex-1 p-6 overflow-auto">
+          <Routes>
+            <Route path="/" element={<SettingsOverview />} />
+            <Route path="/profile" element={<InstituteProfile />} />
+            <Route path="/fee-particulars" element={<FeeParticulars />} />
+            <Route path="/fee-structure" element={<FeeStructure />} />
+            <Route path="/discount-type" element={<DiscountType />} />
+            <Route path="/bank-accounts" element={<FeeChallanDetails />} />
+            <Route path="/rules" element={<RulesRegulations />} />
+            <Route path="/grading" element={<MarksGrading />} />
+            <Route path="/theme" element={<ThemeLanguage />} />
+            <Route path="/account" element={<AccountSettings />} />
+            <Route path="*" element={<Navigate to="/settings" replace />} />
+          </Routes>
+        </div>
       </div>
     </div>
   );
