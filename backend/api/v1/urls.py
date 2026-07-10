@@ -5,6 +5,12 @@ API v1 URL configuration.
 from django.urls import path, include
 from . import views
 
+# ✅ Import from academics - these support both GET and POST
+from services.education.academics.views import (
+    TeacherListCreateView,
+    TeacherDetailView,
+)
+
 urlpatterns = [
     path('health/', include('services.core.health.urls')),
     
@@ -22,15 +28,15 @@ urlpatterns = [
     path('auth/students/', include('api.v1.student_urls')),
     
     # ============================================================
-    # TEACHERS
+    # TEACHERS - ✅ USING ACADEMICS VIEWS (they support GET and POST)
     # ============================================================
-    path('teachers/', views.teachers_list_view, name='teacher-list'),
-    path('teachers/<str:id>/', views.teacher_detail_view, name='teacher-detail'),
-    path('auth/teachers/', views.teachers_list_view, name='auth-teacher-list'),
-    path('auth/teachers/<str:id>/', views.teacher_detail_view, name='auth-teacher-detail'),
+    path('teachers/', TeacherListCreateView.as_view(), name='teacher-list'),
+    path('teachers/<str:id>/', TeacherDetailView.as_view(), name='teacher-detail'),
+    path('auth/teachers/', TeacherListCreateView.as_view(), name='auth-teacher-list'),
+    path('auth/teachers/<str:id>/', TeacherDetailView.as_view(), name='auth-teacher-detail'),
     
     # ============================================================
-    # INVOICES - ✅ ADD THESE ENDPOINTS
+    # INVOICES
     # ============================================================
     path('invoices/', views.invoices_list_view, name='invoices-list'),
     path('invoices/<str:id>/', views.invoice_detail_view, name='invoice-detail'),

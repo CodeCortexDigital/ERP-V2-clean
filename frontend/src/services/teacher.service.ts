@@ -44,11 +44,6 @@ const normalizeTeachers = (teachers: any[]): Teacher[] => {
 };
 
 const teacherService = {
-  // ============================================================
-  // ✅ FIXED: Teacher routes are mounted under /auth/teachers/
-  // NOT /auth/academics/teachers/
-  // ============================================================
-
   // Get current teacher's profile (for logged-in teacher)
   getMyProfile: async () => {
     const response = await api.get('/auth/my-teacher-profile/');
@@ -59,7 +54,6 @@ const teacherService = {
   },
 
   // Get all teachers with optional filters
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getAll: async (params?: { 
     is_active?: boolean; 
     search?: string;
@@ -67,7 +61,7 @@ const teacherService = {
     page_size?: number;
     specializations?: string;
   }) => {
-    const response = await api.get('/auth/teachers/', { 
+    const response = await api.get('/teachers/', { 
       params: { page_size: 100, ...params } 
     });
     const backendTeachers = extractListData<Teacher>(response.data);
@@ -76,34 +70,17 @@ const teacherService = {
   },
 
   // Get a single teacher by ID
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getById: async (id: string) => {
-    try {
-      const response = await api.get(`/auth/teachers/${id}/`);
-      if (response.data) {
-        response.data = normalizeTeacher(response.data);
-      }
-      return response;
-    } catch (error) {
-      console.error('Error fetching teacher:', error);
-      // Try fallback to /teachers/ without auth
-      try {
-        const response = await api.get(`/teachers/${id}/`);
-        if (response.data) {
-          response.data = normalizeTeacher(response.data);
-        }
-        return response;
-      } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
-        throw error;
-      }
+    const response = await api.get(`/teachers/${id}/`);
+    if (response.data) {
+      response.data = normalizeTeacher(response.data);
     }
+    return response;
   },
 
   // Get teacher by employee_id
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getByEmployeeId: async (employeeId: string) => {
-    const response = await api.get('/auth/teachers/', { 
+    const response = await api.get('/teachers/', { 
       params: { employee_id: employeeId } 
     });
     const backendTeachers = extractListData<Teacher>(response.data);
@@ -112,9 +89,8 @@ const teacherService = {
   },
 
   // Get active teachers only
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getActive: async () => {
-    const response = await api.get('/auth/teachers/', { 
+    const response = await api.get('/teachers/', { 
       params: { is_active: true, page_size: 100 } 
     });
     const backendTeachers = extractListData<Teacher>(response.data);
@@ -123,9 +99,8 @@ const teacherService = {
   },
 
   // Get inactive teachers only
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getInactive: async () => {
-    const response = await api.get('/auth/teachers/', { 
+    const response = await api.get('/teachers/', { 
       params: { is_active: false, page_size: 100 } 
     });
     const backendTeachers = extractListData<Teacher>(response.data);
@@ -134,9 +109,8 @@ const teacherService = {
   },
 
   // Search teachers
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   search: async (query: string) => {
-    const response = await api.get('/auth/teachers/', { 
+    const response = await api.get('/teachers/', { 
       params: { search: query, page_size: 100 } 
     });
     const backendTeachers = extractListData<Teacher>(response.data);
@@ -145,38 +119,59 @@ const teacherService = {
   },
 
   // Create new teacher
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
-  create: async (data: Partial<Teacher>) => {
-    const response = await api.post('/auth/teachers/', data);
-    if (response.data) {
-      response.data = normalizeTeacher(response.data);
-    }
-    return response;
-  },
+  // ✅ Use /teachers/ (without /auth/)
+  // frontend/src/services/teacher.service.ts
 
-  // Update teacher
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
-  update: async (id: string, data: Partial<Teacher>) => {
-    const response = await api.patch(`/auth/teachers/${id}/`, data);
+create: async (data: Partial<Teacher>) => {
+  try {
+    const payload = {
+      full_name: data.full_name || '',
+      email: data.email || '',
+      employee_id: data.employee_id || '',
+      phone: data.phone || '',
+      joining_date: data.joining_date || new Date().toISOString().split('T')[0],
+      is_active: data.is_active !== false,
+      qualifications: data.qualifications || [],
+      specializations: data.specializations || [],
+      experience_years: data.experience_years || 0,
+    };
+    
+    // ✅ Use the academics URL which we know works
+    const response = await api.post('/auth/academics/teachers/', payload);
     if (response.data) {
       response.data = normalizeTeacher(response.data);
     }
     return response;
+  } catch (error: any) {
+    console.error('Error creating teacher:', error);
+    throw error;
+  }
+},
+  // Update teacher
+  update: async (id: string, data: Partial<Teacher>) => {
+    try {
+      const response = await api.patch(`/teachers/${id}/`, data);
+      if (response.data) {
+        response.data = normalizeTeacher(response.data);
+      }
+      return response;
+    } catch (error: any) {
+      console.error('Error updating teacher:', error);
+      throw error;
+    }
   },
 
   // Delete teacher (soft delete - set inactive)
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   deleteTeacher: async (id: string) => {
-    const response = await api.delete(`/auth/teachers/${id}/`, { 
+    const response = await api.delete(`/teachers/${id}/`, { 
       skipGlobalToast: true 
     } as any);
     return response;
   },
 
   // Toggle teacher active status
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   toggleStatus: async (id: string, isActive: boolean) => {
-    const response = await api.patch(`/auth/teachers/${id}/`, { is_active: isActive });
+    const response = await api.patch(`/teachers/${id}/`, { is_active: isActive });
     if (response.data) {
       response.data = normalizeTeacher(response.data);
     }
@@ -184,9 +179,8 @@ const teacherService = {
   },
 
   // Get teachers by specialization
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getBySpecialization: async (specialization: string) => {
-    const response = await api.get('/auth/teachers/', { 
+    const response = await api.get('/teachers/', { 
       params: { specializations: specialization, page_size: 100 } 
     });
     const backendTeachers = extractListData<Teacher>(response.data);
@@ -195,16 +189,14 @@ const teacherService = {
   },
 
   // Get teachers count
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getCount: async (params?: { is_active?: boolean }) => {
-    const response = await api.get('/auth/teachers/', { params: { ...params, page_size: 1000 } });
+    const response = await api.get('/teachers/', { params: { ...params, page_size: 1000 } });
     return response.data;
   },
 
   // Bulk create teachers
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   bulkCreate: async (teachers: Partial<Teacher>[]) => {
-    const response = await api.post('/auth/teachers/', teachers);
+    const response = await api.post('/teachers/', teachers);
     if (response.data && Array.isArray(response.data)) {
       response.data = normalizeTeachers(response.data);
     }
@@ -212,9 +204,8 @@ const teacherService = {
   },
 
   // Get teacher with assignments (subjects, classes, etc.)
-  // ✅ FIXED: Changed from /auth/academics/teachers/ to /auth/teachers/
   getWithAssignments: async (id: string) => {
-    const response = await api.get(`/auth/teachers/${id}/`);
+    const response = await api.get(`/teachers/${id}/`);
     if (response.data) {
       response.data.teacher = normalizeTeacher(response.data.teacher);
     }

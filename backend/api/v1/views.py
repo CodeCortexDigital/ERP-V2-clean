@@ -761,6 +761,10 @@ def class_detail_view(request, id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+
+
+
+
 # ============================================================
 # ACADEMIC YEARS - Full CRUD support
 # ============================================================
@@ -1271,5 +1275,5 @@ __all__ = [
     'teacher_detail_view',
     # ✅ ADD THESE
     'invoices_list_view',
-    'invoice_detail_view',
+    'invoice_detail_view',   
 ]

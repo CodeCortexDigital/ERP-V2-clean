@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Settings2, ArrowLeft, RotateCcw, Check } from 'lucide-react';
+import { Settings2, ArrowLeft, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import teacherService from '@/services/teacher.service';
 
@@ -51,6 +51,7 @@ export default function AddTeacherPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validation
     if (!formData.fullName) {
       toast.error('Employee Name is required.');
       return;
@@ -71,22 +72,32 @@ export default function AddTeacherPage() {
     setLoading(true);
 
     try {
+      // ✅ Generate unique employee ID
       const generatedEmpId = 'EMP-' + Math.floor(10000 + Math.random() * 90000);
+      
+      // ✅ Prepare payload with correct field names for backend
       const payload = {
         employee_id: generatedEmpId,
-        full_name: formData.fullName,
+        full_name: formData.fullName.trim(),
         email: formData.email || `${formData.fullName.toLowerCase().replace(/\s+/g, '')}@school.edu`,
-        phone: formData.phone,
+        phone: formData.phone || '',
         experience_years: parseInt(formData.experience) || 0,
         joining_date: formData.joiningDate,
-        qualifications: [formData.education || 'N/A'],
-        specializations: [formData.role]
+        qualifications: formData.education ? [formData.education] : ['N/A'],
+        specializations: [formData.role],
+        is_active: true
       };
 
-      const res = await teacherService.create(payload);
-      const newId = res.data?.id || generatedEmpId;
+      console.log('📤 Sending payload:', payload);
 
-      // ALSO save to custom_teachers list in localStorage to persist perfectly
+      // ✅ Call the API
+      const response = await teacherService.create(payload);
+      console.log('✅ Teacher created:', response);
+
+      // ✅ Save to localStorage for persistence
+      const newId = response?.id || generatedEmpId;
+      
+      // Save custom teacher data
       const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
       const newCustomTeacher = {
         id: newId,
@@ -98,12 +109,22 @@ export default function AddTeacherPage() {
         joining_date: payload.joining_date,
         qualifications: payload.qualifications,
         specializations: payload.specializations,
-        is_active: true
+        is_active: true,
+        role: formData.role,
+        monthlySalary: formData.monthlySalary,
+        fatherName: formData.fatherName,
+        gender: formData.gender,
+        nationalId: formData.nationalId,
+        religion: formData.religion,
+        education: formData.education,
+        bloodGroup: formData.bloodGroup,
+        dateOfBirth: formData.dateOfBirth,
+        homeAddress: formData.homeAddress,
       };
       customTeachers.push(newCustomTeacher);
       localStorage.setItem('custom_teachers', JSON.stringify(customTeachers));
 
-      // Save extra details in localStorage to persist perfectly
+      // Save extra details
       const savedExtras = localStorage.getItem('employees_extra_info');
       const extrasMap = savedExtras ? JSON.parse(savedExtras) : {};
       
@@ -119,15 +140,34 @@ export default function AddTeacherPage() {
         bloodGroup: formData.bloodGroup,
         dateOfBirth: formData.dateOfBirth,
         homeAddress: formData.homeAddress,
-        profilePictureUrl: '' // Can be updated if file uploaded
       };
 
       localStorage.setItem('employees_extra_info', JSON.stringify(extrasMap));
-      toast.success('Employee added successfully!');
+
+      toast.success(`Employee "${formData.fullName}" added successfully!`);
       navigate('/education/teachers');
+      
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.response?.data?.error || err.message || 'Failed to create employee.');
+      console.error('❌ Error:', err);
+      
+      // ✅ Better error handling
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        if (errorData.employee_id) {
+          toast.error(`Employee ID error: ${errorData.employee_id}`);
+        } else if (errorData.email) {
+          toast.error(`Email error: ${errorData.email}`);
+        } else if (errorData.detail) {
+          toast.error(errorData.detail);
+        } else {
+          const errors = Object.entries(errorData)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
+          toast.error(`Failed to add employee:\n${errors}`);
+        }
+      } else {
+        toast.error(err.message || 'Failed to create employee.');
+      }
     } finally {
       setLoading(false);
     }
@@ -272,7 +312,7 @@ export default function AddTeacherPage() {
               <Input 
                 value={formData.experience} 
                 onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                placeholder="Experience" 
+                placeholder="Experience (years)" 
                 className="text-xs h-10 rounded-xl border-slate-200" 
               />
             </div>
@@ -380,9 +420,17 @@ export default function AddTeacherPage() {
           <button 
             type="submit"
             disabled={loading}
-            className="flex items-center gap-1.5 px-8 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+            className="flex items-center gap-1.5 px-8 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Check className="w-4 h-4" /> {loading ? 'Submitting...' : 'Submit'}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" /> Submit
+              </>
+            )}
           </button>
         </div>
       </form>

@@ -281,10 +281,18 @@ class LearningResourceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # LEVEL 4: TEACHER MANAGEMENT
+# backend/services/education/academics/views.py
+
 class TeacherListCreateView(generics.ListCreateAPIView):
+    """
+    List all teachers or create a new teacher.
+    GET: List teachers
+    POST: Create a new teacher
+    """
     permission_classes = [IsAuthenticated]
     queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
+    # ✅ This automatically supports GET and POST via ListCreateAPIView
 
 
 class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
