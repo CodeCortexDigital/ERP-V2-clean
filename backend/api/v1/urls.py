@@ -1,24 +1,12 @@
 """
 API v1 URL configuration.
-
-Canonical examples:
-  /api/v1/auth/login/
-  /api/v1/students/
-Legacy aliases (unchanged for clients):
-  /api/v1/auth/students/
 """
 
 from django.urls import path, include
-
-from services.education.exams.views import get_exam_results
-from services.core.backup.metrics import backup_metrics_view
-from services.core.utils.cache import cache_metrics_view
 from . import views
 
 urlpatterns = [
     path('health/', include('services.core.health.urls')),
-    path('metrics/backup/', backup_metrics_view, name='v1-backup-metrics'),
-    path('metrics/cache/', cache_metrics_view, name='v1-cache-metrics'),
     
     # ============================================================
     # AUTH & IDENTITY
@@ -34,10 +22,8 @@ urlpatterns = [
     path('auth/students/', include('api.v1.student_urls')),
     
     # ============================================================
-    # PLACEHOLDER ENDPOINTS FOR MISSING BACKEND
-    # These return empty data so frontend doesn't break
+    # PAYMENTS & ATTENDANCE
     # ============================================================
-    path('classes/', views.get_classes_list, name='classes-list'),
     path('payments/', views.get_payments_list, name='payments-list'),
     path('attendance/dashboard-stats/', views.get_attendance_dashboard_stats, name='attendance-dashboard-stats'),
     
@@ -59,6 +45,25 @@ urlpatterns = [
     path('auth/analytics/', include('services.analytics.urls')),
     
     # ============================================================
+    # API ACADEMICS - NEW PATH (avoid conflict with auth/academics/)
+    # ============================================================
+    # Use /api/v1/academics/ instead of /api/v1/subjects/
+    path('academics/subjects/', views.subjects_list_view, name='api-academics-subjects-list'),
+    path('academics/subjects/<str:id>/', views.subject_detail_view, name='api-academics-subject-detail'),
+    path('academics/class-subjects/', views.class_subjects_list_view, name='api-academics-class-subjects-list'),
+    path('academics/class-subjects/<str:id>/', views.class_subject_detail_view, name='api-academics-class-subject-detail'),
+    path('academics/classes/', views.classes_list_view, name='api-academics-classes-list'),
+    path('academics/classes/<str:id>/', views.class_detail_view, name='api-academics-class-detail'),
+    
+    # Also add auth versions
+    path('auth/academics-api/subjects/', views.subjects_list_view, name='auth-api-academics-subjects-list'),
+    path('auth/academics-api/subjects/<str:id>/', views.subject_detail_view, name='auth-api-academics-subject-detail'),
+    path('auth/academics-api/class-subjects/', views.class_subjects_list_view, name='auth-api-academics-class-subjects-list'),
+    path('auth/academics-api/class-subjects/<str:id>/', views.class_subject_detail_view, name='auth-api-academics-class-subject-detail'),
+    path('auth/academics-api/classes/', views.classes_list_view, name='auth-api-academics-classes-list'),
+    path('auth/academics-api/classes/<str:id>/', views.class_detail_view, name='auth-api-academics-class-detail'),
+    
+    # ============================================================
     # OTHER SERVICES
     # ============================================================
     path('search/', include('services.core.search.urls')),
@@ -68,8 +73,4 @@ urlpatterns = [
     path('tenants/', include('services.core.tenants.urls')),
     path('features/', include('services.core.features.urls')),
     path('education/', include('services.education.urls')),
-    path('exams-results/', get_exam_results, name='v1-exams-results-direct'),
-    
-    # AI/ML routes
-    path('ai/', include('services.analytics.ai_urls')),
 ]

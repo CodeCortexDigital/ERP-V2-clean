@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import (TeacherAttendance,
+from .models import (
+    TeacherAttendance,
     AcademicYear, SchoolClass, Section, Subject, ClassSubject,
     GradeScale, AssessmentType, AssessmentWeightage,
     Syllabus, SyllabusUnit, SyllabusTopic, SyllabusSubTopic,
@@ -41,7 +42,27 @@ class ClassSubjectSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ClassSubject
-        fields = '__all__'
+        fields = ['id', 'class_ref', 'subject', 'class_name', 'subject_name', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate(self, data):
+        """Validate that class_ref and subject are provided"""
+        if not data.get('class_ref'):
+            raise serializers.ValidationError({"class_ref": "Class is required"})
+        if not data.get('subject'):
+            raise serializers.ValidationError({"subject": "Subject is required"})
+        
+        # Check if this class-subject combination already exists
+        from .models import ClassSubject
+        if ClassSubject.objects.filter(
+            class_ref=data['class_ref'],
+            subject=data['subject']
+        ).exists():
+            raise serializers.ValidationError(
+                "This subject is already assigned to this class"
+            )
+        
+        return data
 
 
 # LEVEL 2: ASSESSMENT & GRADING
@@ -194,6 +215,7 @@ class TeacherFeedbackSerializer(serializers.ModelSerializer):
         model = TeacherFeedback
         fields = '__all__'
 
+
 class TeacherDailyAvailabilitySerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.full_name', read_only=True)
     
@@ -211,12 +233,11 @@ class TeacherAttendanceSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         record_date = data.get('date')
-        status = data.get('status')
+        status_val = data.get('status')
         from django.utils import timezone
         if record_date and record_date > timezone.localtime().date():
-            if status in ['present', 'absent']:
+            if status_val in ['present', 'absent']:
                 raise serializers.ValidationError(
                     "Future dates can only be marked as 'On Leave'."
                 )
         return data
-

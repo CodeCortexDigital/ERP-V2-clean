@@ -80,6 +80,64 @@ class ClassSubjectListCreateView(generics.ListCreateAPIView):
     queryset = ClassSubject.objects.all()
     serializer_class = ClassSubjectSerializer
 
+    def create(self, request, *args, **kwargs):
+        """Override create to provide better error messages and handle UUID validation."""
+        try:
+            # Validate that class_ref and subject exist
+            class_ref_id = request.data.get('class_ref')
+            subject_id = request.data.get('subject')
+            
+            if not class_ref_id:
+                return Response(
+                    {'error': 'class_ref is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if not subject_id:
+                return Response(
+                    {'error': 'subject is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if the class exists
+            try:
+                school_class = SchoolClass.objects.get(id=class_ref_id)
+            except SchoolClass.DoesNotExist:
+                return Response(
+                    {'error': f'Class with id {class_ref_id} does not exist'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Check if the subject exists
+            try:
+                subject = Subject.objects.get(id=subject_id)
+            except Subject.DoesNotExist:
+                return Response(
+                    {'error': f'Subject with id {subject_id} does not exist'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Check if already assigned
+            if ClassSubject.objects.filter(class_ref_id=class_ref_id, subject_id=subject_id).exists():
+                return Response(
+                    {'error': 'This subject is already assigned to this class'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create the assignment
+            class_subject = ClassSubject.objects.create(
+                class_ref=school_class,
+                subject=subject
+            )
+            
+            serializer = self.get_serializer(class_subject)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
 class ClassSubjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -449,6 +507,7 @@ class TeacherFeedbackDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TeacherFeedbackSerializer
     lookup_field = 'id'
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_teachers(request):
@@ -457,15 +516,15 @@ def get_all_teachers(request):
     serializer = TeacherSerializer(teachers, many=True)
     return Response(serializer.data)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_teacher_detail(request, pk):
     """Get single teacher details"""
+    from django.shortcuts import get_object_or_404
     teacher = get_object_or_404(Teacher, pk=pk)
     serializer = TeacherSerializer(teacher)
     return Response(serializer.data)
-
-
 
 
 class TeacherDailyAvailabilityListCreateView(generics.ListCreateAPIView):
@@ -486,12 +545,12 @@ class TeacherDailyAvailabilityListCreateView(generics.ListCreateAPIView):
         
         return queryset
 
+
 class TeacherDailyAvailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = TeacherDailyAvailability.objects.all()
     serializer_class = TeacherDailyAvailabilitySerializer
     lookup_field = 'id'
-
 
 
 def ensure_teacher_attendance_for_past_days(teacher_id, till_date, days_limit=30):
@@ -560,14 +619,14 @@ class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
             for item in request.data:
                 teacher_id = item.get('teacher')
                 date_str = item.get('date')
-                status = item.get('status')
+                status_val = item.get('status')
                 reason = item.get('reason', '')
                 
                 attendance, created = TeacherAttendance.objects.update_or_create(
                     teacher_id=teacher_id,
                     date=date_str,
                     defaults={
-                        'status': status,
+                        'status': status_val,
                         'reason': reason
                     }
                 )
@@ -576,10 +635,9 @@ class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
             return Response(response_data, status=200)
         return super().post(request, *args, **kwargs)
 
+
 class TeacherAttendanceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = TeacherAttendance.objects.all()
     serializer_class = TeacherAttendanceSerializer
     lookup_field = 'id'
-
-

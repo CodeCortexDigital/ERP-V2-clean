@@ -1,4 +1,3 @@
-// frontend/src/pages/education/subjects/SubjectsPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -60,13 +59,16 @@ export default function SubjectsPage() {
     }
 
     try {
+      let result;
       if (editingSubject) {
-        const updated = await academicService.subjects.update(editingSubject.id, formData);
-        setSubjects(subjects.map(s => s.id === updated.id ? updated : s));
+        result = await academicService.subjects.update(editingSubject.id, formData);
+        setSubjects(subjects.map(s => s.id === result.id ? result : s));
         toast.success('Subject updated successfully');
       } else {
-        const created = await academicService.subjects.create(formData);
-        setSubjects([created, ...subjects]);
+        console.log('📤 Creating subject:', formData);
+        result = await academicService.subjects.create(formData);
+        console.log('✅ Subject created:', result);
+        setSubjects([result, ...subjects]);
         toast.success('Subject created successfully');
       }
       setShowAddModal(false);
@@ -76,9 +78,16 @@ export default function SubjectsPage() {
       console.error('Error saving subject:', error);
       if (error.response?.data) {
         const errorData = error.response.data;
-        Object.keys(errorData).forEach(field => {
-          toast.error(`${field}: ${errorData[field]}`);
-        });
+        if (typeof errorData === 'object') {
+          const errors = Object.entries(errorData)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
+          toast.error(`Failed to save subject:\n${errors}`);
+        } else {
+          toast.error(errorData.detail || errorData.error || 'Failed to save subject');
+        }
+      } else if (error.message) {
+        toast.error(error.message);
       } else {
         toast.error('Failed to save subject');
       }

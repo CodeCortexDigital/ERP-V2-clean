@@ -139,7 +139,6 @@ def get_my_teacher_profile(request):
 @permission_classes([IsAuthenticated])
 def get_classes_list(request):
     """Get classes list - placeholder that returns sample data"""
-    # Return sample class data so the frontend has something to show
     sample_classes = [
         {
             'id': 'class-1',
@@ -219,16 +218,11 @@ def get_attendance_dashboard_stats(request):
     })
 
 
-# ============================================================
-# FINANCE VIEWS
-# ============================================================
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_fee_structures(request):
     """Get fee structures - returns sample data or empty list"""
     try:
-        # Try to get real data from finance app
         from services.education.finance.models import FeeStructure
         fee_structures = FeeStructure.objects.filter(is_active=True)[:100]
         
@@ -249,10 +243,8 @@ def get_fee_structures(request):
                 'results': data
             })
     except (ImportError, Exception):
-        # If finance app not installed or error, return empty data
         pass
     
-    # Return empty data
     return Response({
         'count': 0,
         'results': []
@@ -292,6 +284,285 @@ def get_scholarships(request):
     })
 
 
+# ============================================================
+# SUBJECTS - FULL CRUD WITH PROPER DECORATORS
+# ============================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def subjects_list_view(request):
+    """Get all subjects or create a new subject"""
+    print(f"🔵 subjects_list_view called with method: {request.method}")
+    
+    try:
+        from services.education.academics.models import Subject
+        from services.education.academics.serializers import SubjectSerializer
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    if request.method == 'GET':
+        subjects = Subject.objects.all().order_by('name')
+        serializer = SubjectSerializer(subjects, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        print(f"📥 POST data: {request.data}")
+        
+        # Create data dict with proper values
+        data = {
+            'name': request.data.get('name', '').strip(),
+            'code': request.data.get('code', '').strip().upper(),
+            'credits': int(request.data.get('credits', 0)),
+            'description': request.data.get('description', '').strip(),
+        }
+        
+        print(f"📦 Processed data: {data}")
+        
+        # Validate
+        if not data['name']:
+            return Response(
+                {'error': 'Subject name is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = SubjectSerializer(data=data)
+        if serializer.is_valid():
+            try:
+                subject = serializer.save()
+                print(f"✅ Subject created: {subject.name} (ID: {subject.id})")
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                print(f"❌ Save error: {e}")
+                import traceback
+                traceback.print_exc()
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            print(f"❌ Validation errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def subject_detail_view(request, id):
+    """Get, update or delete a specific subject"""
+    try:
+        from services.education.academics.models import Subject
+        from services.education.academics.serializers import SubjectSerializer
+    except ImportError:
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    try:
+        subject = Subject.objects.get(id=id)
+    except Subject.DoesNotExist:
+        return Response(
+            {'error': 'Subject not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'GET':
+        serializer = SubjectSerializer(subject)
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = SubjectSerializer(subject, data=request.data, partial=request.method == 'PATCH')
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        subject.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ============================================================
+# CLASS SUBJECTS - Full CRUD support
+# ============================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def class_subjects_list_view(request):
+    """Get all class-subject assignments or create a new one"""
+    try:
+        from services.education.academics.models import ClassSubject, SchoolClass, Subject
+        from services.education.academics.serializers import ClassSubjectSerializer
+    except ImportError:
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    if request.method == 'GET':
+        class_subjects = ClassSubject.objects.all()
+        serializer = ClassSubjectSerializer(class_subjects, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        class_ref_id = request.data.get('class_ref')
+        subject_id = request.data.get('subject')
+        
+        if not class_ref_id:
+            return Response(
+                {'error': 'class_ref is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not subject_id:
+            return Response(
+                {'error': 'subject is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if class exists
+        try:
+            school_class = SchoolClass.objects.get(id=class_ref_id)
+        except SchoolClass.DoesNotExist:
+            return Response(
+                {'error': f'Class with id {class_ref_id} does not exist'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if subject exists
+        try:
+            subject = Subject.objects.get(id=subject_id)
+        except Subject.DoesNotExist:
+            return Response(
+                {'error': f'Subject with id {subject_id} does not exist'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if already assigned
+        if ClassSubject.objects.filter(class_ref_id=class_ref_id, subject_id=subject_id).exists():
+            return Response(
+                {'error': 'This subject is already assigned to this class'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create the assignment
+        class_subject = ClassSubject.objects.create(
+            class_ref=school_class,
+            subject=subject
+        )
+        
+        serializer = ClassSubjectSerializer(class_subject)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def class_subject_detail_view(request, id):
+    """Get or delete a specific class-subject assignment"""
+    try:
+        from services.education.academics.models import ClassSubject
+        from services.education.academics.serializers import ClassSubjectSerializer
+    except ImportError:
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    try:
+        class_subject = ClassSubject.objects.get(id=id)
+    except ClassSubject.DoesNotExist:
+        return Response(
+            {'error': 'Assignment not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'GET':
+        serializer = ClassSubjectSerializer(class_subject)
+        return Response(serializer.data)
+    
+    elif request.method == 'DELETE':
+        class_subject.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ============================================================
+# CLASSES - Full CRUD support
+# ============================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def classes_list_view(request):
+    """Get all classes or create a new one"""
+    try:
+        from services.education.academics.models import SchoolClass
+        from services.education.academics.serializers import SchoolClassSerializer
+    except ImportError:
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    if request.method == 'GET':
+        classes = SchoolClass.objects.all()
+        serializer = SchoolClassSerializer(classes, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        serializer = SchoolClassSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def class_detail_view(request, id):
+    """Get, update or delete a specific class"""
+    try:
+        from services.education.academics.models import SchoolClass
+        from services.education.academics.serializers import SchoolClassSerializer
+    except ImportError:
+        return Response(
+            {'error': 'Academics module not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    try:
+        school_class = SchoolClass.objects.get(id=id)
+    except SchoolClass.DoesNotExist:
+        return Response(
+            {'error': 'Class not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'GET':
+        serializer = SchoolClassSerializer(school_class)
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = SchoolClassSerializer(school_class, data=request.data, partial=request.method == 'PATCH')
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        school_class.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 __all__ = [
     'StudentListCreateView',
     'StudentDetailView',
@@ -306,6 +577,12 @@ __all__ = [
     'get_classes_list',
     'get_payments_list',
     'get_attendance_dashboard_stats',
-    'get_fee_structures',  # Added
-    'get_scholarships',    # Added
+    'get_fee_structures',
+    'get_scholarships',
+    'subjects_list_view',
+    'subject_detail_view',
+    'class_subjects_list_view',
+    'class_subject_detail_view',
+    'classes_list_view',
+    'class_detail_view',
 ]

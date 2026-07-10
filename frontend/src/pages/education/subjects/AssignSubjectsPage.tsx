@@ -1,4 +1,3 @@
-// frontend/src/pages/education/subjects/AssignSubjectsPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -98,19 +97,33 @@ export default function AssignSubjectsPage() {
     }
 
     try {
-      await academicService.classSubjects.create({
+      console.log('📤 Assigning subject:', { class_ref: selectedClass, subject: selectedSubject });
+      
+      const result = await academicService.classSubjects.create({
         class_ref: selectedClass,
         subject: selectedSubject
       });
       
+      console.log('✅ Assignment result:', result);
       toast.success('Subject assigned successfully!');
       setSelectedSubject('');
       await fetchData();
       loadClassSubjects();
     } catch (error: any) {
       console.error('Error assigning subject:', error);
-      if (error.response?.data?.detail) {
-        toast.error(error.response.data.detail);
+      // Show detailed error
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === 'object') {
+          const errors = Object.entries(errorData)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
+          toast.error(`Failed to assign subject:\n${errors}`);
+        } else {
+          toast.error(errorData.detail || errorData.error || 'Failed to assign subject');
+        }
+      } else if (error.message) {
+        toast.error(error.message);
       } else {
         toast.error('Failed to assign subject');
       }
