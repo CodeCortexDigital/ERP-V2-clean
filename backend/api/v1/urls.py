@@ -22,12 +22,20 @@ urlpatterns = [
     path('auth/students/', include('api.v1.student_urls')),
     
     # ============================================================
-    # TEACHERS - ✅ ADD THESE ENDPOINTS
+    # TEACHERS
     # ============================================================
     path('teachers/', views.teachers_list_view, name='teacher-list'),
     path('teachers/<str:id>/', views.teacher_detail_view, name='teacher-detail'),
     path('auth/teachers/', views.teachers_list_view, name='auth-teacher-list'),
     path('auth/teachers/<str:id>/', views.teacher_detail_view, name='auth-teacher-detail'),
+    
+    # ============================================================
+    # INVOICES - ✅ ADD THESE ENDPOINTS
+    # ============================================================
+    path('invoices/', views.invoices_list_view, name='invoices-list'),
+    path('invoices/<str:id>/', views.invoice_detail_view, name='invoice-detail'),
+    path('auth/invoices/', views.invoices_list_view, name='auth-invoices-list'),
+    path('auth/invoices/<str:id>/', views.invoice_detail_view, name='auth-invoice-detail'),
     
     # ============================================================
     # PAYMENTS & ATTENDANCE
@@ -40,7 +48,6 @@ urlpatterns = [
     # ============================================================
     path('fee-structures/', views.get_fee_structures, name='fee-structures'),
     path('scholarships/', views.get_scholarships, name='scholarships'),
-    path('invoices/', views.get_payments_list, name='invoices-list'),
     
     # ============================================================
     # SUBJECTS

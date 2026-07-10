@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { GraduationCap, ArrowLeft, RotateCcw, Copy, FileSpreadsheet, FileText, Printer, ChevronDown } from 'lucide-react';
+import { 
+  GraduationCap, ArrowLeft, RotateCcw, Copy, FileSpreadsheet, 
+  FileText, Printer, ChevronDown, Users, UserCheck, UserX, 
+  Filter, RefreshCw 
+} from 'lucide-react';
 import studentService from '@/services/student.service';
 import academicService from '@/services/academic.service';
 import { extractListData } from '@/services/api';
@@ -15,6 +19,7 @@ export default function PrintBasicListPage() {
   // Filter and search states
   const [selectedClass, setSelectedClass] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -27,7 +32,6 @@ export default function PrintBasicListPage() {
     const fullName = String(student.full_name || student.name || '').trim().toLowerCase();
     
     // Only filter out very specific known placeholders
-    // These are the ones that were explicitly added as defaults
     if (id === 'std-1' || id === 'std-2' || id === 'std-3') return true;
     if (studentId === '001' || studentId === '002' || studentId === '003') return true;
     
@@ -44,10 +48,8 @@ export default function PrintBasicListPage() {
     const result: any[] = [];
     
     for (const student of studentsList) {
-      // Skip placeholder students (but be careful not to skip real ones)
       if (isPlaceholderStudent(student)) continue;
       
-      // Use both id and student_id for deduplication
       const idKey = student.id || student.student_id;
       
       if (!seen.has(idKey)) {
@@ -66,25 +68,41 @@ export default function PrintBasicListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // ✅ FIX: Use academicService.classes.getAll() directly
       const [sRes, cRes] = await Promise.all([
         studentService.getAll().catch(() => ({ data: [] })),
-        academicService.getClasses().catch(() => ({ data: [] }))
+        academicService.classes.getAll().catch(() => [])
       ]);
 
       const rawStudents = extractListData<any>(sRes.data || []);
-      const rawClasses = extractListData<any>(cRes.data || []);
+      
+      // ✅ FIX: Handle classes response properly
+      let rawClasses: any[] = [];
+      if (Array.isArray(cRes)) {
+        rawClasses = cRes;
+      } else if (cRes && typeof cRes === 'object') {
+        if (Array.isArray(cRes.data)) {
+          rawClasses = cRes.data;
+        } else if (Array.isArray(cRes.results)) {
+          rawClasses = cRes.results;
+        } else {
+          rawClasses = Object.values(cRes).filter(Array.isArray).flat() || [];
+        }
+      }
 
-      console.log('Raw students from API:', rawStudents);
+      console.log('✅ Raw students from API:', rawStudents);
+      console.log('✅ Raw classes from API:', rawClasses);
+
       const filteredStudents = rawStudents.filter((s: any) => !isPlaceholderStudent(s));
       const uniqueStudents = deduplicateStudents(filteredStudents);
       
-      console.log('Unique students after deduplication:', uniqueStudents);
-      console.log('Number of unique students:', uniqueStudents.length);
+      console.log('✅ Unique students after deduplication:', uniqueStudents);
+      console.log('✅ Number of unique students:', uniqueStudents.length);
       
       setStudents(uniqueStudents);
 
-      // Process classes with deduplication
-      const filteredClasses = rawClasses.filter((c: any) => c && c.name);
+      // ✅ Process classes with deduplication
+      const filteredClasses = rawClasses.filter((c: any) => c && c.name && c.id);
 
       // Deduplicate classes by name
       const uniqueClasses: any[] = [];
@@ -94,13 +112,25 @@ export default function PrintBasicListPage() {
         const normalized = c.name.trim().toLowerCase();
         if (!seenNames.has(normalized)) {
           seenNames.add(normalized);
-          uniqueClasses.push(c);
+          // ✅ Store both id and name
+          uniqueClasses.push({ 
+            id: c.id, 
+            name: c.name, 
+            code: c.code || '' 
+          });
         }
       }
 
+      // Sort classes by name
+      uniqueClasses.sort((a, b) => a.name.localeCompare(b.name));
+
+      console.log('✅ Unique classes:', uniqueClasses);
+      console.log('✅ Number of unique classes:', uniqueClasses.length);
+      
       setClasses(uniqueClasses);
+
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('❌ Error fetching data:', err);
       toast.error('Failed to load students list');
     } finally {
       setLoading(false);
@@ -117,21 +147,35 @@ export default function PrintBasicListPage() {
 
   // Filter students based on selection & search
   const filteredStudents = students.filter(s => {
-    // Skip placeholder students
     if (isPlaceholderStudent(s)) return false;
     
     const sClass = s.class_name || s.current_class_name || s.current_class || '';
     const classMatch = selectedClass === '' || sClass.toLowerCase().trim() === selectedClass.toLowerCase().trim();
+    
+    // Status filter
+    const isActive = s.is_active !== false;
+    let statusMatch = true;
+    if (statusFilter === 'active') {
+      statusMatch = isActive;
+    } else if (statusFilter === 'inactive') {
+      statusMatch = !isActive;
+    }
     
     const query = searchTerm.toLowerCase();
     const searchMatch = 
       (s.full_name || '').toLowerCase().includes(query) ||
       (s.name || '').toLowerCase().includes(query) ||
       (s.student_id || '').toLowerCase().includes(query) ||
-      (s.father_name || '').toLowerCase().includes(query);
+      (s.father_name || '').toLowerCase().includes(query) ||
+      (s.phone || '').toLowerCase().includes(query);
 
-    return classMatch && searchMatch;
+    return classMatch && statusMatch && searchMatch;
   });
+
+  // Get statistics
+  const totalStudents = students.length;
+  const activeStudents = students.filter(s => s.is_active !== false).length;
+  const inactiveStudents = students.filter(s => s.is_active === false).length;
 
   // Pagination logic
   const totalEntries = filteredStudents.length;
@@ -139,6 +183,11 @@ export default function PrintBasicListPage() {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredStudents.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(totalEntries / itemsPerPage) || 1;
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedClass, statusFilter, searchTerm]);
 
   // Show loading state
   if (loading) {
@@ -170,13 +219,13 @@ export default function PrintBasicListPage() {
             onClick={fetchData} 
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 transition-colors shadow-2xs"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> Reload
+            <RefreshCw className="w-3.5 h-3.5" /> Reload
           </button>
         </div>
 
         {/* 1. FILTER BY CLASS CARD */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filter By Class</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filter & Quick View</p>
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             
             <div className="w-full md:max-w-md">
@@ -188,23 +237,70 @@ export default function PrintBasicListPage() {
                 }}
                 className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
               >
-                <option value="">-- Select a class --</option>
-                {classes.map(c => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
-                ))}
+                <option value="">-- All Classes --</option>
+                {classes.length > 0 ? (
+                  classes.map(c => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))
+                ) : (
+                  <option value="" disabled>No classes available</option>
+                )}
               </select>
+              {classes.length === 0 && (
+                <p className="text-xs text-amber-500 mt-1">No classes found. Please add classes first.</p>
+              )}
+            </div>
+
+            {/* Status Filter Buttons */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  statusFilter === 'all' 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 inline mr-1" />
+                All
+              </button>
+              <button
+                onClick={() => setStatusFilter('active')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  statusFilter === 'active' 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5 inline mr-1" />
+                Active
+              </button>
+              <button
+                onClick={() => setStatusFilter('inactive')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  statusFilter === 'inactive' 
+                    ? 'bg-rose-600 text-white' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <UserX className="w-3.5 h-3.5 inline mr-1" />
+                Inactive
+              </button>
             </div>
 
             {/* Badges indicators on the right */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100">
-                👥 {totalEntries} Students
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold border border-blue-100">
+                👥 {totalStudents}
               </div>
-              <div className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold border border-slate-100">
-                🏫 {classes.length} All Classes
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-100">
+                ✅ {activeStudents}
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-100">
+                ❌ {inactiveStudents}
               </div>
             </div>
-
           </div>
         </div>
       </div>
@@ -217,6 +313,15 @@ export default function PrintBasicListPage() {
           <div className="flex items-center gap-2 pb-2">
             <GraduationCap className="w-5 h-5 text-purple-700" />
             <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Student List</h2>
+            {statusFilter !== 'all' && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                statusFilter === 'active' 
+                  ? 'bg-emerald-100 text-emerald-700' 
+                  : 'bg-rose-100 text-rose-700'
+              }`}>
+                {statusFilter === 'active' ? 'Active Only' : 'Inactive Only'}
+              </span>
+            )}
           </div>
 
           {/* Table Actions & Search */}
@@ -227,7 +332,6 @@ export default function PrintBasicListPage() {
               <button onClick={() => handleExport('Excel')} className="px-2.5 py-1 bg-[#4C469D] text-white rounded-lg hover:bg-[#3d387d] transition-all">Excel</button>
               <button onClick={() => handleExport('PDF')} className="px-2.5 py-1 bg-[#4C469D] text-white rounded-lg hover:bg-[#3d387d] transition-all">PDF</button>
               <button onClick={handlePrint} className="px-2.5 py-1 bg-[#4C469D] text-white rounded-lg hover:bg-[#3d387d] transition-all flex items-center gap-1"><Printer className="w-3 h-3" /> Print</button>
-              <button className="px-2.5 py-1 text-slate-600 flex items-center gap-1">Column visibility <ChevronDown className="w-3 h-3" /></button>
             </div>
 
             <div className="relative">
@@ -262,6 +366,7 @@ export default function PrintBasicListPage() {
                   <th className="py-3 px-4">Student Name</th>
                   <th className="py-3 px-4">Father Name</th>
                   <th className="py-3 px-4">Class</th>
+                  <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Fee Remaining</th>
                   <th className="py-3 px-4">Phone</th>
                 </tr>
@@ -271,6 +376,7 @@ export default function PrintBasicListPage() {
                   currentItems.map((s, idx) => {
                     const serial = indexOfFirstItem + idx + 1;
                     const sClass = s.class_name || s.current_class_name || s.current_class || 'Grade 1-A';
+                    const isActive = s.is_active !== false;
                     return (
                       <tr key={s.id || s.student_id || `student-${idx}`} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors print:border-slate-300">
                         <td className="py-3.5 px-4 font-bold text-slate-500">{serial}</td>
@@ -278,6 +384,15 @@ export default function PrintBasicListPage() {
                         <td className="py-3.5 px-4 font-bold text-slate-800">{s.full_name || s.name || '--'}</td>
                         <td className="py-3.5 px-4 font-bold text-slate-500">{s.father_name || '--'}</td>
                         <td className="py-3.5 px-4 font-extrabold text-slate-600">{sClass}</td>
+                        <td className="py-3.5 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isActive 
+                              ? 'bg-emerald-100 text-emerald-700' 
+                              : 'bg-rose-100 text-rose-700'
+                          }`}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
                         <td className="py-3.5 px-4 font-bold text-slate-400">-</td>
                         <td className="py-3.5 px-4 font-bold text-slate-500">{s.phone || s.mobile || '--'}</td>
                       </tr>
@@ -285,7 +400,7 @@ export default function PrintBasicListPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 font-bold">
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-bold">
                       No matching student records found.
                     </td>
                   </tr>

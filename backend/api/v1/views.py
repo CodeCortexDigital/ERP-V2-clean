@@ -1162,6 +1162,82 @@ def teacher_detail_view(request, id):
         teacher.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+# ============================================================
+# INVOICE VIEWS
+# ============================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def invoices_list_view(request):
+    """Get all invoices or create a new invoice"""
+    from services.education.finance.models import Invoice
+    from services.education.finance.serializers import InvoiceSerializer
+    
+    if request.method == 'GET':
+        # Get query params for filtering
+        student_id = request.query_params.get('student_id')
+        status_filter = request.query_params.get('status')
+        
+        queryset = Invoice.objects.all()
+        
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        else:
+            # Default: show unpaid/issued invoices
+            queryset = queryset.filter(status__in=['unpaid', 'pending', 'draft', 'issued'])
+        
+        queryset = queryset.order_by('-created_at')
+        
+        serializer = InvoiceSerializer(queryset, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'results': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        serializer = InvoiceSerializer(data=request.data)
+        if serializer.is_valid():
+            invoice = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def invoice_detail_view(request, id):
+    """Get, update or delete a specific invoice"""
+    from services.education.finance.models import Invoice
+    from services.education.finance.serializers import InvoiceSerializer
+    
+    try:
+        invoice = Invoice.objects.get(id=id)
+    except Invoice.DoesNotExist:
+        return Response(
+            {'error': 'Invoice not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'GET':
+        serializer = InvoiceSerializer(invoice)
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = InvoiceSerializer(invoice, data=request.data, partial=request.method == 'PATCH')
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        invoice.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+
+
 
 __all__ = [
     'StudentListCreateView',
@@ -1193,4 +1269,7 @@ __all__ = [
     'log_student_action',
     'teachers_list_view',
     'teacher_detail_view',
+    # ✅ ADD THESE
+    'invoices_list_view',
+    'invoice_detail_view',
 ]

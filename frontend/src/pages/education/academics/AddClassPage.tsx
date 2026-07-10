@@ -43,8 +43,25 @@ export default function AddClassPage() {
         ]);
         
         setAcademicYears(yearsRes || []);
-        setTeachers(teachersRes || []);
-        console.log('📚 Teachers loaded:', teachersRes);
+        
+        // ✅ FIX: Extract the array from the response
+        let teachersArray: Teacher[] = [];
+        if (Array.isArray(teachersRes)) {
+          teachersArray = teachersRes;
+        } else if (teachersRes && typeof teachersRes === 'object') {
+          // Check for data property (from api response)
+          if (Array.isArray(teachersRes.data)) {
+            teachersArray = teachersRes.data;
+          } else if (Array.isArray(teachersRes.results)) {
+            teachersArray = teachersRes.results;
+          } else {
+            // If it's an array-like object, try to convert
+            teachersArray = Object.values(teachersRes).filter(Array.isArray).flat() || [];
+          }
+        }
+        
+        setTeachers(teachersArray);
+        console.log('📚 Teachers loaded:', teachersArray);
       } catch (error) {
         console.error('Error fetching data:', error);
       }
@@ -234,7 +251,7 @@ export default function AddClassPage() {
               </select>
             </div>
 
-            {/* ✅ Teacher Dropdown - NEW */}
+            {/* ✅ Teacher Dropdown - FIXED */}
             <div className="space-y-1.5">
               <label htmlFor="teacher_name" className="block text-sm font-medium text-slate-700">
                 Class Teacher
@@ -247,13 +264,17 @@ export default function AddClassPage() {
                 className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm"
               >
                 <option value="">Select a teacher</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.full_name}>
-                    {teacher.full_name} {teacher.email ? `(${teacher.email})` : ''}
-                  </option>
-                ))}
+                {teachers && teachers.length > 0 ? (
+                  teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.full_name}>
+                      {teacher.full_name} {teacher.email ? `(${teacher.email})` : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No teachers available</option>
+                )}
               </select>
-              {teachers.length === 0 && (
+              {(!teachers || teachers.length === 0) && (
                 <p className="text-xs text-amber-500 mt-1">
                   No teachers found. Please add teachers first.
                 </p>
