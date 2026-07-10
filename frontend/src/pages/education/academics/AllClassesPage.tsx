@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { 
   GraduationCap, Users, User, RefreshCw, Plus, Search,
-  Grid3X3, List, Eye
+  Grid3X3, List, Eye, Edit2, Trash2, User as UserIcon
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import studentService from '@/services/student.service';
@@ -14,6 +14,7 @@ interface ClassStats {
   id: string;
   name: string;
   code: string;
+  teacher_name: string;
   totalStudents: number;
   boys: number;
   girls: number;
@@ -85,14 +86,11 @@ export default function AllClassesPage() {
         const classId = cls.id;
         const className = cls.name || 'Unnamed Class';
         
-        // ✅ FIXED: Match students by class ID, not name
+        // Match students by class ID, not name
         const classStudents = allStudents.filter((s: any) => {
-          // Check if student's current_class matches this class ID
           const studentClassId = s.current_class || s.class_id || s.class_ref || '';
-          // Also check if student has class_name that matches
           const studentClassName = s.class_name || s.current_class_name || '';
           
-          // Match by ID (primary) or by name (fallback)
           const matchesById = studentClassId === classId;
           const matchesByName = studentClassName === className;
           
@@ -116,6 +114,7 @@ export default function AllClassesPage() {
           id: classId || `class-${Date.now()}-${Math.random()}`,
           name: className,
           code: cls.code || '',
+          teacher_name: cls.teacher_name || 'Not Assigned',
           totalStudents: total,
           boys,
           girls,
@@ -142,11 +141,25 @@ export default function AllClassesPage() {
     }
   };
 
+  const handleDeleteClass = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) return;
+    
+    try {
+      await academicService.classes.delete(id);
+      toast.success(`Class "${name}" deleted successfully`);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      toast.error('Failed to delete class');
+    }
+  };
+
   const filteredClasses = classes.filter(cls => {
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase().trim();
     return cls.name.toLowerCase().includes(term) ||
-           (cls.code && cls.code.toLowerCase().includes(term));
+           (cls.code && cls.code.toLowerCase().includes(term)) ||
+           (cls.teacher_name && cls.teacher_name.toLowerCase().includes(term));
   });
 
   const totalStudents = classes.reduce((sum, cls) => sum + cls.totalStudents, 0);
@@ -242,7 +255,7 @@ export default function AllClassesPage() {
             <div className="relative">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
               <Input
-                placeholder="Search classes..."
+                placeholder="Search by name, code or teacher..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 text-xs h-10 rounded-lg border-slate-200"
@@ -278,21 +291,43 @@ export default function AllClassesPage() {
                 key={cls.id} 
                 className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200"
               >
-                <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-lg text-slate-800">{cls.name}</h3>
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5" />
-                      {cls.totalStudents} Students
-                    </p>
-                    {cls.code && <p className="text-[10px] text-slate-400">Code: {cls.code}</p>}
+                <div className="p-5 border-b border-slate-100">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg text-slate-800 truncate">{cls.name}</h3>
+                      <div className="flex flex-wrap items-center gap-3 mt-0.5">
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {cls.totalStudents} Students
+                        </p>
+                        {cls.code && (
+                          <p className="text-[10px] text-slate-400">Code: {cls.code}</p>
+                        )}
+                      </div>
+                      {/* ✅ Teacher Name in Grid View */}
+                      <div className="flex items-center gap-1 mt-1">
+                        <UserIcon className="w-3 h-3 text-slate-400" />
+                        <p className="text-xs text-slate-600 truncate">
+                          Teacher: <span className="font-medium">{cls.teacher_name || 'Not Assigned'}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <button
+                        onClick={() => navigate(`/education/academics/classes/edit/${cls.id}`)}
+                        className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors"
+                        title="Edit Class"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => navigate(`/education/students?class=${encodeURIComponent(cls.name)}`)}
+                        className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => navigate(`/education/students?class=${encodeURIComponent(cls.name)}`)}
-                    className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
-                  >
-                    <Eye className="w-3.5 h-3.5" /> View
-                  </button>
                 </div>
 
                 <div className="p-5 space-y-4">
@@ -361,6 +396,8 @@ export default function AllClassesPage() {
                   <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
                     <th className="py-3 px-4">Name</th>
                     <th className="py-3 px-4">Code</th>
+                    {/* ✅ Added Teacher Column */}
+                    <th className="py-3 px-4">Teacher</th>
                     <th className="py-3 px-4 text-center">Total</th>
                     <th className="py-3 px-4 text-center">Boys</th>
                     <th className="py-3 px-4 text-center">Girls</th>
@@ -372,6 +409,13 @@ export default function AllClassesPage() {
                     <tr key={cls.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                       <td className="py-3 px-4 font-bold text-slate-800">{cls.name}</td>
                       <td className="py-3 px-4 font-mono text-slate-500">{cls.code || '--'}</td>
+                      {/* ✅ Teacher Name in List View */}
+                      <td className="py-3 px-4 text-slate-600">
+                        <div className="flex items-center gap-1.5">
+                          <UserIcon className="w-3 h-3 text-slate-400" />
+                          <span>{cls.teacher_name || 'Not Assigned'}</span>
+                        </div>
+                      </td>
                       <td className="py-3 px-4 text-center font-bold text-slate-700">{cls.totalStudents}</td>
                       <td className="py-3 px-4 text-center text-blue-600 font-semibold">
                         {cls.boys} ({cls.boysPercentage}%)
@@ -380,12 +424,28 @@ export default function AllClassesPage() {
                         {cls.girls} ({cls.girlsPercentage}%)
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => navigate(`/education/students?class=${encodeURIComponent(cls.name)}`)}
-                          className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-[10px] font-semibold transition-colors"
-                        >
-                          View
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => navigate(`/education/academics/classes/edit/${cls.id}`)}
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors"
+                            title="Edit Class"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => navigate(`/education/students?class=${encodeURIComponent(cls.name)}`)}
+                            className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-[10px] font-semibold transition-colors"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClass(cls.id, cls.name)}
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors"
+                            title="Delete Class"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

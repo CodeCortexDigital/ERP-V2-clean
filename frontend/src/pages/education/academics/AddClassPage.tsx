@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, GraduationCap, PlusCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
+import teacherService from '@/services/teacher.service';
 
 interface AcademicYear {
   id: string;
@@ -10,32 +11,45 @@ interface AcademicYear {
   is_active: boolean;
 }
 
+interface Teacher {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 export default function AddClassPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
-    academic_year: '', // Will be set to null when submitting if empty
+    academic_year: '',
     teacher_name: '',
-    is_active: true
+    is_active: true,
+    tuition_fee: 0
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Fetch academic years for dropdown
+  // Fetch academic years and teachers
   useEffect(() => {
-    const fetchAcademicYears = async () => {
+    const fetchData = async () => {
       try {
-        const response = await academicService.academicYears.getAll();
-        setAcademicYears(response || []);
-        console.log('📚 Academic years loaded:', response);
+        const [yearsRes, teachersRes] = await Promise.all([
+          academicService.academicYears.getAll().catch(() => []),
+          teacherService.getActive().catch(() => [])
+        ]);
+        
+        setAcademicYears(yearsRes || []);
+        setTeachers(teachersRes || []);
+        console.log('📚 Teachers loaded:', teachersRes);
       } catch (error) {
-        console.error('Error fetching academic years:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchAcademicYears();
+    fetchData();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -61,6 +75,9 @@ export default function AddClassPage() {
     if (formData.code.includes(' ')) {
       newErrors.code = 'Class code cannot contain spaces';
     }
+    if (formData.tuition_fee < 0) {
+      newErrors.tuition_fee = 'Tuition fee cannot be negative';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -74,14 +91,14 @@ export default function AddClassPage() {
       return;
     }
 
-    // ✅ FIXED: Clean and prepare data
     const payload = {
       name: formData.name.trim(),
       code: formData.code.trim().toUpperCase().replace(/\s/g, ''),
       description: formData.description.trim(),
-      academic_year: formData.academic_year || null, // ✅ Send null if not selected
-      teacher_name: formData.teacher_name.trim() || '',
-      is_active: formData.is_active
+      academic_year: formData.academic_year || null,
+      teacher_name: formData.teacher_name || '',
+      is_active: formData.is_active,
+      tuition_fee: formData.tuition_fee
     };
 
     setLoading(true);
@@ -100,14 +117,13 @@ export default function AddClassPage() {
       if (error.response?.data) {
         const errorData = error.response.data;
         if (typeof errorData === 'object') {
-          // Field-specific errors
           Object.keys(errorData).forEach(field => {
             if (field === 'code') {
               setErrors(prev => ({ ...prev, code: errorData[field][0] || 'Invalid code' }));
             } else if (field === 'name') {
               setErrors(prev => ({ ...prev, name: errorData[field][0] || 'Invalid name' }));
-            } else if (field === 'academic_year') {
-              setErrors(prev => ({ ...prev, academic_year: errorData[field][0] || 'Invalid academic year' }));
+            } else if (field === 'tuition_fee') {
+              setErrors(prev => ({ ...prev, tuition_fee: errorData[field][0] || 'Invalid fee' }));
             }
           });
           
@@ -186,7 +202,7 @@ export default function AddClassPage() {
                 type="text"
                 value={formData.code}
                 onChange={handleChange}
-                placeholder="e.g., GRD1A"
+                placeholder="e.g., GRD1A (no spaces)"
                 className={`w-full px-4 py-2.5 rounded-lg border ${
                   errors.code ? 'border-red-500' : 'border-slate-300'
                 } focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm uppercase`}
@@ -194,7 +210,7 @@ export default function AddClassPage() {
               {errors.code && (
                 <p className="text-xs text-red-500 mt-1">{errors.code}</p>
               )}
-              <p className="text-xs text-slate-400">No spaces allowed.</p>
+              <p className="text-xs text-slate-400">No spaces allowed. Will be automatically uppercased.</p>
             </div>
 
             {/* Academic Year */}
@@ -207,9 +223,7 @@ export default function AddClassPage() {
                 name="academic_year"
                 value={formData.academic_year}
                 onChange={handleChange}
-                className={`w-full px-4 py-2.5 rounded-lg border ${
-                  errors.academic_year ? 'border-red-500' : 'border-slate-300'
-                } focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm`}
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm"
               >
                 <option value="">None</option>
                 {academicYears.map((year) => (
@@ -218,30 +232,53 @@ export default function AddClassPage() {
                   </option>
                 ))}
               </select>
-              {errors.academic_year && (
-                <p className="text-xs text-red-500 mt-1">{errors.academic_year}</p>
-              )}
-              {academicYears.length === 0 && (
-                <p className="text-xs text-amber-500 mt-1">
-                  No academic years found. You can leave this as None.
-                </p>
-              )}
             </div>
 
-            {/* Teacher Name */}
+            {/* ✅ Teacher Dropdown - NEW */}
             <div className="space-y-1.5">
               <label htmlFor="teacher_name" className="block text-sm font-medium text-slate-700">
                 Class Teacher
               </label>
-              <input
+              <select
                 id="teacher_name"
                 name="teacher_name"
-                type="text"
                 value={formData.teacher_name}
                 onChange={handleChange}
-                placeholder="e.g., John Doe"
                 className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm"
+              >
+                <option value="">Select a teacher</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.full_name}>
+                    {teacher.full_name} {teacher.email ? `(${teacher.email})` : ''}
+                  </option>
+                ))}
+              </select>
+              {teachers.length === 0 && (
+                <p className="text-xs text-amber-500 mt-1">
+                  No teachers found. Please add teachers first.
+                </p>
+              )}
+            </div>
+
+            {/* Tuition Fee */}
+            <div className="space-y-1.5">
+              <label htmlFor="tuition_fee" className="block text-sm font-medium text-slate-700">
+                Tuition Fee
+              </label>
+              <input
+                id="tuition_fee"
+                name="tuition_fee"
+                type="number"
+                value={formData.tuition_fee}
+                onChange={handleChange}
+                placeholder="0"
+                className={`w-full px-4 py-2.5 rounded-lg border ${
+                  errors.tuition_fee ? 'border-red-500' : 'border-slate-300'
+                } focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm`}
               />
+              {errors.tuition_fee && (
+                <p className="text-xs text-red-500 mt-1">{errors.tuition_fee}</p>
+              )}
             </div>
 
             {/* Description */}
