@@ -28,11 +28,32 @@ export default function TeachersManagement() {
     fetchTeachers();
   }, []);
 
+  // Debug effect to monitor teachers state
+  useEffect(() => {
+    if (teachers.length > 0) {
+      console.log('=== TEACHERS STATE UPDATED ===');
+      console.log('Total teachers:', teachers.length);
+      teachers.forEach(t => {
+        console.log(`${t.full_name}: is_active = ${t.is_active} (type: ${typeof t.is_active})`);
+      });
+      console.log('Active count (=== true):', teachers.filter(t => t.is_active === true).length);
+      console.log('Inactive count (!== true):', teachers.filter(t => t.is_active !== true).length);
+    }
+  }, [teachers]);
+
   const fetchTeachers = async () => {
     setLoading(true);
     try {
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
+      
+      // DEBUG: Log raw response
+      console.log('RAW API Response:', JSON.stringify(tRes.data, null, 2));
+      
       const fetched = extractListData<Teacher>(tRes.data);
+      
+      // DEBUG: Log extracted data
+      console.log('EXTRACTED Data:', JSON.stringify(fetched, null, 2));
+      
       setTeachers(fetched);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -58,14 +79,15 @@ export default function TeachersManagement() {
   };
 
   const getStatus = (teacher: Teacher): 'active' | 'inactive' => {
-    return teacher.is_active !== false ? 'active' : 'inactive';
+    return teacher.is_active === true ? 'active' : 'inactive';
   };
 
   // Filter teachers
   const filteredTeachers = teachers.filter(t => {
     // Status filter
-    if (statusFilter === 'active' && !t.is_active) return false;
-    if (statusFilter === 'inactive' && t.is_active !== false) return false;
+    const status = getStatus(t);
+    if (statusFilter === 'active' && status !== 'active') return false;
+    if (statusFilter === 'inactive' && status !== 'inactive') return false;
     
     // Search filter
     if (!searchTerm.trim()) return true;
@@ -89,8 +111,8 @@ export default function TeachersManagement() {
 
   // Stats
   const totalEmployees = teachers.length;
-  const activeEmployees = teachers.filter(t => t.is_active !== false).length;
-  const inactiveEmployees = teachers.filter(t => t.is_active === false).length;
+  const activeEmployees = teachers.filter(t => t.is_active === true).length;
+  const inactiveEmployees = teachers.filter(t => t.is_active !== true).length;
 
   // Reset page on filter change
   useEffect(() => {

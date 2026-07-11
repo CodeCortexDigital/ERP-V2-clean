@@ -83,7 +83,6 @@ class ClassSubjectListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         """Override create to provide better error messages and handle UUID validation."""
         try:
-            # Validate that class_ref and subject exist
             class_ref_id = request.data.get('class_ref')
             subject_id = request.data.get('subject')
             
@@ -98,7 +97,6 @@ class ClassSubjectListCreateView(generics.ListCreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Check if the class exists
             try:
                 school_class = SchoolClass.objects.get(id=class_ref_id)
             except SchoolClass.DoesNotExist:
@@ -107,7 +105,6 @@ class ClassSubjectListCreateView(generics.ListCreateAPIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # Check if the subject exists
             try:
                 subject = Subject.objects.get(id=subject_id)
             except Subject.DoesNotExist:
@@ -116,14 +113,12 @@ class ClassSubjectListCreateView(generics.ListCreateAPIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # Check if already assigned
             if ClassSubject.objects.filter(class_ref_id=class_ref_id, subject_id=subject_id).exists():
                 return Response(
                     {'error': 'This subject is already assigned to this class'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Create the assignment
             class_subject = ClassSubject.objects.create(
                 class_ref=school_class,
                 subject=subject
@@ -281,18 +276,15 @@ class LearningResourceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # LEVEL 4: TEACHER MANAGEMENT
-# backend/services/education/academics/views.py
-
 class TeacherListCreateView(generics.ListCreateAPIView):
     """
     List all teachers or create a new teacher.
-    GET: List teachers
+    GET: List ALL teachers (both active and inactive)
     POST: Create a new teacher
     """
     permission_classes = [IsAuthenticated]
-    queryset = Teacher.objects.all()
+    queryset = Teacher.objects.all()  # ✅ Returns ALL teachers
     serializer_class = TeacherSerializer
-    # ✅ This automatically supports GET and POST via ListCreateAPIView
 
 
 class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -309,7 +301,6 @@ class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
             instance.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            # Fallback: try hard delete if soft delete fails
             try:
                 instance = self.get_object()
                 instance.delete()
@@ -516,11 +507,12 @@ class TeacherFeedbackDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
 
 
+# ✅ FIXED: Returns ALL teachers (both active and inactive)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_teachers(request):
-    """Get all teachers from education_academics"""
-    teachers = Teacher.objects.filter(is_active=True)
+    """Get ALL teachers (both active and inactive)"""
+    teachers = Teacher.objects.all()  # ✅ Returns ALL teachers
     serializer = TeacherSerializer(teachers, many=True)
     return Response(serializer.data)
 

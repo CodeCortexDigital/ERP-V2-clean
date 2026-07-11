@@ -28,7 +28,37 @@ from services.education.students.views import (
 class StudentListCreateView(VersionedViewMixin, _StudentListCreateView):
     serializer_class = StudentSerializerV1
     serializer_classes_by_version = {'v1': StudentSerializerV1}
-
+    
+    def create(self, request, *args, **kwargs):
+        """Override to handle errors gracefully and strip unknown fields"""
+        try:
+            # Only keep fields that exist in the Student model
+            allowed_fields = [
+                'student_id', 'full_name', 'email', 'phone', 
+                'date_of_birth', 'admission_date', 'gender',
+                'father_name', 'mother_name', 'guardian_name',
+                'guardian_phone', 'address', 'city', 'state',
+                'postal_code', 'is_active', 'profile_picture',
+                'current_class', 'current_section'
+            ]
+            
+            # Filter request data to only include allowed fields
+            filtered_data = {
+                key: value for key, value in request.data.items() 
+                if key in allowed_fields and value is not None and value != ''
+            }
+            
+            # Create a mutable copy of request data
+            request._full_data = filtered_data
+            
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class StudentDetailView(VersionedViewMixin, _StudentDetailView):
     serializer_class = StudentSerializerV1

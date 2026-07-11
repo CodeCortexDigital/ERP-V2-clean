@@ -28,15 +28,13 @@ export default function AddStudentPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
-  // Current date in YYYY-MM-DD format for default admission date
   const today = new Date().toISOString().split('T')[0];
   const [classes, setClasses] = useState<any[]>([]);
   const [lastRegId, setLastRegId] = useState<string | null>(null);
   const [profilePicture, setProfilePicture] = useState<string>('');
 
-  // Collapsible section states - only Student Information is expanded by default
   const [sections, setSections] = useState({
-    studentInfo: true,   // Always expanded by default
+    studentInfo: true,
     otherInfo: false,
     fatherInfo: false,
     motherInfo: false,
@@ -51,7 +49,6 @@ export default function AddStudentPage() {
   };
 
   const [formData, setFormData] = useState({
-    // 1. Student Information
     student_name: '',
     registration_no: '',
     class_name: '',
@@ -59,8 +56,6 @@ export default function AddStudentPage() {
     discount_in_fee: '',
     mobile_sms: '',
     status: 'Active',
-
-    // 2. Other Information
     date_of_birth: '',
     gender: '',
     identification_mark: '',
@@ -77,8 +72,6 @@ export default function AddStudentPage() {
     religion: '',
     select_family: '',
     total_siblings: '',
-
-    // 3. Father Information
     father_name: '',
     father_national_id: '',
     father_occupation: '',
@@ -86,8 +79,6 @@ export default function AddStudentPage() {
     father_mobile: '',
     father_profession: '',
     father_income: '',
-
-    // 4. Mother Information
     mother_name: '',
     mother_national_id: '',
     mother_occupation: '',
@@ -98,13 +89,9 @@ export default function AddStudentPage() {
   });
 
   React.useEffect(() => {
-    // Load classes dynamically
     const loadClasses = async () => {
       try {
         const res = await academicService.getClasses();
-        console.log('📚 Classes API response:', res);
-        
-        // Handle different response formats
         let rawClasses = [];
         if (Array.isArray(res)) {
           rawClasses = res;
@@ -112,11 +99,7 @@ export default function AddStudentPage() {
           rawClasses = Array.isArray(res.data) ? res.data : res.data?.results || [];
         } else if (res?.results) {
           rawClasses = res.results;
-        } else {
-          rawClasses = [];
         }
-        
-        console.log('📚 Raw classes:', rawClasses);
         
         const sorted = rawClasses.slice().sort((a, b) => 
           a.name?.localeCompare(b?.name, undefined, { numeric: true, sensitivity: 'base' }) || 0
@@ -126,7 +109,6 @@ export default function AddStudentPage() {
           self.findIndex(sc => sc.name?.toLowerCase() === c.name?.toLowerCase()) === idx
         );
         
-        console.log('📚 Unique classes:', uniqueByName);
         setClasses(uniqueByName);
         
         if (uniqueByName.length > 0 && !formData.class_name) {
@@ -140,20 +122,17 @@ export default function AddStudentPage() {
     
     loadClasses();
 
-    // Fetch last registration number using the existing student list endpoint
     api.get('/auth/students/?page_size=100').then((res) => {
       const data = res.data as any;
       const list: any[] = Array.isArray(data)
         ? data
         : (data?.results ?? data?.data ?? []);
       
-      const allStudents = list;
-      
-      if (allStudents.length > 0) {
+      if (list.length > 0) {
         let highestRegId = '';
         let highestNum = -1;
         
-        allStudents.forEach(s => {
+        list.forEach(s => {
           const regId = (s.student_id ?? s.registration_no ?? '').toString();
           if (regId) {
             const numMatch = regId.match(/\d+/);
@@ -178,7 +157,6 @@ export default function AddStudentPage() {
     });
   }, []);
 
-  // Auto‑populate registration_no with next sequential ID after fetching lastRegId
   React.useEffect(() => {
     if (lastRegId === null) return;
     
@@ -195,7 +173,6 @@ export default function AddStudentPage() {
   }, [lastRegId]);
 
   React.useEffect(() => {
-    // Check if teachers exist in the database or local storage cache
     teacherService.getAll().then((res) => {
       const list = res.data || [];
       const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
@@ -204,7 +181,6 @@ export default function AddStudentPage() {
         setShowAddTeacherModal(true);
       }
     }).catch(() => {
-      // Fallback check
       const savedExtras = localStorage.getItem('employees_extra_info');
       const count = savedExtras ? Object.keys(JSON.parse(savedExtras)).length : 0;
       if (count === 0) {
@@ -258,7 +234,6 @@ export default function AddStudentPage() {
 
     setLoading(true);
 
-    // ── Duplicate registration number check ──────────────────────────
     try {
       const checkRes = await api.get(`/auth/students/?search=${encodeURIComponent(formData.registration_no)}`);
       const checkData = checkRes.data as any;
@@ -276,59 +251,34 @@ export default function AddStudentPage() {
         return;
       }
     } catch {
-      // If check fails continue — backend unique constraint will catch it
+      // Continue if check fails
     }
 
-    // Find the class ID from the selected class name
     const selectedClass = classes.find(c => c.name === formData.class_name);
     const classId = selectedClass?.id || null;
 
-    // Build payload with current_class (ID) instead of class_name
-    const newStudentPayload = {
+    // ✅ ONLY fields that exist in the Student model
+    const newStudentPayload: any = {
       student_id: formData.registration_no,
       full_name: formData.student_name,
       email: `${formData.student_name.toLowerCase().replace(/\s+/g, '')}@school.edu`,
-      phone: formData.mobile_sms,
-      father_name: formData.father_name,
-      mother_name: formData.mother_name,
+      phone: formData.mobile_sms || '',
+      father_name: formData.father_name || '',
+      mother_name: formData.mother_name || '',
       date_of_birth: formData.date_of_birth || null,
       admission_date: formData.date_of_admission || new Date().toISOString().split('T')[0],
       gender: formData.gender || 'other',
-      address: formData.address,
+      address: formData.address || '',
       is_active: formData.status === 'Active',
-      current_class: classId,  // Use class ID, not name
+      current_class: classId,
       profile_picture: profilePicture || null,
-      discount_in_fee: formData.discount_in_fee || '0',
-      identification_mark: formData.identification_mark,
-      blood_group: formData.blood_group,
-      disease: formData.disease,
-      birth_form_id: formData.birth_form_id,
-      cast: formData.cast,
-      previous_school: formData.previous_school,
-      previous_id: formData.previous_id,
-      additional_note: formData.additional_note,
-      orphan_student: formData.orphan_student,
-      osc: formData.osc,
-      religion: formData.religion,
-      select_family: formData.select_family,
-      total_siblings: formData.total_siblings ? parseInt(formData.total_siblings) : 0,
-      father_national_id: formData.father_national_id,
-      father_occupation: formData.father_occupation,
-      father_education: formData.father_education,
-      father_mobile: formData.father_mobile,
-      father_profession: formData.father_profession,
-      father_income: formData.father_income ? parseFloat(formData.father_income) : 0,
-      mother_national_id: formData.mother_national_id,
-      mother_occupation: formData.mother_occupation,
-      mother_education: formData.mother_education,
-      mother_mobile: formData.mother_mobile,
-      mother_profession: formData.mother_profession,
-      mother_income: formData.mother_income ? parseFloat(formData.mother_income) : 0
+      guardian_name: formData.father_name || formData.student_name,
+      guardian_phone: formData.father_mobile || formData.mobile_sms || '',
     };
 
-    // Remove undefined or empty values
+    // Remove null/undefined values
     Object.keys(newStudentPayload).forEach(key => {
-      if (newStudentPayload[key] === undefined || newStudentPayload[key] === null || newStudentPayload[key] === '') {
+      if (newStudentPayload[key] === undefined || newStudentPayload[key] === null) {
         delete newStudentPayload[key];
       }
     });
@@ -336,22 +286,25 @@ export default function AddStudentPage() {
     console.log('📤 Creating student with payload:', newStudentPayload);
 
     try {
-      await studentService.create(newStudentPayload);
+      const response = await studentService.create(newStudentPayload);
+      console.log('✅ Student created:', response);
       toast.success('Student registered successfully!');
       setLoading(false);
       navigate('/education/students');
     } catch (err: any) {
       console.error('Error creating student:', err);
       const errMsg = err?.response?.data?.student_id?.[0] ||
+                     err?.response?.data?.full_name?.[0] ||
+                     err?.response?.data?.email?.[0] ||
                      err?.response?.data?.detail ||
                      err?.response?.data?.error ||
+                     JSON.stringify(err?.response?.data) ||
                      'Failed to save student to backend.';
       toast.error(`${errMsg}`);
       setLoading(false);
     }
   };
 
-  // Render a collapsible section
   const renderSection = (
     title: string, 
     number: number, 
@@ -393,7 +346,6 @@ export default function AddStudentPage() {
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-indigo-900 pb-12 relative">
-      {/* Reset Confirmation Modal */}
       {showAddTeacherModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-white rounded-3xl p-8 shadow-xl max-w-sm w-full mx-4 text-center space-y-5 border border-slate-100 animate-scale-up">
@@ -425,7 +377,7 @@ export default function AddStudentPage() {
           </div>
         </div>
       )}
-      {/* Top Breadcrumb Bar */}
+      
       <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
           <GraduationCap className="w-4 h-4 text-purple-700" />
@@ -445,10 +397,8 @@ export default function AddStudentPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* 1. STUDENT INFORMATION CARD - Always Expanded */}
         {renderSection('Student Information', 1, 'studentInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Column 1 */}
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">STUDENT NAME *</label>
@@ -463,7 +413,6 @@ export default function AddStudentPage() {
               </div>
             </div>
 
-            {/* Column 2 */}
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -506,7 +455,6 @@ export default function AddStudentPage() {
               </div>
             </div>
 
-            {/* Column 3 */}
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">SELECT CLASS *</label>
@@ -534,13 +482,11 @@ export default function AddStudentPage() {
               </div>
             </div>
           </div>,
-          true // always expanded
+          true
         )}
 
-        {/* 2. OTHER INFORMATION CARD - Collapsible */}
         {renderSection('Other Information', 2, 'otherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Column 1 */}
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DATE OF BIRTH</label>
@@ -582,7 +528,6 @@ export default function AddStudentPage() {
               </div>
             </div>
 
-            {/* Column 2 */}
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">STUDENT BIRTH FORM ID / NIC</label>
@@ -606,7 +551,6 @@ export default function AddStudentPage() {
               </div>
             </div>
 
-            {/* Column 3 */}
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ORPHAN STUDENT</label>
@@ -645,7 +589,6 @@ export default function AddStudentPage() {
           </div>
         )}
 
-        {/* 3. FATHER/GUARDIAN INFORMATION CARD - Collapsible */}
         {renderSection('Father/Guardian Information', 3, 'fatherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-4">
@@ -687,7 +630,6 @@ export default function AddStudentPage() {
           </div>
         )}
 
-        {/* 4. MOTHER INFORMATION CARD - Collapsible */}
         {renderSection('Mother Information', 4, 'motherInfo',
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-4">
@@ -729,7 +671,6 @@ export default function AddStudentPage() {
           </div>
         )}
 
-        {/* 5. DOCUMENTS UPLOAD CARD - Collapsible */}
         {renderSection('Documents Upload', 5, 'documents',
           <div className="bg-purple-50/60 p-8 rounded-2xl border border-purple-100 text-center flex flex-col items-center justify-center space-y-2">
             <Laptop className="w-8 h-8 text-purple-600 mb-1" />
@@ -738,7 +679,6 @@ export default function AddStudentPage() {
           </div>
         )}
 
-        {/* BOTTOM ACTION BAR CARD */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center gap-4">
           <button type="button" onClick={handleReset} className="flex items-center gap-1.5 px-6 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-colors">
             <RotateCcw className="w-4 h-4" /> Reset

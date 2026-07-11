@@ -31,6 +31,7 @@ class Student(SchoolAliasMixin, SoftDeleteModel):
     mother_name = models.CharField(max_length=255, blank=True)
     guardian_phone = models.CharField(max_length=20, blank=True)
     address = models.TextField(blank=True)
+    additional_note = models.TextField(blank=True, default='')
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     postal_code = models.CharField(max_length=20, blank=True)
@@ -93,4 +94,3 @@ class Student(SchoolAliasMixin, SoftDeleteModel):
         if class_name and section_name:
             return f'{self.full_name} ({self.student_id}) — {class_name}-{section_name}'
         return f'{self.full_name} ({self.student_id})'
-
