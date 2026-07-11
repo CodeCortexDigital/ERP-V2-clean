@@ -277,16 +277,16 @@ class LearningResourceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # LEVEL 4: TEACHER MANAGEMENT
 class TeacherListCreateView(generics.ListCreateAPIView):
-    """
-    List all teachers or create a new teacher.
-    GET: List ALL teachers (both active and inactive)
-    POST: Create a new teacher
-    """
     permission_classes = [IsAuthenticated]
-    queryset = Teacher.objects.all()  # ✅ Returns ALL teachers
+    queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
+    
+    def dispatch(self, request, *args, **kwargs):
+        print(f"🔍🔍🔍 TeacherListCreateView DISPATCH called! Path: {request.path}")
+        return super().dispatch(request, *args, **kwargs)
 
-
+        
+                
 class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Teacher.objects.all()

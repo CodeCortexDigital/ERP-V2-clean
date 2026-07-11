@@ -13,7 +13,7 @@ def get_teachers(request):
     except LookupError:
         Teacher = apps.get_model('education_teachers', 'Teacher')
     
-    teachers = Teacher.objects.filter(is_active=True)
+    teachers = Teacher.objects.all()
     data = []
     for t in teachers:
         data.append({
