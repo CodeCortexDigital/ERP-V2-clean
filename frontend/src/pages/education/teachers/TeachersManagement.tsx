@@ -44,7 +44,7 @@ export default function TeachersManagement() {
   const fetchTeachers = async () => {
     setLoading(true);
     try {
-      const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
+      const tRes = await teacherService.getAll({ include_inactive: true }).catch(() => ({ data: [] }));
       
       // DEBUG: Log raw response
       console.log('RAW API Response:', JSON.stringify(tRes.data, null, 2));
