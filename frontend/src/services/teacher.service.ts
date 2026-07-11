@@ -120,39 +120,63 @@ const teacherService = {
   },
 
   // Create new teacher
-  // ✅ Use /teachers/ (without /auth/)
-  // frontend/src/services/teacher.service.ts
-
-create: async (data: Partial<Teacher>) => {
-  try {
-    const payload = {
-      full_name: data.full_name || '',
-      email: data.email || '',
-      employee_id: data.employee_id || '',
-      phone: data.phone || '',
-      joining_date: data.joining_date || new Date().toISOString().split('T')[0],
-      is_active: data.is_active !== false,
-      qualifications: data.qualifications || [],
-      specializations: data.specializations || [],
-      experience_years: data.experience_years || 0,
-    };
-    
-    // ✅ Use the academics URL which we know works
-    const response = await api.post('/auth/academics/teachers/', payload);
-    if (response.data) {
-      response.data = normalizeTeacher(response.data);
-    }
-    return response;
-  } catch (error: any) {
-    console.error('Error creating teacher:', error);
-    throw error;
-  }
-},
-  // Update teacher
-  update: async (id: string, data: Partial<Teacher>) => {
+  create: async (data: Partial<Teacher> | FormData) => {
     try {
-      const response = await api.patch(`/teachers/${id}/`, data);
+      if (data instanceof FormData) {
+        const response = await api.post('/auth/academics/teachers/', data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        if (response.data) {
+          response.data = normalizeTeacher(response.data);
+        }
+        return response;
+      }
+
+      const payload = {
+        full_name: data.full_name || '',
+        email: data.email || '',
+        employee_id: data.employee_id || '',
+        phone: data.phone || '',
+        joining_date: data.joining_date || new Date().toISOString().split('T')[0],
+        is_active: data.is_active !== false,
+        qualifications: data.qualifications || [],
+        specializations: data.specializations || [],
+        experience_years: data.experience_years || 0,
+      };
+      
+      const response = await api.post('/auth/academics/teachers/', payload);
       if (response.data) {
+        response.data = normalizeTeacher(response.data);
+      }
+      return response;
+    } catch (error: any) {
+      console.error('Error creating teacher:', error);
+      throw error;
+    }
+  },
+
+  // Update teacher
+  update: async (id: string, data: Partial<Teacher> | FormData) => {
+    try {
+      let response;
+      if (data instanceof FormData) {
+        response = await api.patch(`/auth/academics/teachers/${id}/`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }).catch(() => null);
+        
+        if (!response) {
+          response = await api.patch(`/teachers/${id}/`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      } else {
+        response = await api.patch(`/auth/academics/teachers/${id}/`, data).catch(() => null);
+        if (!response) {
+          response = await api.patch(`/teachers/${id}/`, data);
+        }
+      }
+      
+      if (response?.data) {
         response.data = normalizeTeacher(response.data);
       }
       return response;

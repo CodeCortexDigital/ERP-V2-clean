@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   GraduationCap, Plus, Trash2, Edit3, RefreshCw, Eye, Hexagon, FileText,
-  Grid3X3, List, ArrowUpDown, User
+  Grid3X3, List, ArrowUpDown, User, Users, UserCheck, UserX
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import studentService from '@/services/student.service';
@@ -289,6 +289,58 @@ export default function StudentsListPage() {
           <button onClick={fetchStudentsAndClasses} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors">
             <RefreshCw className="w-3.5 h-3.5" /> Reload
           </button>
+        </div>
+      </div>
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-800">{students.length}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Students</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-800">
+                {students.filter(s => (s as any).is_active === true).length}
+              </p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Active</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center text-rose-700">
+              <UserX className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-800">
+                {students.filter(s => (s as any).is_active !== true).length}
+              </p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Inactive</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-800">{classes.length}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Classes</p>
+            </div>
+          </div>
         </div>
       </div>
 

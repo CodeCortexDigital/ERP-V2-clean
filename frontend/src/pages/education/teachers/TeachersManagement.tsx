@@ -4,8 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   Plus, Search, Eye, Mail, Edit2, Trash2, RotateCcw, 
   Users, UserCheck, UserX, Award, Grid3X3, List, 
-  Clock, GraduationCap, Filter, ChevronDown
+  Clock, GraduationCap, Filter, ChevronDown, ArrowUpDown
 } from 'lucide-react';
+import { Input } from '@/components/ui/Input';
 import teacherService, { Teacher } from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import { toast } from 'sonner';
@@ -21,8 +22,14 @@ export default function TeachersManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+
+  const toggleSortOrder = () => {
+    setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+  };
 
   useEffect(() => {
     fetchTeachers();
@@ -82,25 +89,41 @@ export default function TeachersManagement() {
     return teacher.is_active === true ? 'active' : 'inactive';
   };
 
-  // Filter teachers
-  const filteredTeachers = teachers.filter(t => {
-    // Status filter
-    const status = getStatus(t);
-    if (statusFilter === 'active' && status !== 'active') return false;
-    if (statusFilter === 'inactive' && status !== 'inactive') return false;
-    
-    // Search filter
-    if (!searchTerm.trim()) return true;
-    const query = searchTerm.toLowerCase();
-    const empRole = getEmployeeRole(t).toLowerCase();
-    return (
-      t.full_name.toLowerCase().includes(query) ||
-      (t.employee_id || '').toLowerCase().includes(query) ||
-      empRole.includes(query) ||
-      (t.email || '').toLowerCase().includes(query) ||
-      (t.phone || '').includes(query)
-    );
-  });
+  // Filter and sort teachers
+  const filteredTeachers = teachers
+    .filter(t => {
+      // Status filter
+      const status = getStatus(t);
+      if (statusFilter === 'active' && status !== 'active') return false;
+      if (statusFilter === 'inactive' && status !== 'inactive') return false;
+      
+      // Role filter
+      if (selectedRole) {
+        const empRole = getEmployeeRole(t);
+        if (empRole !== selectedRole) return false;
+      }
+      
+      // Search filter
+      if (!searchTerm.trim()) return true;
+      const query = searchTerm.toLowerCase();
+      const empRole = getEmployeeRole(t).toLowerCase();
+      return (
+        t.full_name.toLowerCase().includes(query) ||
+        (t.employee_id || '').toLowerCase().includes(query) ||
+        empRole.includes(query) ||
+        (t.email || '').toLowerCase().includes(query) ||
+        (t.phone || '').includes(query)
+      );
+    })
+    .sort((a, b) => {
+      const nameA = a.full_name.toLowerCase();
+      const nameB = b.full_name.toLowerCase();
+      if (sortOrder === 'asc') {
+        return nameA.localeCompare(nameB);
+      } else {
+        return nameB.localeCompare(nameA);
+      }
+    });
 
   // Pagination
   const totalEntries = filteredTeachers.length;
@@ -117,7 +140,7 @@ export default function TeachersManagement() {
   // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, selectedRole, sortOrder]);
 
   if (loading) {
     return (
@@ -128,6 +151,14 @@ export default function TeachersManagement() {
         </div>
       </div>
     );
+  }
+
+  const savedExtras = localStorage.getItem('employees_extra_info');
+  let extrasMap: any = {};
+  if (savedExtras) {
+    try {
+      extrasMap = JSON.parse(savedExtras);
+    } catch (e) {}
   }
 
   return (
@@ -208,75 +239,89 @@ export default function TeachersManagement() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by name, ID, phone or designation..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium placeholder:text-slate-400 text-slate-700"
-              />
+      <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+          <div>
+            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">SEARCH EMPLOYEE</label>
+            <Input 
+              placeholder="Type name, ID, phone..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="text-xs h-11 rounded-xl border-slate-200 bg-white" 
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FILTER BY ROLE</label>
+            <select 
+              value={selectedRole} 
+              onChange={(e) => setSelectedRole(e.target.value)}
+              className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+            >
+              <option value="">-- Select role --</option>
+              <option value="Principal">Principal</option>
+              <option value="Management Staff">Management Staff</option>
+              <option value="Teacher">Teacher</option>
+              <option value="Accountant">Accountant</option>
+              <option value="Store Manager">Store Manager</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">STATUS</label>
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">SORT ORDER</label>
+            <button
+              onClick={toggleSortOrder}
+              className="flex items-center gap-2 px-3 py-2 h-11 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors w-full"
+            >
+              <ArrowUpDown className="w-4 h-4 text-slate-500" />
+              <span className="text-xs font-medium text-slate-700">
+                {sortOrder === 'asc' ? 'A → Z' : 'Z → A'}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 justify-end">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'grid' ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="Grid View"
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'list' ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </button>
             </div>
-          </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Status:</span>
             <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                statusFilter === 'all' 
-                  ? 'bg-purple-600 text-white' 
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+              onClick={() => navigate('/education/teachers/add')}
+              className="flex items-center gap-1.5 h-11 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
             >
-              All
-            </button>
-            <button
-              onClick={() => setStatusFilter('active')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                statusFilter === 'active' 
-                  ? 'bg-emerald-600 text-white' 
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Active
-            </button>
-            <button
-              onClick={() => setStatusFilter('inactive')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                statusFilter === 'inactive' 
-                  ? 'bg-rose-600 text-white' 
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Inactive
-            </button>
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 ml-auto">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'grid' ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-400 hover:text-slate-600'
-              }`}
-              title="Grid View"
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-colors ${
-                viewMode === 'list' ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-400 hover:text-slate-600'
-              }`}
-              title="List View"
-            >
-              <List className="w-4 h-4" />
+              <Plus className="w-4 h-4" /> Add Employee
             </button>
           </div>
         </div>
@@ -302,6 +347,7 @@ export default function TeachersManagement() {
               {currentItems.map((teacher) => {
                 const empRole = getEmployeeRole(teacher);
                 const status = getStatus(teacher);
+                const profilePic = teacher.profile_picture || extrasMap[teacher.id]?.profilePictureUrl || '';
                 return (
                   <div 
                     key={teacher.id}
@@ -318,10 +364,13 @@ export default function TeachersManagement() {
                       </span>
                     </div>
 
-                    <div className="flex flex-col items-center space-y-2 mt-2">
-                      <div className="w-16 h-16 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden p-0.5 shadow-2xs">
-                        {teacher.profile_picture ? (
-                          <img src={teacher.profile_picture} alt={teacher.full_name} className="w-full h-full object-cover rounded-full" />
+                    <div 
+                      onClick={() => navigate(`/education/teachers/${teacher.id}`)}
+                      className="flex flex-col items-center space-y-2 mt-2 cursor-pointer group"
+                    >
+                      <div className="w-16 h-16 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden p-0.5 shadow-2xs group-hover:border-purple-300 transition-colors">
+                        {profilePic ? (
+                          <img src={profilePic} alt={teacher.full_name} className="w-full h-full object-cover rounded-full" />
                         ) : (
                           <span className="text-2xl font-bold text-purple-600">
                             {teacher.full_name.charAt(0).toUpperCase()}
@@ -329,8 +378,8 @@ export default function TeachersManagement() {
                         )}
                       </div>
 
-                      <div className="space-y-0.5">
-                        <h4 className="font-extrabold text-slate-800 text-xs tracking-tight truncate max-w-[110px]" title={teacher.full_name}>
+                      <div className="space-y-0.5 text-center">
+                        <h4 className="font-extrabold text-slate-800 text-xs tracking-tight truncate max-w-[110px] group-hover:text-purple-600 transition-colors" title={teacher.full_name}>
                           {teacher.full_name}
                         </h4>
                         <p className="text-[9px] text-slate-400 font-bold">{empRole}</p>
@@ -385,15 +434,23 @@ export default function TeachersManagement() {
                     {currentItems.map((teacher) => {
                       const empRole = getEmployeeRole(teacher);
                       const status = getStatus(teacher);
+                      const profilePic = teacher.profile_picture || extrasMap[teacher.id]?.profilePictureUrl || '';
                       return (
                         <tr key={teacher.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                           <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold">
-                                {teacher.full_name.charAt(0).toUpperCase()}
+                            <div 
+                              onClick={() => navigate(`/education/teachers/${teacher.id}`)}
+                              className="flex items-center gap-3 cursor-pointer group"
+                            >
+                              <div className="w-8 h-8 rounded-full border border-slate-200 bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold overflow-hidden group-hover:border-purple-300 transition-colors">
+                                {profilePic ? (
+                                  <img src={profilePic} alt={teacher.full_name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  teacher.full_name.charAt(0).toUpperCase()
+                                )}
                               </div>
                               <div>
-                                <p className="font-bold text-slate-800">{teacher.full_name}</p>
+                                <p className="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">{teacher.full_name}</p>
                                 <p className="text-[10px] text-slate-400">{teacher.email}</p>
                               </div>
                             </div>

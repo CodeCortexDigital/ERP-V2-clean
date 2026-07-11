@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Settings2, ArrowLeft, RotateCcw, Check, UserCheck, UserX } from 'lucide-react';
+import { Settings2, ArrowLeft, RotateCcw, Check, UserCheck, UserX, Upload, X, User } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import teacherService from '@/services/teacher.service';
 
@@ -11,8 +11,73 @@ export default function EditTeacherPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string>('');
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [togglingStatus, setTogglingStatus] = useState(false);
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 300;
+          const MAX_HEIGHT = 300;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('Image size must be less than 2MB');
+        return;
+      }
+      
+      try {
+        const compressedBase64 = await compressImage(file);
+        setProfilePicture(compressedBase64);
+        setProfilePictureFile(file);
+      } catch (err) {
+        console.error('Error compressing image:', err);
+        toast.error('Failed to process image');
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setProfilePicture('');
+    setProfilePictureFile(null);
+  };
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -46,11 +111,6 @@ export default function EditTeacherPage() {
         console.log('Backend get teacher failed, trying localStorage fallback');
       }
 
-      // Set active status from backend
-      if (teacher) {
-        setIsActive(teacher.is_active === true);
-      }
-
       // Fetch extra details from localStorage
       const savedExtras = localStorage.getItem('employees_extra_info');
       let extra = {
@@ -77,7 +137,13 @@ export default function EditTeacherPage() {
         } catch (e) {}
       }
 
-      setProfilePicture(extra.profilePictureUrl || '');
+      // Set active status and profile picture
+      if (teacher) {
+        setIsActive(teacher.is_active === true);
+        setProfilePicture(teacher.profile_picture || extra.profilePictureUrl || '');
+      } else {
+        setProfilePicture(extra.profilePictureUrl || '');
+      }
 
       setFormData({
         fullName: teacher?.full_name || '',
@@ -117,23 +183,6 @@ export default function EditTeacherPage() {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 100 * 1024) {
-        toast.error('Image size must be less than 100KB');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setProfilePicture(reader.result);
-          toast.success('Staff picture loaded successfully.');
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleReset = () => {
     fetchTeacherData();
@@ -163,18 +212,23 @@ export default function EditTeacherPage() {
     setSaving(true);
 
     try {
-      const payload = {
-        full_name: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        experience_years: parseInt(formData.experience) || 0,
-        joining_date: formData.joiningDate,
-        qualifications: [formData.education || 'N/A'],
-        specializations: [formData.role]
-      };
+      const formDataToSend = new FormData();
+      formDataToSend.append('full_name', formData.fullName.trim());
+      formDataToSend.append('phone', formData.phone || '');
+      formDataToSend.append('email', formData.email || '');
+      formDataToSend.append('experience_years', String(parseInt(formData.experience) || 0));
+      formDataToSend.append('joining_date', formData.joiningDate);
+      formDataToSend.append('qualifications', JSON.stringify([formData.education || 'N/A']));
+      formDataToSend.append('specializations', JSON.stringify([formData.role]));
+
+      if (profilePictureFile) {
+        formDataToSend.append('profile_picture', profilePictureFile);
+      } else if (profilePicture === '') {
+        formDataToSend.append('profile_picture', '');
+      }
 
       try {
-        await teacherService.update(id!, payload);
+        await teacherService.update(id!, formDataToSend);
       } catch (e) {
         console.log('Backend teacher update failed, updating locally:', e);
       }
@@ -301,17 +355,38 @@ export default function EditTeacherPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PICTURE</label>
-              <div className="flex flex-col gap-1">
+            <div className="flex flex-col items-center justify-center space-y-2 border border-slate-100 rounded-xl p-3 bg-slate-50">
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase">PICTURE</label>
+              <div className="relative w-16 h-16 rounded-full overflow-hidden border border-slate-200 bg-white shadow-2xs flex items-center justify-center">
+                {profilePicture ? (
+                  <img 
+                    src={profilePicture} 
+                    alt="Profile preview" 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <User className="w-8 h-8 text-slate-400" />
+                )}
+                {profilePicture && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-0.5 -right-0.5 bg-red-505 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <label className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg cursor-pointer transition-colors shadow-2xs flex items-center gap-1">
+                <Upload className="w-3 h-3 text-slate-500" />
+                {profilePicture ? 'Change' : 'Choose'}
                 <input 
                   type="file" 
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+                  accept="image/*" 
+                  onChange={handleImageChange} 
+                  className="hidden" 
                 />
-                <span className="text-[9px] text-amber-600 font-semibold">⚠ Max size 100KB</span>
-              </div>
+              </label>
             </div>
 
             <div>

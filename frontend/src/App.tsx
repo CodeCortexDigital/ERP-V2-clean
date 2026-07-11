@@ -29,6 +29,7 @@ import TeachersManagementPage from './pages/education/teachers/TeachersManagemen
 import AddTeacherPage from './pages/education/teachers/AddTeacherPage'
 import TeacherProfilePage from './pages/education/teachers/TeacherProfilePage'
 import EditTeacherPage from './pages/education/teachers/EditTeacherPage'
+import EmployeeHistoryPage from './pages/education/teachers/EmployeeHistoryPage'
 import JobLetterPage from './pages/education/teachers/JobLetterPage'
 import StaffIdCardsPage from './pages/education/teachers/StaffIdCardsPage'
 import StaffLoginsPage from './pages/education/teachers/StaffLoginsPage'
@@ -197,6 +198,7 @@ function App() {
                 <Route path="education/teachers/logins" element={<StaffLoginsPage />} />
                 <Route path="education/teachers/:id" element={<TeacherProfilePage />} />
                 <Route path="education/teachers/:id/edit" element={<EditTeacherPage />} />
+                <Route path="education/teachers/:id/history" element={<EmployeeHistoryPage />} />
                 
 
                 {/* Exams */}

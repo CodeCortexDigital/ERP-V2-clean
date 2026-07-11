@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
-  ArrowLeft, Download, RotateCcw, Award, Calendar, BookOpen, Clock, FileText, User
+  ArrowLeft, Download, RotateCcw, Award, Calendar, BookOpen, Clock, FileText, User,
+  RefreshCw, History, Printer, Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -159,22 +160,54 @@ export default function TeacherProfilePage() {
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12">
-      {/* Top Breadcrumb Bar (Hidden on print) */}
-      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs print:hidden">
-        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
-          <button onClick={() => navigate('/education/teachers')} className="hover:underline flex items-center gap-1">
-            <ArrowLeft className="w-3.5 h-3.5" /> Employees
+      {/* Header */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-100 shadow-xs print:hidden">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/education/teachers')}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-600" />
           </button>
-          <span>&gt;</span>
-          <span className="text-slate-500 font-bold">Employee Report</span>
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">Employee Profile</h1>
+            <p className="text-xs text-slate-500">
+              {teacher.full_name} • {teacher.employee_id}
+            </p>
+          </div>
         </div>
-
-        <button 
-          onClick={handlePrint}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4C469D] hover:bg-[#3f3a85] text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
-        >
-          <Download className="w-3.5 h-3.5 text-white" /> Get PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadTeacherData}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-semibold transition-colors text-slate-600"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Reload
+          </button>
+          <button
+            onClick={() => navigate(`/education/teachers/${id}/history`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-xs font-semibold transition-colors"
+          >
+            <History className="w-3.5 h-3.5" /> History
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-semibold transition-colors"
+          >
+            <Printer className="w-3.5 h-3.5" /> Print
+          </button>
+          <button
+            onClick={() => toast.info('Exporting employee data...')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" /> Export
+          </button>
+          <button
+            onClick={() => navigate(`/education/teachers/${teacher.id}/edit`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors"
+          >
+            <Edit className="w-3.5 h-3.5" /> Edit
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: Left Details & Right Metrics Column */}
