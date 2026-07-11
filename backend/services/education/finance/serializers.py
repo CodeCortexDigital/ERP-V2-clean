@@ -102,7 +102,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = '__all__'
-        read_only_fields = ('invoice_number', 'issue_date', 'late_fee_amount', 'invoice_month')
+        read_only_fields = ('invoice_number', 'issue_date')
 
     def get_class_name(self, obj):
         try:

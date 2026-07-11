@@ -56,6 +56,7 @@ class Invoice(SoftDeleteModel):
     invoice_month = models.DateField(null=True, blank=True, db_index=True, help_text="First day of the month this invoice belongs to (e.g. 2026-06-01)")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='issued')
     description = models.TextField(blank=True)
+    breakdown = models.JSONField(default=dict, blank=True)
     is_installment = models.BooleanField(default=False)
     installment_number = models.PositiveIntegerField(null=True, blank=True)
     parent_invoice = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='installments')
@@ -94,6 +95,29 @@ class Invoice(SoftDeleteModel):
         if self.invoice_month is None and self.issue_date:
             self.invoice_month = self.issue_date.replace(day=1) if hasattr(self.issue_date, 'replace') else None
         
+        # Apply discount automatically from active student scholarship if discount_amount is 0
+        if self.discount_amount == 0:
+            if not self.scholarship:
+                try:
+                    from services.education.finance.models import StudentScholarship
+                    active_ss = StudentScholarship.objects.filter(student=self.student, is_active=True).first()
+                    if active_ss:
+                        self.scholarship = active_ss
+                except Exception:
+                    pass
+
+            if self.scholarship and self.scholarship.is_active:
+                try:
+                    sc = self.scholarship.scholarship
+                    if sc.scholarship_type == 'percentage':
+                        self.discount_amount = (self.amount * sc.value) / 100
+                    elif sc.scholarship_type == 'fixed':
+                        self.discount_amount = min(sc.value, self.amount)
+                    elif sc.scholarship_type == 'fee_waiver':
+                        self.discount_amount = self.amount
+                except Exception:
+                    pass
+
         # NOTE: Late fees are NOT auto-calculated here.
         # They are applied exclusively by the 'apply_late_fees' management command
         # on the 10th of each month. This prevents fees being added on every save.

@@ -24,10 +24,76 @@ class SectionSerializer(serializers.ModelSerializer):
 
 class SchoolClassSerializer(serializers.ModelSerializer):
     sections = SectionSerializer(many=True, read_only=True)
-    
+    tuition_fee = serializers.SerializerMethodField()
+
     class Meta:
         model = SchoolClass
-        fields = '__all__'
+        fields = ['id', 'tenant', 'name', 'code', 'academic_year', 'teacher_name', 'created_at', 'sections', 'tuition_fee']
+
+    def get_tuition_fee(self, obj):
+        from services.education.finance.models import FeeStructure
+        try:
+            fs = FeeStructure.objects.filter(
+                class_ref=obj,
+                fee_name='MONTHLY TUITION FEE'
+            ).first()
+            if fs:
+                return float(fs.amount)
+        except Exception:
+            pass
+        return 0.0
+
+    def create(self, validated_data):
+        tuition_fee_val = self.initial_data.get('tuition_fee')
+        instance = super().create(validated_data)
+        
+        if tuition_fee_val is not None:
+            try:
+                amount = float(tuition_fee_val)
+                if amount >= 0:
+                    from services.education.finance.models import FeeStructure
+                    from django.utils import timezone
+                    FeeStructure.objects.update_or_create(
+                        class_ref=instance,
+                        fee_name='MONTHLY TUITION FEE',
+                        defaults={
+                            'amount': amount,
+                            'due_date': timezone.now().date(),
+                            'academic_year': '2026-2027',
+                            'is_recurring': True,
+                            'frequency': 'monthly'
+                        }
+                    )
+            except Exception as e:
+                print('Error saving class tuition_fee structure:', e)
+                
+        return instance
+
+    def update(self, instance, validated_data):
+        tuition_fee_val = self.initial_data.get('tuition_fee')
+        updated_instance = super().update(instance, validated_data)
+        
+        if tuition_fee_val is not None:
+            try:
+                amount = float(tuition_fee_val)
+                if amount >= 0:
+                    from services.education.finance.models import FeeStructure
+                    from django.utils import timezone
+                    FeeStructure.objects.update_or_create(
+                        class_ref=updated_instance,
+                        fee_name='MONTHLY TUITION FEE',
+                        defaults={
+                            'amount': amount,
+                            'due_date': timezone.now().date(),
+                            'academic_year': '2026-2027',
+                            'is_recurring': True,
+                            'frequency': 'monthly'
+                        }
+                    )
+            except Exception as e:
+                print('Error updating class tuition_fee structure:', e)
+                
+        return updated_instance
 
 
 class SubjectSerializer(serializers.ModelSerializer):

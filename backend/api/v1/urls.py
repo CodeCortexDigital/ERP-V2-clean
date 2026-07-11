@@ -11,6 +11,16 @@ from services.education.academics.views import (
     TeacherDetailView,
 )
 
+# ✅ Import from finance - canonical class-based views
+from services.education.finance.views import (
+    FeeStructureListCreateView,
+    FeeStructureDetailView,
+    PaymentListCreateView,
+    PaymentDetailView,
+    ScholarshipListCreateView,
+    ScholarshipDetailView,
+)
+
 urlpatterns = [
     path('health/', include('services.core.health.urls')),
     
@@ -46,14 +56,17 @@ urlpatterns = [
     # ============================================================
     # PAYMENTS & ATTENDANCE
     # ============================================================
-    path('payments/', views.get_payments_list, name='payments-list'),
+    path('payments/', PaymentListCreateView.as_view(), name='payments-list'),
+    path('payments/<str:id>/', PaymentDetailView.as_view(), name='payment-detail'),
     path('attendance/dashboard-stats/', views.get_attendance_dashboard_stats, name='attendance-dashboard-stats'),
     
     # ============================================================
     # FINANCE ENDPOINTS
     # ============================================================
-    path('fee-structures/', views.get_fee_structures, name='fee-structures'),
-    path('scholarships/', views.get_scholarships, name='scholarships'),
+    path('fee-structures/', FeeStructureListCreateView.as_view(), name='fee-structures'),
+    path('fee-structures/<str:id>/', FeeStructureDetailView.as_view(), name='fee-structure-detail'),
+    path('scholarships/', ScholarshipListCreateView.as_view(), name='scholarships'),
+    path('scholarships/<str:id>/', ScholarshipDetailView.as_view(), name='scholarship-detail'),
     
     # ============================================================
     # SUBJECTS

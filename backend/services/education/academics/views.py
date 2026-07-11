@@ -282,7 +282,7 @@ class TeacherListCreateView(generics.ListCreateAPIView):
     serializer_class = TeacherSerializer
     
     def dispatch(self, request, *args, **kwargs):
-        print(f"🔍🔍🔍 TeacherListCreateView DISPATCH called! Path: {request.path}")
+        print(f"[DEBUG] TeacherListCreateView DISPATCH called! Path: {request.path}")
         return super().dispatch(request, *args, **kwargs)
 
         
@@ -294,18 +294,18 @@ class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
 
     def destroy(self, request, *args, **kwargs):
-        """Soft delete: mark teacher as inactive instead of hard delete to avoid cascade errors."""
+        """Try hard delete first to completely remove the record; fallback to soft deactivation if cascade constraint errors occur."""
         try:
             instance = self.get_object()
-            instance.is_active = False
-            instance.save()
+            instance.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
+        except Exception:
             try:
                 instance = self.get_object()
-                instance.delete()
+                instance.is_active = False
+                instance.save()
                 return Response(status=status.HTTP_204_NO_CONTENT)
-            except Exception:
+            except Exception as e:
                 return Response(
                     {'error': str(e)},
                     status=status.HTTP_400_BAD_REQUEST

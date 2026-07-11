@@ -56,13 +56,14 @@ const teacherService = {
   // Get all teachers with optional filters
   getAll: async (params?: { 
     is_active?: boolean; 
+    include_inactive?: boolean;
     search?: string;
     page?: number;
     page_size?: number;
     specializations?: string;
   }) => {
     const response = await api.get('/teachers/', { 
-      params: { page_size: 100, ...params } 
+      params: { page_size: 100, include_inactive: true, ...params } 
     });
     const backendTeachers = extractListData<Teacher>(response.data);
     const normalized = normalizeTeachers(backendTeachers);
@@ -161,7 +162,7 @@ create: async (data: Partial<Teacher>) => {
     }
   },
 
-  // Delete teacher (soft delete - set inactive)
+  // Delete teacher (calls backend destroy method - tries hard delete, falls back to soft delete)
   deleteTeacher: async (id: string) => {
     const response = await api.delete(`/teachers/${id}/`, { 
       skipGlobalToast: true 

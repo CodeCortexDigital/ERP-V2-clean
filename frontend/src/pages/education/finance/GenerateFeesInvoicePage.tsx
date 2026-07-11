@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Wallet, User, Calendar, CreditCard, Shield, Landmark, CalendarDays } from 'lucide-react';
@@ -35,6 +35,7 @@ export default function GenerateFeesInvoicePage() {
   const [activeTab, setActiveTab] = useState<'student' | 'class' | 'family'>('student');
   const [students, setStudents] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
+  const [feeStructures, setFeeStructures] = useState<any[]>([]);
   const [banks, setBanks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -61,19 +62,165 @@ export default function GenerateFeesInvoicePage() {
   // Auto-complete suggestions state
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [generatedInvoices, setGeneratedInvoices] = useState<any[] | null>(null);
+  const [checkedStructureIds, setCheckedStructureIds] = useState<string[]>([]);
+
+  const getFeeAmountForClass = (classIdOrName: string) => {
+    if (!classIdOrName) return '';
+    const clsObj = classes.find(c => 
+      String(c.id) === String(classIdOrName) || 
+      c.name.trim().toLowerCase() === classIdOrName.trim().toLowerCase()
+    );
+    if (!clsObj) return '';
+
+    const tuitionFee = feeStructures.find(fs => 
+      String(fs.class_ref) === String(clsObj.id) && 
+      (fs.fee_name || '').toUpperCase() === 'MONTHLY TUITION FEE'
+    );
+    if (tuitionFee) return String(tuitionFee.amount);
+
+    const monthlyFee = feeStructures.find(fs => 
+      String(fs.class_ref) === String(clsObj.id) && 
+      String(fs.frequency).toLowerCase() === 'monthly'
+    );
+    if (monthlyFee) return String(monthlyFee.amount);
+
+    const anyFee = feeStructures.find(fs => 
+      String(fs.class_ref) === String(clsObj.id)
+    );
+    if (anyFee) return String(anyFee.amount);
+
+    return '';
+  };
+
+  const activeStructures = useMemo(() => {
+    let targetClassIds: string[] = [];
+    
+    if (activeTab === 'student') {
+      if (selectedStudent) {
+        const sClass = selectedStudent.class_name || selectedStudent.current_class_name || selectedStudent.current_class || '';
+        const clsObj = classes.find(c => 
+          String(c.id) === String(sClass) || 
+          c.name.trim().toLowerCase() === sClass.trim().toLowerCase()
+        );
+        if (clsObj) targetClassIds.push(clsObj.id);
+      }
+    } else if (activeTab === 'class') {
+      if (selectedClass) {
+        const clsObj = classes.find(c => c.name.trim().toLowerCase() === selectedClass.trim().toLowerCase());
+        if (clsObj) targetClassIds.push(clsObj.id);
+      }
+    } else if (activeTab === 'family') {
+      if (selectedFamily) {
+        const sanitizeFamilyName = (name: string) => name.toLowerCase().replace(/[\s\-_]/g, '').trim();
+        const familyStudents = students.filter(s => {
+          const sFam = s.select_family || s.guardian_name || '';
+          return sanitizeFamilyName(sFam) === sanitizeFamilyName(selectedFamily);
+        });
+        familyStudents.forEach(s => {
+          const sClass = s.class_name || s.current_class_name || s.current_class || '';
+          const clsObj = classes.find(c => 
+            String(c.id) === String(sClass) || 
+            c.name.trim().toLowerCase() === sClass.trim().toLowerCase()
+          );
+          if (clsObj && !targetClassIds.includes(clsObj.id)) {
+            targetClassIds.push(clsObj.id);
+          }
+        });
+      }
+    }
+
+    if (targetClassIds.length === 0) return [];
+    
+    return feeStructures.filter(fs => targetClassIds.includes(String(fs.class_ref)));
+  }, [activeTab, selectedStudent, selectedClass, selectedFamily, classes, feeStructures, students]);
+
+  const calculateBreakdownForClass = (classIdOrName: string) => {
+    const breakdown = {
+      tuition: 0,
+      admission: 0,
+      registration: 0,
+      art: 0,
+      transport: 0,
+      books: 0,
+      uniform: 0,
+      others: 0
+    };
+
+    if (!classIdOrName) {
+      breakdown.tuition = parseFloat(feeAmount || '0');
+      return breakdown;
+    }
+
+    const clsObj = classes.find(c => 
+      String(c.id) === String(classIdOrName) || 
+      c.name.trim().toLowerCase() === classIdOrName.trim().toLowerCase()
+    );
+    if (!clsObj) {
+      breakdown.tuition = parseFloat(feeAmount || '0');
+      return breakdown;
+    }
+
+    const classStructures = feeStructures.filter(fs => 
+      String(fs.class_ref) === String(clsObj.id) &&
+      checkedStructureIds.includes(fs.id)
+    );
+
+    if (classStructures.length === 0) {
+      breakdown.tuition = parseFloat(feeAmount || '0');
+      return breakdown;
+    }
+
+    classStructures.forEach(fs => {
+      const name = (fs.fee_name || '').toUpperCase();
+      const amt = Number(fs.amount);
+      if (name.includes('TUITION') || name.includes('MONTHLY')) {
+        breakdown.tuition += amt;
+      } else if (name.includes('ADMISSION')) {
+        breakdown.admission += amt;
+      } else if (name.includes('REGISTRATION')) {
+        breakdown.registration += amt;
+      } else if (name.includes('ART')) {
+        breakdown.art += amt;
+      } else if (name.includes('TRANSPORT')) {
+        breakdown.transport += amt;
+      } else if (name.includes('BOOKS')) {
+        breakdown.books += amt;
+      } else if (name.includes('UNIFORM')) {
+        breakdown.uniform += amt;
+      } else {
+        breakdown.others += amt;
+      }
+    });
+
+    const sum = Object.values(breakdown).reduce((a, b) => a + b, 0);
+    const manualTotal = parseFloat(feeAmount || '0');
+    if (manualTotal > 0 && Math.abs(sum - manualTotal) > 0.01) {
+      const otherSum = sum - breakdown.tuition;
+      breakdown.tuition = Math.max(0, manualTotal - otherSum);
+    }
+
+    return breakdown;
+  };
 
   useEffect(() => {
     fetchData();
   }, []);
 
   useEffect(() => {
-    const cls = classes.find(c => c.name === selectedClass);
-    if (cls && cls.tuition_fee !== undefined && cls.tuition_fee !== null) {
-      setFeeAmount(String(cls.tuition_fee));
+    if (activeStructures.length > 0) {
+      setCheckedStructureIds(activeStructures.map(fs => fs.id));
     } else {
-      setFeeAmount('');
+      setCheckedStructureIds([]);
     }
-  }, [selectedClass, classes]);
+  }, [activeStructures]);
+
+  useEffect(() => {
+    if (activeStructures.length === 0) return;
+    const total = activeStructures
+      .filter(fs => checkedStructureIds.includes(fs.id))
+      .reduce((sum, fs) => sum + Number(fs.amount), 0);
+    setFeeAmount(total > 0 ? String(total) : '');
+  }, [checkedStructureIds, activeStructures]);
 
   // Calculate previous balance from backend invoices
   const calculatePreviousBalance = async (studentId: string, currentFeeMonth: string) => {
@@ -120,13 +267,17 @@ export default function GenerateFeesInvoicePage() {
 
   const fetchData = async () => {
     try {
-      const [sRes, cRes] = await Promise.all([
+      const [sRes, cRes, fsRes] = await Promise.all([
         studentService.getAll().catch(() => ({ data: [] })),
-        academicService.getClasses().catch(() => ({ data: [] }))
+        academicService.getClasses().catch(() => ({ data: [] })),
+        financeService.getFeeStructures().catch(() => ({ data: [] }))
       ]);
 
       const rawStudents = extractListData<any>(sRes.data || []);
       const rawClasses = extractListData<any>(cRes.data || []);
+      const rawFeeStructures = extractListData<any>(fsRes.data || []);
+
+      setFeeStructures(rawFeeStructures);
 
       const classMap = new Map<string, any>();
       
@@ -157,8 +308,16 @@ export default function GenerateFeesInvoicePage() {
 
       if (!selectedClass && uniqueClasses.length > 0) {
         setSelectedClass(uniqueClasses[0].name);
-        if (uniqueClasses[0].tuition_fee !== undefined && uniqueClasses[0].tuition_fee !== null) {
-          setFeeAmount(String(uniqueClasses[0].tuition_fee));
+        const firstClsId = uniqueClasses[0].id;
+        const tuitionFee = rawFeeStructures.find((fs: any) => 
+          String(fs.class_ref) === String(firstClsId) && 
+          (fs.fee_name || '').toUpperCase() === 'MONTHLY TUITION FEE'
+        );
+        if (tuitionFee) {
+          setFeeAmount(String(tuitionFee.amount));
+        } else {
+          const anyFee = rawFeeStructures.find((fs: any) => String(fs.class_ref) === String(firstClsId));
+          setFeeAmount(anyFee ? String(anyFee.amount) : '');
         }
       }
 
@@ -208,8 +367,9 @@ export default function GenerateFeesInvoicePage() {
     const studentClass = s.class_name || s.current_class_name || s.current_class || '';
     const cls = classes.find(c => c.name.trim().toLowerCase() === studentClass.trim().toLowerCase());
 
-    if (cls && cls.tuition_fee !== undefined && cls.tuition_fee !== null) {
-      setFeeAmount(String(cls.tuition_fee));
+    if (cls) {
+      const amt = getFeeAmountForClass(cls.id);
+      setFeeAmount(amt);
     } else {
       setFeeAmount('');
     }
@@ -242,6 +402,14 @@ export default function GenerateFeesInvoicePage() {
         const currentFee = parseFloat(feeAmount);
         const totalAmount = currentFee + prevBal;
 
+        const classStr = selectedStudent.class_name || selectedStudent.current_class_name || selectedStudent.current_class || '';
+        const breakdown = calculateBreakdownForClass(classStr);
+        const checkedStructures = activeStructures.filter(fs => checkedStructureIds.includes(fs.id));
+        const structuresLabel = checkedStructures.map(fs => `${fs.fee_name}`).join(', ');
+        const customDesc = structuresLabel 
+          ? `Fee Submission for ${feeMonth} (${structuresLabel}) of Student ID:- ${selectedStudent.student_id || '001'}`
+          : `Fee Submission for ${feeMonth} of Student ID:- ${selectedStudent.student_id || '001'}`;
+
         const newInv = {
           id: `inv-${Date.now()}`,
           invoice_number: `INV-${Date.now().toString().slice(-6)}`,
@@ -257,13 +425,14 @@ export default function GenerateFeesInvoicePage() {
           fine_after_due_date: parseFloat(fine || '0'),
           bank_name: selectedBank,
           status: 'unpaid',
-          description: `Fee Submission for ${feeMonth} of Student ID:- ${selectedStudent.student_id || '001'}`,
+          description: customDesc,
           copies: { bank: bankCopy, student: studentCopy, institute: instituteCopy },
           created_at: new Date().toISOString(),
           remaining_balance: totalAmount,
           paid_amount: 0,
           pending_invoice_ids: pending.map((p: any) => p.id),
-          transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined
+          transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
+          breakdown: breakdown
         };
 
         generatedList.push(newInv);
@@ -289,10 +458,19 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
+        const checkedStructures = activeStructures.filter(fs => checkedStructureIds.includes(fs.id));
+        const structuresLabel = checkedStructures.map(fs => `${fs.fee_name}`).join(', ');
+        const getCustomDesc = (sid: string) => structuresLabel 
+          ? `Fee Submission for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}`
+          : `Fee Submission for ${feeMonth} of Student ID:- ${sid}`;
+
+        const breakdown = calculateBreakdownForClass(selectedClass);
+
         for (const [idx, student] of classStudents.entries()) {
           const { total: prevBal, pending } = await calculatePreviousBalance(student.id, feeMonth);
           const currentFee = parseFloat(feeAmount);
           const totalAmount = currentFee + prevBal;
+          const sid = student.student_id || '001';
 
           const newInv = {
             id: `inv-${Date.now()}-${idx}`,
@@ -309,13 +487,14 @@ export default function GenerateFeesInvoicePage() {
             fine_after_due_date: parseFloat(fine || '0'),
             bank_name: selectedBank,
             status: 'unpaid',
-            description: `Fee Submission for ${feeMonth} of Student ID:- ${student.student_id || '001'}`,
+            description: getCustomDesc(sid),
             copies: { bank: bankCopy, student: studentCopy, institute: instituteCopy },
             created_at: new Date().toISOString(),
             remaining_balance: totalAmount,
             paid_amount: 0,
             pending_invoice_ids: pending.map((p: any) => p.id),
-            transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined
+            transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
+            breakdown: breakdown
           };
           generatedList.push(newInv);
         }
@@ -341,10 +520,20 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
+        const checkedStructures = activeStructures.filter(fs => checkedStructureIds.includes(fs.id));
+        const structuresLabel = checkedStructures.map(fs => `${fs.fee_name}`).join(', ');
+        const getCustomDesc = (sid: string) => structuresLabel 
+          ? `Fee Submission for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}`
+          : `Fee Submission for ${feeMonth} of Student ID:- ${sid}`;
+
         for (const [idx, student] of familyStudents.entries()) {
           const { total: prevBal, pending } = await calculatePreviousBalance(student.id, feeMonth);
           const currentFee = parseFloat(feeAmount);
           const totalAmount = currentFee + prevBal;
+
+          const sClass = student.class_name || student.current_class_name || student.current_class || '';
+          const breakdown = calculateBreakdownForClass(sClass);
+          const sid = student.student_id || '001';
 
           const newInv = {
             id: `inv-${Date.now()}-${idx}`,
@@ -361,29 +550,61 @@ export default function GenerateFeesInvoicePage() {
             fine_after_due_date: parseFloat(fine || '0'),
             bank_name: selectedBank,
             status: 'unpaid',
-            description: `Fee Submission for ${feeMonth} of Student ID:- ${student.student_id || '001'}`,
+            description: getCustomDesc(sid),
             copies: { bank: bankCopy, student: studentCopy, institute: instituteCopy },
             created_at: new Date().toISOString(),
             remaining_balance: totalAmount,
             paid_amount: 0,
             pending_invoice_ids: pending.map((p: any) => p.id),
-            transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined
+            transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
+            breakdown: breakdown
           };
           generatedList.push(newInv);
         }
       }
 
       const failedToCreate: any[] = [];
+      const backendCreatedInvoices: any[] = [];
+      
       try {
         await Promise.all(generatedList.map(async (inv) => {
           try {
-            await financeService.createInvoice({
+            const res = await financeService.createInvoice({
               student: inv.student,
-              amount: inv.total_amount ?? inv.amount,
+              amount: inv.amount,
+              opening_balance: inv.previous_balance,
+              discount_amount: inv.discount_amount || 0,
               due_date: inv.due_date,
               description: inv.description,
-              fee_month: inv.fee_month,
+              invoice_month: inv.fee_month ? `${inv.fee_month}-01` : undefined,
+              breakdown: inv.breakdown,
+              late_fee_amount: inv.fine_after_due_date,
             });
+            
+            if (res && res.data) {
+              const created = res.data;
+              backendCreatedInvoices.push({
+                id: created.id,
+                invoice_number: created.invoice_number,
+                student: created.student,
+                student_name: created.student_name || inv.student_name,
+                student_id_code: created.student_id_num || inv.student_id_code,
+                class_name: created.class_name || inv.class_name,
+                fee_month: created.invoice_month ? created.invoice_month.substring(0, 7) : inv.fee_month,
+                amount: parseFloat(created.amount),
+                previous_balance: parseFloat(created.opening_balance),
+                discount_amount: parseFloat(created.discount_amount),
+                total_amount: parseFloat(created.total_amount),
+                fine_after_due_date: parseFloat(created.late_fee_amount || '0') || inv.fine_after_due_date,
+                description: created.description,
+                breakdown: created.breakdown,
+                created_at: created.created_at || inv.created_at,
+                due_date: created.due_date,
+                scholarship_name: created.scholarship_name,
+              });
+            } else {
+              backendCreatedInvoices.push(inv);
+            }
           } catch (e) {
             failedToCreate.push(inv);
           }
@@ -398,7 +619,7 @@ export default function GenerateFeesInvoicePage() {
         toast.success(`Generated ${generatedList.length} fee invoice(s) and saved to the database successfully!`);
       }
 
-      setGeneratedInvoices(generatedList);
+      setGeneratedInvoices(backendCreatedInvoices.length > 0 ? backendCreatedInvoices : generatedList);
     } catch (err) {
       toast.error('Failed to generate fee invoices');
     } finally {
@@ -712,6 +933,76 @@ export default function GenerateFeesInvoicePage() {
             )}
           </div>
 
+          {/* Fee Structures Checkbox Group */}
+          {((activeTab === 'student' && selectedStudent) || 
+            (activeTab === 'class' && selectedClass) || 
+            (activeTab === 'family' && selectedFamily)) && (
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <div className="flex justify-between items-center">
+                <label className="block text-[10px] font-bold tracking-wider text-slate-455 uppercase">
+                  Select Fee Structures ({activeStructures.length})
+                </label>
+                {activeStructures.length > 0 && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCheckedStructureIds(activeStructures.map(fs => fs.id))}
+                      className="text-[10px] text-purple-600 font-bold hover:underline"
+                    >
+                      Check All
+                    </button>
+                    <span className="text-[10px] text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setCheckedStructureIds([])}
+                      className="text-[10px] text-slate-400 font-bold hover:underline"
+                    >
+                      Uncheck All
+                    </button>
+                  </div>
+                )}
+              </div>
+              {activeStructures.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">
+                  No fee structures configured for this selection. You can enter the fee amount manually below.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {activeStructures.map((fs: any) => {
+                    const isChecked = checkedStructureIds.includes(fs.id);
+                    return (
+                      <label 
+                        key={fs.id} 
+                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                          isChecked 
+                            ? 'bg-purple-50/40 border-purple-200 text-purple-700 font-semibold' 
+                            : 'bg-white border-slate-150 text-slate-650 hover:bg-slate-50/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setCheckedStructureIds(prev => prev.filter(id => id !== fs.id));
+                              } else {
+                                setCheckedStructureIds(prev => [...prev, fs.id]);
+                              }
+                            }}
+                            className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5"
+                          />
+                          <span className="text-xs">{fs.fee_name}</span>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-slate-550">Rs {Number(fs.amount).toLocaleString()}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY FEE *</label>
@@ -890,17 +1181,21 @@ function ChallanSlipCard({
               <span className="col-span-4 text-right">Amount</span>
             </div>
             
-            <ParticularRow sr={1} name="MONTHLY FEE" amount={invoice.amount} />
+            <ParticularRow sr={1} name="MONTHLY FEE" amount={invoice.breakdown?.tuition !== undefined ? invoice.breakdown.tuition : invoice.amount} />
             <ParticularRow sr={2} name="PREVIOUS BALANCE" amount={invoice.previous_balance || 0} />
-            <ParticularRow sr={3} name="ADMISSION FEE" amount={0} />
-            <ParticularRow sr={4} name="REGISTRATION FEE" amount={0} />
-            <ParticularRow sr={5} name="ART MATERIAL" amount={0} />
-            <ParticularRow sr={6} name="TRANSPORT" amount={0} />
-            <ParticularRow sr={7} name="BOOKS" amount={0} />
-            <ParticularRow sr={8} name="UNIFORM" amount={0} />
+            <ParticularRow sr={3} name="ADMISSION FEE" amount={invoice.breakdown?.admission || 0} />
+            <ParticularRow sr={4} name="REGISTRATION FEE" amount={invoice.breakdown?.registration || 0} />
+            <ParticularRow sr={5} name="ART MATERIAL" amount={invoice.breakdown?.art || 0} />
+            <ParticularRow sr={6} name="TRANSPORT" amount={invoice.breakdown?.transport || 0} />
+            <ParticularRow sr={7} name="BOOKS" amount={invoice.breakdown?.books || 0} />
+            <ParticularRow sr={8} name="UNIFORM" amount={invoice.breakdown?.uniform || 0} />
             <ParticularRow sr={9} name="FINE" amount={invoice.fine_after_due_date} />
-            <ParticularRow sr={10} name="OTHERS" amount={0} />
-            <ParticularRow sr={11} name="DISCOUNT IN FEE 0%" amount={0} />
+            <ParticularRow sr={10} name="OTHERS" amount={invoice.breakdown?.others || 0} />
+            <ParticularRow 
+              sr={11} 
+              name={invoice.discount_amount > 0 ? `DISCOUNT ${invoice.scholarship_name ? `(${invoice.scholarship_name})` : ''}` : "DISCOUNT IN FEE 0%"} 
+              amount={invoice.discount_amount > 0 ? -invoice.discount_amount : 0} 
+            />
           </div>
 
           <div className="space-y-1 text-right pt-2">

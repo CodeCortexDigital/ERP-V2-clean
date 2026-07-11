@@ -77,7 +77,7 @@ export default function StudentsListPage() {
     if (id === 'std-1' || id === 'std-2' || id === 'std-3') return true;
     if (studentId === '001' || studentId === '002' || studentId === '003') return true;
     
-    const placeholderNames = ['urwah', 'urwah azhar', 'sundas', 'sundasg', 'sundas azhar'];
+    const placeholderNames: string[] = [];
     if (placeholderNames.includes(fullName)) return true;
     
     return false;
