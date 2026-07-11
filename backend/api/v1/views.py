@@ -24,6 +24,42 @@ from services.education.students.views import (
     update_student_activity,
 )
 
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def current_user_view(request):
+    """Get or update current user"""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    if request.method == 'GET':
+        user = request.user
+        return Response({
+            'id': str(user.id),
+            'email': user.email,
+            'full_name': user.get_full_name() or user.username,
+            'role': getattr(user, 'role', 'user'),
+            'is_active': user.is_active,
+        })
+    
+    elif request.method in ['PUT', 'PATCH']:
+        user = request.user
+        # Update allowed fields
+        if 'full_name' in request.data:
+            user.first_name = request.data['full_name'].split(' ')[0] if ' ' in request.data['full_name'] else request.data['full_name']
+            user.last_name = ' '.join(request.data['full_name'].split(' ')[1:]) if ' ' in request.data['full_name'] else ''
+        if 'email' in request.data:
+            user.email = request.data['email']
+        user.save()
+        return Response({
+            'id': str(user.id),
+            'email': user.email,
+            'full_name': user.get_full_name() or user.username,
+            'role': getattr(user, 'role', 'user'),
+            'is_active': user.is_active,
+        })
+
+
+
 
 class StudentListCreateView(VersionedViewMixin, _StudentListCreateView):
     serializer_class = StudentSerializerV1

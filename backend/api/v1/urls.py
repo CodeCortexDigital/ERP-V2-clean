@@ -115,4 +115,5 @@ urlpatterns = [
     path('tenants/', include('services.core.tenants.urls')),
     path('features/', include('services.core.features.urls')),
     path('education/', include('services.education.urls')),
+    path('auth/me/', views.current_user_view, name='current-user'),
 ]

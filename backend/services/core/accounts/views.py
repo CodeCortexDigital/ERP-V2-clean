@@ -162,17 +162,29 @@ def logout_view(request):
         return Response({'message': 'Logged out'}, status=200)
 
 
-
-@api_view(['GET'])
+@api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def get_current_user(request):
     user = request.user
+    
+    # Handle updates (PUT/PATCH)
+    if request.method in ['PUT', 'PATCH']:
+        if 'full_name' in request.data:
+            name_parts = request.data['full_name'].split(' ', 1)
+            user.first_name = name_parts[0]
+            user.last_name = name_parts[1] if len(name_parts) > 1 else ''
+        if 'email' in request.data:
+            user.email = request.data['email']
+        if 'phone' in request.data:
+            user.phone = request.data['phone']
+        user.save()
+    
     role = get_user_role(user)
     student_obj = _get_student_for_user(user)
     return Response({
         'id': str(user.id),
         'email': user.email,
-        'full_name': user.full_name,
+        'full_name': user.full_name if hasattr(user, 'full_name') else (user.get_full_name() or user.email),
         'is_staff': user.is_staff,
         'is_superuser': user.is_superuser,
         'role': role,
@@ -180,7 +192,7 @@ def get_current_user(request):
         'student': _serialize_student(student_obj),
     })
 
-
+    
 class StudentListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     
