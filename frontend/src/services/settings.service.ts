@@ -80,12 +80,12 @@ export interface ThemeSettings {
 const settingsService = {
   // ==================== Institute Profile ====================
   getInstituteProfile: async () => {
-    const response = await api.get('/auth/settings/institute/');
+    const response = await api.get('/tenants/settings/');
     return response;
   },
   
   updateInstituteProfile: async (data: Partial<InstituteProfile>) => {
-    const response = await api.put('/auth/settings/institute/', data);
+    const response = await api.put('/tenants/settings/', data);
     return response;
   },
   

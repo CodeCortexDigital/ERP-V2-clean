@@ -3,13 +3,15 @@ import api, { extractListData } from './api';
 
 export interface FeeStructure {
   id: string;
-  name: string;
-  class_id: string;
+  class_ref: string;
   class_name?: string;
+  section?: string | null;
+  fee_name: string;
   amount: number;
-  frequency: 'monthly' | 'quarterly' | 'semester' | 'annual';
-  description: string;
-  is_active: boolean;
+  due_date: string;
+  academic_year: string;
+  is_recurring: boolean;
+  frequency: 'monthly' | 'quarterly' | 'yearly';
   created_at?: string;
   updated_at?: string;
 }
@@ -263,12 +265,12 @@ const financeService = {
     const response = await api.get(`/payments/${id}/`);
     return response;
   },
-  createPayment: async (data: Partial<Payment>) => {
+  createPayment: async (data: any) => {
     const payload = {
       ...data,
       invoice: data.invoice_id ?? data.invoice,
     };
-    delete payload.invoice_id;
+    delete (payload as any).invoice_id;
     const response = await api.post('/payments/', payload);
     return response;
   },

@@ -19,6 +19,10 @@ from services.education.finance.views import (
     PaymentDetailView,
     ScholarshipListCreateView,
     ScholarshipDetailView,
+    StudentScholarshipListCreateView,
+    StudentScholarshipDetailView,
+    LateFeeRuleListCreateView,
+    LateFeeRuleDetailView,
 )
 
 urlpatterns = [
@@ -67,6 +71,10 @@ urlpatterns = [
     path('fee-structures/<str:id>/', FeeStructureDetailView.as_view(), name='fee-structure-detail'),
     path('scholarships/', ScholarshipListCreateView.as_view(), name='scholarships'),
     path('scholarships/<str:id>/', ScholarshipDetailView.as_view(), name='scholarship-detail'),
+    path('student-scholarships/', StudentScholarshipListCreateView.as_view(), name='student-scholarships'),
+    path('student-scholarships/<str:id>/', StudentScholarshipDetailView.as_view(), name='student-scholarship-detail'),
+    path('late-fee-rules/', LateFeeRuleListCreateView.as_view(), name='late-fee-rules'),
+    path('late-fee-rules/<str:id>/', LateFeeRuleDetailView.as_view(), name='late-fee-rule-detail'),
     
     # ============================================================
     # SUBJECTS

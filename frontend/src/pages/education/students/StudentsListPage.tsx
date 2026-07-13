@@ -63,7 +63,7 @@ export default function StudentsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   // Specific placeholder detection

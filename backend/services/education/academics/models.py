@@ -17,6 +17,8 @@ class AcademicYear(models.Model):
         ordering = ['-start_date']
 
 
+
+
 class SchoolClass(SchoolAliasMixin, models.Model):
     tenant = models.ForeignKey(
         'core_tenants.School',
@@ -31,6 +33,9 @@ class SchoolClass(SchoolAliasMixin, models.Model):
     code = models.CharField(max_length=20)
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=True, blank=True)
     teacher_name = models.CharField(max_length=200, blank=True)
+    tuition_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
@@ -38,6 +43,11 @@ class SchoolClass(SchoolAliasMixin, models.Model):
     
     class Meta:
         ordering = ['name']
+
+
+
+
+
 
 
 class Section(SchoolAliasMixin, models.Model):
@@ -547,6 +557,7 @@ class TeacherAttendance(models.Model):
     
     def __str__(self):
         return f"{self.teacher.full_name} - {self.date} ({self.get_status_display()})"
+
 
 class SectionTeacherAssignment(models.Model):
     section = models.ForeignKey('Section', on_delete=models.CASCADE, related_name='teacher_assignments')

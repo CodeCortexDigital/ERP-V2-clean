@@ -22,7 +22,7 @@ export default function FeeStructure() {
   const [dueDate, setDueDate] = useState('');
   const [academicYear, setAcademicYear] = useState('2026-2027');
   const [isRecurring, setIsRecurring] = useState(false);
-  const [frequency, setFrequency] = useState('monthly');
+  const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   
   const [filterClass, setFilterClass] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -431,7 +431,7 @@ export default function FeeStructure() {
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Frequency *</label>
                   <select
                     value={frequency}
-                    onChange={(e) => setFrequency(e.target.value)}
+                    onChange={(e) => setFrequency(e.target.value as 'monthly' | 'quarterly' | 'yearly')}
                     className="w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs font-semibold text-slate-700"
                     required
                   >

@@ -734,14 +734,17 @@ def invoices_list_view(request):
     from services.education.finance.serializers import InvoiceSerializer
     if request.method == 'GET':
         queryset = Invoice.objects.all()
-        student_id = request.query_params.get('student_id')
+        student_id = request.query_params.get('student_id') or request.query_params.get('student')
         status_filter = request.query_params.get('status')
         if student_id:
             queryset = queryset.filter(student_id=student_id)
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
         else:
-            queryset = queryset.filter(status__in=['unpaid', 'pending', 'draft', 'issued'])
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
+            else:
+                queryset = queryset.filter(status__in=['unpaid', 'pending', 'draft', 'issued', 'partial', 'overdue'])
         queryset = queryset.order_by('-created_at')
         serializer = InvoiceSerializer(queryset, many=True)
         return Response({'count': len(serializer.data), 'results': serializer.data})

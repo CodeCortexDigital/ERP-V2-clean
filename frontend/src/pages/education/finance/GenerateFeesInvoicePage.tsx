@@ -6,6 +6,7 @@ import studentService from '@/services/student.service';
 import academicService from '@/services/academic.service';
 import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
+import settingsService from '@/services/settings.service';
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
@@ -30,6 +31,47 @@ const formatDate = (dateStr: string) => {
   }
 };
 
+const sanitizeClassName = (name: string) => {
+  if (!name) return '';
+  return String(name).toLowerCase().replace(/[\s\-_]/g, '').trim();
+};
+
+const getMonthValue = (monthYear: string) => {
+  if (!monthYear) return '';
+  try {
+    const d = new Date(`${monthYear} 1`);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  } catch {
+    return '';
+  }
+};
+
+const formatMonthValue = (yearMonth: string) => {
+  if (!yearMonth) return '';
+  try {
+    const [year, month] = yearMonth.split('-');
+    const monthName = new Date(Number(year), Number(month) - 1).toLocaleString('en-US', {
+      month: 'long',
+    });
+    return `${monthName} ${year}`;
+  } catch {
+    return '';
+  }
+};
+
+const getInvoiceFeeMonth = (inv: any): string => {
+  if (!inv) return '';
+  const monthVal = inv.invoice_month || inv.fee_month;
+  if (!monthVal) return '';
+  if (monthVal.includes(' ') && !monthVal.includes('-')) return monthVal;
+  const match = monthVal.match(/^(\d{4})-(\d{2})/);
+  if (match) {
+    return formatMonthValue(`${match[1]}-${match[2]}`);
+  }
+  return monthVal;
+};
+
 export default function GenerateFeesInvoicePage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'student' | 'class' | 'family'>('student');
@@ -38,12 +80,17 @@ export default function GenerateFeesInvoicePage() {
   const [feeStructures, setFeeStructures] = useState<any[]>([]);
   const [banks, setBanks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [activeDiscount, setActiveDiscount] = useState<any | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [instituteInfo, setInstituteInfo] = useState<any>(null);
 
   // Form states
   const [feeMonth, setFeeMonth] = useState(() => new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }));
   const [dueDate, setDueDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 10); return d.toISOString().split('T')[0]; });
   const [fine, setFine] = useState('0');
   const [selectedBank, setSelectedBank] = useState('');
+  const [invoiceType, setInvoiceType] = useState<'tuition' | 'transport' | 'hostel' | 'miscellaneous' | 'composite'>('tuition');
   const [selectedStudentSearch, setSelectedStudentSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [selectedClass, setSelectedClass] = useState('');
@@ -68,7 +115,7 @@ export default function GenerateFeesInvoicePage() {
     if (!classIdOrName) return '';
     const clsObj = classes.find(c => 
       String(c.id) === String(classIdOrName) || 
-      c.name.trim().toLowerCase() === classIdOrName.trim().toLowerCase()
+      sanitizeClassName(c.name) === sanitizeClassName(classIdOrName)
     );
     if (!clsObj) return '';
 
@@ -89,6 +136,8 @@ export default function GenerateFeesInvoicePage() {
     );
     if (anyFee) return String(anyFee.amount);
 
+
+
     return '';
   };
 
@@ -100,13 +149,16 @@ export default function GenerateFeesInvoicePage() {
         const sClass = selectedStudent.class_name || selectedStudent.current_class_name || selectedStudent.current_class || '';
         const clsObj = classes.find(c => 
           String(c.id) === String(sClass) || 
-          c.name.trim().toLowerCase() === sClass.trim().toLowerCase()
+          sanitizeClassName(c.name) === sanitizeClassName(sClass)
         );
         if (clsObj) targetClassIds.push(clsObj.id);
       }
     } else if (activeTab === 'class') {
       if (selectedClass) {
-        const clsObj = classes.find(c => c.name.trim().toLowerCase() === selectedClass.trim().toLowerCase());
+        const clsObj = classes.find(c => 
+          String(c.id) === String(selectedClass) || 
+          sanitizeClassName(c.name) === sanitizeClassName(selectedClass)
+        );
         if (clsObj) targetClassIds.push(clsObj.id);
       }
     } else if (activeTab === 'family') {
@@ -120,7 +172,7 @@ export default function GenerateFeesInvoicePage() {
           const sClass = s.class_name || s.current_class_name || s.current_class || '';
           const clsObj = classes.find(c => 
             String(c.id) === String(sClass) || 
-            c.name.trim().toLowerCase() === sClass.trim().toLowerCase()
+            sanitizeClassName(c.name) === sanitizeClassName(sClass)
           );
           if (clsObj && !targetClassIds.includes(clsObj.id)) {
             targetClassIds.push(clsObj.id);
@@ -131,32 +183,34 @@ export default function GenerateFeesInvoicePage() {
 
     if (targetClassIds.length === 0) return [];
     
-    return feeStructures.filter(fs => targetClassIds.includes(String(fs.class_ref)));
+    return feeStructures.filter(fs => 
+      targetClassIds.includes(String(fs.class_ref)) &&
+      !(fs.fee_name || '').toUpperCase().includes('TUITION')
+    );
   }, [activeTab, selectedStudent, selectedClass, selectedFamily, classes, feeStructures, students]);
 
   const calculateBreakdownForClass = (classIdOrName: string) => {
+    const mainFeeVal = parseFloat(feeAmount || '0');
     const breakdown = {
-      tuition: 0,
+      tuition: (invoiceType === 'tuition' || invoiceType === 'composite') ? mainFeeVal : 0,
       admission: 0,
       registration: 0,
       art: 0,
-      transport: 0,
+      transport: (invoiceType === 'transport') ? mainFeeVal : 0,
       books: 0,
       uniform: 0,
-      others: 0
+      others: (invoiceType === 'hostel' || invoiceType === 'miscellaneous') ? mainFeeVal : 0
     };
 
     if (!classIdOrName) {
-      breakdown.tuition = parseFloat(feeAmount || '0');
       return breakdown;
     }
 
     const clsObj = classes.find(c => 
       String(c.id) === String(classIdOrName) || 
-      c.name.trim().toLowerCase() === classIdOrName.trim().toLowerCase()
+      sanitizeClassName(c.name) === sanitizeClassName(classIdOrName)
     );
     if (!clsObj) {
-      breakdown.tuition = parseFloat(feeAmount || '0');
       return breakdown;
     }
 
@@ -165,17 +219,13 @@ export default function GenerateFeesInvoicePage() {
       checkedStructureIds.includes(fs.id)
     );
 
-    if (classStructures.length === 0) {
-      breakdown.tuition = parseFloat(feeAmount || '0');
-      return breakdown;
-    }
-
     classStructures.forEach(fs => {
       const name = (fs.fee_name || '').toUpperCase();
       const amt = Number(fs.amount);
-      if (name.includes('TUITION') || name.includes('MONTHLY')) {
-        breakdown.tuition += amt;
-      } else if (name.includes('ADMISSION')) {
+      if (name.includes('TUITION')) {
+        return;
+      }
+      if (name.includes('ADMISSION')) {
         breakdown.admission += amt;
       } else if (name.includes('REGISTRATION')) {
         breakdown.registration += amt;
@@ -192,49 +242,166 @@ export default function GenerateFeesInvoicePage() {
       }
     });
 
-    const sum = Object.values(breakdown).reduce((a, b) => a + b, 0);
-    const manualTotal = parseFloat(feeAmount || '0');
-    if (manualTotal > 0 && Math.abs(sum - manualTotal) > 0.01) {
-      const otherSum = sum - breakdown.tuition;
-      breakdown.tuition = Math.max(0, manualTotal - otherSum);
-    }
-
     return breakdown;
   };
 
   useEffect(() => {
     fetchData();
+
+    // Load institute profile settings
+    const loadProfile = async () => {
+      try {
+        const local = settingsService.getLocalInstituteProfile();
+        if (local) {
+          setInstituteInfo({
+            name: local.name,
+            logo: local.logoUrl || local.logo,
+            motto: local.targetLine || local.motto,
+            phone: local.phone,
+            email: local.email,
+            website: local.website
+          });
+        }
+        
+        const res = await settingsService.getInstituteProfile();
+        if (res && res.data) {
+          const profile = res.data.profile || res.data || {};
+          const mapped = {
+            name: profile.name,
+            logo: profile.logoUrl || profile.logo,
+            motto: profile.targetLine || profile.motto,
+            phone: profile.phone,
+            email: profile.email,
+            website: profile.website
+          };
+          setInstituteInfo(mapped);
+          settingsService.setLocalInstituteProfile(profile);
+        }
+      } catch (e) {
+        console.error('Failed to load institute profile', e);
+      }
+    };
+    loadProfile();
   }, []);
 
+  // Load active scholarship/discount when student changes
   useEffect(() => {
-    if (activeStructures.length > 0) {
-      setCheckedStructureIds(activeStructures.map(fs => fs.id));
-    } else {
-      setCheckedStructureIds([]);
+    if (!selectedStudent) {
+      setActiveDiscount(null);
+      return;
     }
-  }, [activeStructures]);
+    
+    let cancelled = false;
+    const fetchDiscount = async () => {
+      try {
+        const res = await financeService.getStudentScholarships({ student_id: selectedStudent.id });
+        const list = extractListData<any>(res.data || []);
+        const active = list.find((ss: any) => ss.is_active === true || ss.is_active === 'true');
+        if (!cancelled) {
+          setActiveDiscount(active || null);
+        }
+      } catch (e) {
+        console.error('Failed to load student discount', e);
+        if (!cancelled) {
+          setActiveDiscount(null);
+        }
+      }
+    };
+    
+    fetchDiscount();
+    return () => { cancelled = true; };
+  }, [selectedStudent]);
 
+  // Compute discount amount whenever base fee or discount changes
   useEffect(() => {
-    if (activeStructures.length === 0) return;
-    const total = activeStructures
-      .filter(fs => checkedStructureIds.includes(fs.id))
-      .reduce((sum, fs) => sum + Number(fs.amount), 0);
-    setFeeAmount(total > 0 ? String(total) : '');
-  }, [checkedStructureIds, activeStructures]);
+    if (!activeDiscount || !feeAmount) {
+      setDiscountAmount(0);
+      return;
+    }
+    const base = parseFloat(feeAmount) || 0;
+    const val = parseFloat(activeDiscount.scholarship_value) || 0;
+    if (activeDiscount.scholarship_type === 'percentage') {
+      setDiscountAmount(Math.round((base * val) / 100));
+    } else if (activeDiscount.scholarship_type === 'fixed') {
+      setDiscountAmount(Math.round(Math.min(val, base)));
+    } else {
+      setDiscountAmount(base);
+    }
+  }, [feeAmount, activeDiscount]);
+
+
+
+  // Calculate default Monthly Tuition Fee amount (fixed base fee)
+  // Calculate default Monthly Tuition Fee amount (fixed base fee)
+  useEffect(() => {
+    let newFee = '';
+
+    if (activeTab === 'student' && selectedStudent) {
+      const studentClass = selectedStudent.class_name || selectedStudent.current_class_name || selectedStudent.current_class || '';
+      const cls = classes.find(c => 
+        String(c.id) === String(studentClass) || 
+        sanitizeClassName(c.name) === sanitizeClassName(studentClass)
+      );
+      if (cls) {
+        newFee = getFeeAmountForClass(cls.id);
+      }
+    } else if (activeTab === 'class' && selectedClass) {
+      const cls = classes.find(c => 
+        String(c.id) === String(selectedClass) || 
+        sanitizeClassName(c.name) === sanitizeClassName(selectedClass)
+      );
+      if (cls) {
+        newFee = getFeeAmountForClass(cls.id);
+      }
+    } else if (activeTab === 'family' && selectedFamily) {
+      const sanitizeFamilyName = (name: string) => name.toLowerCase().replace(/[\s\-_]/g, '').trim();
+      const firstStudent = students.find(s => {
+        const sFam = s.select_family || s.guardian_name || '';
+        return sanitizeFamilyName(sFam) === sanitizeFamilyName(selectedFamily);
+      });
+      if (firstStudent) {
+        const studentClass = firstStudent.class_name || firstStudent.current_class_name || firstStudent.current_class || '';
+        const cls = classes.find(c => 
+          String(c.id) === String(studentClass) || 
+          sanitizeClassName(c.name) === sanitizeClassName(studentClass)
+        );
+        if (cls) {
+          newFee = getFeeAmountForClass(cls.id);
+        }
+      }
+    }
+
+    setFeeAmount(newFee);
+  }, [selectedStudent, selectedClass, selectedFamily, activeTab, classes, students, feeStructures]);
 
   // Calculate previous balance from backend invoices
   const calculatePreviousBalance = async (studentId: string, currentFeeMonth: string) => {
     try {
-      const res = await financeService.getInvoices({ student: studentId }).catch(() => ({ data: [] }));
+      const res = await financeService.getInvoices({ student_id: studentId }).catch(() => ({ data: [] }));
       const parsed = extractListData<any>(res.data || []);
-      const pending = parsed.filter((inv: any) =>
-        inv.student === studentId &&
-        inv.remaining_balance !== undefined &&
-        inv.remaining_balance !== null &&
-        inv.remaining_balance > 0 &&
-        inv.fee_month !== currentFeeMonth
-      );
-      const total = pending.reduce((sum: number, inv: any) => sum + (inv.remaining_balance || 0), 0);
+      const pending = parsed.filter((inv: any) => {
+        const isStudentMatch = String(inv.student) === String(studentId);
+        if (!isStudentMatch) return false;
+        
+        const balance = inv.balance_due !== undefined && inv.balance_due !== null
+          ? Number(inv.balance_due)
+          : inv.remaining_balance !== undefined && inv.remaining_balance !== null
+            ? Number(inv.remaining_balance)
+            : (Number(inv.total_amount) || Number(inv.amount) || 0);
+
+        const isUnpaidStatus = ['unpaid', 'issued', 'partial', 'overdue'].includes(inv.status) || 
+                              (inv.status === 'paid' && balance > 0);
+        
+        return isUnpaidStatus && balance > 0;
+      });
+      const total = pending.reduce((sum: number, inv: any) => {
+        const balance = inv.balance_due !== undefined && inv.balance_due !== null
+          ? Number(inv.balance_due)
+          : inv.remaining_balance !== undefined && inv.remaining_balance !== null
+            ? Number(inv.remaining_balance)
+            : (Number(inv.total_amount) || Number(inv.amount) || 0);
+        return sum + balance;
+      }, 0);
       return { total, pending };
     } catch (e) {
       return { total: 0, pending: [] };
@@ -269,12 +436,12 @@ export default function GenerateFeesInvoicePage() {
     try {
       const [sRes, cRes, fsRes] = await Promise.all([
         studentService.getAll().catch(() => ({ data: [] })),
-        academicService.getClasses().catch(() => ({ data: [] })),
+        academicService.getClasses().catch(() => []),
         financeService.getFeeStructures().catch(() => ({ data: [] }))
       ]);
 
       const rawStudents = extractListData<any>(sRes.data || []);
-      const rawClasses = extractListData<any>(cRes.data || []);
+      const rawClasses = Array.isArray(cRes) ? cRes : extractListData<any>(cRes.data || []);
       const rawFeeStructures = extractListData<any>(fsRes.data || []);
 
       setFeeStructures(rawFeeStructures);
@@ -365,7 +532,10 @@ export default function GenerateFeesInvoicePage() {
     setSuggestions([]);
 
     const studentClass = s.class_name || s.current_class_name || s.current_class || '';
-    const cls = classes.find(c => c.name.trim().toLowerCase() === studentClass.trim().toLowerCase());
+    const cls = classes.find(c => 
+      String(c.id) === String(studentClass) || 
+      sanitizeClassName(c.name) === sanitizeClassName(studentClass)
+    );
 
     if (cls) {
       const amt = getFeeAmountForClass(cls.id);
@@ -382,12 +552,23 @@ export default function GenerateFeesInvoicePage() {
       return;
     }
 
-    if (!feeAmount || isNaN(parseFloat(feeAmount)) || parseFloat(feeAmount) <= 0) {
-      toast.error('Please enter a valid fee amount');
-      return;
+    const parsedFee = parseFloat(feeAmount || '0');
+    const hasCheckedStructures = checkedStructureIds.length > 0;
+    
+    if (invoiceType === 'tuition' || invoiceType === 'composite') {
+      if (isNaN(parsedFee) || parsedFee <= 0) {
+        toast.error('Please enter a valid fee amount');
+        return;
+      }
+    } else {
+      if ((isNaN(parsedFee) || parsedFee <= 0) && !hasCheckedStructures) {
+        toast.error('Please enter a fee amount or select at least one fee structure');
+        return;
+      }
     }
 
     setLoading(true);
+    setLoadingMessage('Initializing invoice generation...');
     try {
       const generatedList: any[] = [];
 
@@ -398,17 +579,35 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
+
+
         const { total: prevBal, pending } = await calculatePreviousBalance(selectedStudent.id, feeMonth);
-        const currentFee = parseFloat(feeAmount);
-        const totalAmount = currentFee + prevBal;
+        const otherFeeTotal = activeStructures
+          .filter(fs => checkedStructureIds.includes(fs.id))
+          .reduce((sum, fs) => sum + Number(fs.amount), 0);
+        const mainFee = parseFloat(feeAmount || '0');
+        const currentFee = mainFee + otherFeeTotal;
+        const totalAmount = currentFee + prevBal - discountAmount;
 
         const classStr = selectedStudent.class_name || selectedStudent.current_class_name || selectedStudent.current_class || '';
         const breakdown = calculateBreakdownForClass(classStr);
         const checkedStructures = activeStructures.filter(fs => checkedStructureIds.includes(fs.id));
         const structuresLabel = checkedStructures.map(fs => `${fs.fee_name}`).join(', ');
+        let transferNote = '';
+        if (pending.length > 0) {
+          const totalPending = pending.reduce((sum: number, pInv: any) => {
+            const balance = pInv.remaining_balance !== undefined && pInv.remaining_balance !== null
+              ? Number(pInv.remaining_balance)
+              : (Number(pInv.total_amount) || Number(pInv.amount) || 0);
+            return sum + balance;
+          }, 0);
+          const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
+          transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
+        }
+        const labelPrefix = invoiceType === 'tuition' ? 'Fee Submission' : `${invoiceType.toUpperCase()} Fee`;
         const customDesc = structuresLabel 
-          ? `Fee Submission for ${feeMonth} (${structuresLabel}) of Student ID:- ${selectedStudent.student_id || '001'}`
-          : `Fee Submission for ${feeMonth} of Student ID:- ${selectedStudent.student_id || '001'}`;
+          ? `${labelPrefix} for ${feeMonth} (${structuresLabel}) of Student ID:- ${selectedStudent.student_id || '001'}${transferNote}`
+          : `${labelPrefix} for ${feeMonth} of Student ID:- ${selectedStudent.student_id || '001'}${transferNote}`;
 
         const newInv = {
           id: `inv-${Date.now()}`,
@@ -421,6 +620,8 @@ export default function GenerateFeesInvoicePage() {
           due_date: dueDate,
           amount: currentFee,
           previous_balance: prevBal,
+          discount_amount: discountAmount,
+          scholarship_name: activeDiscount ? activeDiscount.scholarship_name : undefined,
           total_amount: totalAmount,
           fine_after_due_date: parseFloat(fine || '0'),
           bank_name: selectedBank,
@@ -432,7 +633,8 @@ export default function GenerateFeesInvoicePage() {
           paid_amount: 0,
           pending_invoice_ids: pending.map((p: any) => p.id),
           transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
-          breakdown: breakdown
+          breakdown: breakdown,
+          invoice_type: invoiceType
         };
 
         generatedList.push(newInv);
@@ -442,10 +644,6 @@ export default function GenerateFeesInvoicePage() {
           setLoading(false);
           return;
         }
-
-        const sanitizeClassName = (name: string) => {
-          return name.toLowerCase().replace(/[\s\-_]/g, '').trim();
-        };
 
         const classStudents = students.filter(s => {
           const sClass = s.class_name || s.current_class_name || s.current_class || s.class_ref || '';
@@ -460,16 +658,58 @@ export default function GenerateFeesInvoicePage() {
 
         const checkedStructures = activeStructures.filter(fs => checkedStructureIds.includes(fs.id));
         const structuresLabel = checkedStructures.map(fs => `${fs.fee_name}`).join(', ');
-        const getCustomDesc = (sid: string) => structuresLabel 
-          ? `Fee Submission for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}`
-          : `Fee Submission for ${feeMonth} of Student ID:- ${sid}`;
+        const getCustomDesc = (sid: string, pending: any[]) => {
+          let transferNote = '';
+          if (pending.length > 0) {
+            const totalPending = pending.reduce((sum: number, pInv: any) => {
+              const balance = pInv.remaining_balance !== undefined && pInv.remaining_balance !== null
+                ? Number(pInv.remaining_balance)
+                : (Number(pInv.total_amount) || Number(pInv.amount) || 0);
+              return sum + balance;
+            }, 0);
+            const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
+            transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
+          }
+          const labelPrefix = invoiceType === 'tuition' ? 'Fee Submission' : `${invoiceType.toUpperCase()} Fee`;
+          return structuresLabel 
+            ? `${labelPrefix} for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}${transferNote}`
+            : `${labelPrefix} for ${feeMonth} of Student ID:- ${sid}${transferNote}`;
+        };
 
         const breakdown = calculateBreakdownForClass(selectedClass);
 
         for (const [idx, student] of classStudents.entries()) {
+          setLoadingMessage(`Calculating balance for student ${idx + 1} of ${classStudents.length}...`);
           const { total: prevBal, pending } = await calculatePreviousBalance(student.id, feeMonth);
-          const currentFee = parseFloat(feeAmount);
-          const totalAmount = currentFee + prevBal;
+          
+          let studentDiscountAmount = 0;
+          let studentScholarshipName = undefined;
+          try {
+            const ssRes = await financeService.getStudentScholarships({ student_id: student.id });
+            const ssList = extractListData<any>(ssRes.data || []);
+            const activeSS = ssList.find((ss: any) => ss.is_active === true || ss.is_active === 'true');
+            if (activeSS) {
+              const base = parseFloat(feeAmount) || 0;
+              const val = parseFloat(activeSS.scholarship_value) || 0;
+              if (activeSS.scholarship_type === 'percentage') {
+                studentDiscountAmount = Math.round((base * val) / 100);
+              } else if (activeSS.scholarship_type === 'fixed') {
+                studentDiscountAmount = Math.round(Math.min(val, base));
+              } else {
+                studentDiscountAmount = base;
+              }
+              studentScholarshipName = activeSS.scholarship_name;
+            }
+          } catch (e) {
+            console.error('Failed to get student discount inside class loop', e);
+          }
+
+          const otherFeeTotal = activeStructures
+            .filter(fs => checkedStructureIds.includes(fs.id))
+            .reduce((sum, fs) => sum + Number(fs.amount), 0);
+          const mainFee = parseFloat(feeAmount || '0');
+          const currentFee = mainFee + otherFeeTotal;
+          const totalAmount = currentFee + prevBal - studentDiscountAmount;
           const sid = student.student_id || '001';
 
           const newInv = {
@@ -483,18 +723,21 @@ export default function GenerateFeesInvoicePage() {
             due_date: dueDate,
             amount: currentFee,
             previous_balance: prevBal,
+            discount_amount: studentDiscountAmount,
+            scholarship_name: studentScholarshipName,
             total_amount: totalAmount,
             fine_after_due_date: parseFloat(fine || '0'),
             bank_name: selectedBank,
             status: 'unpaid',
-            description: getCustomDesc(sid),
+            description: getCustomDesc(sid, pending),
             copies: { bank: bankCopy, student: studentCopy, institute: instituteCopy },
             created_at: new Date().toISOString(),
             remaining_balance: totalAmount,
             paid_amount: 0,
             pending_invoice_ids: pending.map((p: any) => p.id),
             transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
-            breakdown: breakdown
+            breakdown: breakdown,
+            invoice_type: invoiceType
           };
           generatedList.push(newInv);
         }
@@ -522,14 +765,56 @@ export default function GenerateFeesInvoicePage() {
 
         const checkedStructures = activeStructures.filter(fs => checkedStructureIds.includes(fs.id));
         const structuresLabel = checkedStructures.map(fs => `${fs.fee_name}`).join(', ');
-        const getCustomDesc = (sid: string) => structuresLabel 
-          ? `Fee Submission for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}`
-          : `Fee Submission for ${feeMonth} of Student ID:- ${sid}`;
+        const getCustomDesc = (sid: string, pending: any[]) => {
+          let transferNote = '';
+          if (pending.length > 0) {
+            const totalPending = pending.reduce((sum: number, pInv: any) => {
+              const balance = pInv.remaining_balance !== undefined && pInv.remaining_balance !== null
+                ? Number(pInv.remaining_balance)
+                : (Number(pInv.total_amount) || Number(pInv.amount) || 0);
+              return sum + balance;
+            }, 0);
+            const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
+            transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
+          }
+          const labelPrefix = invoiceType === 'tuition' ? 'Fee Submission' : `${invoiceType.toUpperCase()} Fee`;
+          return structuresLabel 
+            ? `${labelPrefix} for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}${transferNote}`
+            : `${labelPrefix} for ${feeMonth} of Student ID:- ${sid}${transferNote}`;
+        };
 
         for (const [idx, student] of familyStudents.entries()) {
+          setLoadingMessage(`Calculating balance for student ${idx + 1} of ${familyStudents.length}...`);
           const { total: prevBal, pending } = await calculatePreviousBalance(student.id, feeMonth);
-          const currentFee = parseFloat(feeAmount);
-          const totalAmount = currentFee + prevBal;
+          
+          let studentDiscountAmount = 0;
+          let studentScholarshipName = undefined;
+          try {
+            const ssRes = await financeService.getStudentScholarships({ student_id: student.id });
+            const ssList = extractListData<any>(ssRes.data || []);
+            const activeSS = ssList.find((ss: any) => ss.is_active === true || ss.is_active === 'true');
+            if (activeSS) {
+              const base = parseFloat(feeAmount) || 0;
+              const val = parseFloat(activeSS.scholarship_value) || 0;
+              if (activeSS.scholarship_type === 'percentage') {
+                studentDiscountAmount = Math.round((base * val) / 100);
+              } else if (activeSS.scholarship_type === 'fixed') {
+                studentDiscountAmount = Math.round(Math.min(val, base));
+              } else {
+                studentDiscountAmount = base;
+              }
+              studentScholarshipName = activeSS.scholarship_name;
+            }
+          } catch (e) {
+            console.error('Failed to get student discount inside family loop', e);
+          }
+
+          const otherFeeTotal = activeStructures
+            .filter(fs => checkedStructureIds.includes(fs.id))
+            .reduce((sum, fs) => sum + Number(fs.amount), 0);
+          const mainFee = parseFloat(feeAmount || '0');
+          const currentFee = mainFee + otherFeeTotal;
+          const totalAmount = currentFee + prevBal - studentDiscountAmount;
 
           const sClass = student.class_name || student.current_class_name || student.current_class || '';
           const breakdown = calculateBreakdownForClass(sClass);
@@ -546,18 +831,21 @@ export default function GenerateFeesInvoicePage() {
             due_date: dueDate,
             amount: currentFee,
             previous_balance: prevBal,
+            discount_amount: studentDiscountAmount,
+            scholarship_name: studentScholarshipName,
             total_amount: totalAmount,
             fine_after_due_date: parseFloat(fine || '0'),
             bank_name: selectedBank,
             status: 'unpaid',
-            description: getCustomDesc(sid),
+            description: getCustomDesc(sid, pending),
             copies: { bank: bankCopy, student: studentCopy, institute: instituteCopy },
             created_at: new Date().toISOString(),
             remaining_balance: totalAmount,
             paid_amount: 0,
             pending_invoice_ids: pending.map((p: any) => p.id),
             transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
-            breakdown: breakdown
+            breakdown: breakdown,
+            invoice_type: invoiceType
           };
           generatedList.push(newInv);
         }
@@ -566,9 +854,12 @@ export default function GenerateFeesInvoicePage() {
       const failedToCreate: any[] = [];
       const backendCreatedInvoices: any[] = [];
       
+      setLoadingMessage(`Saving ${generatedList.length} invoice(s) to the database...`);
+      
       try {
-        await Promise.all(generatedList.map(async (inv) => {
+        const results = await Promise.allSettled(generatedList.map(async (inv, idx) => {
           try {
+            const formattedMonth = getMonthValue(inv.fee_month);
             const res = await financeService.createInvoice({
               student: inv.student,
               amount: inv.amount,
@@ -576,14 +867,15 @@ export default function GenerateFeesInvoicePage() {
               discount_amount: inv.discount_amount || 0,
               due_date: inv.due_date,
               description: inv.description,
-              invoice_month: inv.fee_month ? `${inv.fee_month}-01` : undefined,
+              invoice_month: formattedMonth ? `${formattedMonth}-01` : undefined,
               breakdown: inv.breakdown,
               late_fee_amount: inv.fine_after_due_date,
+              invoice_type: inv.invoice_type,
             });
             
             if (res && res.data) {
               const created = res.data;
-              backendCreatedInvoices.push({
+              return {
                 id: created.id,
                 invoice_number: created.invoice_number,
                 student: created.student,
@@ -598,17 +890,28 @@ export default function GenerateFeesInvoicePage() {
                 fine_after_due_date: parseFloat(created.late_fee_amount || '0') || inv.fine_after_due_date,
                 description: created.description,
                 breakdown: created.breakdown,
+                invoice_type: created.invoice_type || inv.invoice_type,
                 created_at: created.created_at || inv.created_at,
                 due_date: created.due_date,
                 scholarship_name: created.scholarship_name,
-              });
+                copies: inv.copies
+              };
             } else {
-              backendCreatedInvoices.push(inv);
+              return inv;
             }
           } catch (e) {
-            failedToCreate.push(inv);
+            throw { inv, error: e };
           }
         }));
+
+        results.forEach((r) => {
+          if (r.status === 'fulfilled') {
+            backendCreatedInvoices.push(r.value);
+          } else {
+            const reason = r.reason as any;
+            failedToCreate.push(reason?.inv || generatedList[0]);
+          }
+        });
       } catch (e) {
         failedToCreate.push(...generatedList);
       }
@@ -624,42 +927,21 @@ export default function GenerateFeesInvoicePage() {
       toast.error('Failed to generate fee invoices');
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
   // Extract unique families list
-  const uniqueFamilies: string[] = [];
-  students.forEach(s => {
-    const fam = s.select_family || s.guardian_name || '';
-    if (fam && !uniqueFamilies.includes(fam)) {
-      uniqueFamilies.push(fam);
-    }
-  });
+  const uniqueFamilies = useMemo(() => {
+    const families = new Set<string>();
+    students.forEach(s => {
+      const fam = s.select_family || s.guardian_name || '';
+      if (fam) families.add(fam);
+    });
+    return Array.from(families);
+  }, [students]);
 
-  // Helper for month picker
-  const getMonthValue = (monthYear: string) => {
-    if (!monthYear) return '';
-    try {
-      const d = new Date(`${monthYear} 1`);
-      if (isNaN(d.getTime())) return '';
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    } catch {
-      return '';
-    }
-  };
 
-  const formatMonthValue = (yearMonth: string) => {
-    if (!yearMonth) return '';
-    try {
-      const [year, month] = yearMonth.split('-');
-      const monthName = new Date(Number(year), Number(month) - 1).toLocaleString('en-US', {
-        month: 'long',
-      });
-      return `${monthName} ${year}`;
-    } catch {
-      return '';
-    }
-  };
 
   if (generatedInvoices) {
     const bankObj = banks.find(b => b.name === selectedBank) || {
@@ -698,6 +980,8 @@ export default function GenerateFeesInvoicePage() {
                     invoice={inv}
                     fatherName={fatherName}
                     bankObj={bankObj}
+                    instituteName={instituteInfo?.name}
+                    instituteLogo={instituteInfo?.logo}
                   />
                 )}
                 {inv.copies.student && (
@@ -706,6 +990,8 @@ export default function GenerateFeesInvoicePage() {
                     invoice={inv}
                     fatherName={fatherName}
                     bankObj={bankObj}
+                    instituteName={instituteInfo?.name}
+                    instituteLogo={instituteInfo?.logo}
                   />
                 )}
                 {inv.copies.institute && (
@@ -714,6 +1000,8 @@ export default function GenerateFeesInvoicePage() {
                     invoice={inv}
                     fatherName={fatherName}
                     bankObj={bankObj}
+                    instituteName={instituteInfo?.name}
+                    instituteLogo={instituteInfo?.logo}
                   />
                 )}
               </div>
@@ -725,7 +1013,16 @@ export default function GenerateFeesInvoicePage() {
   }
 
   return (
-    <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12">
+    <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12 relative">
+      {loading && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center space-y-4 max-w-xs text-center border border-slate-100 animate-scale-up">
+            <div className="w-10 h-10 border-3 border-purple-600/20 border-t-purple-600 rounded-full animate-spin"></div>
+            <p className="text-sm font-semibold text-slate-800">{loadingMessage || 'Generating invoices...'}</p>
+            <p className="text-[10px] text-slate-400">Please do not close this tab</p>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
           <Landmark className="w-4 h-4 text-purple-700" />
@@ -850,18 +1147,35 @@ export default function GenerateFeesInvoicePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT BANK *</label>
               <select
                 value={selectedBank}
                 onChange={(e) => setSelectedBank(e.target.value)}
                 required
-                className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-650 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
               >
                 <option value="">-- Select bank --</option>
                 {banks.map(b => (
                   <option key={b.id} value={b.name}>{b.name}</option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">INVOICE TYPE *</label>
+              <select
+                value={invoiceType}
+                onChange={(e: any) => setInvoiceType(e.target.value)}
+                required
+                className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+              >
+                <option value="tuition">Tuition Fee Invoice</option>
+                <option value="transport">Transport Invoice</option>
+                <option value="hostel">Hostel Invoice</option>
+                <option value="miscellaneous">Miscellaneous Invoice</option>
+                <option value="composite">Composite (Mixed) Invoice</option>
               </select>
             </div>
 
@@ -931,6 +1245,7 @@ export default function GenerateFeesInvoicePage() {
                 </select>
               </div>
             )}
+          </div>
           </div>
 
           {/* Fee Structures Checkbox Group */}
@@ -1005,15 +1320,21 @@ export default function GenerateFeesInvoicePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY FEE *</label>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY FEE {invoiceType === 'tuition' && '*'}</label>
               <input
                 type="number"
                 value={feeAmount}
                 onChange={(e) => setFeeAmount(e.target.value)}
-                required
-                placeholder="Enter fee amount"
+                required={invoiceType === 'tuition'}
+                placeholder={invoiceType === 'tuition' ? "Enter fee amount" : "Optional monthly fee"}
                 className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-650 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
               />
+              {activeDiscount && discountAmount > 0 && (
+                <div className="mt-2 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 rounded-lg p-2 flex items-center justify-between">
+                  <span>✓ Discount Applied: ({activeDiscount.scholarship_name})</span>
+                  <span>-Rs {discountAmount.toLocaleString()}</span>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">PREVIOUS BALANCE</label>
@@ -1083,20 +1404,28 @@ function ChallanSlipCard({
   copyName,
   invoice,
   fatherName,
-  bankObj
+  bankObj,
+  instituteName,
+  instituteLogo
 }: {
   copyName: string;
   invoice: any;
   fatherName: string;
   bankObj: any;
+  instituteName?: string;
+  instituteLogo?: string;
 }) {
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-4 print:border-slate-300 print:shadow-none print:rounded-none">
       <div className="flex justify-between items-center border-b border-slate-100 pb-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-xl">🏫</span>
+          {instituteLogo ? (
+            <img src={instituteLogo} alt="Logo" className="h-6 w-auto object-contain" />
+          ) : (
+            <span className="text-xl">🏫</span>
+          )}
           <div className="leading-tight">
-            <h4 className="font-black text-[10px] text-slate-800 uppercase tracking-wider">Institute Name</h4>
+            <h4 className="font-black text-[10px] text-slate-805 uppercase tracking-wider">{instituteName || 'Institute Name'}</h4>
           </div>
         </div>
         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{invoice.invoice_number}</span>
@@ -1123,7 +1452,11 @@ function ChallanSlipCard({
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Fee Month:</span>
-              <span className="text-slate-800">{invoice.fee_month}</span>
+              <span className="text-slate-800">{getInvoiceFeeMonth(invoice)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Invoice Type:</span>
+              <span className="text-slate-800 font-extrabold uppercase">{invoice.invoice_type || 'Tuition'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Date:</span>

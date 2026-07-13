@@ -9,6 +9,7 @@ export interface SchoolClass {
   academic_year?: string | null;
   teacher_name?: string;
   is_active?: boolean;
+  tuition_fee?: number;
   created_at?: string;
   updated_at?: string;
 }

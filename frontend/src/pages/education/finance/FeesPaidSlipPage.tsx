@@ -6,6 +6,7 @@ import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import settingsService from '@/services/settings.service';
 
 interface Invoice {
   id: string;
@@ -13,17 +14,26 @@ interface Invoice {
   student: string;
   student_name: string;
   student_id_code: string;
+  student_id_num?: string;
   class_name: string;
   fee_month: string;
+  invoice_month?: string;
   due_date: string;
   amount: number;
   fine_after_due_date: number;
+  late_fee_amount?: number;
+  opening_balance?: number;
+  discount_amount?: number;
+  total_amount?: number;
+  balance_due?: number;
   bank_name: string;
-  status: 'unpaid' | 'paid';
+  status: string;
   description: string;
   created_at: string;
   paid_amount?: number;
   remaining_balance?: number;
+  invoice_type?: string;
+  breakdown?: any;
   particulars_payments?: {
     monthlyFee: number;
     admissionFee: number;
@@ -65,9 +75,45 @@ export default function FeesPaidSlipPage() {
   const [activeReceipt, setActiveReceipt] = useState<Invoice | null>(null);
   const [printMode, setPrintMode] = useState<'detailed' | 'mini'>('detailed');
   const [studentHistory, setStudentHistory] = useState<Invoice[]>([]);
+  const [instituteInfo, setInstituteInfo] = useState<any>(null);
 
   useEffect(() => {
     fetchStudentsList();
+
+    // Load institute profile settings
+    const loadProfile = async () => {
+      try {
+        const local = settingsService.getLocalInstituteProfile();
+        if (local) {
+          setInstituteInfo({
+            name: local.name,
+            logo: local.logoUrl || local.logo,
+            motto: local.targetLine || local.motto,
+            phone: local.phone,
+            email: local.email,
+            website: local.website
+          });
+        }
+        
+        const res = await settingsService.getInstituteProfile();
+        if (res && res.data) {
+          const profile = res.data.profile || res.data || {};
+          const mapped = {
+            name: profile.name,
+            logo: profile.logoUrl || profile.logo,
+            motto: profile.targetLine || profile.motto,
+            phone: profile.phone,
+            email: profile.email,
+            website: profile.website
+          };
+          setInstituteInfo(mapped);
+          settingsService.setLocalInstituteProfile(profile);
+        }
+      } catch (e) {
+        console.error('Failed to load institute profile', e);
+      }
+    };
+    loadProfile();
   }, []);
 
   const fetchStudentsList = async () => {
@@ -99,17 +145,26 @@ export default function FeesPaidSlipPage() {
         setSearchQuery(`${targetStudent.full_name} (${targetStudent.student_id || 'N/A'})`);
         
         // Load invoices for target student automatically
-        const res = await financeService.getInvoices({ student: targetStudent.id }).catch(() => ({ data: [] }));
+        const res = await financeService.getInvoices({ student_id: targetStudent.id }).catch(() => ({ data: [] }));
         const parsed: Invoice[] = extractListData<any>(res.data || []);
-        const matches = parsed.filter(inv => inv.student === targetStudent.id && inv.status === 'paid');
-        const matchingAll = parsed.filter(inv => inv.student === targetStudent.id);
+        const matches = parsed.filter(inv => {
+          const isStudentMatch = String(inv.student) === String(targetStudent.id) || 
+                                String(inv.student_id) === String(targetStudent.id) || 
+                                (inv.student && String(inv.student.id) === String(targetStudent.id));
+          return isStudentMatch && (inv.status === 'paid' || inv.status === 'partial');
+        });
+        const matchingAll = parsed.filter(inv => 
+          String(inv.student) === String(targetStudent.id) || 
+          String(inv.student_id) === String(targetStudent.id) || 
+          (inv.student && String(inv.student.id) === String(targetStudent.id))
+        );
         
         matches.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         
         if (matches.length > 0) {
           setActiveReceipt(matches[0]);
           setStudentHistory(matchingAll);
-          setFeeMonth(matches[0].fee_month);
+          setFeeMonth(getInvoiceFeeMonth(matches[0]));
         }
       }
     } catch (e) {
@@ -149,13 +204,19 @@ export default function FeesPaidSlipPage() {
 
     setLoading(true);
     try {
-      const res = await financeService.getInvoices({ student: selectedStudent.id }).catch(() => ({ data: [] }));
+      const res = await financeService.getInvoices({ student_id: selectedStudent.id }).catch(() => ({ data: [] }));
       const parsed: Invoice[] = extractListData<any>(res.data || []);
-      const matches = parsed.filter(inv => 
-        inv.student === selectedStudent.id && 
-        inv.fee_month.toLowerCase().trim() === feeMonth.toLowerCase().trim() &&
-        inv.status === 'paid'
-      );
+      const targetMonth = getMonthValue(feeMonth);
+      const matches = parsed.filter(inv => {
+        const isStudentMatch = String(inv.student) === String(selectedStudent.id) || 
+                              String(inv.student_id) === String(selectedStudent.id) || 
+                              (inv.student && String(inv.student.id) === String(selectedStudent.id));
+        const invMonth = inv.invoice_month || (inv.fee_month ? getMonthValue(inv.fee_month) : '') || '';
+        const matchesMonth = invMonth.substring(0, 7) === targetMonth ||
+                             (typeof invMonth === 'string' && invMonth.toLowerCase().trim() === feeMonth.toLowerCase().trim());
+        const isPaidStatus = inv.status === 'paid' || inv.status === 'partial';
+        return isStudentMatch && matchesMonth && isPaidStatus;
+      });
 
       // Sort matches to prefer invoices that have payment details defined
       matches.sort((a, b) => {
@@ -165,7 +226,11 @@ export default function FeesPaidSlipPage() {
       });
 
       const found = matches[0];
-      const matchingAll = parsed.filter(inv => inv.student === selectedStudent.id);
+      const matchingAll = parsed.filter(inv => 
+        String(inv.student) === String(selectedStudent.id) || 
+        String(inv.student_id) === String(selectedStudent.id) || 
+        (inv.student && String(inv.student.id) === String(selectedStudent.id))
+      );
 
       if (found) {
         setActiveReceipt(found);
@@ -215,7 +280,6 @@ export default function FeesPaidSlipPage() {
     }
   };
 
-  // Helper to convert "YYYY-MM" to "Month Year"
   const formatMonthValue = (yearMonth: string) => {
     if (!yearMonth) return '';
     try {
@@ -229,35 +293,57 @@ export default function FeesPaidSlipPage() {
     }
   };
 
+  const getInvoiceFeeMonth = (inv: any): string => {
+    if (!inv) return '';
+    const monthVal = inv.invoice_month || inv.fee_month;
+    if (!monthVal) return '';
+    if (monthVal.includes(' ') && !monthVal.includes('-')) return monthVal;
+    const match = monthVal.match(/^(\d{4})-(\d{2})/);
+    if (match) {
+      return formatMonthValue(`${match[1]}-${match[2]}`);
+    }
+    return monthVal;
+  };
+
   // Calculations for active receipt
   const totalAmount = activeReceipt 
-    ? (activeReceipt.particulars_payments 
-      ? (Object.values(activeReceipt.particulars_payments).reduce((a, b) => a + b, 0) - activeReceipt.particulars_payments.discountFee) 
-      : (activeReceipt.amount + (activeReceipt.fine_after_due_date || 0) + 1500))
+    ? (activeReceipt.total_amount !== undefined && activeReceipt.total_amount !== null
+      ? Number(activeReceipt.total_amount)
+      : (activeReceipt.particulars_payments 
+        ? (Object.values(activeReceipt.particulars_payments).reduce((a: any, b: any) => Number(a) + Number(b), 0) - Number(activeReceipt.particulars_payments.discountFee)) 
+        : (activeReceipt.breakdown && Object.keys(activeReceipt.breakdown).length > 0
+          ? (Object.values(activeReceipt.breakdown).reduce((a: any, b: any) => Number(a) + Number(b), 0) + Number(activeReceipt.late_fee_amount || activeReceipt.fine_after_due_date || 0) - Number(activeReceipt.discount_amount || 0) + Number(activeReceipt.opening_balance || 0))
+          : Number(activeReceipt.amount))))
     : 0;
 
   const depositAmount = activeReceipt
-    ? (activeReceipt.paid_amount ?? activeReceipt.amount)
+    ? (activeReceipt.paid_amount !== undefined && activeReceipt.paid_amount !== null 
+      ? Number(activeReceipt.paid_amount) 
+      : Number(activeReceipt.amount))
     : 0;
 
   const remainingBalance = activeReceipt
-    ? (activeReceipt.remaining_balance ?? 0)
+    ? (activeReceipt.balance_due !== undefined && activeReceipt.balance_due !== null
+      ? Number(activeReceipt.balance_due)
+      : activeReceipt.remaining_balance !== undefined && activeReceipt.remaining_balance !== null
+        ? Number(activeReceipt.remaining_balance)
+        : 0)
     : 0;
 
   const isPartiallyPaid = remainingBalance > 0;
 
-  // Particulars breakdown
-  const monthlyFee = activeReceipt?.particulars_payments?.monthlyFee ?? activeReceipt?.amount ?? 0;
-  const admissionFee = activeReceipt?.particulars_payments?.admissionFee ?? 0;
-  const regFee = activeReceipt?.particulars_payments?.regFee ?? 0;
-  const artFee = activeReceipt?.particulars_payments?.artFee ?? 0;
-  const transportFee = activeReceipt?.particulars_payments?.transportFee ?? 0;
-  const booksFee = activeReceipt?.particulars_payments?.booksFee ?? 0;
-  const uniformFee = activeReceipt?.particulars_payments?.uniformFee ?? 0;
-  const fineFee = activeReceipt?.particulars_payments?.fineFee ?? activeReceipt?.fine_after_due_date ?? 0;
-  const othersFee = activeReceipt?.particulars_payments?.othersFee ?? 0;
-  const prevBalance = activeReceipt?.particulars_payments?.prevBalance ?? 1500;
-  const discountFee = activeReceipt?.particulars_payments?.discountFee ?? 0;
+  // Particulars breakdown mapping from particulars_payments, breakdown, or base invoice fields
+  const monthlyFee = activeReceipt?.particulars_payments?.monthlyFee ?? activeReceipt?.breakdown?.tuition ?? activeReceipt?.amount ?? 0;
+  const admissionFee = activeReceipt?.particulars_payments?.admissionFee ?? activeReceipt?.breakdown?.admission ?? 0;
+  const regFee = activeReceipt?.particulars_payments?.regFee ?? activeReceipt?.breakdown?.registration ?? 0;
+  const artFee = activeReceipt?.particulars_payments?.artFee ?? activeReceipt?.breakdown?.art ?? 0;
+  const transportFee = activeReceipt?.particulars_payments?.transportFee ?? activeReceipt?.breakdown?.transport ?? 0;
+  const booksFee = activeReceipt?.particulars_payments?.booksFee ?? activeReceipt?.breakdown?.books ?? 0;
+  const uniformFee = activeReceipt?.particulars_payments?.uniformFee ?? activeReceipt?.breakdown?.uniform ?? 0;
+  const fineFee = activeReceipt?.particulars_payments?.fineFee ?? activeReceipt?.late_fee_amount ?? activeReceipt?.fine_after_due_date ?? 0;
+  const othersFee = activeReceipt?.particulars_payments?.othersFee ?? activeReceipt?.breakdown?.others ?? 0;
+  const prevBalance = activeReceipt?.particulars_payments?.prevBalance ?? activeReceipt?.opening_balance ?? activeReceipt?.previous_balance ?? 0;
+  const discountFee = activeReceipt?.particulars_payments?.discountFee ?? activeReceipt?.discount_amount ?? 0;
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12 print:bg-white print:p-0 print:m-0">
@@ -265,22 +351,10 @@ export default function FeesPaidSlipPage() {
       {/* Dynamic Print CSS */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          @page {
-            size: auto;
-            margin: 5mm;
-          }
-          body * {
-            visibility: hidden;
-          }
-          .print-section, .print-section * {
-            visibility: visible;
-          }
-          .print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
+          @page { size: A4; margin: 10mm; }
+          body * { visibility: hidden; }
+          .print-section, .print-section * { visibility: visible; }
+          .print-section { position: absolute; left: 0; top: 0; width: 100%; max-width: 100%; box-sizing: border-box; }
         }
       `}} />
 
@@ -302,12 +376,16 @@ export default function FeesPaidSlipPage() {
             <div className="p-6 space-y-6 bg-white w-full">
               {/* Header */}
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">
-                  🎓
-                </div>
-                <h2 className="text-2xl font-black tracking-wide text-slate-800">eSkooly</h2>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-                <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com | info@eskooly.com</p>
+                {instituteInfo?.logo ? (
+                  <img src={instituteInfo.logo} alt="Logo" className="h-12 mx-auto object-contain" />
+                ) : (
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
+                )}
+                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
+                <p className="text-[9px] font-bold text-slate-400">
+                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+                </p>
                 <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Fee Submission Slip</h3>
               </div>
 
@@ -321,7 +399,7 @@ export default function FeesPaidSlipPage() {
                 
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Registration no</p>
-                  <p className="text-slate-800 text-xs font-black">→ {activeReceipt.student_id_code}</p>
+                  <p className="text-slate-800 text-xs font-black">→ {activeReceipt.student_id_num || activeReceipt.student_id_code || 'N/A'}</p>
                   <p className="text-slate-400">Student Name</p>
                   <p className="text-slate-850">→ {activeReceipt.student_name}</p>
                   <p className="text-slate-400">Guardian name</p>
@@ -336,7 +414,7 @@ export default function FeesPaidSlipPage() {
                   <p className="text-slate-400">Date of Submission</p>
                   <p className="text-slate-850">→ {formatDateLabel(activeReceipt.created_at.split('T')[0])}</p>
                   <p className="text-slate-400">Fees Month</p>
-                  <p className="text-slate-850">→ {activeReceipt.fee_month}</p>
+                  <p className="text-slate-850">→ {getInvoiceFeeMonth(activeReceipt)}</p>
                 </div>
 
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
@@ -345,7 +423,7 @@ export default function FeesPaidSlipPage() {
                   <p className="text-slate-400">Deposit Amount</p>
                   <p className="text-slate-800 text-xs font-black">→ Rs {depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance</p>
-                  <p className="text-rose-600 text-xs font-black">→ Rs {remainingBalance}</p>
+                  <p className="text-rose-600 text-xs font-black">→ Rs {remainingBalance} {remainingBalance > 0 && '(Partially Paid)'}</p>
                 </div>
               </div>
 
@@ -409,12 +487,12 @@ export default function FeesPaidSlipPage() {
                     {studentHistory.map((h, i) => {
                       const totalH = h.particulars_payments ? (Object.values(h.particulars_payments).reduce((a, b) => a + b, 0) - h.particulars_payments.discountFee) : h.amount;
                       const depositH = h.paid_amount ?? (h.status === 'paid' ? h.amount : 0);
-                      const dueH = h.remaining_balance ?? (h.status === 'unpaid' ? h.amount : 0);
+                      const dueH = h.balance_due ?? h.remaining_balance ?? (h.status === 'unpaid' ? h.amount : 0);
                       return (
                         <tr key={h.id}>
                           <td className="p-1 px-2 border-r border-slate-150">{i + 1}</td>
                           <td className="p-1 px-2 border-r border-slate-150">{formatDateLabel(h.created_at.split('T')[0])}</td>
-                          <td className="p-1 px-2 border-r border-slate-150">{h.fee_month}</td>
+                          <td className="p-1 px-2 border-r border-slate-150">{getInvoiceFeeMonth(h)}</td>
                           <td className="p-1 px-2 border-r border-slate-150">{totalH}</td>
                           <td className="p-1 px-2 border-r border-slate-150">{depositH}</td>
                           <td className="p-1 px-2">{dueH}</td>
@@ -441,12 +519,16 @@ export default function FeesPaidSlipPage() {
             <div className="p-6 space-y-6 bg-white w-full">
               {/* Header */}
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">
-                  🎓
-                </div>
-                <h2 className="text-2xl font-black tracking-wide text-slate-800">eSkooly</h2>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-                <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com | info@eskooly.com</p>
+                {instituteInfo?.logo ? (
+                  <img src={instituteInfo.logo} alt="Logo" className="h-12 mx-auto object-contain" />
+                ) : (
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
+                )}
+                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
+                <p className="text-[9px] font-bold text-slate-400">
+                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+                </p>
                 <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Fee Submission Slip</h3>
               </div>
 
@@ -460,7 +542,7 @@ export default function FeesPaidSlipPage() {
 
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Reg. No:</p>
-                  <p className="text-slate-800 font-black">{activeReceipt.student_id_code}</p>
+                  <p className="text-slate-800 font-black">{activeReceipt.student_id_num || activeReceipt.student_id_code || 'N/A'}</p>
                   <p className="text-slate-400">Student Name:</p>
                   <p className="text-slate-800">{activeReceipt.student_name}</p>
                   <p className="text-slate-400">Father Name:</p>
@@ -475,7 +557,7 @@ export default function FeesPaidSlipPage() {
                   <p className="text-slate-400">Submit Date:</p>
                   <p className="text-slate-800">{activeReceipt.created_at.split('T')[0]}</p>
                   <p className="text-slate-400">Fees Month:</p>
-                  <p className="text-slate-800">{activeReceipt.fee_month}</p>
+                  <p className="text-slate-800">{getInvoiceFeeMonth(activeReceipt)}</p>
                 </div>
 
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
@@ -484,7 +566,7 @@ export default function FeesPaidSlipPage() {
                   <p className="text-slate-400">Deposit Amount:</p>
                   <p className="text-slate-800 font-black">Rs {depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance:</p>
-                  <p className="text-rose-600 font-black">Rs {remainingBalance}</p>
+                  <p className="text-rose-600 font-black">Rs {remainingBalance} {remainingBalance > 0 && '(Partially Paid)'}</p>
                 </div>
               </div>
 
@@ -635,16 +717,26 @@ export default function FeesPaidSlipPage() {
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-455 text-[10px] font-bold">
                     <span className="flex items-center gap-1">👤 Student: <strong className="text-slate-700">{activeReceipt.student_name}</strong></span>
                     <span>|</span>
-                    <span className="flex items-center gap-1">🔑 Reg: <strong className="text-slate-700">{activeReceipt.student_id_code}</strong></span>
+                    <span className="flex items-center gap-1">🔑 Reg: <strong className="text-slate-700">{activeReceipt.student_id_num || activeReceipt.student_id_code || 'N/A'}</strong></span>
                     <span>|</span>
                     <span className="flex items-center gap-1">🏫 Class: <strong className="text-slate-700">{activeReceipt.class_name}</strong></span>
                     <span>|</span>
-                    <span className="flex items-center gap-1">📅 Month: <strong className="text-slate-700">{activeReceipt.fee_month}</strong></span>
+                    <span className="flex items-center gap-1">📅 Month: <strong className="text-slate-700">{getInvoiceFeeMonth(activeReceipt)}</strong></span>
+                    <span>|</span>
+                    <span className="flex items-center gap-1">🏷️ Type: <strong className="text-slate-700 uppercase">{activeReceipt.invoice_type || 'Tuition'}</strong></span>
                   </div>
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {!isStudent && remainingBalance > 0 && (
+                    <button
+                      onClick={() => navigate(`/education/finance/collect-fees?student_id=${activeReceipt.student}`)}
+                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all print:hidden shadow-sm"
+                    >
+                      Collect Remaining (Rs {remainingBalance})
+                    </button>
+                  )}
                   <button
                     onClick={() => handleTriggerPrint('detailed')}
                     className="px-4 py-2 bg-[#5C53CD] hover:bg-[#4d45bd] text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all"
@@ -687,6 +779,32 @@ export default function FeesPaidSlipPage() {
                   <span className="block text-xl font-black text-[#EF4444]">Rs {remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
 
+              </div>
+
+              {/* Particulars Table */}
+              <div className="pt-2">
+                <table className="w-full text-[11px] text-left border-collapse border border-slate-200">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-700">
+                      <th className="py-2 px-3 border-r border-slate-200">Sr. No.</th>
+                      <th className="py-2 px-3 border-r border-slate-200">Particulars</th>
+                      <th className="py-2 px-3 text-right">Amount (Rs)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">1</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-800">MONTHLY FEE</td><td className="py-1.5 px-3 text-right">{Number(monthlyFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">2</td><td className="py-1.5 px-3 border-r border-slate-200">ADMISSION FEE</td><td className="py-1.5 px-3 text-right">{Number(admissionFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">3</td><td className="py-1.5 px-3 border-r border-slate-200">REGISTRATION FEE</td><td className="py-1.5 px-3 text-right">{Number(regFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">4</td><td className="py-1.5 px-3 border-r border-slate-200">ART MATERIAL</td><td className="py-1.5 px-3 text-right">{Number(artFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">5</td><td className="py-1.5 px-3 border-r border-slate-200">TRANSPORT</td><td className="py-1.5 px-3 text-right">{Number(transportFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">6</td><td className="py-1.5 px-3 border-r border-slate-200">BOOKS</td><td className="py-1.5 px-3 text-right">{Number(booksFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">7</td><td className="py-1.5 px-3 border-r border-slate-200">UNIFORM</td><td className="py-1.5 px-3 text-right">{Number(uniformFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">8</td><td className="py-1.5 px-3 border-r border-slate-200">FINE</td><td className="py-1.5 px-3 text-right">{Number(fineFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">9</td><td className="py-1.5 px-3 border-r border-slate-200">OTHERS</td><td className="py-1.5 px-3 text-right">{Number(othersFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">10</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-800">PREVIOUS BALANCE</td><td className="py-1.5 px-3 text-right">{Number(prevBalance).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">11</td><td className="py-1.5 px-3 border-r border-slate-200">DISCOUNT IN FEE</td><td className="py-1.5 px-3 text-right">{Number(discountFee).toLocaleString()}</td></tr>
+                  </tbody>
+                </table>
               </div>
 
               {/* Print footer notice */}

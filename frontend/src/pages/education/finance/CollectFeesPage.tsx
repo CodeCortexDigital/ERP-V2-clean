@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Search, Landmark, ShieldAlert, Check, AlertTriangle, Printer } from 'lucide-react';
 import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
+import settingsService from '@/services/settings.service';
 
 interface Invoice {
   id: string;
@@ -12,19 +13,28 @@ interface Invoice {
   student: string;
   student_name: string;
   student_id_code: string;
+  student_id_num?: string;
   class_name: string;
   fee_month: string;
+  invoice_month?: string;
   due_date: string;
   amount: number;
   previous_balance?: number;
+  opening_balance?: number;
   total_amount?: number;
   fine_after_due_date: number;
+  late_fee_amount?: number;
+  discount_amount?: number;
   bank_name: string;
-  status: 'unpaid' | 'paid';
+  status: string;
   description: string;
   created_at: string;
   paid_amount?: number;
   remaining_balance?: number;
+  balance_due?: number;
+  invoice_type?: string;
+  registration_alias?: string;
+  breakdown?: any;
   particulars_payments?: {
     monthlyFee: number;
     admissionFee: number;
@@ -63,11 +73,50 @@ interface SubmittedReceipt {
   date: string;
 }
 
+const getMonthValue = (monthYear: string) => {
+  if (!monthYear) return '';
+  try {
+    const d = new Date(`${monthYear} 1`);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  } catch {
+    return '';
+  }
+};
+
+const formatMonthValue = (yearMonth: string) => {
+  if (!yearMonth) return '';
+  try {
+    const [year, month] = yearMonth.split('-');
+    const monthName = new Date(Number(year), Number(month) - 1).toLocaleString('en-US', {
+      month: 'long',
+    });
+    return `${monthName} ${year}`;
+  } catch {
+    return '';
+  }
+};
+
+const getInvoiceFeeMonth = (inv: any): string => {
+  if (!inv) return '';
+  const monthVal = inv.invoice_month || inv.fee_month;
+  if (!monthVal) return '';
+  if (monthVal.includes(' ') && !monthVal.includes('-')) return monthVal;
+  const match = monthVal.match(/^(\d{4})-(\d{2})/);
+  if (match) {
+    return formatMonthValue(`${match[1]}-${match[2]}`);
+  }
+  return monthVal;
+};
+
 export default function CollectFeesPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'student' | 'family' | 'scan'>('student');
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [instituteInfo, setInstituteInfo] = useState<any>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -76,10 +125,8 @@ export default function CollectFeesPage() {
   const [unpaidInvoices, setUnpaidInvoices] = useState<Invoice[]>([]);
 
   const [feeMonth, setFeeMonth] = useState(() => {
-    return new Date().toLocaleString('en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [selectedFamily, setSelectedFamily] = useState('');
 
@@ -99,11 +146,47 @@ export default function CollectFeesPage() {
   const [collectionDate, setCollectionDate] = useState(new Date().toISOString().split('T')[0]);
 
   const [submittedReceipt, setSubmittedReceipt] = useState<SubmittedReceipt | null>(null);
+  const [familyReceiptSummary, setFamilyReceiptSummary] = useState<any[] | null>(null);
   const [printMode, setPrintMode] = useState<'detailed' | 'mini'>('detailed');
   const [studentHistory, setStudentHistory] = useState<Invoice[]>([]);
 
   useEffect(() => {
     fetchStudentsList();
+
+    // Load institute profile settings
+    const loadProfile = async () => {
+      try {
+        const local = settingsService.getLocalInstituteProfile();
+        if (local) {
+          setInstituteInfo({
+            name: local.name,
+            logo: local.logoUrl || local.logo,
+            motto: local.targetLine || local.motto,
+            phone: local.phone,
+            email: local.email,
+            website: local.website
+          });
+        }
+        
+        const res = await settingsService.getInstituteProfile();
+        if (res && res.data) {
+          const profile = res.data.profile || res.data || {};
+          const mapped = {
+            name: profile.name,
+            logo: profile.logoUrl || profile.logo,
+            motto: profile.targetLine || profile.motto,
+            phone: profile.phone,
+            email: profile.email,
+            website: profile.website
+          };
+          setInstituteInfo(mapped);
+          settingsService.setLocalInstituteProfile(profile);
+        }
+      } catch (e) {
+        console.error('Failed to load institute profile', e);
+      }
+    };
+    loadProfile();
   }, []);
 
   const fetchStudentsList = async () => {
@@ -111,6 +194,17 @@ export default function CollectFeesPage() {
       const sRes = await studentService.getAll().catch(() => ({ data: [] }));
       const rawStudents = extractListData<any>(sRes.data || []);
       setStudents(rawStudents);
+
+      const qId = searchParams.get('student_id') || searchParams.get('student');
+      if (qId) {
+        const targetStudent = rawStudents.find((s: any) => 
+          String(s.id) === String(qId) || 
+          String(s.student_id) === String(qId)
+        );
+        if (targetStudent) {
+          await handleSelectStudent(targetStudent);
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -133,13 +227,35 @@ export default function CollectFeesPage() {
     setSelectedStudent(student);
     setSearchQuery(`${student.full_name} (${student.student_id || 'N/A'})`);
     setSuggestions([]);
+    setLoadingInvoices(true);
 
-    // Try backend first
     try {
-      const res = await financeService.getInvoices({ student: student.id });
+      const res = await financeService.getInvoices({ student_id: student.id });
       const data = extractListData<any>(res.data || []);
-      const matchingUnpaid = data.filter((inv: any) => inv.student === student.id && (inv.status === 'unpaid' || (inv.status === 'paid' && inv.remaining_balance !== undefined && inv.remaining_balance > 0)));
-      const matchingAll = data.filter((inv: any) => inv.student === student.id);
+      
+      const matchingUnpaid = data.filter((inv: any) => {
+        const isStudentMatch = String(inv.student) === String(student.id) || 
+                              String(inv.student_id) === String(student.id) || 
+                              (inv.student && String(inv.student.id) === String(student.id));
+        if (!isStudentMatch) return false;
+        
+        const balance = inv.balance_due !== undefined && inv.balance_due !== null
+          ? Number(inv.balance_due)
+          : inv.remaining_balance !== undefined && inv.remaining_balance !== null 
+            ? Number(inv.remaining_balance) 
+            : (Number(inv.total_amount) || Number(inv.amount) || 0);
+          
+        const isUnpaidStatus = ['unpaid', 'issued', 'partial', 'overdue'].includes(inv.status) || 
+                              (inv.status === 'paid' && balance > 0);
+                              
+        return isUnpaidStatus && balance > 0;
+      });
+
+      const matchingAll = data.filter((inv: any) => 
+        String(inv.student) === String(student.id) || 
+        String(inv.student_id) === String(student.id) || 
+        (inv.student && String(inv.student.id) === String(student.id))
+      );
 
       setUnpaidInvoices(matchingUnpaid);
       setStudentHistory(matchingAll);
@@ -151,73 +267,80 @@ export default function CollectFeesPage() {
       }
       return;
     } catch (e) {
+      toast.error('Failed to load unpaid student invoices. Please try again.');
       setUnpaidInvoices([]);
       setActiveInvoice(null);
+    } finally {
+      setLoadingInvoices(false);
     }
   };
 
-  // FIXED: Properly handle partial payments
-  const handleOpenCollectionForm = (invoice: Invoice) => {
+  // Pre-fill fee breakdown from invoice breakdown particulars
+  const handleOpenCollectionForm = (invoice: any) => {
     setActiveInvoice(invoice);
 
-    const isPartial = invoice.remaining_balance !== undefined && invoice.remaining_balance > 0 && invoice.status === 'paid';
-    const isUnpaid = invoice.status === 'unpaid';
+    const b = invoice.breakdown || {};
+    setMonthlyFee(Number(b.tuition !== undefined ? b.tuition : (invoice.amount || 0)));
+    setAdmissionFee(Number(b.admission || 0));
+    setRegFee(Number(b.registration || 0));
+    setArtFee(Number(b.art || 0));
+    setTransportFee(Number(b.transport || 0));
+    setBooksFee(Number(b.books || 0));
+    setUniformFee(Number(b.uniform || 0));
+    setFineFee(Number(invoice.late_fee_amount) || Number(invoice.fine_after_due_date) || 0);
+    setOthersFee(Number(b.others || 0));
+    setPrevBalance(Number(invoice.opening_balance) || Number(invoice.previous_balance) || 0);
+    setDiscountFee(Number(invoice.discount_amount) || 0);
 
-    if (isPartial) {
-      // This is a partial payment recovery - show only the remaining balance
-      setMonthlyFee(0);
-      setAdmissionFee(0);
-      setRegFee(0);
-      setArtFee(0);
-      setTransportFee(0);
-      setBooksFee(0);
-      setUniformFee(0);
-      setFineFee(0);
-      setOthersFee(0);
-      setPrevBalance(invoice.remaining_balance || 0);
-      setDiscountFee(0);
-      setDeposit(invoice.remaining_balance || 0);
-    } else if (isUnpaid) {
-      // Fresh invoice - show full amount
-      const totalAmount = invoice.total_amount || invoice.amount;
-      setMonthlyFee(invoice.amount);
-      setAdmissionFee(0);
-      setRegFee(0);
-      setArtFee(0);
-      setTransportFee(0);
-      setBooksFee(0);
-      setUniformFee(0);
-      setFineFee(invoice.fine_after_due_date || 0);
-      setOthersFee(0);
-      setPrevBalance(invoice.previous_balance || 0);
-      setDiscountFee(0);
-      setDeposit(totalAmount);
-    }
+    const remaining = invoice.balance_due !== undefined && invoice.balance_due !== null
+      ? Number(invoice.balance_due)
+      : invoice.remaining_balance !== undefined && invoice.remaining_balance !== null
+        ? Number(invoice.remaining_balance)
+        : (Number(invoice.total_amount) || Number(invoice.amount) || 0);
+    setDeposit(remaining);
 
     setCollectionDate(new Date().toISOString().split('T')[0]);
   };
 
   const handleSubmitCollection = async () => {
     if (!activeInvoice) return;
+
+    const calculatedTotal = 
+      Number(monthlyFee) +
+      Number(admissionFee) +
+      Number(regFee) +
+      Number(artFee) +
+      Number(transportFee) +
+      Number(booksFee) +
+      Number(uniformFee) +
+      Number(fineFee) +
+      Number(othersFee) +
+      Number(prevBalance) -
+      Number(discountFee);
+
+    if (deposit <= 0) {
+      toast.error('Deposit amount must be greater than zero');
+      return;
+    }
+
+    const currentRemaining = activeInvoice.balance_due !== undefined && activeInvoice.balance_due !== null
+      ? Number(activeInvoice.balance_due)
+      : activeInvoice.remaining_balance !== undefined && activeInvoice.remaining_balance !== null
+        ? Number(activeInvoice.remaining_balance)
+        : calculatedTotal;
+
+    if (deposit > currentRemaining) {
+      toast.error(`Deposit cannot exceed the remaining balance of Rs ${currentRemaining}`);
+      return;
+    }
+
     setLoading(true);
     try {
-      const calculatedTotal = 
-        Number(monthlyFee) +
-        Number(admissionFee) +
-        Number(regFee) +
-        Number(artFee) +
-        Number(transportFee) +
-        Number(booksFee) +
-        Number(uniformFee) +
-        Number(fineFee) +
-        Number(othersFee) +
-        Number(prevBalance) -
-        Number(discountFee);
-
-      const remainingBal = calculatedTotal - deposit;
+      const remainingBal = currentRemaining - deposit;
+      const nextStatus = remainingBal > 0 ? 'partial' : 'paid';
 
       await financeService.createPayment({
-        invoice_id: activeInvoice.id,
+        invoice: activeInvoice.id,
         amount: deposit,
         date: collectionDate,
         particulars_payments: {
@@ -235,18 +358,18 @@ export default function CollectFeesPage() {
         }
       });
 
-      await financeService.updateInvoice(activeInvoice.id, {
+      const updatedInv = await financeService.updateInvoice(activeInvoice.id, {
         paid_amount: (activeInvoice.paid_amount || 0) + deposit,
-        remaining_balance: remainingBal,
-        status: 'paid'
+        status: nextStatus
       });
+      console.log('Successfully updated invoice:', updatedInv);
 
       setSubmittedReceipt({
         invoice_number: activeInvoice.invoice_number,
         student_name: activeInvoice.student_name,
-        student_id_code: activeInvoice.student_id_code,
+        student_id_code: activeInvoice.student_id_num || activeInvoice.student_id_code || '001',
         class_name: activeInvoice.class_name,
-        fee_month: activeInvoice.fee_month,
+        fee_month: getInvoiceFeeMonth(activeInvoice),
         totalAmount: calculatedTotal,
         depositAmount: deposit,
         remainingBalance: remainingBal,
@@ -266,6 +389,10 @@ export default function CollectFeesPage() {
 
       toast.success(`Fee collected successfully! Rs ${deposit} deposited.`);
       setActiveInvoice(null);
+
+      if (selectedStudent) {
+        await handleSelectStudent(selectedStudent);
+      }
     } catch (e) {
       toast.error('Failed to submit fee payment');
     } finally {
@@ -292,7 +419,24 @@ export default function CollectFeesPage() {
         });
         const familyStudentIds = familyStudents.map(s => s.id);
 
-        const toCollect = parsed.filter(inv => familyStudentIds.includes(inv.student) && inv.fee_month === feeMonth && inv.status === 'unpaid');
+        const toCollect = parsed.filter(inv => {
+          const isStudentMatch = familyStudentIds.some(fid => String(inv.student) === String(fid));
+          if (!isStudentMatch) return false;
+          
+          const invMonth = inv.invoice_month || (inv.fee_month ? getMonthValue(inv.fee_month) : '') || '';
+          const isMonthMatch = invMonth.substring(0, 7) === feeMonth;
+          
+          const balance = inv.balance_due !== undefined && inv.balance_due !== null
+            ? Number(inv.balance_due)
+            : inv.remaining_balance !== undefined && inv.remaining_balance !== null
+              ? Number(inv.remaining_balance)
+              : (Number(inv.total_amount) || Number(inv.amount) || 0);
+
+          const isUnpaid = ['unpaid', 'issued', 'partial', 'overdue'].includes(inv.status) || 
+                            (inv.status === 'paid' && balance > 0);
+                            
+          return isMonthMatch && isUnpaid && balance > 0;
+        });
 
         if (toCollect.length === 0) {
           toast.info(`No unpaid invoices found for family in ${feeMonth}`);
@@ -301,17 +445,58 @@ export default function CollectFeesPage() {
         }
 
         let totalCollected = 0;
+        const dateStr = new Date().toISOString().split('T')[0];
+        const summaryList: any[] = [];
 
         await Promise.all(toCollect.map(async (inv) => {
           try {
-            await financeService.updateInvoice(inv.id, { paid_amount: inv.amount, remaining_balance: 0, status: 'paid' });
-            totalCollected += inv.amount;
+            const balance = inv.balance_due !== undefined && inv.balance_due !== null
+              ? Number(inv.balance_due)
+              : inv.remaining_balance !== undefined && inv.remaining_balance !== null
+                ? Number(inv.remaining_balance)
+                : (Number(inv.total_amount) || Number(inv.amount) || 0);
+
+            const b = inv.breakdown || {};
+            // Record payment particulars mapping from invoice breakdown
+            await financeService.createPayment({
+              invoice: inv.id,
+              amount: balance,
+              date: dateStr,
+              particulars_payments: {
+                monthlyFee: Number(b.tuition !== undefined ? b.tuition : inv.amount),
+                admissionFee: Number(b.admission || 0),
+                regFee: Number(b.registration || 0),
+                artFee: Number(b.art || 0),
+                transportFee: Number(b.transport || 0),
+                booksFee: Number(b.books || 0),
+                uniformFee: Number(b.uniform || 0),
+                fineFee: Number(inv.late_fee_amount || inv.fine_after_due_date || 0),
+                othersFee: Number(b.others || 0),
+                prevBalance: Number(inv.opening_balance || inv.previous_balance || 0),
+                discountFee: Number(inv.discount_amount || 0)
+              }
+            });
+
+            await financeService.updateInvoice(inv.id, { 
+                paid_amount: (inv.paid_amount || 0) + balance, 
+                status: 'paid' 
+            });
+            
+            totalCollected += balance;
+            summaryList.push({
+              id: inv.id,
+              invoice_number: inv.invoice_number,
+              student_name: inv.student_name,
+              class_name: inv.class_name,
+              amount: balance
+            });
           } catch (e) {
             console.error('Family payment update failed', e);
           }
         }));
 
         toast.success(`Successfully collected Rs ${totalCollected} from ${toCollect.length} family invoices!`);
+        setFamilyReceiptSummary(summaryList);
         setSelectedFamily('');
       } catch (e) {
         toast.error('Failed to submit family payments');
@@ -333,15 +518,29 @@ export default function CollectFeesPage() {
     setSelectedStudent(null);
     setSearchQuery('');
     setUnpaidInvoices([]);
+    setActiveInvoice(null);
+    setMonthlyFee(0);
+    setAdmissionFee(0);
+    setRegFee(0);
+    setArtFee(0);
+    setTransportFee(0);
+    setBooksFee(0);
+    setUniformFee(0);
+    setFineFee(0);
+    setOthersFee(0);
+    setPrevBalance(0);
+    setDiscountFee(0);
+    setDeposit(0);
   };
 
-  const uniqueFamilies: string[] = [];
-  students.forEach(s => {
-    const fam = s.select_family || s.guardian_name || '';
-    if (fam && !uniqueFamilies.includes(fam)) {
-      uniqueFamilies.push(fam);
-    }
-  });
+  const uniqueFamilies = useMemo(() => {
+    const families = new Set<string>();
+    students.forEach(s => {
+      const fam = s.select_family || s.guardian_name || '';
+      if (fam) families.add(fam);
+    });
+    return Array.from(families);
+  }, [students]);
 
   const formatDateLabel = (dateStr: string) => {
     if (!dateStr) return '';
@@ -369,17 +568,17 @@ export default function CollectFeesPage() {
     Number(prevBalance) -
     Number(discountFee);
 
-  const dueBalance = totalAmount - deposit;
+  const dueBalance = Math.max(totalAmount - ((activeInvoice && activeInvoice.paid_amount) || 0) - deposit, 0);
   const guardianName = selectedStudent ? (selectedStudent.father_name || selectedStudent.guardian_name || 'azhar') : '';
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12 print:bg-white print:p-0 print:m-0">
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          @page { size: auto; margin: 5mm; }
+          @page { size: A4; margin: 10mm; }
           body * { visibility: hidden; }
           .print-section, .print-section * { visibility: visible; }
-          .print-section { position: absolute; left: 0; top: 0; width: 100%; }
+          .print-section { position: absolute; left: 0; top: 0; width: 100%; max-width: 100%; box-sizing: border-box; }
         }
       `}} />
 
@@ -392,15 +591,69 @@ export default function CollectFeesPage() {
         </div>
       </div>
 
+      {familyReceiptSummary && (
+        <div className="hidden print:block print-section w-full text-slate-800 font-sans p-6 bg-white space-y-6">
+          <div className="text-center space-y-1">
+            {instituteInfo?.logo ? (
+              <img src={instituteInfo.logo} alt="Logo" className="h-12 mx-auto object-contain" />
+            ) : (
+              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">
+                🎓
+              </div>
+            )}
+            <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
+            <p className="text-[9px] font-bold text-slate-400">
+              {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+            </p>
+            <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Family Fee Collection Summary</h3>
+            <p className="text-[10px] text-slate-400 font-bold">Guardian: {selectedFamily}</p>
+          </div>
+
+          <table className="w-full text-xs text-left border-collapse border border-slate-350">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-300 font-bold text-slate-700">
+                <th className="py-2 px-3 border-r border-slate-350">Sr.</th>
+                <th className="py-2 px-3 border-r border-slate-350">Student Name</th>
+                <th className="py-2 px-3 border-r border-slate-350">Class</th>
+                <th className="py-2 px-3 border-r border-slate-350">Invoice Number</th>
+                <th className="py-2 px-3 text-right">Amount Collected</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
+              {familyReceiptSummary.map((item, index) => (
+                <tr key={item.id}>
+                  <td className="py-2 px-3 border-r border-slate-200">{index + 1}</td>
+                  <td className="py-2 px-3 border-r border-slate-200 font-bold">{item.student_name}</td>
+                  <td className="py-2 px-3 border-r border-slate-200">{item.class_name}</td>
+                  <td className="py-2 px-3 border-r border-slate-200">{item.invoice_number}</td>
+                  <td className="py-2 px-3 text-right font-bold">Rs {item.amount.toLocaleString()}</td>
+                </tr>
+              ))}
+              <tr className="font-black bg-slate-100">
+                <td colSpan={4} className="py-2 px-3 border-r border-slate-200 text-right uppercase">Total Amount Collected</td>
+                <td className="py-2 px-3 text-right font-black">Rs {familyReceiptSummary.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {submittedReceipt && (
         <div className="hidden print:block print-section w-full text-slate-800 font-sans">
           {printMode === 'detailed' ? (
             <div className="p-6 space-y-6 bg-white w-full">
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
-                <h2 className="text-2xl font-black tracking-wide text-slate-800">eSkooly</h2>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-                <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com | info@eskooly.com</p>
+                {instituteInfo?.logo ? (
+                  <img src={instituteInfo.logo} alt="Logo" className="h-12 mx-auto object-contain" />
+                ) : (
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
+                )}
+                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
+                <p className="text-[9px] font-bold text-slate-400">
+                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+                </p>
                 <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Fee Submission Slip</h3>
               </div>
 
@@ -491,14 +744,18 @@ export default function CollectFeesPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-150 text-slate-700 font-medium">
                     {studentHistory.map((h, i) => {
-                      const totalH = h.particulars_payments ? (Object.values(h.particulars_payments).reduce((a, b) => a + b, 0) - h.particulars_payments.discountFee) : (h.total_amount || h.amount);
+                      const totalH = h.particulars_payments 
+                        ? (Object.values(h.particulars_payments).reduce((a: any, b: any) => Number(a) + Number(b), 0) - Number(h.particulars_payments.discountFee)) 
+                        : (h.breakdown && Object.keys(h.breakdown).length > 0
+                            ? (Object.values(h.breakdown).reduce((a: any, b: any) => Number(a) + Number(b), 0) - Number(h.discount_amount || 0))
+                            : (h.total_amount || h.amount));
                       const depositH = h.paid_amount ?? (h.status === 'paid' ? h.total_amount || h.amount : 0);
-                      const dueH = h.remaining_balance ?? (h.status === 'unpaid' ? h.total_amount || h.amount : 0);
+                      const dueH = h.balance_due ?? h.remaining_balance ?? (h.status === 'unpaid' ? h.total_amount || h.amount : 0);
                       return (
                         <tr key={h.id}>
                           <td className="p-1 px-2 border-r border-slate-150">{i + 1}</td>
                           <td className="p-1 px-2 border-r border-slate-150">{formatDateLabel(h.created_at.split('T')[0])}</td>
-                          <td className="p-1 px-2 border-r border-slate-150">{h.fee_month}</td>
+                          <td className="p-1 px-2 border-r border-slate-150">{getInvoiceFeeMonth(h)}</td>
                           <td className="p-1 px-2 border-r border-slate-150">{totalH}</td>
                           <td className="p-1 px-2 border-r border-slate-150">{depositH}</td>
                           <td className="p-1 px-2">{dueH}</td>
@@ -522,10 +779,16 @@ export default function CollectFeesPage() {
           ) : (
             <div className="p-6 space-y-6 bg-white w-full">
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
-                <h2 className="text-2xl font-black tracking-wide text-slate-800">eSkooly</h2>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-                <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com | info@eskooly.com</p>
+                {instituteInfo?.logo ? (
+                  <img src={instituteInfo.logo} alt="Logo" className="h-12 mx-auto object-contain" />
+                ) : (
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
+                )}
+                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
+                <p className="text-[9px] font-bold text-slate-400">
+                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+                </p>
                 <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Fee Submission Slip</h3>
               </div>
 
@@ -632,6 +895,32 @@ export default function CollectFeesPage() {
                 </div>
               </div>
 
+              {/* Particulars Table */}
+              <div className="pt-2">
+                <table className="w-full text-[11px] text-left border-collapse border border-slate-200">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-700">
+                      <th className="py-2 px-3 border-r border-slate-200">Sr. No.</th>
+                      <th className="py-2 px-3 border-r border-slate-200">Particulars</th>
+                      <th className="py-2 px-3 text-right">Amount (Rs)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">1</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-800">MONTHLY FEE</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.monthlyFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">2</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">ADMISSION FEE</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.admissionFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">3</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">REGISTRATION FEE</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.regFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">4</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">ART MATERIAL</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.artFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">5</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">TRANSPORT</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.transportFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">6</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">BOOKS</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.booksFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">7</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">UNIFORM</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.uniformFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">8</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">FINE</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.fineFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">9</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">OTHERS</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.othersFee).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">10</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-805">PREVIOUS BALANCE</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.prevBalance).toLocaleString()}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="py-1.5 px-3 border-r border-slate-200">11</td><td className="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-850">DISCOUNT IN FEE</td><td className="py-1.5 px-3 text-right">{Number(submittedReceipt.discountFee).toLocaleString()}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
               <div className="text-[10px] text-center text-slate-400 font-bold border-t border-slate-50 pt-6">
                 * This is a computer generated receipt. Thank you for your payment.
               </div>
@@ -650,10 +939,32 @@ export default function CollectFeesPage() {
             {activeTab === 'student' && (
               <div className="space-y-6">
                 <div className="relative max-w-xl mx-auto">
-                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">Search Student *</label>
-                  <div className="relative flex items-center">
+                  <label htmlFor="student-search" className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">Search Student *</label>
+                  <div className="relative flex items-center w-full">
                     <Search className="absolute left-3.5 w-4.5 h-4.5 text-slate-400" />
-                    <input type="text" placeholder="Type student name or registration number" value={searchQuery} onChange={(e) => handleSearchChange(e.target.value)} className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs" />
+                    <input 
+                      id="student-search"
+                      type="text" 
+                      placeholder="Type student name or registration number" 
+                      value={searchQuery} 
+                      onChange={(e) => handleSearchChange(e.target.value)} 
+                      className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs" 
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedStudent(null);
+                          setSearchQuery('');
+                          setSuggestions([]);
+                          setUnpaidInvoices([]);
+                          setActiveInvoice(null);
+                        }}
+                        className="absolute right-3.5 w-5 h-5 flex items-center justify-center text-slate-400 hover:text-slate-600 font-bold text-sm bg-slate-100 hover:bg-slate-200 rounded-full transition-all focus:outline-none"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                   {suggestions.length > 0 && (
                     <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-50 overflow-hidden divide-y divide-slate-50">
@@ -667,14 +978,19 @@ export default function CollectFeesPage() {
                   )}
                 </div>
 
-                {selectedStudent && activeInvoice ? (
+                {loadingInvoices ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                    <div className="w-8 h-8 border-3 border-purple-600/20 border-t-purple-600 rounded-full animate-spin"></div>
+                    <p className="text-xs text-slate-400 font-bold">Fetching student invoices...</p>
+                  </div>
+                ) : selectedStudent && activeInvoice ? (
                   <div className="space-y-6 pt-4 border-t border-slate-100">
                     {unpaidInvoices.length > 1 && (
                       <div className="max-w-xl mx-auto bg-purple-50/40 p-4 rounded-2xl border border-purple-100/50 space-y-2">
                         <label className="block text-[10px] font-black text-purple-700 uppercase tracking-wider">Multiple Invoices Found: Select month to collect</label>
                         <select value={activeInvoice.id} onChange={(e) => { const found = unpaidInvoices.find(inv => inv.id === e.target.value); if (found) handleOpenCollectionForm(found); }} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all">
                           {unpaidInvoices.map(inv => (
-                            <option key={inv.id} value={inv.id}>{inv.fee_month} ({inv.invoice_number}) - Rs {inv.remaining_balance ?? inv.total_amount ?? inv.amount}</option>
+                            <option key={inv.id} value={inv.id}>{getInvoiceFeeMonth(inv)} ({inv.invoice_number}) - Rs {inv.balance_due ?? inv.remaining_balance ?? inv.total_amount ?? inv.amount}</option>
                           ))}
                         </select>
                       </div>
@@ -685,21 +1001,22 @@ export default function CollectFeesPage() {
                       <p className="text-[9px] font-bold text-red-500 uppercase tracking-wider">* are required fields.</p>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <DetailBox label="REGISTRATION" value={activeInvoice.student_id_code} />
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <DetailBox label="REGISTRATION" value={activeInvoice.student_id_num || activeInvoice.student_id_code || activeInvoice.registration_alias || 'N/A'} />
                       <DetailBox label="STUDENT NAME" value={activeInvoice.student_name} />
                       <DetailBox label="GUARDIAN NAME" value={guardianName} />
                       <DetailBox label="CLASS" value={activeInvoice.class_name} />
+                      <DetailBox label="INVOICE TYPE" value={activeInvoice.invoice_type ? activeInvoice.invoice_type.toUpperCase() : 'TUITION'} />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                       <div>
-                        <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEE MONTH *</label>
-                        <input type="text" value={activeInvoice.fee_month} disabled className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-555 focus:outline-none" />
+                        <label htmlFor="form-fee-month" className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEES MONTH</label>
+                        <input id="form-fee-month" type="text" value={getInvoiceFeeMonth(activeInvoice)} disabled className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-555 focus:outline-none" />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">DATE *</label>
-                        <input type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} required className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-650 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs" />
+                        <label htmlFor="form-collection-date" className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">DATE *</label>
+                        <input id="form-collection-date" type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} required className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs" />
                       </div>
                     </div>
 
@@ -728,14 +1045,18 @@ export default function CollectFeesPage() {
                       </table>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 text-center">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-4 text-center">
                       <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl space-y-1">
                         <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL</span>
                         <span className="block text-xl font-black text-slate-800">Rs {totalAmount.toLocaleString()}</span>
                       </div>
+                      <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl space-y-1">
+                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">ALREADY PAID</span>
+                        <span className="block text-xl font-black text-emerald-600">Rs {(activeInvoice.paid_amount || 0).toLocaleString()}</span>
+                      </div>
                       <div className="bg-purple-50/50 border border-purple-150 p-4 rounded-2xl space-y-1 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
-                        <span className="block text-[9px] font-black text-[#5C53CD] uppercase tracking-widest">DEPOSIT *</span>
-                        <input type="number" value={deposit || ''} onChange={(e) => setDeposit(Number(e.target.value))} className="w-full text-center bg-transparent border-none p-0 text-xl font-black text-[#5C53CD] focus:outline-none focus:ring-0 placeholder-purple-300" placeholder="Enter deposit..." />
+                        <label htmlFor="form-deposit" className="block text-[9px] font-black text-[#5C53CD] uppercase tracking-widest cursor-pointer">DEPOSIT *</label>
+                        <input id="form-deposit" type="number" value={deposit || ''} onChange={(e) => setDeposit(Number(e.target.value))} className="w-full text-center bg-transparent border-none p-0 text-xl font-black text-[#5C53CD] focus:outline-none focus:ring-0 placeholder-purple-300" placeholder="Enter deposit..." />
                       </div>
                       <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl space-y-1">
                         <span className="block text-[9px] font-black text-red-400 uppercase tracking-widest">DUE BALANCE</span>
@@ -756,22 +1077,66 @@ export default function CollectFeesPage() {
             )}
 
             {activeTab === 'family' && (
-              <form onSubmit={handleFamilySubmit} className="space-y-6 max-w-xl mx-auto">
-                <div>
-                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEE MONTH *</label>
-                  <input type="text" value={feeMonth} onChange={(e) => setFeeMonth(e.target.value)} required placeholder="June 2026" className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs" />
+              familyReceiptSummary ? (
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm max-w-xl mx-auto space-y-4">
+                  <div className="text-center space-y-1">
+                    <div className="w-10 h-10 bg-green-150 rounded-full flex items-center justify-center text-green-600 text-lg mx-auto">✔</div>
+                    <h4 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Family Fee Collection Summary</h4>
+                    <p className="text-[10px] text-slate-400 font-bold">Successfully collected from family invoices</p>
+                  </div>
+                  
+                  <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                    {familyReceiptSummary.map(item => (
+                      <div key={item.id} className="py-2.5 flex justify-between items-center text-xs">
+                        <div>
+                          <p className="font-bold text-slate-700">{item.student_name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">{item.class_name} | {item.invoice_number}</p>
+                        </div>
+                        <span className="font-extrabold text-slate-800">Rs {item.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-slate-50 p-3.5 rounded-xl flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-500 uppercase">Total Collected</span>
+                    <span className="font-black text-purple-700">Rs {familyReceiptSummary.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}</span>
+                  </div>
+
+                  <div className="flex justify-center gap-3 pt-2">
+                    <button 
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-8 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs"
+                    >
+                      Print Summary
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setFamilyReceiptSummary(null)} 
+                      className="px-8 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT FAMILY *</label>
-                  <select value={selectedFamily} onChange={(e) => setSelectedFamily(e.target.value)} required className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs">
-                    <option value="">Select Family</option>
-                    {uniqueFamilies.map(fam => <option key={fam} value={fam}>{fam}</option>)}
-                  </select>
-                </div>
-                <div className="flex justify-center pt-2">
-                  <button type="submit" disabled={loading} className="px-10 py-3.5 bg-purple-650 hover:bg-purple-750 text-white font-bold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider">Submit Payment</button>
-                </div>
-              </form>
+              ) : (
+                <form onSubmit={handleFamilySubmit} className="space-y-6 max-w-xl mx-auto">
+                  <div>
+                    <label htmlFor="family-fee-month" className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEE MONTH *</label>
+                    <input id="family-fee-month" type="month" value={feeMonth} onChange={(e) => setFeeMonth(e.target.value)} required className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs" />
+                  </div>
+                  <div>
+                    <label htmlFor="family-selector" className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT FAMILY *</label>
+                    <select id="family-selector" value={selectedFamily} onChange={(e) => setSelectedFamily(e.target.value)} required className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs">
+                      <option value="">Select Family</option>
+                      {uniqueFamilies.map(fam => <option key={fam} value={fam}>{fam}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex justify-center pt-2">
+                    <button type="submit" disabled={loading} className="px-10 py-3.5 bg-purple-650 hover:bg-purple-750 text-white font-bold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider">Submit Payment</button>
+                  </div>
+                </form>
+              )
             )}
 
             {activeTab === 'scan' && (
@@ -798,12 +1163,21 @@ function DetailBox({ label, value }: { label: string; value: string }) {
 }
 
 function ParticularInputRow({ sr, name, value, onChange }: { sr: number; name: string; value: number; onChange: (val: number) => void }) {
+  const inputId = `particular-${name.toLowerCase().replace(/\s+/g, '-')}`;
   return (
     <tr className="hover:bg-slate-50/50 transition-colors">
       <td className="py-2.5 px-4 font-bold text-slate-400">{sr}</td>
-      <td className="py-2.5 px-4 font-black uppercase text-slate-700 tracking-wide text-[10px]">{name}</td>
+      <td className="py-2.5 px-4 font-black uppercase text-slate-700 tracking-wide text-[10px]">
+        <label htmlFor={inputId}>{name}</label>
+      </td>
       <td className="py-1.5 px-4 text-right pr-6">
-        <input type="number" value={value || 0} onChange={(e) => onChange(Number(e.target.value))} className="w-28 h-8 px-2.5 text-right border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white" />
+        <input 
+          id={inputId}
+          type="number" 
+          value={value || 0} 
+          onChange={(e) => onChange(Number(e.target.value))} 
+          className="w-28 h-8 px-2.5 text-right border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white" 
+        />
       </td>
     </tr>
   );

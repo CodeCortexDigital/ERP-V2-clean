@@ -33,9 +33,24 @@ class Invoice(SoftDeleteModel):
         ('partial', 'Partially Paid'),
         ('overdue', 'Overdue'),
         ('cancelled', 'Cancelled'),
+        ('carried_forward', 'Carried Forward'),
+    ]
+    
+    INVOICE_TYPE_CHOICES = [
+        ('tuition', 'Tuition'),
+        ('transport', 'Transport'),
+        ('hostel', 'Hostel'),
+        ('miscellaneous', 'Miscellaneous'),
+        ('composite', 'Composite'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice_type = models.CharField(
+        max_length=20,
+        choices=INVOICE_TYPE_CHOICES,
+        default='tuition',
+        help_text="The category of charges billed on this invoice"
+    )
     invoice_number = models.CharField(max_length=50, unique=True, blank=True, editable=False)
     student = models.ForeignKey(
         'education_students.Student',
@@ -122,10 +137,21 @@ class Invoice(SoftDeleteModel):
         # They are applied exclusively by the 'apply_late_fees' management command
         # on the 10th of each month. This prevents fees being added on every save.
         
+        is_new = self._state.adding
         super().save(*args, **kwargs)
+        
+        # Automatic carry-forward update:
+        # If this is a new invoice and has opening_balance > 0, mark older unpaid/partial/overdue invoices as carried_forward
+        if is_new and self.status in ['issued', 'partial', 'overdue'] and self.opening_balance > 0:
+            Invoice.objects.filter(
+                student=self.student,
+                status__in=['issued', 'partial', 'overdue']
+            ).exclude(id=self.id).update(status='carried_forward')
     
     @property
     def balance_due(self):
+        if self.status == 'carried_forward':
+            return 0
         """Balance due = opening_balance + this month fee + late fee - discount - paid"""
         total_due = self.opening_balance + self.amount - self.discount_amount + self.late_fee_amount
         balance = total_due - self.paid_amount

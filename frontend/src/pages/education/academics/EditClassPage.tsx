@@ -42,7 +42,6 @@ export default function EditClassPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch academic years and teachers in parallel
       const [yearsRes, teachersRes, classData] = await Promise.all([
         academicService.academicYears.getAll().catch(() => []),
         teacherService.getActive().catch(() => []),
@@ -51,28 +50,22 @@ export default function EditClassPage() {
       
       setAcademicYears(yearsRes || []);
       
-      // ✅ FIXED: Extract the array from the response
       let teachersArray: Teacher[] = [];
       if (Array.isArray(teachersRes)) {
         teachersArray = teachersRes;
       } else if (teachersRes && typeof teachersRes === 'object') {
-        // Check for data property (from api response)
         if (Array.isArray(teachersRes.data)) {
           teachersArray = teachersRes.data;
         } else if (Array.isArray(teachersRes.results)) {
           teachersArray = teachersRes.results;
         } else {
-          // If it's an array-like object, try to convert
           teachersArray = Object.values(teachersRes).filter(Array.isArray).flat() || [];
         }
       }
       
       setTeachers(teachersArray);
-      console.log('📚 Teachers loaded:', teachersArray);
 
-      // Set form data if class exists
       if (classData) {
-        console.log('📚 Class data:', classData);
         setFormData({
           name: classData.name || '',
           code: classData.code || '',
@@ -80,7 +73,7 @@ export default function EditClassPage() {
           academic_year: classData.academic_year || '',
           teacher_name: classData.teacher_name || '',
           is_active: classData.is_active !== false,
-          tuition_fee: classData.tuition_fee || 0
+          tuition_fee: Number(classData.tuition_fee) || 0   // ensure number
         });
       }
     } catch (error) {
@@ -93,9 +86,15 @@ export default function EditClassPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    // For number inputs, keep as number in state
+    const newValue = type === 'checkbox' 
+      ? (e.target as HTMLInputElement).checked 
+      : name === 'tuition_fee' 
+        ? parseFloat(value) || 0 
+        : value;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]: newValue
     }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -137,23 +136,18 @@ export default function EditClassPage() {
       academic_year: formData.academic_year || null,
       teacher_name: formData.teacher_name || '',
       is_active: formData.is_active,
-      tuition_fee: formData.tuition_fee
+      tuition_fee: Number(formData.tuition_fee) || 0   // ✅ ensure number
     };
 
     setSaving(true);
     try {
-      console.log('📤 Updating class:', payload);
-      
       if (!id) {
         toast.error('Class ID is missing');
         return;
       }
       
       const result = await academicService.classes.update(id, payload);
-      
-      console.log('✅ Class updated:', result);
       toast.success(`Class "${result.name}" updated successfully!`);
-      
       navigate('/education/academics/classes');
     } catch (error: any) {
       console.error('❌ Error updating class:', error);

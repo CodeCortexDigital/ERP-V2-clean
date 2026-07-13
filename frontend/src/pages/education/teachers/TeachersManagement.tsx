@@ -20,7 +20,7 @@ export default function TeachersManagement() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedRole, setSelectedRole] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');

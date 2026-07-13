@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { GraduationCap, Printer, Download, ArrowLeft, Search, RefreshCw, User, Calendar, BookOpen, CreditCard, Phone, Mail, MapPin, Users, Hash, Award, AlertCircle } from 'lucide-react';
+import { GraduationCap, Printer, Download, ArrowLeft, Search, RefreshCw, User, Calendar, BookOpen, CreditCard, Phone, Mail, MapPin, Users, Hash, Award, AlertCircle, RotateCcw } from 'lucide-react';
 import studentService, { Student } from '@/services/student.service';
 import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
@@ -312,6 +312,14 @@ export default function AdmissionLetterPage() {
     );
   }
 
+  const filteredStudents = students.filter(s => {
+    const query = searchQuery.toLowerCase();
+    return (
+      (s.full_name || s.name || '').toLowerCase().includes(query) ||
+      (s.student_id || '').toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12 print:bg-white print:p-0">
       
@@ -332,9 +340,9 @@ export default function AdmissionLetterPage() {
               setStudentDetails(null);
               setSearchQuery('');
             }}
-            className="text-xs font-bold text-purple-700 hover:underline print:hidden"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 transition-colors print:hidden"
           >
-            ← Back to Search
+            <RotateCcw className="w-3.5 h-3.5" /> Back to Search
           </button>
         )}
       </div>
@@ -343,8 +351,8 @@ export default function AdmissionLetterPage() {
         /* SEARCH SCREEN */
         <div className="flex items-center justify-center pt-16">
           <div className="max-w-xl w-full bg-white p-10 rounded-3xl border border-slate-100 shadow-xs text-center space-y-6">
-            <div className="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center text-purple-650 mx-auto text-xl">
-              📄
+            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-50 to-indigo-50 text-purple-650 flex items-center justify-center mx-auto shadow-2xs">
+              <GraduationCap className="w-7 h-7" />
             </div>
 
             <div className="space-y-2">
@@ -354,39 +362,44 @@ export default function AdmissionLetterPage() {
               </p>
             </div>
 
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search student by name or registration..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full h-11 pl-10 pr-4 rounded-2xl border-2 border-slate-200 focus:border-purple-500 bg-white text-xs font-medium text-slate-700 focus:outline-none transition-all"
-                />
-              </div>
-              <button
-                type="submit"
-                className="h-11 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-1.5"
+            <div className="relative max-w-md mx-auto">
+              <Search className="absolute left-4 top-3.5 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search student by name or registration..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-11 pl-11 pr-12 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all placeholder:text-slate-400"
+              />
+              <button 
+                onClick={handleSearchSubmit}
+                className="absolute right-1.5 top-1.5 h-8 w-8 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center justify-center shadow-xs"
               >
-                Search
+                <Search className="w-3.5 h-3.5" />
               </button>
+            </div>
 
-              {suggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-12 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 text-left">
-                  {suggestions.map(s => (
-                    <div
-                      key={s.id || s.student_id}
-                      onClick={() => handleSelectStudent(s)}
-                      className="p-3.5 hover:bg-purple-50/50 cursor-pointer text-xs font-medium text-slate-700 flex items-center justify-between"
-                    >
-                      <span>{s.full_name || s.name}</span>
-                      <span className="text-slate-400">{s.student_id}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* List results */}
+            <div className="max-w-md mx-auto max-h-48 overflow-y-auto space-y-1 bg-slate-50/50 border border-slate-100 rounded-2xl p-2 custom-scrollbar">
+              {loading ? (
+                <p className="text-xs text-slate-400 py-4 font-semibold">Loading students list...</p>
+              ) : filteredStudents.length === 0 ? (
+                <p className="text-xs text-slate-400 py-4 font-semibold">No matching records found.</p>
+              ) : (
+                filteredStudents.map(s => (
+                  <button
+                    key={s.id || s.student_id}
+                    onClick={() => handleSelectStudent(s)}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-white hover:shadow-2xs transition border border-transparent hover:border-slate-150 flex items-center justify-between text-xs font-bold text-slate-700"
+                  >
+                    <span>{s.full_name || s.name}</span>
+                    <span className="text-[10px] text-purple-600 font-mono bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100/50">{s.student_id || 'Student'}</span>
+                  </button>
+                ))
               )}
-            </form>
+            </div>
+
+            <p className="text-[10px] text-slate-400 font-semibold">ℹ {students.length} student(s) available</p>
           </div>
         </div>
       ) : (
