@@ -316,11 +316,12 @@ export default function FeesPaidSlipPage() {
           : Number(activeReceipt.amount))))
     : 0;
 
-  const depositAmount = activeReceipt
-    ? (activeReceipt.paid_amount !== undefined && activeReceipt.paid_amount !== null 
-      ? Number(activeReceipt.paid_amount) 
-      : Number(activeReceipt.amount))
-    : 0;
+  const totalPaid = activeReceipt ? Number(activeReceipt.paid_amount || 0) : 0;
+  const lastPayment = activeReceipt?.payment_history && activeReceipt.payment_history.length > 0
+    ? activeReceipt.payment_history[activeReceipt.payment_history.length - 1]
+    : null;
+  const depositAmount = lastPayment ? Number(lastPayment.amount) : totalPaid;
+  const previouslyPaid = totalPaid - depositAmount;
 
   const remainingBalance = activeReceipt
     ? (activeReceipt.balance_due !== undefined && activeReceipt.balance_due !== null
@@ -414,12 +415,18 @@ export default function FeesPaidSlipPage() {
                   <p className="text-slate-400">Date of Submission</p>
                   <p className="text-slate-850">→ {formatDateLabel(activeReceipt.created_at.split('T')[0])}</p>
                   <p className="text-slate-400">Fees Month</p>
-                  <p className="text-slate-850">→ {getInvoiceFeeMonth(activeReceipt)}</p>
+                  <p className="text-slate-855">→ {getInvoiceFeeMonth(activeReceipt)}</p>
                 </div>
 
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Total Amount</p>
                   <p className="text-slate-800 text-xs font-black">→ Rs {totalAmount}</p>
+                  {(previouslyPaid || 0) > 0 && (
+                    <>
+                      <p className="text-slate-400">Previously Paid</p>
+                      <p className="text-slate-800 text-xs font-black">→ Rs {previouslyPaid}</p>
+                    </>
+                  )}
                   <p className="text-slate-400">Deposit Amount</p>
                   <p className="text-slate-800 text-xs font-black">→ Rs {depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance</p>
@@ -455,6 +462,12 @@ export default function FeesPaidSlipPage() {
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">TOTAL</td>
                       <td className="py-1 px-3 text-right">Rs {totalAmount}</td>
                     </tr>
+                    {(previouslyPaid || 0) > 0 && (
+                      <tr className="font-bold bg-slate-50">
+                        <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">PREVIOUSLY PAID</td>
+                        <td className="py-1 px-3 text-right text-amber-600">Rs {previouslyPaid}</td>
+                      </tr>
+                    )}
                     <tr className="font-bold bg-slate-50">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">DEPOSIT</td>
                       <td className="py-1 px-3 text-right">Rs {depositAmount}</td>
@@ -759,13 +772,21 @@ export default function FeesPaidSlipPage() {
               </div>
 
               {/* Three Indicator Boxes */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+              <div className={`grid grid-cols-1 md:grid-cols-${(previouslyPaid || 0) > 0 ? 4 : 3} gap-6 text-center`}>
                 
                 {/* Total Amount */}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL AMOUNT</span>
                   <span className="block text-xl font-black text-[#1b3bb6]">Rs {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+
+                {/* Previously Paid */}
+                {(previouslyPaid || 0) > 0 && (
+                  <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
+                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">PREVIOUSLY PAID</span>
+                    <span className="block text-xl font-black text-amber-600">Rs {previouslyPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
 
                 {/* Deposit Amount */}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">

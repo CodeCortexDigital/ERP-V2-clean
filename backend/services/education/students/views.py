@@ -90,6 +90,36 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
         self.check_object_permissions(self.request, obj)
         return obj
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Check for any pending or unpaid/partial invoices
+        from services.education.finance.models import Invoice
+        pending_invoices = Invoice.objects.filter(
+            student=instance,
+            status__in=['issued', 'partial', 'unpaid', 'overdue']
+        )
+        
+        has_pending = False
+        for inv in pending_invoices:
+            # Check remaining balance
+            balance = inv.balance_due if inv.balance_due is not None else (inv.amount - inv.paid_amount)
+            if balance > 0:
+                has_pending = True
+                break
+                
+        if has_pending:
+            from rest_framework.response import Response
+            from rest_framework import status
+            return Response(
+                {
+                    'error': 'Cannot delete student because they have pending/unpaid invoices. Please clear or cancel their invoices first.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        return super().destroy(request, *args, **kwargs)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

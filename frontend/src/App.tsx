@@ -106,6 +106,7 @@ import AddIncomePage from './pages/education/finance/AddIncomePage'
 import AddExpensePage from './pages/education/finance/AddExpensePage'
 import AccountStatementPage from './pages/education/finance/AccountStatementPage'
 import GenerateFeesInvoicePage from './pages/education/finance/GenerateFeesInvoicePage'
+import InvoicesPage from './pages/education/finance/InvoicesPage'
 import CollectFeesPage from './pages/education/finance/CollectFeesPage'
 import FeesPaidSlipPage from './pages/education/finance/FeesPaidSlipPage'
 import FeesDefaultersPage from './pages/education/finance/FeesDefaultersPage'
@@ -274,6 +275,7 @@ function App() {
                 <Route path="education/finance/add-expense" element={<AddExpensePage />} />
                 <Route path="education/finance/account-statement" element={<AccountStatementPage />} />
                 <Route path="education/finance/generate-invoices" element={<GenerateFeesInvoicePage />} />
+                <Route path="education/finance/invoices" element={<InvoicesPage />} />
                 <Route path="education/finance/collect-fees" element={<CollectFeesPage />} />
                 <Route path="education/finance/fees-paid-slip" element={<FeesPaidSlipPage />} />
                 <Route path="education/finance/fees-defaulters" element={<FeesDefaultersPage />} />

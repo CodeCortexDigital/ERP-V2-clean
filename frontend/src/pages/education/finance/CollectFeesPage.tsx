@@ -59,6 +59,7 @@ interface SubmittedReceipt {
   totalAmount: number;
   depositAmount: number;
   remainingBalance: number;
+  previouslyPaid?: number;
   monthlyFee: number;
   admissionFee: number;
   regFee: number;
@@ -359,6 +360,20 @@ export default function CollectFeesPage() {
       });
 
       const updatedInv = await financeService.updateInvoice(activeInvoice.id, {
+        amount: Number(monthlyFee) + Number(admissionFee) + Number(regFee) + Number(artFee) + Number(transportFee) + Number(booksFee) + Number(uniformFee) + Number(othersFee),
+        breakdown: {
+          tuition: Number(monthlyFee),
+          admission: Number(admissionFee),
+          registration: Number(regFee),
+          art: Number(artFee),
+          transport: Number(transportFee),
+          books: Number(booksFee),
+          uniform: Number(uniformFee),
+          others: Number(othersFee)
+        },
+        opening_balance: Number(prevBalance),
+        late_fee_amount: Number(fineFee),
+        discount_amount: Number(discountFee),
         paid_amount: (activeInvoice.paid_amount || 0) + deposit,
         status: nextStatus
       });
@@ -373,6 +388,7 @@ export default function CollectFeesPage() {
         totalAmount: calculatedTotal,
         depositAmount: deposit,
         remainingBalance: remainingBal,
+        previouslyPaid: Number(activeInvoice.paid_amount || 0),
         monthlyFee: Number(monthlyFee),
         admissionFee: Number(admissionFee),
         regFee: Number(regFee),
@@ -682,6 +698,12 @@ export default function CollectFeesPage() {
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Total Amount</p>
                   <p className="text-slate-800 text-xs font-black">→ Rs {submittedReceipt.totalAmount}</p>
+                  {(submittedReceipt.previouslyPaid || 0) > 0 && (
+                    <>
+                      <p className="text-slate-400">Previously Paid</p>
+                      <p className="text-slate-800 text-xs font-black">→ Rs {submittedReceipt.previouslyPaid}</p>
+                    </>
+                  )}
                   <p className="text-slate-400">Deposit Amount</p>
                   <p className="text-slate-800 text-xs font-black">→ Rs {submittedReceipt.depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance</p>
@@ -715,6 +737,12 @@ export default function CollectFeesPage() {
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">TOTAL</td>
                       <td className="py-1 px-3 text-right">Rs {submittedReceipt.totalAmount}</td>
                     </tr>
+                    {(submittedReceipt.previouslyPaid || 0) > 0 && (
+                      <tr className="font-bold bg-slate-50">
+                        <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">PREVIOUSLY PAID</td>
+                        <td className="py-1 px-3 text-right text-amber-600">Rs {submittedReceipt.previouslyPaid}</td>
+                      </tr>
+                    )}
                     <tr className="font-bold bg-slate-50">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">DEPOSIT</td>
                       <td className="py-1 px-3 text-right">Rs {submittedReceipt.depositAmount}</td>
@@ -880,11 +908,17 @@ export default function CollectFeesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+              <div className={`grid grid-cols-1 md:grid-cols-${(submittedReceipt.previouslyPaid || 0) > 0 ? 4 : 3} gap-6 text-center`}>
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL AMOUNT</span>
                   <span className="block text-xl font-black text-[#1b3bb6]">Rs {submittedReceipt.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                {(submittedReceipt.previouslyPaid || 0) > 0 && (
+                  <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
+                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">PREVIOUSLY PAID</span>
+                    <span className="block text-xl font-black text-amber-600">Rs {submittedReceipt.previouslyPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">DEPOSIT AMOUNT</span>
                   <span className="block text-xl font-black text-[#10B981]">Rs {submittedReceipt.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

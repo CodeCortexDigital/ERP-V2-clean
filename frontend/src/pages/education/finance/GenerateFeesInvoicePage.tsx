@@ -90,7 +90,6 @@ export default function GenerateFeesInvoicePage() {
   const [dueDate, setDueDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 10); return d.toISOString().split('T')[0]; });
   const [fine, setFine] = useState('0');
   const [selectedBank, setSelectedBank] = useState('');
-  const [invoiceType, setInvoiceType] = useState<'tuition' | 'transport' | 'hostel' | 'miscellaneous' | 'composite'>('tuition');
   const [selectedStudentSearch, setSelectedStudentSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [selectedClass, setSelectedClass] = useState('');
@@ -110,6 +109,7 @@ export default function GenerateFeesInvoicePage() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [generatedInvoices, setGeneratedInvoices] = useState<any[] | null>(null);
   const [checkedStructureIds, setCheckedStructureIds] = useState<string[]>([]);
+  const [customAmounts, setCustomAmounts] = useState<Record<string, number>>({});
 
   const getFeeAmountForClass = (classIdOrName: string) => {
     if (!classIdOrName) return '';
@@ -184,22 +184,40 @@ export default function GenerateFeesInvoicePage() {
     if (targetClassIds.length === 0) return [];
     
     return feeStructures.filter(fs => 
-      targetClassIds.includes(String(fs.class_ref)) &&
-      !(fs.fee_name || '').toUpperCase().includes('TUITION')
+      targetClassIds.includes(String(fs.class_ref))
     );
   }, [activeTab, selectedStudent, selectedClass, selectedFamily, classes, feeStructures, students]);
 
+  const getInvoiceType = (checkedIds: string[]) => {
+    const checked = activeStructures.filter(fs => checkedIds.includes(fs.id));
+    if (checked.length === 0) return 'tuition';
+    
+    const types = new Set<'tuition' | 'transport' | 'hostel' | 'miscellaneous'>();
+    checked.forEach(fs => {
+      const name = (fs.fee_name || '').toUpperCase();
+      if (name.includes('TUITION')) types.add('tuition');
+      else if (name.includes('TRANSPORT')) types.add('transport');
+      else if (name.includes('HOSTEL')) types.add('hostel');
+      else types.add('miscellaneous');
+    });
+
+    if (types.size > 1) return 'composite';
+    if (types.size === 1) return types.values().next().value;
+    return 'tuition';
+  };
+
   const calculateBreakdownForClass = (classIdOrName: string) => {
-    const mainFeeVal = parseFloat(feeAmount || '0');
+    const calculatedInvoiceType = getInvoiceType(checkedStructureIds);
+    const mainFeeVal = activeStructures.length === 0 ? parseFloat(feeAmount || '0') : 0;
     const breakdown = {
-      tuition: (invoiceType === 'tuition' || invoiceType === 'composite') ? mainFeeVal : 0,
+      tuition: (calculatedInvoiceType === 'tuition' || calculatedInvoiceType === 'composite') ? mainFeeVal : 0,
       admission: 0,
       registration: 0,
       art: 0,
-      transport: (invoiceType === 'transport') ? mainFeeVal : 0,
+      transport: (calculatedInvoiceType === 'transport') ? mainFeeVal : 0,
       books: 0,
       uniform: 0,
-      others: (invoiceType === 'hostel' || invoiceType === 'miscellaneous') ? mainFeeVal : 0
+      others: (calculatedInvoiceType === 'hostel' || calculatedInvoiceType === 'miscellaneous') ? mainFeeVal : 0
     };
 
     if (!classIdOrName) {
@@ -221,11 +239,10 @@ export default function GenerateFeesInvoicePage() {
 
     classStructures.forEach(fs => {
       const name = (fs.fee_name || '').toUpperCase();
-      const amt = Number(fs.amount);
+      const amt = Number(customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : fs.amount);
       if (name.includes('TUITION')) {
-        return;
-      }
-      if (name.includes('ADMISSION')) {
+        breakdown.tuition += amt;
+      } else if (name.includes('ADMISSION')) {
         breakdown.admission += amt;
       } else if (name.includes('REGISTRATION')) {
         breakdown.registration += amt;
@@ -373,6 +390,11 @@ export default function GenerateFeesInvoicePage() {
 
     setFeeAmount(newFee);
   }, [selectedStudent, selectedClass, selectedFamily, activeTab, classes, students, feeStructures]);
+
+  useEffect(() => {
+    setCheckedStructureIds([]);
+    setCustomAmounts({});
+  }, [activeTab, selectedStudent, selectedClass, selectedFamily]);
 
   // Calculate previous balance from backend invoices
   const calculatePreviousBalance = async (studentId: string, currentFeeMonth: string) => {
@@ -552,19 +574,13 @@ export default function GenerateFeesInvoicePage() {
       return;
     }
 
+    const calculatedInvoiceType = getInvoiceType(checkedStructureIds);
     const parsedFee = parseFloat(feeAmount || '0');
     const hasCheckedStructures = checkedStructureIds.length > 0;
     
-    if (invoiceType === 'tuition' || invoiceType === 'composite') {
-      if (isNaN(parsedFee) || parsedFee <= 0) {
-        toast.error('Please enter a valid fee amount');
-        return;
-      }
-    } else {
-      if ((isNaN(parsedFee) || parsedFee <= 0) && !hasCheckedStructures) {
-        toast.error('Please enter a fee amount or select at least one fee structure');
-        return;
-      }
+    if ((isNaN(parsedFee) || parsedFee <= 0) && !hasCheckedStructures) {
+      toast.error('Please enter a manual fee amount or select at least one fee structure');
+      return;
     }
 
     setLoading(true);
@@ -579,13 +595,11 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
-
-
         const { total: prevBal, pending } = await calculatePreviousBalance(selectedStudent.id, feeMonth);
         const otherFeeTotal = activeStructures
           .filter(fs => checkedStructureIds.includes(fs.id))
-          .reduce((sum, fs) => sum + Number(fs.amount), 0);
-        const mainFee = parseFloat(feeAmount || '0');
+          .reduce((sum, fs) => sum + Number(customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : fs.amount), 0);
+        const mainFee = activeStructures.length === 0 ? parseFloat(feeAmount || '0') : 0;
         const currentFee = mainFee + otherFeeTotal;
         const totalAmount = currentFee + prevBal - discountAmount;
 
@@ -604,7 +618,7 @@ export default function GenerateFeesInvoicePage() {
           const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
           transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
         }
-        const labelPrefix = invoiceType === 'tuition' ? 'Fee Submission' : `${invoiceType.toUpperCase()} Fee`;
+        const labelPrefix = calculatedInvoiceType === 'tuition' ? 'Fee Submission' : `${calculatedInvoiceType.toUpperCase()} Fee`;
         const customDesc = structuresLabel 
           ? `${labelPrefix} for ${feeMonth} (${structuresLabel}) of Student ID:- ${selectedStudent.student_id || '001'}${transferNote}`
           : `${labelPrefix} for ${feeMonth} of Student ID:- ${selectedStudent.student_id || '001'}${transferNote}`;
@@ -634,7 +648,7 @@ export default function GenerateFeesInvoicePage() {
           pending_invoice_ids: pending.map((p: any) => p.id),
           transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
           breakdown: breakdown,
-          invoice_type: invoiceType
+          invoice_type: calculatedInvoiceType
         };
 
         generatedList.push(newInv);
@@ -645,9 +659,22 @@ export default function GenerateFeesInvoicePage() {
           return;
         }
 
+        const classObj = classes.find(c => 
+          sanitizeClassName(c.name) === sanitizeClassName(selectedClass) ||
+          String(c.id) === String(selectedClass)
+        );
+        const targetClassName = classObj?.name || selectedClass;
+        const targetClassId = classObj?.id || '';
+
         const classStudents = students.filter(s => {
-          const sClass = s.class_name || s.current_class_name || s.current_class || s.class_ref || '';
-          return sanitizeClassName(sClass) === sanitizeClassName(selectedClass);
+          if (!s) return false;
+          const sClass = s.class_name || s.current_class_name || '';
+          const sClassId = s.current_class || s.class_ref || '';
+          
+          const matchByName = sClass && sanitizeClassName(sClass) === sanitizeClassName(targetClassName);
+          const matchById = sClassId && targetClassId && String(sClassId) === String(targetClassId);
+          
+          return matchByName || matchById;
         });
 
         if (classStudents.length === 0) {
@@ -670,13 +697,14 @@ export default function GenerateFeesInvoicePage() {
             const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
             transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
           }
-          const labelPrefix = invoiceType === 'tuition' ? 'Fee Submission' : `${invoiceType.toUpperCase()} Fee`;
+          const labelPrefix = calculatedInvoiceType === 'tuition' ? 'Fee Submission' : `${calculatedInvoiceType.toUpperCase()} Fee`;
           return structuresLabel 
             ? `${labelPrefix} for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}${transferNote}`
             : `${labelPrefix} for ${feeMonth} of Student ID:- ${sid}${transferNote}`;
         };
 
         const breakdown = calculateBreakdownForClass(selectedClass);
+        const calculatedInvoiceType = getInvoiceType(checkedStructureIds);
 
         for (const [idx, student] of classStudents.entries()) {
           setLoadingMessage(`Calculating balance for student ${idx + 1} of ${classStudents.length}...`);
@@ -706,8 +734,8 @@ export default function GenerateFeesInvoicePage() {
 
           const otherFeeTotal = activeStructures
             .filter(fs => checkedStructureIds.includes(fs.id))
-            .reduce((sum, fs) => sum + Number(fs.amount), 0);
-          const mainFee = parseFloat(feeAmount || '0');
+            .reduce((sum, fs) => sum + Number(customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : fs.amount), 0);
+          const mainFee = activeStructures.length === 0 ? parseFloat(feeAmount || '0') : 0;
           const currentFee = mainFee + otherFeeTotal;
           const totalAmount = currentFee + prevBal - studentDiscountAmount;
           const sid = student.student_id || '001';
@@ -737,7 +765,7 @@ export default function GenerateFeesInvoicePage() {
             pending_invoice_ids: pending.map((p: any) => p.id),
             transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
             breakdown: breakdown,
-            invoice_type: invoiceType
+            invoice_type: calculatedInvoiceType
           };
           generatedList.push(newInv);
         }
@@ -765,6 +793,7 @@ export default function GenerateFeesInvoicePage() {
 
         const checkedStructures = activeStructures.filter(fs => checkedStructureIds.includes(fs.id));
         const structuresLabel = checkedStructures.map(fs => `${fs.fee_name}`).join(', ');
+        const calculatedInvoiceType = getInvoiceType(checkedStructureIds);
         const getCustomDesc = (sid: string, pending: any[]) => {
           let transferNote = '';
           if (pending.length > 0) {
@@ -777,7 +806,7 @@ export default function GenerateFeesInvoicePage() {
             const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
             transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
           }
-          const labelPrefix = invoiceType === 'tuition' ? 'Fee Submission' : `${invoiceType.toUpperCase()} Fee`;
+          const labelPrefix = calculatedInvoiceType === 'tuition' ? 'Fee Submission' : `${calculatedInvoiceType.toUpperCase()} Fee`;
           return structuresLabel 
             ? `${labelPrefix} for ${feeMonth} (${structuresLabel}) of Student ID:- ${sid}${transferNote}`
             : `${labelPrefix} for ${feeMonth} of Student ID:- ${sid}${transferNote}`;
@@ -811,8 +840,8 @@ export default function GenerateFeesInvoicePage() {
 
           const otherFeeTotal = activeStructures
             .filter(fs => checkedStructureIds.includes(fs.id))
-            .reduce((sum, fs) => sum + Number(fs.amount), 0);
-          const mainFee = parseFloat(feeAmount || '0');
+            .reduce((sum, fs) => sum + Number(customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : fs.amount), 0);
+          const mainFee = activeStructures.length === 0 ? parseFloat(feeAmount || '0') : 0;
           const currentFee = mainFee + otherFeeTotal;
           const totalAmount = currentFee + prevBal - studentDiscountAmount;
 
@@ -845,7 +874,7 @@ export default function GenerateFeesInvoicePage() {
             pending_invoice_ids: pending.map((p: any) => p.id),
             transferred_from: pending.length > 0 ? pending.map((p: any) => p.invoice_number).join(', ') : undefined,
             breakdown: breakdown,
-            invoice_type: invoiceType
+            invoice_type: calculatedInvoiceType
           };
           generatedList.push(newInv);
         }
@@ -857,7 +886,9 @@ export default function GenerateFeesInvoicePage() {
       setLoadingMessage(`Saving ${generatedList.length} invoice(s) to the database...`);
       
       try {
-        const results = await Promise.allSettled(generatedList.map(async (inv, idx) => {
+        const results = [];
+        for (let idx = 0; idx < generatedList.length; idx++) {
+          const inv = generatedList[idx];
           try {
             const formattedMonth = getMonthValue(inv.fee_month);
             const res = await financeService.createInvoice({
@@ -875,34 +906,37 @@ export default function GenerateFeesInvoicePage() {
             
             if (res && res.data) {
               const created = res.data;
-              return {
-                id: created.id,
-                invoice_number: created.invoice_number,
-                student: created.student,
-                student_name: created.student_name || inv.student_name,
-                student_id_code: created.student_id_num || inv.student_id_code,
-                class_name: created.class_name || inv.class_name,
-                fee_month: created.invoice_month ? created.invoice_month.substring(0, 7) : inv.fee_month,
-                amount: parseFloat(created.amount),
-                previous_balance: parseFloat(created.opening_balance),
-                discount_amount: parseFloat(created.discount_amount),
-                total_amount: parseFloat(created.total_amount),
-                fine_after_due_date: parseFloat(created.late_fee_amount || '0') || inv.fine_after_due_date,
-                description: created.description,
-                breakdown: created.breakdown,
-                invoice_type: created.invoice_type || inv.invoice_type,
-                created_at: created.created_at || inv.created_at,
-                due_date: created.due_date,
-                scholarship_name: created.scholarship_name,
-                copies: inv.copies
-              };
+              results.push({
+                status: 'fulfilled',
+                value: {
+                  id: created.id,
+                  invoice_number: created.invoice_number,
+                  student: created.student,
+                  student_name: created.student_name || inv.student_name,
+                  student_id_code: created.student_id_num || inv.student_id_code,
+                  class_name: created.class_name || inv.class_name,
+                  fee_month: created.invoice_month ? created.invoice_month.substring(0, 7) : inv.fee_month,
+                  amount: parseFloat(created.amount),
+                  previous_balance: parseFloat(created.opening_balance),
+                  discount_amount: parseFloat(created.discount_amount),
+                  total_amount: parseFloat(created.total_amount),
+                  fine_after_due_date: parseFloat(created.late_fee_amount || '0') || inv.fine_after_due_date,
+                  description: created.description,
+                  breakdown: created.breakdown,
+                  invoice_type: created.invoice_type || inv.invoice_type,
+                  created_at: created.created_at || inv.created_at,
+                  due_date: created.due_date,
+                  scholarship_name: created.scholarship_name,
+                  copies: inv.copies
+                }
+              });
             } else {
-              return inv;
+              results.push({ status: 'fulfilled', value: inv });
             }
           } catch (e) {
-            throw { inv, error: e };
+            results.push({ status: 'rejected', reason: { inv, error: e } });
           }
-        }));
+        }
 
         results.forEach((r) => {
           if (r.status === 'fulfilled') {
@@ -1031,7 +1065,6 @@ export default function GenerateFeesInvoicePage() {
           <span className="text-slate-500 font-bold">Generate Fees Invoice</span>
         </div>
       </div>
-
       <div className="max-w-4xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-8">
         
         <div className="flex justify-center">
@@ -1069,332 +1102,369 @@ export default function GenerateFeesInvoicePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-          <span className="w-6 h-6 rounded-full bg-purple-900 text-white flex items-center justify-center text-xs font-bold">
-            {activeTab === 'student' ? '1' : activeTab === 'class' ? '2' : '3'}
-          </span>
-          <h3 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">
-            {activeTab === 'student' ? 'Student Invoice' : activeTab === 'class' ? 'Class Invoices' : 'Family Invoice'}
-          </h3>
-        </div>
-
-        {/* Previous Balance Alert */}
-        {previousBalance > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-            <span className="text-amber-600 text-lg">⚠️</span>
-            <div>
-              <p className="text-xs font-bold text-amber-700">Previous Balance Detected</p>
-              <p className="text-xs text-amber-600">
-                Rs {previousBalance.toLocaleString()} pending from {pendingInvoices.length} invoice(s).
-                <span className="text-amber-700 font-bold ml-1">
-                  These will be transferred to the new invoice.
-                </span>
-              </p>
-              {pendingInvoices.length > 0 && (
-                <div className="mt-1 text-[10px] text-amber-500">
-                  {pendingInvoices.map((inv: any) => (
-                    <span key={inv.id} className="inline-block mr-3">
-                      {inv.fee_month}: Rs {inv.remaining_balance}
-                    </span>
+        {/* Top-level search selectors */}
+        <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-150/60 max-w-xl mx-auto w-full">
+          {activeTab === 'student' && (
+            <div className="relative">
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SEARCH STUDENT *</label>
+              <div className="relative flex items-center">
+                <User className="absolute left-3.5 w-4.5 h-4.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Type student name or registration..."
+                  value={selectedStudentSearch}
+                  onChange={(e) => handleStudentSearchChange(e.target.value)}
+                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                />
+              </div>
+              {suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-50 overflow-hidden divide-y divide-slate-50">
+                  {suggestions.map(s => (
+                    <div
+                      key={s.id}
+                      onClick={() => handleSelectSuggestion(s)}
+                      className="p-3 hover:bg-purple-50/50 cursor-pointer text-xs font-semibold text-slate-700 flex justify-between items-center"
+                    >
+                      <span>{s.full_name}</span>
+                      <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-full">
+                        Reg: {s.student_id || 'N/A'}
+                      </span>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        <form onSubmit={handleGenerate} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {activeTab === 'class' && (
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEE MONTH *</label>
-              <div className="relative">
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="month"
-                  value={getMonthValue(feeMonth)}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    const formatted = formatMonthValue(e.target.value);
-                    setFeeMonth(formatted);
-                  }}
-                  required
-                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">DUE DATE *</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                required
-                className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FINE AFTER DUE DATE</label>
-              <input
-                type="number"
-                value={fine}
-                onChange={(e) => setFine(e.target.value)}
-                placeholder="0"
-                className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT BANK *</label>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT CLASS *</label>
               <select
-                value={selectedBank}
-                onChange={(e) => setSelectedBank(e.target.value)}
-                required
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
                 className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
               >
-                <option value="">-- Select bank --</option>
-                {banks.map(b => (
-                  <option key={b.id} value={b.name}>{b.name}</option>
+                <option value="">-- Select Class --</option>
+                {classes.map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </select>
             </div>
+          )}
 
+          {activeTab === 'family' && (
             <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">INVOICE TYPE *</label>
+              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT FAMILY *</label>
               <select
-                value={invoiceType}
-                onChange={(e: any) => setInvoiceType(e.target.value)}
-                required
+                value={selectedFamily}
+                onChange={(e) => setSelectedFamily(e.target.value)}
                 className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
               >
-                <option value="tuition">Tuition Fee Invoice</option>
-                <option value="transport">Transport Invoice</option>
-                <option value="hostel">Hostel Invoice</option>
-                <option value="miscellaneous">Miscellaneous Invoice</option>
-                <option value="composite">Composite (Mixed) Invoice</option>
+                <option value="">-- Select Family --</option>
+                {uniqueFamilies.map(fam => (
+                  <option key={fam} value={fam}>{fam}</option>
+                ))}
               </select>
             </div>
+          )}
+        </div>
 
-            {activeTab === 'student' && (
-              <div className="relative">
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SEARCH STUDENT *</label>
-                <div className="relative flex items-center">
-                  <User className="absolute left-3.5 w-4.5 h-4.5 text-slate-400" />
+        {((activeTab === 'student' && selectedStudent) || 
+          (activeTab === 'class' && selectedClass) || 
+          (activeTab === 'family' && selectedFamily)) && (
+          <div className="space-y-8 animate-fade-in">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <span className="w-6 h-6 rounded-full bg-purple-900 text-white flex items-center justify-center text-xs font-bold">
+                {activeTab === 'student' ? '1' : activeTab === 'class' ? '2' : '3'}
+              </span>
+              <h3 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">
+                {activeTab === 'student' ? 'Student Invoice' : activeTab === 'class' ? 'Class Invoices' : 'Family Invoice'}
+              </h3>
+            </div>
+
+            {/* Previous Balance Alert */}
+            {previousBalance > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                <span className="text-amber-600 text-lg">⚠️</span>
+                <div>
+                  <p className="text-xs font-bold text-amber-700">Previous Balance Detected</p>
+                  <p className="text-xs text-amber-600">
+                    Rs {previousBalance.toLocaleString()} pending from {pendingInvoices.length} invoice(s).
+                    <span className="text-amber-700 font-bold ml-1">
+                      These will be transferred to the new invoice.
+                    </span>
+                  </p>
+                  {pendingInvoices.length > 0 && (
+                    <div className="mt-1 text-[10px] text-amber-500">
+                      {pendingInvoices.map((inv: any) => (
+                        <span key={inv.id} className="inline-block mr-3">
+                          {inv.fee_month}: Rs {inv.remaining_balance}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleGenerate} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEE MONTH *</label>
+                  <div className="relative">
+                    <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="month"
+                      value={getMonthValue(feeMonth)}
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        const formatted = formatMonthValue(e.target.value);
+                        setFeeMonth(formatted);
+                      }}
+                      required
+                      className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">DUE DATE *</label>
                   <input
-                    type="text"
-                    placeholder="Type student name or registration..."
-                    value={selectedStudentSearch}
-                    onChange={(e) => handleStudentSearchChange(e.target.value)}
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
                     required
-                    className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
                   />
                 </div>
-                {suggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-50 overflow-hidden divide-y divide-slate-50">
-                    {suggestions.map(s => (
-                      <div
-                        key={s.id}
-                        onClick={() => handleSelectSuggestion(s)}
-                        className="p-3 hover:bg-purple-50/50 cursor-pointer text-xs font-semibold text-slate-700 flex justify-between items-center"
-                      >
-                        <span>{s.full_name}</span>
-                        <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-full">
-                          Reg: {s.student_id || 'N/A'}
-                        </span>
-                      </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FINE AFTER DUE DATE</label>
+                  <input
+                    type="number"
+                    value={fine}
+                    onChange={(e) => setFine(e.target.value)}
+                    placeholder="0"
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT BANK *</label>
+                  <select
+                    value={selectedBank}
+                    onChange={(e) => setSelectedBank(e.target.value)}
+                    required
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                  >
+                    <option value="">-- Select bank --</option>
+                    {banks.map(b => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">PREVIOUS BALANCE</label>
+                  <div className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-amber-600 flex items-center">
+                    Rs {previousBalance.toLocaleString()}
                   </div>
-                )}
+                </div>
               </div>
-            )}
 
-            {activeTab === 'class' && (
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT CLASS *</label>
-                <select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  required
-                  className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-                >
-                  <option value="">-- Select Class --</option>
-                  {classes.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {activeTab === 'family' && (
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SELECT FAMILY *</label>
-                <select
-                  value={selectedFamily}
-                  onChange={(e) => setSelectedFamily(e.target.value)}
-                  required
-                  className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-                >
-                  <option value="">-- Select Family --</option>
-                  {uniqueFamilies.map(fam => (
-                    <option key={fam} value={fam}>{fam}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-          </div>
-
-          {/* Fee Structures Checkbox Group */}
-          {((activeTab === 'student' && selectedStudent) || 
-            (activeTab === 'class' && selectedClass) || 
-            (activeTab === 'family' && selectedFamily)) && (
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="block text-[10px] font-bold tracking-wider text-slate-455 uppercase">
-                  Select Fee Structures ({activeStructures.length})
-                </label>
-                {activeStructures.length > 0 && (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setCheckedStructureIds(activeStructures.map(fs => fs.id))}
-                      className="text-[10px] text-purple-600 font-bold hover:underline"
-                    >
-                      Check All
-                    </button>
-                    <span className="text-[10px] text-slate-300">|</span>
-                    <button
-                      type="button"
-                      onClick={() => setCheckedStructureIds([])}
-                      className="text-[10px] text-slate-400 font-bold hover:underline"
-                    >
-                      Uncheck All
-                    </button>
-                  </div>
-                )}
-              </div>
-              {activeStructures.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">
-                  No fee structures configured for this selection. You can enter the fee amount manually below.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {activeStructures.map((fs: any) => {
-                    const isChecked = checkedStructureIds.includes(fs.id);
-                    return (
-                      <label 
-                        key={fs.id} 
-                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                          isChecked 
-                            ? 'bg-purple-50/40 border-purple-200 text-purple-700 font-semibold' 
-                            : 'bg-white border-slate-150 text-slate-650 hover:bg-slate-50/50'
-                        }`}
+              {/* Fee Structures Checkbox Group */}
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-455 uppercase">
+                    Select Fee Structures ({activeStructures.length})
+                  </label>
+                  {activeStructures.length > 0 && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCheckedStructureIds(activeStructures.map(fs => fs.id))}
+                        className="text-[10px] text-purple-600 font-bold hover:underline"
                       >
-                        <div className="flex items-center gap-2.5">
-                          <input 
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              if (isChecked) {
-                                setCheckedStructureIds(prev => prev.filter(id => id !== fs.id));
-                              } else {
-                                setCheckedStructureIds(prev => [...prev, fs.id]);
-                              }
-                            }}
-                            className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5"
-                          />
-                          <span className="text-xs">{fs.fee_name}</span>
+                        Check All
+                      </button>
+                      <span className="text-[10px] text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setCheckedStructureIds([])}
+                        className="text-[10px] text-slate-400 font-bold hover:underline"
+                      >
+                        Uncheck All
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {activeStructures.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">
+                    No fee structures configured for this selection. You can enter the fee amount manually below.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {activeStructures.map((fs: any) => {
+                      const isChecked = checkedStructureIds.includes(fs.id);
+                      return (
+                        <div 
+                          key={fs.id} 
+                          className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                            isChecked 
+                              ? 'bg-purple-50/40 border-purple-200 text-purple-700 font-semibold' 
+                              : 'bg-white border-slate-150 text-slate-650 hover:bg-slate-50/50'
+                          }`}
+                        >
+                          <label className="flex items-center gap-2.5 cursor-pointer flex-1 py-1">
+                            <input 
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setCheckedStructureIds(prev => prev.filter(id => id !== fs.id));
+                                } else {
+                                  setCheckedStructureIds(prev => [...prev, fs.id]);
+                                }
+                              }}
+                              className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5"
+                            />
+                            <span className="text-xs">{fs.fee_name}</span>
+                          </label>
+                          <div className="flex items-center gap-1.5 pl-2">
+                            <span className="text-xs text-slate-400 font-bold">Rs</span>
+                            <input
+                              type="number"
+                              value={customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : Number(fs.amount)}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setCustomAmounts(prev => ({
+                                  ...prev,
+                                  [fs.id]: isNaN(val) ? 0 : val
+                                }));
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-20 px-2 py-0.5 text-xs font-mono font-bold text-slate-700 border border-slate-200 rounded focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none bg-white text-right"
+                            />
+                          </div>
                         </div>
-                        <span className="text-xs font-mono font-bold text-slate-550">Rs {Number(fs.amount).toLocaleString()}</span>
-                      </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {activeStructures.length === 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY TUITION FEE *</label>
+                    <input
+                      type="number"
+                      value={feeAmount}
+                      onChange={(e) => setFeeAmount(e.target.value)}
+                      required={activeStructures.length === 0}
+                      placeholder="Enter tuition fee amount"
+                      className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                    />
+                    {activeDiscount && discountAmount > 0 && (
+                      <div className="mt-2 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 rounded-lg p-2 flex items-center justify-between">
+                        <span>✓ Discount Applied: ({activeDiscount.scholarship_name})</span>
+                        <span>-Rs {discountAmount.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-purple-50/55 border border-purple-150 rounded-2xl p-5 space-y-3">
+                <div className="text-[10px] font-extrabold tracking-wider text-purple-800 border-b border-purple-100 pb-2 uppercase">INVOICE SUMMARY</div>
+                <div className="space-y-2 text-xs text-slate-600 font-semibold">
+                  {activeStructures.length === 0 && parseFloat(feeAmount || '0') > 0 && (
+                    <div className="flex justify-between">
+                      <span>Tuition / Base Fee:</span>
+                      <span>Rs {parseFloat(feeAmount || '0').toLocaleString()}</span>
+                    </div>
+                  )}
+                  {activeStructures.filter(fs => checkedStructureIds.includes(fs.id)).map(fs => {
+                    const amt = Number(customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : fs.amount);
+                    return (
+                      <div key={fs.id} className="flex justify-between font-normal text-slate-555">
+                        <span>{fs.fee_name}:</span>
+                        <span>Rs {amt.toLocaleString()}</span>
+                      </div>
                     );
                   })}
+                  {previousBalance > 0 && (
+                    <div className="flex justify-between text-amber-700 font-bold bg-amber-50/50 px-2 py-1 rounded">
+                      <span>Previous Balance:</span>
+                      <span>Rs {previousBalance.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-600 font-bold bg-emerald-50/50 px-2 py-1 rounded">
+                      <span>Discount:</span>
+                      <span>-Rs {discountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">MONTHLY FEE {invoiceType === 'tuition' && '*'}</label>
-              <input
-                type="number"
-                value={feeAmount}
-                onChange={(e) => setFeeAmount(e.target.value)}
-                required={invoiceType === 'tuition'}
-                placeholder={invoiceType === 'tuition' ? "Enter fee amount" : "Optional monthly fee"}
-                className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-650 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-              />
-              {activeDiscount && discountAmount > 0 && (
-                <div className="mt-2 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 rounded-lg p-2 flex items-center justify-between">
-                  <span>✓ Discount Applied: ({activeDiscount.scholarship_name})</span>
-                  <span>-Rs {discountAmount.toLocaleString()}</span>
+                <div className="flex justify-between items-center text-sm font-extrabold text-slate-800 border-t border-purple-100 pt-3">
+                  <span className="text-purple-800 uppercase tracking-wide text-xs">Total Invoice Amount:</span>
+                  <span className="text-purple-700 text-lg font-mono">
+                    Rs {(
+                      (activeStructures.length === 0 ? parseFloat(feeAmount || '0') : 0) +
+                      activeStructures
+                        .filter(fs => checkedStructureIds.includes(fs.id))
+                        .reduce((sum, fs) => sum + Number(customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : fs.amount), 0) +
+                      previousBalance -
+                      discountAmount
+                    ).toLocaleString()}
+                  </span>
                 </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">PREVIOUS BALANCE</label>
-              <div className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-amber-600 flex items-center">
-                Rs {previousBalance.toLocaleString()}
               </div>
-            </div>
-          </div>
 
-          {previousBalance > 0 && (
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-              <div className="flex justify-between items-center text-sm font-bold">
-                <span className="text-slate-700">Total Invoice Amount:</span>
-                <span className="text-purple-700 text-lg">
-                  Rs {(parseFloat(feeAmount || '0') + previousBalance).toLocaleString()}
-                </span>
+              <div className="flex items-center gap-6 text-xs font-semibold text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100/50">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bankCopy}
+                    onChange={(e) => setBankCopy(e.target.checked)}
+                    className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 cursor-pointer"
+                  />
+                  Bank Copy
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={studentCopy}
+                    onChange={(e) => setStudentCopy(e.target.checked)}
+                    className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 cursor-pointer"
+                  />
+                  Student Copy
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={instituteCopy}
+                    onChange={(e) => setInstituteCopy(e.target.checked)}
+                    className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 cursor-pointer"
+                  />
+                  Institute Copy
+                </label>
               </div>
-            </div>
-          )}
 
-          <div className="flex items-center gap-6 text-xs font-semibold text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100/50">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={bankCopy}
-                onChange={(e) => setBankCopy(e.target.checked)}
-                className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 cursor-pointer"
-              />
-              Bank Copy
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={studentCopy}
-                onChange={(e) => setStudentCopy(e.target.checked)}
-                className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 cursor-pointer"
-              />
-              Student Copy
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={instituteCopy}
-                onChange={(e) => setInstituteCopy(e.target.checked)}
-                className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 cursor-pointer"
-              />
-              Institute Copy
-            </label>
+              <div className="flex justify-center pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-10 py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider"
+                >
+                  Generate Invoice{activeTab === 'class' ? 's' : ''}
+                </button>
+              </div>
+            </form>
           </div>
-
-          <div className="flex justify-center pt-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-10 py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider"
-            >
-              Generate Invoice{activeTab === 'class' ? 's' : ''}
-            </button>
-          </div>
-        </form>
+        )}
       </div>
     </div>
   );

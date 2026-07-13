@@ -738,11 +738,12 @@ def invoices_list_view(request):
         status_filter = request.query_params.get('status')
         if student_id:
             queryset = queryset.filter(student_id=student_id)
-            if status_filter:
+            if status_filter and status_filter != 'all':
                 queryset = queryset.filter(status=status_filter)
         else:
             if status_filter:
-                queryset = queryset.filter(status=status_filter)
+                if status_filter != 'all':
+                    queryset = queryset.filter(status=status_filter)
             else:
                 queryset = queryset.filter(status__in=['unpaid', 'pending', 'draft', 'issued', 'partial', 'overdue'])
         queryset = queryset.order_by('-created_at')

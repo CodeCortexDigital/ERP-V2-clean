@@ -200,6 +200,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       icon: <Banknote className="w-4 h-4" />,
       subItems: [
         { label: 'Generate Fees Invoice', href: '/education/finance/generate-invoices' },
+        { label: 'Invoices', href: '/education/finance/invoices' },
         { label: 'Collect Fees', href: '/education/finance/collect-fees' },
         { label: 'Fees Paid Slip', href: '/education/finance/fees-paid-slip' },
         { label: 'Fees Defaulters', href: '/education/finance/fees-defaulters' },
