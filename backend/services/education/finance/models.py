@@ -71,6 +71,7 @@ class Invoice(SoftDeleteModel):
     invoice_month = models.DateField(null=True, blank=True, db_index=True, help_text="First day of the month this invoice belongs to (e.g. 2026-06-01)")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='issued')
     description = models.TextField(blank=True)
+    cancellation_remarks = models.TextField(blank=True, null=True)
     breakdown = models.JSONField(default=dict, blank=True)
     is_installment = models.BooleanField(default=False)
     installment_number = models.PositiveIntegerField(null=True, blank=True)
@@ -150,7 +151,7 @@ class Invoice(SoftDeleteModel):
     
     @property
     def balance_due(self):
-        if self.status == 'carried_forward':
+        if self.status in ['carried_forward', 'cancelled']:
             return 0
         """Balance due = opening_balance + this month fee + late fee - discount - paid"""
         total_due = self.opening_balance + self.amount - self.discount_amount + self.late_fee_amount

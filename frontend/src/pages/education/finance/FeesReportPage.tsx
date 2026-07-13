@@ -55,7 +55,7 @@ export default function FeesReportPage() {
       const rawStudents = extractListData<any>(sRes.data || []);
       setStudents(rawStudents);
 
-      const res = await financeService.getInvoices().catch(() => ({ data: [] }));
+      const res = await financeService.getInvoices({ status: 'all' }).catch(() => ({ data: [] }));
       setInvoices(extractListData<any>(res.data || []));
     } catch (e) {
       console.error(e);
@@ -65,10 +65,20 @@ export default function FeesReportPage() {
     }
   };
 
+  const getInvoiceFeeMonth = (inv: Invoice) => {
+    if (inv.invoice_month) {
+      try {
+        const d = new Date(inv.invoice_month);
+        return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      } catch {}
+    }
+    return inv.fee_month || 'N/A';
+  };
+
   // Filter invoices based on inputs
   const filteredInvoices = invoices.filter(inv => {
     // Month filter
-    const isMonthMatch = inv.fee_month.toLowerCase().trim() === feeMonth.toLowerCase().trim();
+    const isMonthMatch = getInvoiceFeeMonth(inv).toLowerCase().trim() === feeMonth.toLowerCase().trim();
     if (!isMonthMatch) return false;
 
     // Class filter
@@ -77,14 +87,20 @@ export default function FeesReportPage() {
     if (!isClassMatch) return false;
 
     // Status filter
+    const totalAmt = inv.total_amount !== undefined ? inv.total_amount : (inv.amount + (inv.late_fee_amount || 0) - (inv.discount_amount || 0));
+    const balance = inv.balance_due !== undefined ? inv.balance_due : (totalAmt - (inv.paid_amount || 0));
+
     if (filterStatus === 'Paid') {
-      return inv.status === 'paid' && (inv.remaining_balance === undefined || inv.remaining_balance <= 0);
+      return (inv.status === 'paid' || balance <= 0) && inv.status !== 'cancelled';
     }
     if (filterStatus === 'Unpaid') {
-      return inv.status === 'unpaid';
+      return inv.status === 'unpaid' && balance > 0 && inv.status !== 'cancelled';
     }
     if (filterStatus === 'Partial') {
-      return inv.status === 'paid' && inv.remaining_balance !== undefined && inv.remaining_balance > 0;
+      return inv.status === 'partial' || (inv.paid_amount > 0 && balance > 0 && inv.status !== 'cancelled');
+    }
+    if (filterStatus === 'Cancelled') {
+      return inv.status === 'cancelled';
     }
     return true;
   });
@@ -96,25 +112,28 @@ export default function FeesReportPage() {
   let paidCount = 0;
   let partialCount = 0;
   let unpaidCount = 0;
+  let cancelledCount = 0;
 
   filteredInvoices.forEach(inv => {
-    // Use total_amount if available, otherwise use amount
-    const invoiceTotal = inv.total_amount || inv.amount;
-    totalGenerated += invoiceTotal;
+    if (inv.status === 'cancelled') {
+      cancelledCount++;
+      return;
+    }
     
-    if (inv.status === 'unpaid') {
-      totalPending += invoiceTotal;
-      unpaidCount++;
+    const totalAmt = inv.total_amount !== undefined ? inv.total_amount : (inv.amount + (inv.late_fee_amount || 0) - (inv.discount_amount || 0));
+    const balance = inv.balance_due !== undefined ? inv.balance_due : (totalAmt - (inv.paid_amount || 0));
+    const paidAmt = inv.paid_amount || 0;
+
+    totalGenerated += totalAmt;
+    totalCollected += paidAmt;
+    totalPending += balance;
+
+    if (inv.status === 'paid' || balance <= 0) {
+      paidCount++;
+    } else if (inv.status === 'partial' || (paidAmt > 0 && balance > 0)) {
+      partialCount++;
     } else {
-      const paid = inv.paid_amount ?? invoiceTotal;
-      const pending = inv.remaining_balance ?? 0;
-      totalCollected += paid;
-      totalPending += pending;
-      if (pending > 0) {
-        partialCount++;
-      } else {
-        paidCount++;
-      }
+      unpaidCount++;
     }
   });
 
@@ -237,6 +256,7 @@ export default function FeesReportPage() {
                 <option value="Paid">Fully Paid</option>
                 <option value="Partial">Partially Paid</option>
                 <option value="Unpaid">Unpaid</option>
+                <option value="Cancelled">Cancelled</option>
               </select>
             </div>
 
@@ -308,18 +328,22 @@ export default function FeesReportPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold">
                 {filteredInvoices.map((inv, index) => {
-                  const invoiceTotal = inv.total_amount || inv.amount;
-                  const isPaid = inv.status === 'paid' && (inv.remaining_balance === undefined || inv.remaining_balance <= 0);
-                  const isPartial = inv.status === 'paid' && inv.remaining_balance !== undefined && inv.remaining_balance > 0;
-                  const paidAmount = inv.paid_amount ?? (inv.status === 'paid' ? invoiceTotal : 0);
-                  const pendingAmount = inv.remaining_balance ?? (inv.status === 'unpaid' ? invoiceTotal : 0);
+                  const totalAmt = inv.total_amount !== undefined ? inv.total_amount : (inv.amount + (inv.late_fee_amount || 0) - (inv.discount_amount || 0));
+                  const balance = inv.balance_due !== undefined ? inv.balance_due : (totalAmt - (inv.paid_amount || 0));
+                  
+                  const isPaid = (inv.status === 'paid' || balance <= 0) && inv.status !== 'cancelled';
+                  const isCancelled = inv.status === 'cancelled';
+                  const isPartial = inv.status === 'partial' || (inv.paid_amount > 0 && balance > 0 && inv.status !== 'cancelled');
+                  
+                  const paidAmount = inv.paid_amount || 0;
+                  const pendingAmount = balance;
                   
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/30 transition-colors">
                       <td className="py-2.5 px-3 text-slate-400 font-bold">{index + 1}</td>
                       <td className="py-2.5 px-3 font-black text-slate-800">{inv.student_name}</td>
                       <td className="py-2.5 px-3 text-slate-600">{inv.class_name}</td>
-                      <td className="py-2.5 px-3 text-right">Rs {invoiceTotal.toLocaleString()}</td>
+                      <td className="py-2.5 px-3 text-right">Rs {totalAmt.toLocaleString()}</td>
                       <td className="py-2.5 px-3 text-right text-[#10B981] font-bold">
                         Rs {paidAmount.toLocaleString()}
                       </td>
@@ -329,10 +353,11 @@ export default function FeesReportPage() {
                       <td className="py-2.5 px-3 text-center">
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
                           isPaid ? 'bg-emerald-50 text-emerald-700' :
+                          isCancelled ? 'bg-slate-100 text-slate-500' :
                           isPartial ? 'bg-amber-50 text-amber-700' :
                           'bg-rose-50 text-rose-700'
                         }`}>
-                          {isPaid ? 'Paid' : isPartial ? 'Partial' : 'Unpaid'}
+                          {isPaid ? 'Paid' : isCancelled ? 'Cancelled' : isPartial ? 'Partial' : 'Unpaid'}
                         </span>
                       </td>
                     </tr>
@@ -354,7 +379,7 @@ export default function FeesReportPage() {
                     <td className="py-3 px-3 text-right text-[#10B981]">Rs {totalCollected.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-[#EF4444]">Rs {totalPending.toLocaleString()}</td>
                     <td className="py-3 px-3 text-center text-slate-400">
-                      {paidCount + partialCount + unpaidCount} invoices
+                      {paidCount + partialCount + unpaidCount} Active Invoices
                     </td>
                   </tr>
                 </tfoot>

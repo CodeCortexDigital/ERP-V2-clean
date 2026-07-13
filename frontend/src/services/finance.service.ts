@@ -150,7 +150,8 @@ const normalizeInvoice = (inv: any): Invoice => ({
   class_name: inv.class_name || inv.class__name || '',
   amount: Number(inv.amount) || 0,
   paid_amount: Number(inv.paid_amount) || 0,
-  balance_due: Number(inv.balance_due) || (Number(inv.amount) - Number(inv.paid_amount)) || 0,
+  balance_due: (inv.balance_due !== undefined && inv.balance_due !== null) ? Number(inv.balance_due) : (Number(inv.amount || 0) - Number(inv.paid_amount || 0)),
+  total_amount: (inv.total_amount !== undefined && inv.total_amount !== null) ? Number(inv.total_amount) : (Number(inv.amount || 0) + Number(inv.late_fee_amount || 0) - Number(inv.discount_amount || 0)),
   status: inv.status || 'draft',
   items: Array.isArray(inv.items) ? inv.items : [],
 });

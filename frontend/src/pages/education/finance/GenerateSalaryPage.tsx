@@ -120,7 +120,16 @@ export default function GenerateSalaryPage() {
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const rawTeachers = extractListData<any>(tRes.data || []);
       const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      const allTeachers = [...rawTeachers, ...customTeachers];
+      
+      // De-duplicate by ID (in case a custom teacher has same ID as DB teacher)
+      const uniqueTeachersMap = new Map<string, any>();
+      rawTeachers.forEach((t: any) => {
+        if (t.id) uniqueTeachersMap.set(String(t.id), t);
+      });
+      customTeachers.forEach((t: any) => {
+        if (t.id) uniqueTeachersMap.set(String(t.id), t);
+      });
+      const allTeachers = Array.from(uniqueTeachersMap.values());
 
       // Get custom extra details (like role and salary) from localStorage
       const savedExtras = localStorage.getItem('employees_extra_info');

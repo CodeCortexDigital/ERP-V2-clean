@@ -153,6 +153,17 @@ AppToaster.displayName = 'AppToaster'
 function App() {
   useEffect(() => {
     setupGlobalErrorHandlers()
+    
+    // Proactive database reset localStorage cleanup v2
+    if (!localStorage.getItem('db_reset_v3')) {
+      localStorage.removeItem('custom_teachers');
+      localStorage.removeItem('custom_salaries');
+      localStorage.removeItem('employees_extra_info');
+      localStorage.removeItem('deleted_teacher_ids');
+      localStorage.removeItem('custom_students');
+      localStorage.setItem('db_reset_v3', 'done');
+      console.log('🧹 Cleaned up local storage for fresh database reset');
+    }
   }, [])
 
   return (

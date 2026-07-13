@@ -204,8 +204,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
         { label: 'Collect Fees', href: '/education/finance/collect-fees' },
         { label: 'Fees Paid Slip', href: '/education/finance/fees-paid-slip' },
         { label: 'Fees Defaulters', href: '/education/finance/fees-defaulters' },
-        { label: 'Fees Report', href: '/education/finance/report' },
-        { label: 'Delete Fees', href: '/education/finance/delete' }
+        { label: 'Fees Report', href: '/education/finance/report' }
       ]
     },
     {

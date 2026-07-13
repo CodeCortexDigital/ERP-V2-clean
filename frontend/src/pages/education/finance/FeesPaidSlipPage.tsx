@@ -185,10 +185,23 @@ export default function FeesPaidSlipPage() {
     setSuggestions(filtered.slice(0, 5));
   };
 
-  const handleSelectStudent = (student: any) => {
+  const handleSelectStudent = async (student: any) => {
     setSelectedStudent(student);
     setSearchQuery(`${student.full_name} (${student.student_id || 'N/A'})`);
     setSuggestions([]);
+
+    try {
+      const res = await financeService.getInvoices({ student_id: student.id }).catch(() => ({ data: [] }));
+      const parsed: Invoice[] = extractListData<any>(res.data || []);
+      const matchingAll = parsed.filter(inv => 
+        String(inv.student) === String(student.id) || 
+        String(inv.student_id) === String(student.id) || 
+        (inv.student && String(inv.student.id) === String(student.id))
+      );
+      setStudentHistory(matchingAll);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleGenerateReceipt = async (e: React.FormEvent) => {
@@ -601,93 +614,173 @@ export default function FeesPaidSlipPage() {
       {/* MAIN SCREEN SECTION (Hidden on print) */}
       <div className="print:hidden">
         {!activeReceipt ? (
-          isStudent ? (
-            <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center py-12 space-y-4">
-              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 mx-auto text-xl">
-                ⚠️
-              </div>
-              <h3 className="font-extrabold text-base text-slate-800">No Paid Fee Receipt Found</h3>
-              <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
-                There are no paid fee slip records generated for your account. Please contact the administration department.
-              </p>
-            </div>
-          ) : (
-            /* SEARCH CARD */
-            <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-650 mx-auto">
-                  📄
+          <div className="space-y-8">
+            {isStudent ? (
+              studentHistory.length === 0 ? (
+                <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm text-center py-12 space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 mx-auto text-xl">
+                    ⚠️
+                  </div>
+                  <h3 className="font-extrabold text-base text-slate-800">No Paid Fee Receipt Found</h3>
+                  <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto leading-relaxed">
+                    There are no paid fee slip records generated for your account. Please contact the administration department.
+                  </p>
                 </div>
-                <h3 className="font-extrabold text-lg text-slate-800">Fees Paid Receipt</h3>
-                <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto">
-                  Select a student and fee month to view or print their paid receipt.
-                </p>
-              </div>
-
-            <form onSubmit={handleGenerateReceipt} className="space-y-5">
-              {/* FIXED: Fee Month with Calendar Picker */}
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEE MONTH *</label>
-                <div className="relative">
-                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="month"
-                    value={getMonthValue(feeMonth)}
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-                      const formatted = formatMonthValue(e.target.value);
-                      setFeeMonth(formatted);
-                    }}
-                    required
-                    className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-                  />
-                </div>
-              </div>
-
-              <div className="relative">
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SEARCH STUDENT *</label>
-                <div className="relative flex items-center">
-                  <Search className="absolute left-3.5 w-4.5 h-4.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Type student name or registration number"
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-                  />
+              ) : null
+            ) : (
+              /* SEARCH CARD */
+              <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-650 mx-auto">
+                    📄
+                  </div>
+                  <h3 className="font-extrabold text-lg text-slate-800">Fees Paid Receipt</h3>
+                  <p className="text-xs text-slate-400 font-semibold max-w-xs mx-auto">
+                    Select a student and fee month to view or print their paid receipt.
+                  </p>
                 </div>
 
-                {/* Suggestions */}
-                {suggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-50 overflow-hidden divide-y divide-slate-50">
-                    {suggestions.map(s => (
-                      <div
-                        key={s.id}
-                        onClick={() => handleSelectStudent(s)}
-                        className="p-3 hover:bg-purple-50/50 cursor-pointer text-xs font-semibold text-slate-700 flex justify-between items-center"
-                      >
-                        <span>{s.full_name}</span>
-                        <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-full">
-                          Reg: {s.student_id || 'N/A'}
-                        </span>
+                <form onSubmit={handleGenerateReceipt} className="space-y-5">
+                  {/* FIXED: Fee Month with Calendar Picker */}
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEE MONTH *</label>
+                    <div className="relative">
+                      <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="month"
+                        value={getMonthValue(feeMonth)}
+                        onChange={(e) => {
+                          if (!e.target.value) return;
+                          const formatted = formatMonthValue(e.target.value);
+                          setFeeMonth(formatted);
+                        }}
+                        required
+                        className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">SEARCH STUDENT *</label>
+                    <div className="relative flex items-center">
+                      <Search className="absolute left-3.5 w-4.5 h-4.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Type student name or registration number"
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-655 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+                      />
+                    </div>
+
+                    {/* Suggestions */}
+                    {suggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-50 overflow-hidden divide-y divide-slate-50">
+                        {suggestions.map(s => (
+                          <div
+                            key={s.id}
+                            onClick={() => handleSelectStudent(s)}
+                            className="p-3 hover:bg-purple-50/50 cursor-pointer text-xs font-semibold text-slate-700 flex justify-between items-center"
+                          >
+                            <span>{s.full_name}</span>
+                            <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-full">
+                              Reg: {s.student_id || 'N/A'}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                  </div>
+
+                  <div className="pt-2 flex justify-center">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-10 py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider"
+                    >
+                      Generate Receipt
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Complete Invoice & Payment History */}
+            {((isStudent && studentHistory.length > 0) || (!isStudent && selectedStudent)) && (
+              <div className="max-w-4xl mx-auto bg-white p-6 rounded-2xl border border-slate-150 shadow-sm space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <h4 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">
+                    {isStudent ? 'My Invoice & Payment History' : `Invoice History for ${selectedStudent.full_name}`}
+                  </h4>
+                  <span className="text-[10px] font-bold bg-purple-50 text-[#5C53CD] px-2.5 py-1 rounded-full uppercase">
+                    {studentHistory.length} Invoice{studentHistory.length !== 1 ? 's' : ''} Found
+                  </span>
+                </div>
+
+                {studentHistory.length === 0 ? (
+                  <p className="text-xs text-slate-400 font-bold py-6 text-center">No invoices generated for this student yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/70 border-b border-slate-150 text-[10px] font-black text-slate-455 uppercase tracking-wider">
+                          <th className="py-2.5 px-3">Invoice No</th>
+                          <th className="py-2.5 px-3">Month</th>
+                          <th className="py-2.5 px-3">Type</th>
+                          <th className="py-2.5 px-3 text-right">Total Amount</th>
+                          <th className="py-2.5 px-3 text-right">Paid</th>
+                          <th className="py-2.5 px-3 text-right">Pending</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                          <th className="py-2.5 px-3 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                        {studentHistory.map(inv => {
+                          const totalAmt = inv.total_amount !== undefined ? inv.total_amount : (inv.amount + (inv.late_fee_amount || 0) - (inv.discount_amount || 0));
+                          const balance = inv.balance_due !== undefined ? inv.balance_due : (totalAmt - (inv.paid_amount || 0));
+
+                          return (
+                            <tr key={inv.id} className="hover:bg-slate-50/30 transition-colors">
+                              <td className="py-3.5 px-3 font-mono text-slate-655 uppercase tracking-tight">{inv.invoice_number}</td>
+                              <td className="py-3.5 px-3">{getInvoiceFeeMonth(inv)}</td>
+                              <td className="py-3.5 px-3 uppercase text-[10px] text-slate-500">{inv.invoice_type || 'Tuition'}</td>
+                              <td className="py-3.5 px-3 text-right font-bold">Rs {Number(totalAmt).toLocaleString()}</td>
+                              <td className="py-3.5 px-3 text-right text-emerald-600 font-bold">Rs {Number(inv.paid_amount || 0).toLocaleString()}</td>
+                              <td className="py-3.5 px-3 text-right font-bold text-slate-655">Rs {Number(balance).toLocaleString()}</td>
+                              <td className="py-3.5 px-3 text-center">
+                                {inv.status === 'paid' || balance <= 0 ? (
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 border border-emerald-100 text-emerald-600">Paid</span>
+                                ) : inv.status === 'cancelled' ? (
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-400" title={`Cancellation Remarks: ${inv.cancellation_remarks || 'None'}`}>Cancelled</span>
+                                ) : inv.status === 'partial' || (inv.paid_amount > 0 && balance > 0) ? (
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 border border-amber-100 text-amber-600">Partial</span>
+                                ) : (
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-500">Unpaid</span>
+                                )}
+                              </td>
+                              <td className="py-3.5 px-3 text-center">
+                                {(inv.status === 'paid' || inv.status === 'partial') ? (
+                                  <button
+                                    onClick={() => setActiveReceipt(inv)}
+                                    className="px-3 py-1.5 bg-purple-50 text-purple-650 hover:bg-purple-100 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+                                  >
+                                    View Slip
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-slate-400 italic">No Slip</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
-
-              <div className="pt-2 flex justify-center">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-10 py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider"
-                >
-                  Generate Receipt
-                </button>
-              </div>
-            </form>
+            )}
           </div>
-        )) : (
+        ) : (
           /* PRINTABLE PAID RECEIPT SLIP CARD */
           <div className="max-w-4xl mx-auto space-y-6">
             {!isStudent && (
@@ -833,6 +926,87 @@ export default function FeesPaidSlipPage() {
                 * This is a computer generated receipt. Thank you for your payment.
               </div>
 
+            </div>
+
+            {/* Invoice & Payment History at the bottom of active receipt (print:hidden) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-sm space-y-4 print:hidden">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h4 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">
+                  Invoice & Payment History
+                </h4>
+                <span className="text-[10px] font-bold bg-purple-50 text-[#5C53CD] px-2.5 py-1 rounded-full uppercase">
+                  {studentHistory.length} Invoice{studentHistory.length !== 1 ? 's' : ''} Found
+                </span>
+              </div>
+
+              {studentHistory.length === 0 ? (
+                <p className="text-xs text-slate-400 font-bold py-4 text-center">No invoices generated for this student yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/70 border-b border-slate-150 text-[10px] font-black text-slate-455 uppercase tracking-wider">
+                        <th className="py-2.5 px-3">Invoice No</th>
+                        <th className="py-2.5 px-3">Month</th>
+                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3 text-right">Total Amount</th>
+                        <th className="py-2.5 px-3 text-right">Paid</th>
+                        <th className="py-2.5 px-3 text-right">Pending</th>
+                        <th className="py-2.5 px-3 text-center">Status</th>
+                        <th className="py-2.5 px-3 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                      {studentHistory.map(inv => {
+                        const totalAmt = inv.total_amount !== undefined ? inv.total_amount : (inv.amount + (inv.late_fee_amount || 0) - (inv.discount_amount || 0));
+                        const balance = inv.balance_due !== undefined ? inv.balance_due : (totalAmt - (inv.paid_amount || 0));
+                        const isCurrent = String(inv.id) === String(activeReceipt.id);
+
+                        return (
+                          <tr key={inv.id} className={`hover:bg-slate-50/30 transition-colors ${isCurrent ? 'bg-purple-50/30 font-bold' : ''}`}>
+                            <td className="py-3.5 px-3 font-mono text-slate-655 uppercase tracking-tight">
+                              {inv.invoice_number}
+                              {isCurrent && <span className="ml-1.5 inline-block text-[9px] font-black tracking-widest text-[#5C53CD] uppercase bg-purple-100 px-1.5 py-0.5 rounded-sm">Current</span>}
+                            </td>
+                            <td className="py-3.5 px-3">{getInvoiceFeeMonth(inv)}</td>
+                            <td className="py-3.5 px-3 uppercase text-[10px] text-slate-500">{inv.invoice_type || 'Tuition'}</td>
+                            <td className="py-3.5 px-3 text-right font-bold">Rs {Number(totalAmt).toLocaleString()}</td>
+                            <td className="py-3.5 px-3 text-right text-emerald-600 font-bold">Rs {Number(inv.paid_amount || 0).toLocaleString()}</td>
+                            <td className="py-3.5 px-3 text-right font-bold text-slate-655">Rs {Number(balance).toLocaleString()}</td>
+                            <td className="py-3.5 px-3 text-center">
+                              {inv.status === 'paid' || balance <= 0 ? (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 border border-emerald-100 text-emerald-600">Paid</span>
+                              ) : inv.status === 'cancelled' ? (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-400" title={`Cancellation Remarks: ${inv.cancellation_remarks || 'None'}`}>Cancelled</span>
+                              ) : inv.status === 'partial' || (inv.paid_amount > 0 && balance > 0) ? (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 border border-amber-100 text-amber-600">Partial</span>
+                              ) : (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-500">Unpaid</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-3 text-center">
+                              {(inv.status === 'paid' || inv.status === 'partial') ? (
+                                <button
+                                  disabled={isCurrent}
+                                  onClick={() => {
+                                    setActiveReceipt(inv);
+                                    setFeeMonth(getInvoiceFeeMonth(inv));
+                                  }}
+                                  className="px-3 py-1.5 bg-purple-50 disabled:opacity-50 text-purple-650 hover:bg-purple-100 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+                                >
+                                  View Slip
+                                </button>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-400 italic">No Slip</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

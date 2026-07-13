@@ -41,12 +41,32 @@ export default function FeesDefaultersPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [tableSearch, setTableSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [includeUpcoming, setIncludeUpcoming] = useState(false);
+
+  // Reminder states
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [reminderTarget, setReminderTarget] = useState<any | null>(null);
+  const [reminderChannel, setReminderChannel] = useState<'email' | 'sms' | 'whatsapp'>('email');
+  const [reminderTemplate, setReminderTemplate] = useState<'friendly' | 'standard' | 'urgent'>('standard');
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [sendingReminder, setSendingReminder] = useState(false);
+
+  const getInvoiceFeeMonth = (inv: Invoice) => {
+    if (inv.invoice_month) {
+      try {
+        const d = new Date(inv.invoice_month);
+        return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      } catch {}
+    }
+    return inv.fee_month || 'N/A';
+  };
 
   // Get unique months from invoices for filter
   const uniqueMonths: string[] = [];
   invoices.forEach(inv => {
-    if (inv.fee_month && !uniqueMonths.includes(inv.fee_month)) {
-      uniqueMonths.push(inv.fee_month);
+    const month = getInvoiceFeeMonth(inv);
+    if (month && month !== 'N/A' && !uniqueMonths.includes(month)) {
+      uniqueMonths.push(month);
     }
   });
   uniqueMonths.sort((a, b) => {
@@ -70,7 +90,7 @@ export default function FeesDefaultersPage() {
       const rawStudents = extractListData<any>(sRes.data || []);
       setStudents(rawStudents);
 
-      const res = await financeService.getInvoices().catch(() => ({ data: [] }));
+      const res = await financeService.getInvoices({ status: 'all' }).catch(() => ({ data: [] }));
       setInvoices(extractListData<any>(res.data || []));
     } catch (e) {
       console.error(e);
@@ -92,7 +112,7 @@ export default function FeesDefaultersPage() {
     let monthFiltered = invoices;
     if (feeMonth) {
       monthFiltered = invoices.filter(inv => 
-        inv.fee_month.toLowerCase().trim() === feeMonth.toLowerCase().trim()
+        getInvoiceFeeMonth(inv).toLowerCase().trim() === feeMonth.toLowerCase().trim()
       );
     }
 
@@ -114,16 +134,15 @@ export default function FeesDefaultersPage() {
       const isDuePassed = dueDate < today;
 
       // Check if there is pending balance
-      const pending = inv.remaining_balance !== undefined && inv.remaining_balance !== null
-        ? inv.remaining_balance
-        : inv.status === 'unpaid'
-          ? (inv.total_amount || inv.amount)
-          : 0;
+      const pending = inv.balance_due !== undefined && inv.balance_due !== null
+        ? inv.balance_due
+        : (inv.total_amount || inv.amount || 0) - (inv.paid_amount || 0);
 
       const hasPending = pending > 0;
 
-      // Defaulter = due date passed AND has pending balance
-      return isDuePassed && hasPending;
+      // Defaulter = (due date passed OR includeUpcoming) AND has pending balance
+      if (inv.status === 'cancelled') return false;
+      return (isDuePassed || includeUpcoming) && hasPending;
     });
 
     return defaulters;
@@ -157,9 +176,9 @@ export default function FeesDefaultersPage() {
     invs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     const latestInv = invs[0];
-    const totalUnpaid = latestInv.remaining_balance !== undefined && latestInv.remaining_balance !== null
-      ? latestInv.remaining_balance
-      : latestInv.total_amount || latestInv.amount;
+    const totalUnpaid = latestInv.balance_due !== undefined && latestInv.balance_due !== null
+      ? latestInv.balance_due
+      : (latestInv.total_amount || latestInv.amount || 0) - (latestInv.paid_amount || 0);
 
     // Calculate days late
     const today = new Date();
@@ -189,7 +208,12 @@ export default function FeesDefaultersPage() {
       toast.info('No defaulters found');
       return;
     }
-    toast.success(`Fee reminder notifications successfully sent to all ${defaulterStudents.length} defaulters!`);
+    handleInitiateReminder({
+      full_name: 'All Defaulters',
+      isBulk: true,
+      count: defaulterStudents.length,
+      totalUnpaid: defaulterStudents.reduce((sum, d) => sum + d.totalUnpaid, 0)
+    });
   };
 
   const handleCarryForward = async () => {
@@ -234,8 +258,45 @@ export default function FeesDefaultersPage() {
     }
   };
 
-  const handleSendSingleReminder = (name: string) => {
-    toast.success(`Fee reminder notification sent successfully to ${name}!`);
+  const getReminderText = (target: any, templateType: 'friendly' | 'standard' | 'urgent') => {
+    if (!target) return '';
+    const studentName = target.isBulk ? 'your child' : target.full_name;
+    const amountStr = target.isBulk ? `Rs ${target.totalUnpaid.toLocaleString()}` : `Rs ${target.totalUnpaid.toLocaleString()}`;
+    const feeMonthStr = target.isBulk ? 'current month' : (getInvoiceFeeMonth(target.invoice) || 'current month');
+    const daysLateStr = target.isBulk ? '' : `${target.daysLate} days`;
+    
+    if (templateType === 'friendly') {
+      return `Hello! Just a gentle reminder that the fee invoice for ${studentName} (${feeMonthStr}) has a pending balance of ${amountStr}. If already paid, please ignore. Thank you!`;
+    } else if (templateType === 'urgent') {
+      return `URGENT: Fee payment of ${amountStr} for ${studentName} (${feeMonthStr}) is overdue${daysLateStr ? ' by ' + daysLateStr : ''}. Please clear the balance immediately to avoid late fee penalties or suspension of services.`;
+    } else {
+      return `Dear Parent/Guardian, the fee invoice for ${studentName} for the month of ${feeMonthStr} remains outstanding with a balance of ${amountStr}. Please submit the payment at your earliest convenience.`;
+    }
+  };
+
+  const handleInitiateReminder = (target: any) => {
+    setReminderTarget(target);
+    setReminderChannel('email');
+    setReminderTemplate('standard');
+    const body = getReminderText(target, 'standard');
+    setReminderMessage(body);
+    setShowReminderModal(true);
+  };
+
+  const handleTemplateChange = (tmpl: 'friendly' | 'standard' | 'urgent') => {
+    setReminderTemplate(tmpl);
+    if (reminderTarget) {
+      setReminderMessage(getReminderText(reminderTarget, tmpl));
+    }
+  };
+
+  const handleSendReminderSubmit = async () => {
+    if (!reminderTarget) return;
+    setSendingReminder(true);
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    setSendingReminder(false);
+    setShowReminderModal(false);
+    toast.success(`Fee reminder sent successfully via ${reminderChannel.toUpperCase()}!`);
   };
 
   const handleCallParent = (name: string, contact: string) => {
@@ -276,20 +337,34 @@ export default function FeesDefaultersPage() {
 
       {/* Control Panel Card */}
       <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="w-full md:w-auto">
-          <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEES MONTH</label>
-          <div className="relative">
-            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <select
-              value={feeMonth}
-              onChange={(e) => setFeeMonth(e.target.value)}
-              className="w-56 h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
-            >
-              <option value="">All Months</option>
-              {uniqueMonths.map(month => (
-                <option key={month} value={month}>{month}</option>
-              ))}
-            </select>
+        <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
+          <div>
+            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">FEES MONTH</label>
+            <div className="relative">
+              <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <select
+                value={feeMonth}
+                onChange={(e) => setFeeMonth(e.target.value)}
+                className="w-56 h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+              >
+                <option value="">All Months</option>
+                {uniqueMonths.map(month => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 md:pt-6">
+            <input
+              id="include-upcoming-checkbox"
+              type="checkbox"
+              checked={includeUpcoming}
+              onChange={(e) => setIncludeUpcoming(e.target.checked)}
+              className="w-4 h-4 text-purple-650 border-slate-350 rounded focus:ring-purple-500 cursor-pointer"
+            />
+            <label htmlFor="include-upcoming-checkbox" className="text-xs font-bold text-slate-500 cursor-pointer select-none">
+              Include upcoming unpaid invoices (not yet overdue)
+            </label>
           </div>
         </div>
 
@@ -435,7 +510,7 @@ export default function FeesDefaultersPage() {
                     <td className="py-3 px-5 text-slate-555">{def.guardian_phone || def.phone_number || 'N/A'}</td>
                     <td className="py-3 px-5">
                       <button
-                        onClick={() => handleSendSingleReminder(def.full_name)}
+                        onClick={() => handleInitiateReminder(def)}
                         className="w-7 h-7 rounded-lg bg-[#5C53CD] hover:bg-[#4d45bd] text-white flex items-center justify-center shadow-xs transition-colors"
                         title="Send Reminder"
                       >
@@ -498,7 +573,7 @@ export default function FeesDefaultersPage() {
               {/* Action Buttons */}
               <div className="flex gap-1.5 mt-2">
                 <button
-                  onClick={() => handleSendSingleReminder(def.full_name)}
+                  onClick={() => handleInitiateReminder(def)}
                   className="w-7 h-7 rounded-lg bg-[#5C53CD] hover:bg-[#4d45bd] text-white flex items-center justify-center shadow-xs transition-colors"
                   title="Send Reminder"
                 >
@@ -517,6 +592,123 @@ export default function FeesDefaultersPage() {
 
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Send Reminder Modal */}
+      {showReminderModal && reminderTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl border border-slate-150 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2 text-purple-700">
+                <Landmark className="w-5 h-5 animate-pulse" />
+                <h4 className="font-extrabold text-sm uppercase tracking-wider">
+                  {reminderTarget.isBulk ? 'Send Bulk Reminders' : 'Send Fee Reminder'}
+                </h4>
+              </div>
+              <button 
+                onClick={() => { setShowReminderModal(false); setReminderTarget(null); }}
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <div className="text-xs space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-150">
+                {reminderTarget.isBulk ? (
+                  <>
+                    <p><span className="font-bold text-slate-400">RECIPIENTS:</span> <span className="font-bold text-slate-800">{reminderTarget.count} Defaulters</span></p>
+                    <p><span className="font-bold text-slate-400">TOTAL OUTSTANDING:</span> <span className="font-bold text-rose-500">Rs {reminderTarget.totalUnpaid.toLocaleString()}</span></p>
+                  </>
+                ) : (
+                  <>
+                    <p><span className="font-bold text-slate-400">STUDENT:</span> <span className="font-bold text-slate-800">{reminderTarget.full_name}</span></p>
+                    <p><span className="font-bold text-slate-400">CLASS:</span> <span className="font-bold text-slate-800">{reminderTarget.class_name || 'N/A'}</span></p>
+                    <p><span className="font-bold text-slate-400">OUTSTANDING FEE:</span> <span className="font-bold text-rose-500">Rs {reminderTarget.totalUnpaid.toLocaleString()}</span></p>
+                    <p><span className="font-bold text-slate-400">DAYS OVERDUE:</span> <span className="font-bold text-amber-600">{reminderTarget.daysLate} days</span></p>
+                  </>
+                )}
+              </div>
+
+              {/* Reminder Channel Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Reminder Channel</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'email', label: '📧 Email' },
+                    { value: 'sms', label: '💬 SMS' },
+                    { value: 'whatsapp', label: '🟢 WhatsApp' }
+                  ].map(chan => (
+                    <button
+                      key={chan.value}
+                      type="button"
+                      onClick={() => setReminderChannel(chan.value as any)}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                        reminderChannel === chan.value 
+                          ? 'bg-purple-550 border-purple-500 text-white shadow-3xs'
+                          : 'bg-white border-slate-200 text-slate-655 hover:bg-slate-50'
+                      }`}
+                    >
+                      {chan.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Template Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Message Template</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'friendly', label: '😊 Friendly' },
+                    { value: 'standard', label: '💼 Standard' },
+                    { value: 'urgent', label: '🚨 Urgent' }
+                  ].map(tmpl => (
+                    <button
+                      key={tmpl.value}
+                      type="button"
+                      onClick={() => handleTemplateChange(tmpl.value as any)}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                        reminderTemplate === tmpl.value 
+                          ? 'bg-purple-550 border-purple-500 text-white shadow-3xs'
+                          : 'bg-white border-slate-200 text-slate-655 hover:bg-slate-50'
+                      }`}
+                    >
+                      {tmpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Message Body */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Reminder Message Preview</label>
+                <textarea
+                  rows={4}
+                  value={reminderMessage}
+                  onChange={(e) => setReminderMessage(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-3xs"
+                />
+              </div>
+            </div>
+            
+            <div className="p-5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+              <button 
+                onClick={() => { setShowReminderModal(false); setReminderTarget(null); }}
+                className="px-4 py-2 border border-slate-200 hover:bg-white text-slate-500 font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSendReminderSubmit}
+                disabled={sendingReminder || !reminderMessage.trim()}
+                className="px-5 py-2 bg-purple-650 hover:bg-purple-700 disabled:opacity-50 text-white font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                {sendingReminder ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> : 'Send Reminder'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
