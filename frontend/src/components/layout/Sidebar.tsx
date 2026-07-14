@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Settings, BookOpen, GraduationCap, Users, 
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText, 
   Eye, MessageSquare, Mail, Video, FileQuestion, 
-  Edit, Award, Lock, Unlock, Plus, Minus, Search, X, ChevronRight, ChevronLeft, LogOut,
+  Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
   DollarSign, ShoppingCart
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
@@ -37,6 +37,31 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [flyoutPos, setFlyoutPos] = useState<{ top: number; left: number } | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const openFlyout = (id: string, rect: DOMRect, count: number) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    const estHeight = Math.min(count * 34 + 16, window.innerHeight * 0.8);
+    let top = rect.top;
+    if (top + estHeight > window.innerHeight - 8) {
+      top = Math.max(8, window.innerHeight - estHeight - 8);
+    }
+    setHoveredId(id);
+    setFlyoutPos({ top, left: rect.right });
+  };
+
+  const scheduleClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      setHoveredId(null);
+      setFlyoutPos(null);
+    }, 180);
+  };
+
+  const cancelClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  };
   const [theme, setTheme] = useState({
     sidebarBg: 'Dark',
     activeColor: 'Soft Light Purple'
@@ -635,7 +660,6 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       {/* Navigation List */}
       <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1 custom-scrollbar">
         {filteredMenuItems.map((item) => {
-          const isExpanded = expandedItems.includes(item.id) || hoveredId === item.id || !!searchQuery;
           const hasSub = item.subItems && item.subItems.length > 0;
           const hasActiveSub = item.subItems?.some(sub => isLinkActive(sub.href));
           const isSettingsItem = item.id === 'settings';
@@ -675,15 +699,15 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
             <div
               key={item.id}
               className="space-y-0.5"
-              onMouseEnter={() => !isCollapsed && setHoveredId(item.id)}
-              onMouseLeave={() => setHoveredId(null)}
+              onMouseEnter={(e) => openFlyout(item.id, e.currentTarget.getBoundingClientRect(), item.subItems?.length || 0)}
+              onMouseLeave={scheduleClose}
             >
               {/* Parent Toggle Item */}
               <button
                 onClick={() => isCollapsed ? toggleSidebar() : toggleExpand(item.id)}
                 className={`
                   w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left
-                  ${isActive || isExpanded
+                  ${isActive || hoveredId === item.id
                     ? `${activeStyle.bg} ${activeStyle.text}`
                     : isDarkSidebar ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-slate-700 hover:bg-slate-50'
                   }
@@ -700,15 +724,20 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                   <div className="flex items-center gap-1">
                     {item.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500" />}
                     <span className="text-slate-400 hover:text-slate-600 text-xs font-bold px-1">
-                      {isExpanded ? <Minus className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                      <ChevronRight className="w-3 h-3" />
                     </span>
                   </div>
                 )}
               </button>
 
-              {/* Nested Sub-Menu Items */}
-              {!isCollapsed && isExpanded && (
-                <div className={`relative ml-6 pl-3 border-l-2 ${isDarkSidebar ? 'border-slate-700' : 'border-blue-500'} space-y-1 py-1`}>
+              {/* Right-side Flyout Sub-Menu */}
+              {hoveredId === item.id && flyoutPos && (
+                <div
+                  className={`fixed z-50 min-w-[220px] max-h-[80vh] overflow-y-auto custom-scrollbar rounded-lg shadow-2xl border py-2 px-2 space-y-1 ${isDarkSidebar ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+                  style={{ top: flyoutPos.top, left: flyoutPos.left }}
+                  onMouseEnter={cancelClose}
+                  onMouseLeave={scheduleClose}
+                >
                   {item.subItems?.map((sub, idx) => {
                     // Render divider
                     if (sub.isDivider) {
