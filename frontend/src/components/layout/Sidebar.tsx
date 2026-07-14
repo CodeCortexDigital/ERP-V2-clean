@@ -36,6 +36,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [theme, setTheme] = useState({
     sidebarBg: 'Dark',
     activeColor: 'Soft Light Purple'
@@ -634,7 +635,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       {/* Navigation List */}
       <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1 custom-scrollbar">
         {filteredMenuItems.map((item) => {
-          const isExpanded = expandedItems.includes(item.id) || !!searchQuery;
+          const isExpanded = expandedItems.includes(item.id) || hoveredId === item.id || !!searchQuery;
           const hasSub = item.subItems && item.subItems.length > 0;
           const hasActiveSub = item.subItems?.some(sub => isLinkActive(sub.href));
           const isSettingsItem = item.id === 'settings';
@@ -671,7 +672,12 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
           const isActive = isSettingsItem ? isSettingsActive() : hasActiveSub;
 
           return (
-            <div key={item.id} className="space-y-0.5">
+            <div
+              key={item.id}
+              className="space-y-0.5"
+              onMouseEnter={() => !isCollapsed && setHoveredId(item.id)}
+              onMouseLeave={() => setHoveredId(null)}
+            >
               {/* Parent Toggle Item */}
               <button
                 onClick={() => isCollapsed ? toggleSidebar() : toggleExpand(item.id)}
