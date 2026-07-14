@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.apps import apps
-from django.db import models
+from django.db import models, IntegrityError
 from .models import Student
 from .serializers import StudentSerializer
 from services.core.accounts.decorators import (
@@ -15,8 +15,25 @@ from services.core.accounts.decorators import (
 from services.core.utils.filters import parse_status_param
 from services.core.tenants.scoping import scope_queryset, save_with_tenant
 from services.core.utils.cache import CachedListResponseMixin, CacheKeys
+from django.core.cache import cache
+from django.conf import settings
 from django.views.decorators.cache import never_cache
 import uuid
+
+
+def _student_list_cache_prefix():
+    prefix = settings.CACHES.get('default', {}).get('KEY_PREFIX', '')
+    return f'{prefix}:' if prefix else ''
+
+
+def invalidate_student_list_cache(user):
+    """Drop cached student-list responses for a user so edits are visible immediately."""
+    user_id = str(getattr(user, 'id', 'anon'))
+    pattern = f'{_student_list_cache_prefix()}student_list:{user_id}:*'
+    try:
+        cache.delete_pattern(pattern)
+    except Exception:
+        pass
 
 # Get other models dynamically
 Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
@@ -51,7 +68,14 @@ class StudentListCreateView(CachedListResponseMixin, generics.ListCreateAPIView)
         extra = {}
         if not serializer.validated_data.get('student_id'):
             extra['student_id'] = f"STU-{uuid.uuid4().hex[:8].upper()}"
-        save_with_tenant(serializer, self.request, **extra)
+        try:
+            save_with_tenant(serializer, self.request, **extra)
+        except IntegrityError:
+            # Extremely rare race on student_id; regenerate and retry once.
+            from .serializers import generate_unique_student_id
+            serializer.validated_data['student_id'] = generate_unique_student_id()
+            save_with_tenant(serializer, self.request)
+        invalidate_student_list_cache(self.request.user)
 
 
 class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -59,7 +83,11 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = StudentSerializer
     lookup_field = 'id'
-    
+
+    def perform_update(self, serializer):
+        serializer.save()
+        invalidate_student_list_cache(self.request.user)
+
     def get_queryset(self):
         qs = scope_queryset(Student.objects.all(), self.request)
         return filter_students_for_user(self.request.user, qs)

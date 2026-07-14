@@ -469,6 +469,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       response = await studentService.createWithFile(formDataToSend);
     }
 
+    if (!response) {
+      toast.error('Save failed — the server did not confirm the update. Check the console / backend logs.');
+      setSaving(false);
+      return;
+    }
+
     toast.success(isNewStudent ? 'Student created successfully!' : 'Student record updated successfully!');
     
     setProfilePictureFile(null);

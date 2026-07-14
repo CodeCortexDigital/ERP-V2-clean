@@ -72,7 +72,15 @@ class StudentListCreateView(VersionedViewMixin, _StudentListCreateView):
                 'father_name', 'mother_name', 'guardian_name',
                 'guardian_phone', 'address', 'city', 'state',
                 'postal_code', 'is_active', 'profile_picture',
-                'current_class', 'current_section'
+                'current_class', 'current_section',
+                'additional_note', 'discount_in_fee', 'identification_mark',
+                'blood_group', 'disease', 'birth_form_id', 'cast',
+                'previous_school', 'previous_id', 'orphan_student', 'osc',
+                'religion', 'select_family', 'family_type', 'total_siblings',
+                'father_national_id', 'father_occupation', 'father_education',
+                'father_mobile', 'father_profession', 'father_income',
+                'mother_national_id', 'mother_occupation', 'mother_education',
+                'mother_mobile', 'mother_profession', 'mother_income',
             ]
             
             filtered_data = {
@@ -284,9 +292,52 @@ def get_payments_list(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_attendance_dashboard_stats(request):
+    """Real TODAY attendance summary for the admin dashboard (students)."""
+    from django.utils import timezone
+    from django.apps import apps
+
+    today = timezone.localtime().date()
+    try:
+        Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+    except LookupError:
+        return Response({
+            'students': {'total': 0, 'present': 0, 'late': 0, 'absent': 0, 'present_pct': 0, 'absent_list': []},
+            'employees': {'total': 0, 'present': 0, 'present_pct': 0},
+        })
+
+    student_qs = (
+        Attendance.objects
+        .select_related('student', 'student__current_class')
+        .filter(date=today)
+        .exclude(status='holiday')
+        .exclude(student__isnull=True)
+    )
+
+    total_s = student_qs.count()
+    present_s = student_qs.filter(status='present').count()
+    late_s = student_qs.filter(status='late').count()
+    absent_s = student_qs.filter(status='absent').count()
+    present_pct = round(((present_s + late_s) / total_s * 100)) if total_s > 0 else 0
+
+    absent_list = []
+    for rec in student_qs.filter(status='absent').select_related('student__current_class')[:10]:
+        absent_list.append({
+            'name': getattr(rec.student, 'full_name', '—') if rec.student else '—',
+            'class': rec.student.current_class.name if rec.student and rec.student.current_class else '—',
+            'student_id': str(rec.student_id),
+        })
+
     return Response({
-        'students': {'total': 0, 'present': 0, 'late': 0, 'absent': 0, 'present_pct': 0, 'absent_list': []},
-        'employees': {'total': 0, 'present': 0, 'present_pct': 0}
+        'date': str(today),
+        'students': {
+            'total': total_s,
+            'present': present_s,
+            'late': late_s,
+            'absent': absent_s,
+            'present_pct': present_pct,
+            'absent_list': absent_list,
+        },
+        'employees': {'total': 0, 'present': 0, 'present_pct': 0},
     })
 
 

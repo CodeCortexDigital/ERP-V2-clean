@@ -23,6 +23,9 @@ from services.education.finance.views import (
     StudentScholarshipDetailView,
     LateFeeRuleListCreateView,
     LateFeeRuleDetailView,
+    TransactionLogListView,
+    finance_summary,
+    monthly_revenue_chart,
 )
 
 urlpatterns = [
@@ -75,6 +78,11 @@ urlpatterns = [
     path('student-scholarships/<str:id>/', StudentScholarshipDetailView.as_view(), name='student-scholarship-detail'),
     path('late-fee-rules/', LateFeeRuleListCreateView.as_view(), name='late-fee-rules'),
     path('late-fee-rules/<str:id>/', LateFeeRuleDetailView.as_view(), name='late-fee-rule-detail'),
+
+    # Root aliases for finance analytics/summary (also mounted under auth/finance/)
+    path('finance-summary/', finance_summary, name='finance-summary-root'),
+    path('transaction-logs/', TransactionLogListView.as_view(), name='transaction-logs-root'),
+    path('analytics/monthly-revenue/', monthly_revenue_chart, name='monthly-revenue-root'),
     
     # ============================================================
     # SUBJECTS

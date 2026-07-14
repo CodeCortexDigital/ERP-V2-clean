@@ -122,7 +122,7 @@ export default function AddStudentPage() {
     
     loadClasses();
 
-    api.get('/auth/students/?page_size=100').then((res) => {
+    api.get('/students/?page_size=100').then((res) => {
       const data = res.data as any;
       const list: any[] = Array.isArray(data)
         ? data
@@ -235,7 +235,7 @@ export default function AddStudentPage() {
     setLoading(true);
 
     try {
-      const checkRes = await api.get(`/auth/students/?search=${encodeURIComponent(formData.registration_no)}`);
+      const checkRes = await api.get(`/students/?search=${encodeURIComponent(formData.registration_no)}`);
       const checkData = checkRes.data as any;
       const checkList: any[] = Array.isArray(checkData)
         ? checkData
@@ -271,9 +271,36 @@ export default function AddStudentPage() {
       address: formData.address || '',
       is_active: formData.status === 'Active',
       current_class: classId,
-      profile_picture: profilePicture || null,
       guardian_name: formData.father_name || formData.student_name,
       guardian_phone: formData.father_mobile || formData.mobile_sms || '',
+      // Extended "Other Information" / guardian detail fields
+      discount_in_fee: formData.discount_in_fee || '',
+      identification_mark: formData.identification_mark || '',
+      blood_group: formData.blood_group || '',
+      disease: formData.disease || '',
+      birth_form_id: formData.birth_form_id || '',
+      cast: formData.cast || '',
+      previous_school: formData.previous_school || '',
+      previous_id: formData.previous_id || '',
+      orphan_student: formData.orphan_student || '',
+      osc: formData.osc || '',
+      religion: formData.religion || '',
+      select_family: formData.select_family || '',
+      family_type: formData.family_type || '',
+      total_siblings: formData.total_siblings ? Number(formData.total_siblings) : null,
+      additional_note: formData.additional_note || '',
+      father_national_id: formData.father_national_id || '',
+      father_occupation: formData.father_occupation || '',
+      father_education: formData.father_education || '',
+      father_mobile: formData.father_mobile || '',
+      father_profession: formData.father_profession || '',
+      father_income: formData.father_income || '',
+      mother_national_id: formData.mother_national_id || '',
+      mother_occupation: formData.mother_occupation || '',
+      mother_education: formData.mother_education || '',
+      mother_mobile: formData.mother_mobile || '',
+      mother_profession: formData.mother_profession || '',
+      mother_income: formData.mother_income || '',
     };
 
     // Remove null/undefined values
@@ -286,7 +313,24 @@ export default function AddStudentPage() {
     console.log('📤 Creating student with payload:', newStudentPayload);
 
     try {
-      const response = await studentService.create(newStudentPayload);
+      let response: any = null;
+
+      if (profilePicture) {
+        // Upload the profile picture as a real file via multipart FormData
+        const formDataToSend = new FormData();
+        Object.entries(newStudentPayload).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            formDataToSend.append(key, String(value));
+          }
+        });
+        const picRes = await fetch(profilePicture);
+        const picBlob = await picRes.blob();
+        formDataToSend.append('profile_picture', new File([picBlob], 'profile.jpg', { type: 'image/jpeg' }));
+        response = await studentService.createWithFile(formDataToSend);
+      } else {
+        response = await studentService.create(newStudentPayload);
+      }
+
       console.log('✅ Student created:', response);
       toast.success('Student registered successfully!');
       setLoading(false);

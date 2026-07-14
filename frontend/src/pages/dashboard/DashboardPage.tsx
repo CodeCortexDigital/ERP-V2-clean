@@ -34,7 +34,9 @@ export default function DashboardPage() {
   const [absentStudents, setAbsentStudents] = useState<any[]>([]);
   const [presentEmployees, setPresentEmployees] = useState<any[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
-  const [financeTransactions, setFinanceTransactions] = useState<any[]>([]);
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
+  const [revenueChart, setRevenueChart] = useState<any[]>([]);
+  const [transactionLogs, setTransactionLogs] = useState<any[]>([]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -54,46 +56,28 @@ export default function DashboardPage() {
   const fetchDashboardStats = async () => {
     setLoading(true);
     try {
-      const [stdRes, tchRes, clsRes, paymentsRes] = await Promise.all([
+      const [stdRes, tchRes, clsRes, summaryRes, revenueRes, txRes] = await Promise.all([
         studentService.getAll().catch(() => ({ data: [] })),
         teacherService.getAll().catch(() => ({ data: [] })),
         academicService.getClasses().catch(() => ({ data: [] })),
-        financeService.getPayments().catch(() => ({ data: [] }))
+        financeService.getSummary().catch(() => ({ data: null })),
+        financeService.getMonthlyRevenueChart().catch(() => ({ data: [] })),
+        financeService.getTransactionLogs().catch(() => ({ data: [] }))
       ]);
 
       const rawStd = extractListData<any>(stdRes.data || []);
       const rawTch = extractListData<any>(tchRes.data || []);
-      const rawCls = extractListData<any>(clsRes.data || []);
-      const rawPayments = extractListData<any>((paymentsRes as any)?.data || []);
-
+      const rawCls = extractListData<any>((clsRes as any).data || clsRes || []);
       const deletedTch: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-
-      const combinedStd = rawStd.length > 0 ? rawStd : [
-        { id: 'std-1', student_id: '001', full_name: 'Urwah', class_name: 'Grade 1-A', profile_picture: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150' }
-      ];
 
       const filteredTch = rawTch.filter(t => !deletedTch.includes(t.id));
 
-      const defaultTeachers = [
-        {
-          id: 't-1',
-          employee_id: '250622',
-          full_name: 'Maryam Fatima',
-          email: 'maryam.fatima@school.edu',
-          phone: '+92 300 1234567',
-          qualifications: ['Master of Education'],
-          specializations: ['Teacher'],
-          experience_years: 5,
-          joining_date: '2026-06-29',
-          is_active: true,
-          profile_picture: null
-        }
-      ];
-
-      setStudents(combinedStd);
-      setTeachers(filteredTch.length > 0 ? filteredTch : defaultTeachers);
-      setClasses(rawCls.length > 0 ? rawCls : [{ name: 'Grade 1-A' }, { name: 'Grade 1-B' }]);
-      setFinanceTransactions(rawPayments);
+      setStudents(rawStd);
+      setTeachers(filteredTch);
+      setClasses(rawCls);
+      setFinanceSummary((summaryRes as any)?.data ?? null);
+      setRevenueChart(extractListData<any>(revenueRes.data || []));
+      setTransactionLogs(extractListData<any>(txRes.data || []));
     } catch (e) {
       console.log('Dashboard stats error:', e);
     } finally {
@@ -114,28 +98,15 @@ export default function DashboardPage() {
       if (mountedRef.current) {
         const s = payload.students;
         const e = payload.employees;
-        
-        let hasRealBackendData = s && s.total > 0;
-        
-        if (hasRealBackendData) {
-          setStudentAttendance({ present: s!.present + s!.late, total: s!.total });
-          setAbsentStudents(s!.absent_list ?? []);
-          if (e) {
-            setEmployeeAttendance({ present: e.present, total: e.total });
-            setPresentEmployees(teachers.map(t => ({
-              id: t.id,
-              employee_name: t.full_name
-            })));
-          }
-        } else {
-          const resolved = computeRealAttendance();
-          setStudentAttendance(resolved.studentAttendance);
-          setAbsentStudents(resolved.absentStudents);
-          setEmployeeAttendance(resolved.employeeAttendance);
-          setPresentEmployees(teachers.map(t => ({
+
+        setStudentAttendance(s ? { present: s.present + (s.late || 0), total: s.total } : null);
+        setAbsentStudents(s?.absent_list ?? []);
+        if (e) {
+          setEmployeeAttendance({ present: e.present, total: e.total });
+          setPresentEmployees(e.present > 0 ? teachers.map(t => ({
             id: t.id,
             employee_name: t.full_name
-          })));
+          })) : []);
         }
       }
     } catch (err) {
@@ -204,122 +175,93 @@ export default function DashboardPage() {
   }, []);
 
   // ── Dynamic ERP statistics helpers ─────────────────────────────────────────
-  const getFinanceStats = () => {
-    const txs = financeTransactions || [];
-    
-    let totalIncome = 0;
-    let totalExpense = 0;
-    let thisMonthIncome = 0;
-    let thisMonthExpense = 0;
-    
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
-    
-    txs.forEach((t: any) => {
-      const amt = Number(t.amount) || 0;
-      const tDate = new Date(t.date);
-      const isCurrentMonth = tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth;
-      
-      if (t.type === 'Income') {
-        totalIncome += amt;
-        if (isCurrentMonth) thisMonthIncome += amt;
-      } else if (t.type === 'Expense') {
-        totalExpense += amt;
-        if (isCurrentMonth) thisMonthExpense += amt;
-      }
-    });
-    
-    const monthlyData: Record<number, { Expenses: number; Income: number }> = {};
-    for (let m = 0; m < 12; m++) {
-      monthlyData[m] = { Expenses: 0, Income: 0 };
-    }
-    
-    txs.forEach((t: any) => {
-      const tDate = new Date(t.date);
-      if (tDate.getFullYear() === currentYear) {
-        const m = tDate.getMonth();
-        const amt = Number(t.amount) || 0;
-        if (t.type === 'Income') {
-          monthlyData[m].Income += amt;
-        } else if (t.type === 'Expense') {
-          monthlyData[m].Expenses += amt;
-        }
-      }
-    });
-    
+  const getLineChartData = () => {
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const chartData = monthLabels.map((label, idx) => ({
-      name: label,
-      Expenses: monthlyData[idx].Expenses,
-      Income: monthlyData[idx].Income
+    const year = new Date().getFullYear();
+    const incomeByMonth: number[] = new Array(12).fill(0);
+    const expenseByMonth: number[] = new Array(12).fill(0);
+
+    (revenueChart || []).forEach((r: any) => {
+      const [y, m] = (r.month || '').split('-');
+      if (Number(y) === year) incomeByMonth[Number(m) - 1] += Number(r.revenue) || 0;
+    });
+
+    (transactionLogs || []).forEach((t: any) => {
+      if (t.type !== 'expense') return;
+      const d = new Date(t.date);
+      if (d.getFullYear() === year) expenseByMonth[d.getMonth()] += Number(t.amount) || 0;
+    });
+
+    return monthLabels.map((name, idx) => ({
+      name,
+      Expenses: expenseByMonth[idx],
+      Income: incomeByMonth[idx]
     }));
-    
+  };
+
+  const getFinanceStats = () => {
+    const totalIncome = Number(financeSummary?.total_paid) || 0;
+    const totalExpense = (transactionLogs || []).reduce(
+      (s: number, t: any) => (t.type === 'expense' ? s + (Number(t.amount) || 0) : s),
+      0
+    );
+    const totalProfit = totalIncome - totalExpense;
+
+    const now = new Date();
+    const curY = now.getFullYear();
+    const curM = now.getMonth();
+
+    const thisMonthIncome = (revenueChart || []).reduce((s: number, r: any) => {
+      const [y, m] = (r.month || '').split('-');
+      return Number(y) === curY && Number(m) - 1 === curM ? s + (Number(r.revenue) || 0) : s;
+    }, 0);
+
+    const thisMonthExpense = (transactionLogs || []).reduce((s: number, t: any) => {
+      const d = new Date(t.date);
+      return t.type === 'expense' && d.getFullYear() === curY && d.getMonth() === curM
+        ? s + (Number(t.amount) || 0)
+        : s;
+    }, 0);
+
+    const thisMonthProfit = thisMonthIncome - thisMonthExpense;
+
     return {
       totalIncome,
       totalExpense,
-      totalProfit: totalIncome - totalExpense,
+      totalProfit,
       thisMonthIncome,
       thisMonthExpense,
-      thisMonthProfit: thisMonthIncome - thisMonthExpense,
-      chartData
+      thisMonthProfit,
+      chartData: getLineChartData()
     };
   };
 
   const getFeeCollectionPercentage = () => {
-    const savedInvoices = localStorage.getItem('custom_invoices');
-    if (!savedInvoices) return '85%';
-    
-    try {
-      const invoices = JSON.parse(savedInvoices);
-      if (invoices.length === 0) return '85%';
-      
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth();
-      
-      let totalGenerated = 0;
-      let totalCollected = 0;
-      
-      invoices.forEach((inv: any) => {
-        const dueDate = new Date(inv.due_date || inv.date);
-        const isCurrentMonth = dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth;
-        
-        if (isCurrentMonth) {
-          const amt = Number(inv.total_amount || inv.grand_total || inv.payable_amount) || 0;
-          totalGenerated += amt;
-          if (inv.status === 'paid') {
-            totalCollected += (Number(inv.paid_amount) || amt);
-          } else if (inv.paid_amount) {
-            totalCollected += Number(inv.paid_amount);
-          }
-        }
-      });
-      
-      if (totalGenerated > 0) {
-        return `${Math.round((totalCollected / totalGenerated) * 100)}%`;
-      }
-      return '92%';
-    } catch (e) {
-      return '85%';
+    if (financeSummary && financeSummary.collection_rate != null) {
+      return `${financeSummary.collection_rate}%`;
     }
+    return '0%';
   };
 
   const getEstimatedFeeDetails = () => {
-    return { collections: 0, remainings: 0 };
+    return {
+      collections: Number(financeSummary?.total_paid) || 0,
+      remainings: Number(financeSummary?.balance_due) || 0
+    };
   };
 
   const computeRealAttendance = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
     const todayRecords = localRecords.filter((r: any) => r.date === todayStr);
-    
-    let totalStds = students.length;
-    if (totalStds === 0) totalStds = 10;
-    
+
+    const totalStds = students.length;
+
     let presentCount = 0;
     let lateCount = 0;
     let absentCount = 0;
     let absentList: any[] = [];
-    
+
     if (todayRecords.length > 0) {
       todayRecords.forEach((r: any) => {
         if (r.status === 'present') presentCount++;
@@ -330,35 +272,14 @@ export default function DashboardPage() {
           absentList.push({
             id: r.student_id,
             student_name: matchStd?.full_name || 'Student',
-            class_name: matchStd?.class_name || 'Grade 1-A'
+            class_name: matchStd?.class_name || 'Unassigned'
           });
         }
       });
-      const unaccounted = totalStds - todayRecords.length;
-      if (unaccounted > 0) {
-        presentCount += unaccounted;
-      }
-    } else {
-      presentCount = Math.max(1, totalStds - 1);
-      absentCount = totalStds > 1 ? 1 : 0;
-      
-      if (students.length > 0 && absentCount > 0) {
-        absentList.push({
-          id: students[0].id,
-          student_name: students[0].full_name,
-          class_name: students[0].class_name || 'Grade 1-A'
-        });
-      } else if (absentCount > 0) {
-        absentList.push({
-          id: 'std-abs-1',
-          student_name: 'Urwah',
-          class_name: 'Grade 1-A'
-        });
-      }
     }
-    
-    const teacherCount = teachers.length > 0 ? teachers.length : 1;
-    
+
+    const teacherCount = teachers.length;
+
     return {
       studentAttendance: { present: presentCount + lateCount, total: totalStds },
       absentStudents: absentList,
@@ -407,29 +328,17 @@ export default function DashboardPage() {
   const lineChartData = finance.chartData;
   
   const getBarChartData = () => {
-    const counts: Record<string, number> = {
-      'Grade 1-A': 0,
-      'Grade 1-B': 0,
-      'Grade 2-A': 0,
-      'Grade 8-B': 0,
-      'Grade 10': 0
-    };
-    
+    const counts: Record<string, number> = {};
+    (classes || []).forEach((c: any) => {
+      const name = c.name || c.class_name;
+      if (name) counts[name] = 0;
+    });
+
     students.forEach((s: any) => {
-      const cls = s.class_name || 'Grade 1-A';
+      const cls = s.class_name || 'Unassigned';
       counts[cls] = (counts[cls] || 0) + 1;
     });
-    
-    Object.keys(counts).forEach(k => {
-      if (counts[k] === 0) {
-        if (k === 'Grade 1-A') counts[k] = 3;
-        if (k === 'Grade 1-B') counts[k] = 2;
-        if (k === 'Grade 2-A') counts[k] = 1;
-        if (k === 'Grade 8-B') counts[k] = 2;
-        if (k === 'Grade 10') counts[k] = 2;
-      }
-    });
-    
+
     return Object.keys(counts).map(name => ({
       name,
       Students: counts[name]

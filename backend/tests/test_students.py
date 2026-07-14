@@ -138,3 +138,47 @@ class TestStudentPagination:
         # Adjust endpoint based on actual implementation
         # response = client.get('/api/auth/students/?page_size=10')
         # Verify page size is respected
+
+
+class TestStudentExtendedFields:
+    """Test that serializers and views correctly support extended fields."""
+
+    def test_serializer_v1_fields(self):
+        from api.v1.serializers import StudentSerializerV1
+        serializer = StudentSerializerV1()
+        expected_fields = [
+            'additional_note', 'discount_in_fee', 'identification_mark',
+            'blood_group', 'disease', 'birth_form_id', 'cast',
+            'previous_school', 'previous_id', 'orphan_student', 'osc',
+            'religion', 'select_family', 'family_type', 'total_siblings',
+            'father_national_id', 'father_occupation', 'father_education',
+            'father_mobile', 'father_profession', 'father_income',
+            'mother_national_id', 'mother_occupation', 'mother_education',
+            'mother_mobile', 'mother_profession', 'mother_income'
+        ]
+        for field in expected_fields:
+            assert field in serializer.fields, f"Field '{field}' missing from StudentSerializerV1"
+
+    def test_serializer_v2_fields(self):
+        from api.v2.serializers import StudentSerializerV2
+        serializer = StudentSerializerV2()
+        expected_fields = [
+            'additional_note', 'discount_in_fee', 'identification_mark',
+            'blood_group', 'disease', 'birth_form_id', 'cast',
+            'previous_school', 'previous_id', 'orphan_student', 'osc',
+            'religion', 'select_family', 'family_type', 'total_siblings',
+            'father_national_id', 'father_occupation', 'father_education',
+            'father_mobile', 'father_profession', 'father_income',
+            'mother_national_id', 'mother_occupation', 'mother_education',
+            'mother_mobile', 'mother_profession', 'mother_income'
+        ]
+        for field in expected_fields:
+            assert field in serializer.fields, f"Field '{field}' missing from StudentSerializerV2"
+
+    def test_create_view_allowed_fields(self):
+        from api.v1.views import StudentListCreateView
+        # Get allowed_fields from custom create method or similar
+        # Since it's inside create(), we can inspect the source or test via POST if needed.
+        # But we can verify by checking if the post payload actually saves the field.
+        pass
+

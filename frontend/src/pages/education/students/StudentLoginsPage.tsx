@@ -71,11 +71,19 @@ export default function StudentLoginsPage() {
     try {
       const [sRes, cRes] = await Promise.all([
         studentService.getAll().catch(() => ({ data: [] })),
-        academicService.getClasses().catch(() => ({ data: [] }))
+        academicService.getClasses().catch(() => [])
       ]);
 
       const rawStudents = extractListData<any>(sRes.data || []);
-      const rawClasses = extractListData<any>(cRes.data || []);
+      
+      let rawClasses: any[] = [];
+      if (Array.isArray(cRes)) {
+        rawClasses = cRes;
+      } else if (cRes?.data) {
+        rawClasses = Array.isArray(cRes.data) ? cRes.data : cRes.data?.results || [];
+      } else if (cRes?.results) {
+        rawClasses = cRes.results;
+      }
 
       console.log('Raw students from API:', rawStudents);
       const filteredStudents = rawStudents.filter(s => !isPlaceholderStudent(s));
@@ -98,6 +106,19 @@ export default function StudentLoginsPage() {
         if (!seenNames.has(normalized)) {
           seenNames.add(normalized);
           uniqueClasses.push(c);
+        }
+      }
+
+      // Fallback: derive class list from the loaded students if the
+      // /classes/ endpoint returned nothing (keeps the filter usable).
+      if (uniqueClasses.length === 0 && finalStudentsList.length > 0) {
+        const names = new Set<string>();
+        for (const s of finalStudentsList) {
+          const cn = (s.class_name || s.current_class_name || s.current_class || '').toString().trim();
+          if (cn) names.add(cn);
+        }
+        for (const n of names) {
+          uniqueClasses.push({ id: `class-${n.toLowerCase().replace(/\s+/g, '-')}`, name: n });
         }
       }
 
@@ -238,20 +259,29 @@ export default function StudentLoginsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">Filter By Class</label>
-            <select
-              value={selectedClass}
+            <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FILTER BY CLASS</label>
+            <select 
+              value={selectedClass} 
               onChange={(e) => {
                 setSelectedClass(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-2xs"
+              className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
             >
-              <option value="">-- Select class --</option>
-              {classes.map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))}
+              <option value="">-- Select a class --</option>
+              {classes.length === 0 ? (
+                <option value="" disabled>No classes available</option>
+              ) : (
+                classes.map((c) => (
+                  <option key={c.id || c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))
+              )}
             </select>
+            {classes.length === 0 && (
+              <p className="text-[10px] text-amber-500 mt-1">No classes found. Please add a class first.</p>
+            )}
           </div>
 
           {/* Badges indicators on the right */}
