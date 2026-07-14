@@ -5,6 +5,7 @@ import { ArrowLeft, Search, Printer, Lock, CheckCircle2, RotateCcw, FileText } f
 import teacherService, { Teacher } from '@/services/teacher.service';
 import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
+import { getStaffCredential } from '@/utils/staffCredentials';
 
 export default function JobLetterPage() {
   const navigate = useNavigate();
@@ -39,15 +40,9 @@ export default function JobLetterPage() {
     });
   }, []);
 
-  // Generate deterministic username/password for employees
-  const getLoginCredentials = (teacher: Teacher) => {
-    const code = teacher.employee_id ? teacher.employee_id.replace(/\D/g, '') : '250622';
-    const cleanName = teacher.full_name.replace(/\s+/g, '').slice(0, 4).toUpperCase();
-    return {
-      username: `${code || '250622'}bS${cleanName}2`,
-      password: `${code || '250622'}bS${cleanName}1`,
-    };
-  };
+  // Use the shared credential source so the Job Letter shows the exact same
+  // username/password that Staff Login stores and the Login page validates.
+  const getLoginCredentials = (teacher: Teacher) => getStaffCredential(teacher);
 
   const getExtraDetails = (teacher: Teacher) => {
     const savedExtras = localStorage.getItem('employees_extra_info');

@@ -137,6 +137,12 @@ export default function EditTeacherPage() {
         } catch (e) {}
       }
 
+      // Backend monthly_salary is the source of truth when present
+      const backendSalary = teacher?.monthly_salary ?? teacher?.monthlySalary;
+      if (backendSalary !== null && backendSalary !== undefined && backendSalary !== '') {
+        extra.monthlySalary = String(backendSalary).replace(/[^0-9.]/g, '');
+      }
+
       // Set active status and profile picture
       if (teacher) {
         setIsActive(teacher.is_active === true);
@@ -220,6 +226,15 @@ export default function EditTeacherPage() {
       formDataToSend.append('joining_date', formData.joiningDate);
       formDataToSend.append('qualifications', JSON.stringify([formData.education || 'N/A']));
       formDataToSend.append('specializations', JSON.stringify([formData.role]));
+      formDataToSend.append('education', formData.education || '');
+      formDataToSend.append('role', formData.role || '');
+      if (formData.monthlySalary) formDataToSend.append('monthly_salary', String(formData.monthlySalary));
+      formDataToSend.append('father_husband_name', formData.fatherName || '');
+      formDataToSend.append('gender', formData.gender || '');
+      formDataToSend.append('national_id', formData.nationalId || '');
+      formDataToSend.append('religion', formData.religion || '');
+      formDataToSend.append('blood_group', formData.bloodGroup || '');
+      formDataToSend.append('home_address', formData.homeAddress || '');
 
       if (profilePictureFile) {
         formDataToSend.append('profile_picture', profilePictureFile);

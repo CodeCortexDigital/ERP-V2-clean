@@ -47,7 +47,7 @@ class StudentListCreateView(CachedListResponseMixin, generics.ListCreateAPIView)
     cache_type = 'student_list'
     cache_key_prefix = CacheKeys.STUDENT_LIST
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['full_name', 'student_id', 'email']
+    search_fields = ['full_name', 'student_id', 'email', 'father_national_id', 'mother_national_id', 'select_family']
     ordering_fields = ['created_at', 'full_name', 'student_id']
     ordering = ['-created_at']
 

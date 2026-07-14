@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Landmark, Search, Printer, Calendar, Users, DollarSign, Wallet, FileText } from 'lucide-react';
+import { Landmark, Search, Printer, Calendar, Users, DollarSign, Wallet, FileText, Trash2 } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
-import { extractListData } from '@/services/api';
+import api, { extractListData } from '@/services/api';
 
 interface SalaryPayment {
   id: string;
@@ -57,13 +57,33 @@ export default function SalarySheetPage() {
     }
   };
 
+  // Resolve fixed salary: backend monthly_salary -> localStorage employees_extra_info -> 0
+  const getFixedSalary = (teacher: any): number => {
+    let raw = teacher.monthly_salary ?? teacher.monthlySalary;
+    if (raw === null || raw === undefined || raw === '') {
+      try {
+        const extrasMap = JSON.parse(localStorage.getItem('employees_extra_info') || '{}');
+        raw = extrasMap[teacher.id]?.monthlySalary;
+      } catch (e) {}
+    }
+    return raw ? Number(raw.toString().replace(/[^0-9.]/g, '')) : 0;
+  };
+
   const filteredTeachers = teachers.filter(teacher => {
     const s = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
       teacher.full_name.toLowerCase().includes(s) ||
       (teacher.id && teacher.id.toLowerCase().includes(s)) ||
-      (teacher.designation && teacher.designation.toLowerCase().includes(s))
+      (teacher.designation && teacher.designation.toLowerCase().includes(s));
+
+    // Hide empty rows: no salary set AND not paid for this month
+    const isPaid = salaries.some(sp =>
+      sp.employee_id === teacher.id &&
+      sp.month.toLowerCase().trim() === salaryMonth.toLowerCase().trim()
     );
+    const hasSalary = getFixedSalary(teacher) > 0 || isPaid;
+
+    return matchesSearch && hasSalary;
   });
 
   // Calculate quick stats
@@ -73,8 +93,8 @@ export default function SalarySheetPage() {
   let paidCount = 0;
   let unpaidCount = 0;
 
-  teachers.forEach(teacher => {
-    const basic = teacher.monthlySalary ? Number(teacher.monthlySalary.toString().replace(/[^0-9]/g, '')) : 45000;
+  filteredTeachers.forEach(teacher => {
+    const basic = getFixedSalary(teacher);
     totalLiabilities += basic;
 
     const paidRecord = salaries.find(s => 
@@ -93,6 +113,32 @@ export default function SalarySheetPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleClearAllSalaryData = async () => {
+    if (!window.confirm('This will permanently DELETE the monthly (fixed) salary of ALL employees in the database, and clear all salary payment records. This cannot be undone. Continue?')) {
+      return;
+    }
+    try {
+      await api.post('/teachers/clear-salaries/');
+
+      localStorage.removeItem('custom_salaries');
+      const savedTxs = localStorage.getItem('finance_transactions');
+      if (savedTxs) {
+        const txs = JSON.parse(savedTxs);
+        const cleaned = txs.filter((t: any) =>
+          !String(t.id).startsWith('tx-sal-') && !/^Salary Paid to/i.test(t.description || '')
+        );
+        localStorage.setItem('finance_transactions', JSON.stringify(cleaned));
+      }
+
+      setSalaries([]);
+      toast.success('All salary data cleared for every employee.');
+      await fetchInitialData();
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to clear salary data.');
+    }
   };
 
   return (
@@ -128,6 +174,12 @@ export default function SalarySheetPage() {
           <span>&gt;</span>
           <span className="text-slate-500 font-bold">Salary Sheet</span>
         </div>
+        <button
+          onClick={handleClearAllSalaryData}
+          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[11px] rounded-lg border border-rose-200 transition-all flex items-center gap-1.5 uppercase tracking-wider"
+        >
+          <Trash2 className="w-3.5 h-3.5" /> Clear All Salary Data
+        </button>
       </div>
 
       {/* Control Filters Panel Card - Hidden on print */}
@@ -187,7 +239,7 @@ export default function SalarySheetPage() {
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">TOTAL BUDGET</span>
           <span className="text-xl font-black text-slate-850 block">Rs {totalLiabilities.toLocaleString()}</span>
-          <span className="text-[9px] text-slate-400 font-bold block">{teachers.length} registered employees</span>
+          <span className="text-[9px] text-slate-400 font-bold block">{filteredTeachers.length} registered employees</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
@@ -205,7 +257,7 @@ export default function SalarySheetPage() {
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">DISBURSEMENT RATE</span>
           <span className="text-xl font-black text-purple-750 block">
-            {teachers.length > 0 ? Math.round((paidCount / teachers.length) * 100) : 0}%
+            {filteredTeachers.length > 0 ? Math.round((paidCount / filteredTeachers.length) * 100) : 0}%
           </span>
           <span className="text-[9px] text-slate-400 font-bold block">Payroll efficiency</span>
         </div>
@@ -240,7 +292,7 @@ export default function SalarySheetPage() {
                   s.month.toLowerCase().trim() === salaryMonth.toLowerCase().trim()
                 );
                 
-                const fixed = teacher.monthlySalary ? Number(teacher.monthlySalary.toString().replace(/[^0-9]/g, '')) : 45000;
+                const fixed = getFixedSalary(teacher);
                 
                 return (
                   <tr key={teacher.id} className="hover:bg-slate-50/30 transition-colors">

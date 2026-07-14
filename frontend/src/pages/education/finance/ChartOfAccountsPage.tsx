@@ -9,9 +9,18 @@ interface AccountHead {
   type: 'Income' | 'Expense';
 }
 
+interface Transaction {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  type: 'Income' | 'Expense';
+}
+
 export default function ChartOfAccountsPage() {
   const navigate = useNavigate();
   const [heads, setHeads] = useState<AccountHead[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form states
@@ -20,7 +29,33 @@ export default function ChartOfAccountsPage() {
 
   useEffect(() => {
     fetchHeads();
+    fetchTransactions();
   }, []);
+
+  const fetchTransactions = () => {
+    const saved = localStorage.getItem('finance_transactions');
+    if (saved) {
+      try {
+        setTransactions(JSON.parse(saved));
+      } catch (e) {
+        console.log('Error parsing finance transactions');
+      }
+    }
+  };
+
+  // Total collected/spent per account head (matched by name + type)
+  const headTotal = (h: AccountHead) =>
+    transactions
+      .filter(t => t.type === h.type && t.description.trim().toLowerCase() === h.name.trim().toLowerCase())
+      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+  const totalIncome = transactions
+    .filter(t => t.type === 'Income')
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+  const totalExpense = transactions
+    .filter(t => t.type === 'Expense')
+    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+  const netBalance = totalIncome - totalExpense;
 
   const fetchHeads = () => {
     const saved = localStorage.getItem('account_heads');
@@ -107,6 +142,22 @@ export default function ChartOfAccountsPage() {
         </div>
       </div>
 
+      {/* Summary Cards: Auto-tracked from finance ledger */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Total Income</p>
+          <p className="text-xl font-black text-emerald-600 mt-1.5">Rs {totalIncome.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Total Expense</p>
+          <p className="text-xl font-black text-rose-500 mt-1.5">Rs {totalExpense.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Net Balance</p>
+          <p className={`text-xl font-black mt-1.5 ${netBalance >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>Rs {netBalance.toLocaleString()}</p>
+        </div>
+      </div>
+
       {/* Main Grid: Left Add/Edit Form & Right Table Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         
@@ -175,6 +226,7 @@ export default function ChartOfAccountsPage() {
                   <th className="py-3 px-4 w-20">ID</th>
                   <th className="py-3 px-4">Name Of Head</th>
                   <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4 text-right">Total Amount</th>
                   <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
@@ -190,6 +242,9 @@ export default function ChartOfAccountsPage() {
                         <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${h.type === 'Income' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                           {h.type}
                         </span>
+                      </td>
+                      <td className={`py-3.5 px-4 text-right font-black ${h.type === 'Income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        Rs {headTotal(h).toLocaleString()}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -213,7 +268,7 @@ export default function ChartOfAccountsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="py-12 text-center text-slate-400 font-bold">
+                    <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
                       No account heads found.
                     </td>
                   </tr>

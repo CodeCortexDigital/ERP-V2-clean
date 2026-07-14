@@ -2083,7 +2083,8 @@ const handleBulkSendReminders = async () => {
                                 className="bg-[#5C53CD] hover:bg-[#4d45bd] text-white"
                                 onClick={() => {
                                   setSelectedTeacher(teacher);
-                                  const basic = teacher.monthlySalary ? Number(teacher.monthlySalary.toString().replace(/[^0-9]/g, '')) : 45000;
+                                  const rawSalary = teacher.monthly_salary ?? teacher.monthlySalary;
+                                  const basic = rawSalary ? Number(rawSalary.toString().replace(/[^0-9]/g, '')) : 45000;
                                   setSalaryBasic(basic);
                                   setSalaryAllowances(0);
                                   setSalaryDeductions(0);

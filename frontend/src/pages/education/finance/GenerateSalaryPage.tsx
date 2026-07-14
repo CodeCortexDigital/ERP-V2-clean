@@ -140,7 +140,7 @@ export default function GenerateSalaryPage() {
         const extra = extrasMap[t.id] || {};
         const role = extra.role || t.designation || t.role || 'Teacher';
         const dept = extra.department || t.department || getDepartmentForRole(role);
-        const salary = Number(extra.monthlySalary) || t.monthly_salary || t.basic_salary || t.salary || t.pay || 0;
+        const salary = Number(extra.monthlySalary) || Number(t.monthly_salary) || Number(t.basic_salary) || Number(t.salary) || Number(t.pay) || 0;
         
         return {
           id: t.id,

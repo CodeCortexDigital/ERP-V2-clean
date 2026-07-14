@@ -52,15 +52,7 @@ export default function TeachersManagement() {
     setLoading(true);
     try {
       const tRes = await teacherService.getAll({ include_inactive: true }).catch(() => ({ data: [] }));
-      
-      // DEBUG: Log raw response
-      console.log('RAW API Response:', JSON.stringify(tRes.data, null, 2));
-      
       const fetched = extractListData<Teacher>(tRes.data);
-      
-      // DEBUG: Log extracted data
-      console.log('EXTRACTED Data:', JSON.stringify(fetched, null, 2));
-      
       setTeachers(fetched);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -458,18 +450,16 @@ export default function TeachersManagement() {
                           <td className="py-3 px-4 font-mono text-slate-500">{teacher.employee_id || '--'}</td>
                           <td className="py-3 px-4">{empRole}</td>
                           <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1">
-                              {teacher.qualifications?.slice(0, 2).map((q, i) => (
-                                <span key={i} className="px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[9px] font-semibold rounded-full">
-                                  {q}
+                            {(() => {
+                              const qualification = (teacher.education || '').trim() || teacher.qualifications?.[0] || '';
+                              return qualification ? (
+                                <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 text-[9px] font-semibold rounded-full">
+                                  {qualification}
                                 </span>
-                              ))}
-                              {teacher.qualifications && teacher.qualifications.length > 2 && (
-                                <span className="px-1.5 py-0.5 bg-slate-50 text-slate-500 text-[9px] font-semibold rounded-full">
-                                  +{teacher.qualifications.length - 2}
-                                </span>
-                              )}
-                            </div>
+                              ) : (
+                                <span className="text-slate-300">--</span>
+                              );
+                            })()}
                           </td>
                           <td className="py-3 px-4">{teacher.experience_years || 0} years</td>
                           <td className="py-3 px-4">

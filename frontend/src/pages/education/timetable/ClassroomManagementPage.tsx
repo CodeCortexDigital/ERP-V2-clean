@@ -108,8 +108,7 @@ export default function ClassroomManagementPage() {
   const fetchClassrooms = async () => {
     setLoading(true);
     try {
-      const res = await academicService.getClassrooms().catch(() => ({ data: [] }));
-      const apiRooms = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      const apiRooms = await academicService.classrooms.getAll().catch(() => []);
       const customRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
       const deletedIds = JSON.parse(localStorage.getItem('deleted_classroom_ids') || '[]');
       
@@ -183,7 +182,7 @@ export default function ClassroomManagementPage() {
     if (!confirm(`Are you sure you want to delete classroom ${roomName}?`)) return;
 
     try {
-      await academicService.deleteClassroom(id).catch(() => {});
+      await academicService.classrooms.delete(id).catch(() => {});
     } catch (e) {}
 
     const deletedIds = JSON.parse(localStorage.getItem('deleted_classroom_ids') || '[]');
@@ -219,7 +218,7 @@ export default function ClassroomManagementPage() {
       if (editingRoom) {
         // Edit Mode
         try {
-          await academicService.updateClassroom(editingRoom.id, payload).catch(() => {});
+          await academicService.classrooms.update(editingRoom.id, payload as any).catch(() => {});
         } catch (e) {}
 
         const customRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
@@ -233,7 +232,7 @@ export default function ClassroomManagementPage() {
         // Create Mode
         const newId = `room-${Date.now()}`;
         try {
-          await academicService.createClassroom(payload).catch(() => {});
+          await academicService.classrooms.create(payload as any).catch(() => {});
         } catch (e) {}
 
         const customRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');

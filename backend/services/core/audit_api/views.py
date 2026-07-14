@@ -4,6 +4,17 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.apps import apps
 
+# Clear all employees' monthly salary
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def clear_teacher_salaries(request):
+    try:
+        Teacher = apps.get_model('education_academics', 'Teacher')
+    except LookupError:
+        Teacher = apps.get_model('education_teachers', 'Teacher')
+    updated = Teacher.objects.update(monthly_salary=None)
+    return Response({'success': True, 'cleared': updated})
+
 # Teachers endpoint
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -16,14 +27,29 @@ def get_teachers(request):
     teachers = Teacher.objects.all()
     data = []
     for t in teachers:
+        monthly_salary = getattr(t, 'monthly_salary', None)
         data.append({
             'id': str(t.id),
             'employee_id': getattr(t, 'employee_id', f'TCH-{t.id}'),
             'full_name': getattr(t, 'full_name', f'Teacher {t.id}'),
             'email': getattr(t, 'email', ''),
             'phone': getattr(t, 'phone', ''),
+            'qualifications': getattr(t, 'qualifications', []),
             'specializations': getattr(t, 'specializations', []),
             'experience_years': getattr(t, 'experience_years', 0),
+            'education': getattr(t, 'education', ''),
+            'role': getattr(t, 'role', ''),
+            'department': getattr(t, 'department', ''),
+            'shift': getattr(t, 'shift', ''),
+            'monthly_salary': float(monthly_salary) if monthly_salary is not None else None,
+            'father_husband_name': getattr(t, 'father_husband_name', ''),
+            'gender': getattr(t, 'gender', ''),
+            'national_id': getattr(t, 'national_id', ''),
+            'religion': getattr(t, 'religion', ''),
+            'blood_group': getattr(t, 'blood_group', ''),
+            'home_address': getattr(t, 'home_address', ''),
+            'joining_date': getattr(t, 'joining_date', None),
+            'profile_picture': getattr(t, 'profile_picture', None).url if getattr(t, 'profile_picture', None) else None,
             'is_active': getattr(t, 'is_active', True)
         })
     return Response({'results': data, 'count': len(data)})

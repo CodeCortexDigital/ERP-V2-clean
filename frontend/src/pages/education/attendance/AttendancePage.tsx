@@ -142,7 +142,7 @@ export default function AttendancePage() {
   }, [selectedClass]);
 
   useEffect(() => {
-    if (selectedClass && selectedSection && selectedDate && manualSubmitClicked) {
+    if (selectedClass && selectedDate && manualSubmitClicked) {
       fetchStudentsAndAttendance();
     }
   }, [selectedClass, selectedSection, selectedDate]);
@@ -166,11 +166,22 @@ export default function AttendancePage() {
       const tList = extractListData<any>(tRes.data);
       const activeTList = tList.filter((t: any) => t.is_active);
 
-      // Merge custom_teachers from localStorage (same logic as TeachersManagement)
+      // Merge custom_teachers from localStorage, but only those NOT already in
+      // the DB. Match on id, employee_id or email so stale localStorage copies
+      // of teachers that now exist server-side don't create duplicate rows
+      // (which caused attendance to be saved against the wrong id).
       const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
+      const dbIds = new Set(activeTList.map((t: any) => String(t.id)));
+      const dbEmpIds = new Set(activeTList.map((t: any) => String(t.employee_id || '').toLowerCase()).filter(Boolean));
+      const dbEmails = new Set(activeTList.map((t: any) => String(t.email || '').toLowerCase()).filter(Boolean));
+
       const merged = [...activeTList];
       customTeachers.forEach((ct: any) => {
-        if (!merged.some((t: any) => String(t.id) === String(ct.id))) {
+        const alreadyInDb =
+          dbIds.has(String(ct.id)) ||
+          (ct.employee_id && dbEmpIds.has(String(ct.employee_id).toLowerCase())) ||
+          (ct.email && dbEmails.has(String(ct.email).toLowerCase()));
+        if (!alreadyInDb) {
           merged.push(ct);
         }
       });
@@ -223,21 +234,34 @@ export default function AttendancePage() {
     try {
       const recordsToSave = teachers.map((t) => ({
         teacher: t.id,
+        employee_id: t.employee_id,
         date: selectedDate,
         status: t.status,
         reason: t.reason,
       }));
 
-      await api.post('/auth/academics/teacher-attendance/', recordsToSave);
-      
+      const res = await api.post('/auth/academics/teacher-attendance/', recordsToSave);
+
+      const saved = res.data?.saved ?? res.data ?? [];
+      const skipped = res.data?.skipped ?? [];
+      const skippedIds = new Set(skipped.map((s: any) => String(s.teacher)));
+
       setTeachers((prev) =>
         prev.map((t) => ({
           ...t,
-          isSaved: true,
+          isSaved: !skippedIds.has(String(t.id)),
         }))
       );
       setTeacherHasSavedData(true);
-      toast.success(`Teacher attendance saved successfully! (${teachers.length} teachers)`);
+
+      const savedCount = Array.isArray(saved) ? saved.length : teachers.length;
+      if (skipped.length > 0) {
+        toast.success(
+          `Saved ${savedCount} teacher(s). Skipped ${skipped.length} not yet synced to the server.`
+        );
+      } else {
+        toast.success(`Teacher attendance saved successfully! (${savedCount} teachers)`);
+      }
     } catch (err) {
       console.error('Error saving teacher attendance:', err);
       toast.error('Failed to save teacher attendance');
@@ -775,12 +799,13 @@ export default function AttendancePage() {
       
       setSections(sectionList);
       
-      // Auto-select first section if available
+      // Auto-select first section if available. Sections are optional - many
+      // classes embed the section in their name (e.g. "Grade 10A"), so the
+      // absence of sections is normal and attendance is taken by class.
       if (sectionList.length > 0) {
         setSelectedSection(sectionList[0].id);
       } else {
         setSelectedSection('');
-        toast.info('No sections found for this class');
       }
       
     } catch (error) {

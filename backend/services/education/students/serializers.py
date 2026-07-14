@@ -61,6 +61,47 @@ class StudentSerializer(serializers.ModelSerializer):
             data['admission_date'] = None
         return super().to_internal_value(data)
 
+    def validate(self, data):
+        """Ensure the target class has an available seat before admitting a
+        student. Capacity is defined by SchoolClass.max_students and counts
+        active, non-deleted students already assigned to that class."""
+        target_class = data.get('current_class', getattr(self.instance, 'current_class', None))
+        if target_class is not None:
+            max_students = getattr(target_class, 'max_students', None) or 0
+            if max_students > 0:
+                qs = Student.objects.filter(current_class=target_class, is_active=True)
+                if self.instance is not None:
+                    qs = qs.exclude(pk=self.instance.pk)
+                if qs.count() >= max_students:
+                    raise serializers.ValidationError({
+                        'current_class': (
+                            f'Class "{target_class.name}" is full '
+                            f'({max_students}/{max_students} seats taken). '
+                            'No available seats.'
+                        )
+                    })
+        return data
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        self._link_family(instance)
+        return instance
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        self._link_family(instance)
+        return instance
+
+    def _link_family(self, instance):
+        """Auto-detect siblings by parent NIC and keep the family label /
+        sibling count in sync. Best-effort: never block a save on failure."""
+        try:
+            from .family_utils import link_family
+            if link_family(instance):
+                instance.refresh_from_db(fields=['select_family', 'total_siblings'])
+        except Exception:
+            pass
+
     def validate_student_id(self, value):
         # Guarantee uniqueness (and a value) so a 400 is never raised for
         # duplicate/blank student_id. Conflicts are resolved server-side.

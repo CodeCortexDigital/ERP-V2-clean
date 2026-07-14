@@ -46,13 +46,11 @@ export default function PeriodManagementPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [periodsRes, yearsRes] = await Promise.all([
-        academicService.getPeriods(),
-        academicService.getAcademicYears()
+      const [periodsRaw, yearsList] = await Promise.all([
+        academicService.periods.getAll(),
+        academicService.academicYears.getAll()
       ])
-      
-      const periodsList = Array.isArray(periodsRes.data) ? periodsRes.data : (periodsRes.data as any)?.results || []
-      const yearsList = Array.isArray(yearsRes.data) ? yearsRes.data : (yearsRes.data as any)?.results || []
+      const periodsList = periodsRaw as unknown as Period[]
 
       // Sort periods by period_number
       periodsList.sort((a: Period, b: Period) => a.period_number - b.period_number)
@@ -82,7 +80,7 @@ export default function PeriodManagementPage() {
     if (!confirm('Are you sure you want to delete this period? This might impact scheduled timetables.')) return
 
     try {
-      await academicService.deletePeriod(id)
+      await academicService.periods.delete(id)
       toast.success('Period deleted successfully')
       fetchData()
     } catch (err) {
@@ -150,10 +148,10 @@ export default function PeriodManagementPage() {
 
     try {
       if (editingPeriod) {
-        await academicService.updatePeriod(editingPeriod.id, payload)
+        await academicService.periods.update(editingPeriod.id, payload)
         toast.success('Period updated successfully')
       } else {
-        await academicService.createPeriod(payload)
+        await academicService.periods.create(payload)
         toast.success('Period created successfully')
       }
       setShowForm(false)

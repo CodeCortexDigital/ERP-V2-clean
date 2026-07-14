@@ -3,6 +3,7 @@ import { Toaster } from 'sonner'
 import { useEffect, memo } from 'react'
 import Layout from '@/components/layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute'
+import { RoleBasedRoute } from './components/auth/RoleBasedRoute'
 import LoginPage from './pages/auth/LoginPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -280,7 +281,7 @@ function App() {
                 <Route path="education/behaviour/psycomotor-report" element={<PsycomotorDomainReportPage />} />
                 
                 {/* Finance */}
-                <Route path="education/finance" element={<FinancePage />} />
+                <Route path="education/finance" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><FinancePage /></RoleBasedRoute>} />
                 <Route path="education/finance/chart-of-accounts" element={<ChartOfAccountsPage />} />
                 <Route path="education/finance/add-income" element={<AddIncomePage />} />
                 <Route path="education/finance/add-expense" element={<AddExpensePage />} />

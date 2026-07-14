@@ -33,6 +33,8 @@ class SchoolClass(SchoolAliasMixin, models.Model):
     code = models.CharField(max_length=20)
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=True, blank=True)
     teacher_name = models.CharField(max_length=200, blank=True)
+    classroom = models.ForeignKey('Classroom', on_delete=models.SET_NULL, null=True, blank=True, related_name='classes')
+    max_students = models.PositiveIntegerField(default=30)
     tuition_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -286,6 +288,25 @@ class Teacher(SchoolAliasMixin, models.Model):
     joining_date = models.DateField()
     is_active = models.BooleanField(default=True)
     profile_picture = models.ImageField(upload_to='teacher_photos/', null=True, blank=True)
+
+    # HR / employee details
+    role = models.CharField(max_length=100, blank=True, default='')
+    department = models.CharField(max_length=100, blank=True, default='')
+    shift = models.CharField(max_length=50, blank=True, default='')
+    monthly_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    father_husband_name = models.CharField(max_length=255, blank=True, default='')
+    gender = models.CharField(
+        max_length=10,
+        choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')],
+        blank=True,
+        default='',
+    )
+    national_id = models.CharField(max_length=50, blank=True, default='', db_index=True)
+    religion = models.CharField(max_length=100, blank=True, default='')
+    education = models.CharField(max_length=200, blank=True, default='')
+    blood_group = models.CharField(max_length=10, blank=True, default='')
+    home_address = models.TextField(blank=True, default='')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -370,6 +391,8 @@ class Classroom(models.Model):
     code = models.CharField(max_length=20, unique=True)
     capacity = models.IntegerField(default=30)
     location = models.CharField(max_length=100, blank=True)
+    floor = models.CharField(max_length=20, blank=True)  # ground, first, second, third, outdoor
+    category = models.CharField(max_length=20, blank=True)  # classroom, lab, office, sports, hall, other
     facilities = models.JSONField(default=list, blank=True)  # List of facilities
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -615,13 +615,49 @@ class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         if isinstance(request.data, list):
+            import uuid as uuid_lib
+            valid_status = {c[0] for c in TeacherAttendance.STATUS_CHOICES}
+            existing_teacher_ids = set(
+                str(tid) for tid in Teacher.objects.values_list('id', flat=True)
+            )
+            # Map employee_id -> real UUID so client-side teachers whose stored
+            # id is a stale/non-UUID value can still be resolved to a DB record.
+            employee_id_map = {
+                str(emp): str(tid)
+                for tid, emp in Teacher.objects.values_list('id', 'employee_id')
+                if emp
+            }
+
             response_data = []
+            skipped = []
             for item in request.data:
                 teacher_id = item.get('teacher')
+                employee_id = item.get('employee_id')
                 date_str = item.get('date')
                 status_val = item.get('status')
-                reason = item.get('reason', '')
-                
+                reason = item.get('reason', '') or ''
+
+                # Resolve the real DB teacher id.
+                resolved_id = None
+                try:
+                    uuid_lib.UUID(str(teacher_id))
+                    if str(teacher_id) in existing_teacher_ids:
+                        resolved_id = str(teacher_id)
+                except (ValueError, AttributeError, TypeError):
+                    pass
+
+                if resolved_id is None and employee_id is not None:
+                    resolved_id = employee_id_map.get(str(employee_id))
+
+                if resolved_id is None:
+                    skipped.append({'teacher': teacher_id, 'reason': 'not_found'})
+                    continue
+
+                teacher_id = resolved_id
+
+                if status_val not in valid_status:
+                    status_val = 'present'
+
                 attendance, created = TeacherAttendance.objects.update_or_create(
                     teacher_id=teacher_id,
                     date=date_str,
@@ -632,7 +668,8 @@ class TeacherAttendanceListCreateView(generics.ListCreateAPIView):
                 )
                 serializer = self.get_serializer(attendance)
                 response_data.append(serializer.data)
-            return Response(response_data, status=200)
+
+            return Response({'saved': response_data, 'skipped': skipped}, status=200)
         return super().post(request, *args, **kwargs)
 
 

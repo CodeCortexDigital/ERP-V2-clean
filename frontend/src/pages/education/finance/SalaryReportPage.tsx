@@ -61,7 +61,8 @@ export default function SalaryReportPage() {
 
   let totalBudget = 0;
   teachers.forEach(teacher => {
-    const basic = teacher.monthlySalary ? Number(teacher.monthlySalary.toString().replace(/[^0-9]/g, '')) : 45000;
+    const rawSalary = teacher.monthly_salary ?? teacher.monthlySalary;
+    const basic = rawSalary ? Number(rawSalary.toString().replace(/[^0-9]/g, '')) : 45000;
     totalBudget += basic;
   });
 

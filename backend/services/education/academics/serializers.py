@@ -25,12 +25,58 @@ class SectionSerializer(serializers.ModelSerializer):
 class SchoolClassSerializer(serializers.ModelSerializer):
     sections = SectionSerializer(many=True, read_only=True)
     tuition_fee = serializers.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    classroom_name = serializers.CharField(source='classroom.name', read_only=True)
+    student_count = serializers.SerializerMethodField()
+    available_seats = serializers.SerializerMethodField()
 
     class Meta:
         model = SchoolClass
         fields = ['id', 'tenant', 'name', 'code', 'academic_year', 'teacher_name',
-                  'tuition_fee', 'description', 'is_active', 'created_at', 'sections']
+                  'classroom', 'classroom_name', 'max_students', 'student_count',
+                  'available_seats', 'tuition_fee', 'description', 'is_active',
+                  'created_at', 'sections']
         read_only_fields = ['id', 'created_at']
+
+    def get_student_count(self, obj):
+        return obj.students.filter(is_active=True).count()
+
+    def get_available_seats(self, obj):
+        return max((obj.max_students or 0) - self.get_student_count(obj), 0)
+
+    def validate(self, data):
+        """Enforce rules:
+        - a class teacher and classroom must be assigned when creating a class
+        - a classroom cannot be assigned to more than one class
+        - a class teacher cannot be assigned to more than one class
+        """
+        errors = {}
+
+        teacher_name = data.get('teacher_name', getattr(self.instance, 'teacher_name', None))
+        classroom = data.get('classroom', getattr(self.instance, 'classroom', None))
+
+        if self.instance is None:
+            if not teacher_name or not str(teacher_name).strip():
+                errors['teacher_name'] = 'A class teacher must be assigned before creating a class.'
+            if not classroom:
+                errors['classroom'] = 'A classroom must be assigned before creating a class.'
+
+        if classroom:
+            qs = SchoolClass.objects.filter(classroom=classroom)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                errors['classroom'] = 'This classroom is already assigned to another class.'
+
+        if teacher_name and str(teacher_name).strip():
+            qs = SchoolClass.objects.filter(teacher_name__iexact=str(teacher_name).strip())
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                errors['teacher_name'] = 'This teacher is already assigned as class teacher to another class.'
+
+        if errors:
+            raise serializers.ValidationError(errors)
+        return data
 
 
 class SubjectSerializer(serializers.ModelSerializer):

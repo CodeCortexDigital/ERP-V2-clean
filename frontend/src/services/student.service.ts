@@ -24,12 +24,29 @@ export interface Student {
   current_class_name?: string;
   current_section_name?: string;
   class_code?: string;
+  father_national_id?: string;
+  mother_national_id?: string;
+  select_family?: string;
+  family_type?: string;
+  total_siblings?: number;
   is_active: boolean;
   last_activity?: string;
   profile_picture?: string | null;
   attendance_rate?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface Family {
+  key: string;
+  name: string;
+  father_name?: string;
+  mother_name?: string;
+  father_national_id?: string;
+  mother_national_id?: string;
+  members: Student[];
+  sibling_count: number;
+  active_count: number;
 }
 
 export interface Student360Data {
@@ -354,6 +371,61 @@ const studentService = {
   // Search students
   search: async (query: string) => {
     return studentService.getAll({ search: query });
+  },
+
+  // Group all students into families (siblings sharing a parent NIC / family label)
+  getFamilies: async (): Promise<Family[]> => {
+    const response = await studentService.getAll({ limit: 2000 } as any);
+    const students: Student[] = Array.isArray(response?.data) ? response.data : [];
+
+    const norm = (v?: string) => (v || '').trim();
+    const familyKey = (s: Student) =>
+      norm(s.select_family) ||
+      (norm(s.father_national_id) ? `nic:${norm(s.father_national_id).toLowerCase()}` : '') ||
+      (norm(s.mother_national_id) ? `nic:${norm(s.mother_national_id).toLowerCase()}` : '');
+
+    const groups = new Map<string, Student[]>();
+    for (const s of students) {
+      const key = familyKey(s);
+      if (!key) continue;
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(s);
+      else groups.set(key, [s]);
+    }
+
+    const families: Family[] = [];
+    for (const [key, members] of groups.entries()) {
+      const first = members[0];
+      const label =
+        norm(first.select_family) ||
+        norm(first.father_name) ||
+        norm(first.mother_name) ||
+        key.replace(/^nic:/, 'NIC ');
+      families.push({
+        key,
+        name: label,
+        father_name: norm(first.father_name) || undefined,
+        mother_name: norm(first.mother_name) || undefined,
+        father_national_id: norm(first.father_national_id) || undefined,
+        mother_national_id: norm(first.mother_national_id) || undefined,
+        members,
+        sibling_count: members.length,
+        active_count: members.filter((m) => m.is_active).length,
+      });
+    }
+
+    families.sort((a, b) => b.sibling_count - a.sibling_count || a.name.localeCompare(b.name));
+    return families;
+  },
+
+  // Find existing students that share a parent NIC (for sibling detection hints)
+  checkSiblings: async (nationalId: string): Promise<Student[]> => {
+    const nic = (nationalId || '').trim();
+    if (!nic) return [];
+    const response = await studentService.getAll({ search: nic });
+    const students: Student[] = Array.isArray(response?.data) ? response.data : [];
+    const match = (v?: string) => (v || '').trim().toLowerCase() === nic.toLowerCase();
+    return students.filter((s) => match(s.father_national_id) || match(s.mother_national_id));
   },
 
   // Get students for ID cards (with additional data)

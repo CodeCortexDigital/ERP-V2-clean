@@ -32,6 +32,7 @@ export default function AddStudentPage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [lastRegId, setLastRegId] = useState<string | null>(null);
   const [profilePicture, setProfilePicture] = useState<string>('');
+  const [siblingMatches, setSiblingMatches] = useState<any[]>([]);
 
   const [sections, setSections] = useState({
     studentInfo: true,
@@ -87,6 +88,23 @@ export default function AddStudentPage() {
     mother_profession: '',
     mother_income: ''
   });
+
+  React.useEffect(() => {
+    const nic = (formData.father_national_id || formData.mother_national_id || '').trim();
+    if (!nic) {
+      setSiblingMatches([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const matches = await studentService.checkSiblings(nic);
+        setSiblingMatches(matches);
+      } catch {
+        setSiblingMatches([]);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData.father_national_id, formData.mother_national_id]);
 
   React.useEffect(() => {
     const loadClasses = async () => {
@@ -337,7 +355,8 @@ export default function AddStudentPage() {
       navigate('/education/students');
     } catch (err: any) {
       console.error('Error creating student:', err);
-      const errMsg = err?.response?.data?.student_id?.[0] ||
+      const errMsg = err?.response?.data?.current_class?.[0] ||
+                     err?.response?.data?.student_id?.[0] ||
                      err?.response?.data?.full_name?.[0] ||
                      err?.response?.data?.email?.[0] ||
                      err?.response?.data?.detail ||
@@ -510,11 +529,31 @@ export default function AddStudentPage() {
                   {classes.length === 0 ? (
                     <option value="">No classes available. Please add a class first.</option>
                   ) : (
-                    classes.map((c) => (
-                      <option key={c.id || c.name} value={c.name}>{c.name}</option>
-                    ))
+                    classes.map((c) => {
+                      const used = Number(c.student_count ?? 0);
+                      const max = Number(c.max_students ?? 0);
+                      const full = max > 0 && used >= max;
+                      return (
+                        <option key={c.id || c.name} value={c.name} disabled={full}>
+                          {c.name} — {used}/{max || '∞'}{full ? ' (FULL)' : ''}
+                        </option>
+                      );
+                    })
                   )}
                 </select>
+                {(() => {
+                  const sel = classes.find(c => c.name === formData.class_name);
+                  if (!sel) return null;
+                  const used = Number(sel.student_count ?? 0);
+                  const max = Number(sel.max_students ?? 0);
+                  const left = Math.max(max - used, 0);
+                  if (max <= 0) return null;
+                  return (
+                    <p className={`mt-1.5 text-[11px] font-medium ${left === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                      Strength {used}/{max} — {left === 0 ? 'No seats available' : `${left} seat${left === 1 ? '' : 's'} available`}
+                    </p>
+                  );
+                })()}
               </div>
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">DISCOUNT IN FEE *</label>
@@ -651,6 +690,16 @@ export default function AddStudentPage() {
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">FATHER NATIONAL ID</label>
                 <Input placeholder="Father National ID" value={formData.father_national_id} onChange={(e) => handleChange('father_national_id', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
+                {siblingMatches.length > 0 && (
+                  <div className="mt-2 rounded-xl border border-purple-100 bg-purple-50/60 px-3 py-2">
+                    <p className="text-[11px] font-bold text-purple-700">
+                      {siblingMatches.length} existing sibling{siblingMatches.length === 1 ? '' : 's'} found for this family
+                    </p>
+                    <p className="text-[10px] text-purple-500 mt-0.5">
+                      {siblingMatches.map((s) => s.full_name).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">MOBILE NO</label>

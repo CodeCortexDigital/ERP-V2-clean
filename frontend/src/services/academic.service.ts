@@ -118,19 +118,22 @@ const academicService = {
       }
     },
     create: async (data: Partial<SchoolClass>) => {
-      const payload = {
+      const payload: any = {
         name: data.name?.trim(),
         code: data.code?.trim().toUpperCase().replace(/\s/g, ''),
         description: data.description || '',
         academic_year: data.academic_year || null,
         teacher_name: data.teacher_name || '',
+        classroom: (data as any).classroom || null,
+        max_students: (data as any).max_students ?? 30,
+        tuition_fee: (data as any).tuition_fee ?? 0,
         is_active: data.is_active !== false
       };
       const response = await api.post(`/classes/`, payload);
       return response.data;
     },
     update: async (id: string, data: Partial<SchoolClass>) => {
-      const payload = {
+      const payload: any = {
         name: data.name?.trim(),
         code: data.code?.trim().toUpperCase().replace(/\s/g, ''),
         description: data.description || '',
@@ -138,6 +141,9 @@ const academicService = {
         teacher_name: data.teacher_name || '',
         is_active: data.is_active !== false
       };
+      if ((data as any).classroom !== undefined) payload.classroom = (data as any).classroom || null;
+      if ((data as any).max_students !== undefined) payload.max_students = (data as any).max_students;
+      if ((data as any).tuition_fee !== undefined) payload.tuition_fee = (data as any).tuition_fee;
       const response = await api.patch(`/classes/${id}/`, payload);
       return response.data;
     },
@@ -153,26 +159,26 @@ const academicService = {
   classrooms: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`/classrooms/`, { params });
+        const response = await api.get(`${API_PREFIX}/classrooms/`, { params });
         return extractListData<Classroom>(response.data);
       } catch {
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`/classrooms/${id}/`);
+      const response = await api.get(`${API_PREFIX}/classrooms/${id}/`);
       return response.data;
     },
     create: async (data: Partial<Classroom>) => {
-      const response = await api.post(`/classrooms/`, data);
+      const response = await api.post(`${API_PREFIX}/classrooms/`, data);
       return response.data;
     },
     update: async (id: string, data: Partial<Classroom>) => {
-      const response = await api.patch(`/classrooms/${id}/`, data);
+      const response = await api.patch(`${API_PREFIX}/classrooms/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`/classrooms/${id}/`);
+      const response = await api.delete(`${API_PREFIX}/classrooms/${id}/`);
       return response.data;
     }
   },
@@ -183,26 +189,26 @@ const academicService = {
   periods: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`/periods/`, { params });
+        const response = await api.get(`${API_PREFIX}/periods/`, { params });
         return extractListData<Period>(response.data);
       } catch {
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`/periods/${id}/`);
+      const response = await api.get(`${API_PREFIX}/periods/${id}/`);
       return response.data;
     },
     create: async (data: Partial<Period>) => {
-      const response = await api.post(`/periods/`, data);
+      const response = await api.post(`${API_PREFIX}/periods/`, data);
       return response.data;
     },
     update: async (id: string, data: Partial<Period>) => {
-      const response = await api.patch(`/periods/${id}/`, data);
+      const response = await api.patch(`${API_PREFIX}/periods/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`/periods/${id}/`);
+      const response = await api.delete(`${API_PREFIX}/periods/${id}/`);
       return response.data;
     }
   },
@@ -213,26 +219,26 @@ const academicService = {
   timetable: {
     getAll: async (params?: any) => {
       try {
-        const response = await api.get(`/timetable-entries/`, { params });
+        const response = await api.get(`${API_PREFIX}/timetable-entries/`, { params });
         return extractListData<any>(response.data);
       } catch {
         return [];
       }
     },
     getById: async (id: string) => {
-      const response = await api.get(`/timetable-entries/${id}/`);
+      const response = await api.get(`${API_PREFIX}/timetable-entries/${id}/`);
       return response.data;
     },
     create: async (data: any) => {
-      const response = await api.post(`/timetable-entries/`, data);
+      const response = await api.post(`${API_PREFIX}/timetable-entries/`, data);
       return response.data;
     },
     update: async (id: string, data: any) => {
-      const response = await api.patch(`/timetable-entries/${id}/`, data);
+      const response = await api.patch(`${API_PREFIX}/timetable-entries/${id}/`, data);
       return response.data;
     },
     delete: async (id: string) => {
-      const response = await api.delete(`/timetable-entries/${id}/`);
+      const response = await api.delete(`${API_PREFIX}/timetable-entries/${id}/`);
       return response.data;
     }
   },

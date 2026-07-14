@@ -2,8 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import studentService from '@/services/student.service';
+import financeService from '@/services/finance.service';
 import { Calendar, Clock, DollarSign, BookOpen, User, RefreshCw, UserCheck, AlertCircle, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface FeeItem {
+  amount: number;
+  month: string;
+  status: string;
+}
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -11,6 +18,7 @@ export default function StudentDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState<any | null>(null);
+  const [feeItems, setFeeItems] = useState<FeeItem[]>([]);
 
   // Clock state
   const [currentTime, setCurrentTime] = useState('');
@@ -23,6 +31,29 @@ export default function StudentDashboard() {
     return () => clearInterval(interval);
   }, [user]);
 
+  const formatFeeMonth = (inv: any): string => {
+    const raw = inv?.invoice_month || inv?.fee_month || inv?.due_date || inv?.issue_date || inv?.created_at || '';
+    if (!raw) return 'N/A';
+    if (typeof raw === 'string' && raw.includes(' ') && !raw.includes('-')) return raw;
+    const m = String(raw).match(/^(\d{4})-(\d{2})/);
+    if (m) {
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+      return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? String(raw) : d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  const feeStatusLabel = (inv: any): string => {
+    const paid = Number(inv?.paid_amount || 0);
+    const balance = Number(inv?.balance_due ?? (Number(inv?.total_amount ?? inv?.amount ?? 0) - paid));
+    const status = String(inv?.status || '').toLowerCase();
+    if (status === 'paid' || balance <= 0) return 'PAID';
+    if (status.includes('partial') || paid > 0) return 'PARTIALLY PAID';
+    if (status === 'cancelled') return 'CANCELLED';
+    return 'UNPAID';
+  };
+
   const updateClock = () => {
     const now = new Date();
     setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -32,44 +63,79 @@ export default function StudentDashboard() {
   const fetchStudentData = async () => {
     try {
       setLoading(true);
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      
-      // Find logged-in student
-      let currentStudent = customStudents.find(
-        (s: any) => 
-          String(s.id) === String(user?.id) || 
-          s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-      );
 
-      // Fallback to first if not found, or default
-      if (!currentStudent && customStudents.length > 0) {
-        currentStudent = customStudents[0];
+      // Load all students and match the logged-in one (same logic as Admission Letter)
+      const sRes = await studentService.getAll().catch(() => ({ data: [] }));
+      const list: any[] = Array.isArray(sRes?.data) ? sRes.data : [];
+
+      const summaryId = user?.student?.student_id;
+      let data: any = list.find(
+        (s: any) =>
+          (summaryId && String(s.student_id) === String(summaryId)) ||
+          String(s.id) === String(user?.id) ||
+          String(s.student_id) === String(user?.id) ||
+          s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
+      ) || null;
+
+      // Fallback to first record so the dashboard still renders
+      if (!data && list.length > 0) {
+        data = list[0];
       }
 
-      // Build complete student info matching Picture 2
+      if (!data) {
+        setStudent(null);
+        return;
+      }
+
+      const val = (v: any) => (v === null || v === undefined || v === '' ? 'N/A' : v);
+
       const fullStudent = {
-        name: currentStudent?.full_name || user?.full_name || 'Sundas Azhar',
-        regNo: currentStudent?.student_id || '001',
-        admissionDate: currentStudent?.admission_date || '29 June, 2026',
-        className: currentStudent?.class_name || 'Grade II-II',
-        family: currentStudent?.select_family || 'Husband Family',
-        discount: '0%',
-        dob: currentStudent?.date_of_birth || '23-October, 2012',
-        gender: currentStudent?.gender || 'female',
-        idMark: currentStudent?.identification_mark || 'mole',
-        bloodGroup: currentStudent?.blood_group || 'AB+',
-        disease: currentStudent?.disease || 'nil',
-        nic: currentStudent?.birth_form_id || '54588578788',
-        cast: currentStudent?.cast || 'abc',
-        prevSchool: currentStudent?.previous_school || 'no',
-        prevRollNo: currentStudent?.previous_id || 'nil',
-        additionalNote: currentStudent?.additional_note || 'nil',
-        orphan: currentStudent?.orphan_student || 'No',
-        osc: currentStudent?.osc || 'N/A',
-        religion: currentStudent?.religion || 'Islam'
+        name: data.full_name || user?.full_name || 'Student',
+        regNo: val(data.student_id),
+        admissionDate: val(data.admission_date),
+        className: val(data.current_class_name || data.class_name),
+        family: val(data.select_family),
+        discount: data.discount_in_fee ? `${data.discount_in_fee}%` : '0%',
+        dob: val(data.date_of_birth),
+        gender: val(data.gender),
+        idMark: val(data.identification_mark),
+        bloodGroup: val(data.blood_group),
+        disease: val(data.disease),
+        nic: val(data.birth_form_id),
+        cast: val(data.cast),
+        prevSchool: val(data.previous_school),
+        prevRollNo: val(data.previous_id),
+        additionalNote: val(data.additional_note),
+        orphan: val(data.orphan_student),
+        osc: val(data.osc),
+        religion: val(data.religion)
       };
 
       setStudent(fullStudent);
+
+      // Load real invoices for this student
+      try {
+        const invRes = await financeService.getInvoices({ student_id: data.id }).catch(() => ({ data: [] }));
+        const allInv: any[] = Array.isArray(invRes?.data) ? invRes.data : [];
+        const mine = allInv.filter((inv: any) =>
+          String(inv.student) === String(data.id) ||
+          String(inv.student_id) === String(data.id) ||
+          (inv.student && String(inv.student.id) === String(data.id))
+        );
+        mine.sort((a: any, b: any) =>
+          new Date(b.created_at || b.issue_date || 0).getTime() - new Date(a.created_at || a.issue_date || 0).getTime()
+        );
+        setFeeItems(
+          mine.map((inv: any) => ({
+            amount: Number(inv.total_amount ?? inv.amount ?? 0),
+            month: formatFeeMonth(inv),
+            status: feeStatusLabel(inv),
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to load invoices', err);
+        setFeeItems([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -81,6 +147,21 @@ export default function StudentDashboard() {
     return (
       <div className="flex justify-center items-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-650" />
+      </div>
+    );
+  }
+
+  if (!student) {
+    return (
+      <div className="flex flex-col justify-center items-center h-96 text-center gap-3">
+        <AlertCircle className="w-10 h-10 text-slate-300" />
+        <p className="text-sm font-bold text-slate-500">Student profile not found for this account.</p>
+        <button
+          onClick={fetchStudentData}
+          className="px-4 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-650 text-xs font-bold transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -367,40 +448,37 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="space-y-3.5">
-                  
-                  {/* Fee item 1 */}
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-150">
-                    <div className="space-y-0.5">
-                      <span className="block text-xs font-black text-slate-700">Rs 1,500</span>
-                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Fees of July, 2026</span>
+                  {feeItems.length === 0 ? (
+                    <div className="border border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-2">
+                      <span className="text-2xl">💳</span>
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-black text-slate-700">No Record Found.</p>
+                        <p className="text-[9px] text-slate-400 font-bold">No fee invoices found.</p>
+                      </div>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider">
-                      PARTIALLY PAID
-                    </span>
-                  </div>
-
-                  {/* Fee item 2 */}
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-150">
-                    <div className="space-y-0.5">
-                      <span className="block text-xs font-black text-slate-700">Rs 3,500</span>
-                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Fees of July, 2026</span>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider">
-                      PARTIALLY PAID
-                    </span>
-                  </div>
-
-                  {/* Fee item 3 */}
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-150">
-                    <div className="space-y-0.5">
-                      <span className="block text-xs font-black text-slate-700">Rs 3,500</span>
-                      <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Fees of June, 2026</span>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider">
-                      PAID
-                    </span>
-                  </div>
-
+                  ) : (
+                    feeItems.map((fee, idx) => {
+                      const badge =
+                        fee.status === 'PAID'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : fee.status === 'PARTIALLY PAID'
+                          ? 'bg-amber-100 text-amber-700'
+                          : fee.status === 'CANCELLED'
+                          ? 'bg-slate-200 text-slate-600'
+                          : 'bg-rose-100 text-rose-700';
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-150">
+                          <div className="space-y-0.5">
+                            <span className="block text-xs font-black text-slate-700">Rs {fee.amount.toLocaleString()}</span>
+                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Fees of {fee.month}</span>
+                          </div>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${badge}`}>
+                            {fee.status}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 

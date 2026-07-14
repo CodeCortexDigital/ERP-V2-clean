@@ -15,6 +15,16 @@ export interface Teacher {
   joining_date: string;
   is_active: boolean;
   profile_picture: string | null;
+  role?: string;
+  department?: string;
+  shift?: string;
+  monthly_salary?: string | number | null;
+  father_husband_name?: string;
+  national_id?: string;
+  religion?: string;
+  education?: string;
+  blood_group?: string;
+  home_address?: string;
   address?: string;
   city?: string;
   state?: string;

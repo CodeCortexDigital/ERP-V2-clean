@@ -17,17 +17,26 @@ interface Teacher {
   email: string;
 }
 
+interface Classroom {
+  id: string;
+  name: string;
+  code?: string;
+}
+
 export default function AddClassPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
     academic_year: '',
     teacher_name: '',
+    classroom: '',
+    max_students: 30,
     is_active: true,
     tuition_fee: 0
   });
@@ -37,12 +46,21 @@ export default function AddClassPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [yearsRes, teachersRes] = await Promise.all([
+        const [yearsRes, teachersRes, classroomsRes] = await Promise.all([
           academicService.academicYears.getAll().catch(() => []),
-          teacherService.getActive().catch(() => [])
+          teacherService.getActive().catch(() => []),
+          academicService.classrooms.getAll().catch(() => [])
         ]);
         
         setAcademicYears(yearsRes || []);
+
+        let classroomsArray: Classroom[] = [];
+        if (Array.isArray(classroomsRes)) {
+          classroomsArray = classroomsRes;
+        } else if (classroomsRes && typeof classroomsRes === 'object') {
+          classroomsArray = (classroomsRes as any).data || (classroomsRes as any).results || [];
+        }
+        setClassrooms(classroomsArray);
         
         // ✅ FIX: Extract the array from the response
         let teachersArray: Teacher[] = [];
@@ -92,6 +110,15 @@ export default function AddClassPage() {
     if (formData.code.includes(' ')) {
       newErrors.code = 'Class code cannot contain spaces';
     }
+    if (!formData.teacher_name.trim()) {
+      newErrors.teacher_name = 'A class teacher must be assigned';
+    }
+    if (!formData.classroom) {
+      newErrors.classroom = 'A classroom must be assigned';
+    }
+    if (!formData.max_students || Number(formData.max_students) < 1) {
+      newErrors.max_students = 'Max students must be at least 1';
+    }
     if (formData.tuition_fee < 0) {
       newErrors.tuition_fee = 'Tuition fee cannot be negative';
     }
@@ -114,6 +141,8 @@ export default function AddClassPage() {
       description: formData.description.trim(),
       academic_year: formData.academic_year || null,
       teacher_name: formData.teacher_name || '',
+      classroom: formData.classroom || null,
+      max_students: Number(formData.max_students) || 30,
       is_active: formData.is_active,
       tuition_fee: formData.tuition_fee
     };
@@ -141,6 +170,12 @@ export default function AddClassPage() {
               setErrors(prev => ({ ...prev, name: errorData[field][0] || 'Invalid name' }));
             } else if (field === 'tuition_fee') {
               setErrors(prev => ({ ...prev, tuition_fee: errorData[field][0] || 'Invalid fee' }));
+            } else if (field === 'teacher_name') {
+              setErrors(prev => ({ ...prev, teacher_name: errorData[field][0] || 'Invalid teacher' }));
+            } else if (field === 'classroom') {
+              setErrors(prev => ({ ...prev, classroom: errorData[field][0] || 'Invalid classroom' }));
+            } else if (field === 'max_students') {
+              setErrors(prev => ({ ...prev, max_students: errorData[field][0] || 'Invalid limit' }));
             }
           });
           
@@ -254,14 +289,16 @@ export default function AddClassPage() {
             {/* ✅ Teacher Dropdown - FIXED */}
             <div className="space-y-1.5">
               <label htmlFor="teacher_name" className="block text-sm font-medium text-slate-700">
-                Class Teacher
+                Class Teacher <span className="text-red-500">*</span>
               </label>
               <select
                 id="teacher_name"
                 name="teacher_name"
                 value={formData.teacher_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm"
+                className={`w-full px-4 py-2.5 rounded-lg border ${
+                  errors.teacher_name ? 'border-red-500' : 'border-slate-300'
+                } focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm`}
               >
                 <option value="">Select a teacher</option>
                 {teachers && teachers.length > 0 ? (
@@ -274,9 +311,47 @@ export default function AddClassPage() {
                   <option value="" disabled>No teachers available</option>
                 )}
               </select>
+              {errors.teacher_name && (
+                <p className="text-xs text-red-500 mt-1">{errors.teacher_name}</p>
+              )}
               {(!teachers || teachers.length === 0) && (
                 <p className="text-xs text-amber-500 mt-1">
                   No teachers found. Please add teachers first.
+                </p>
+              )}
+            </div>
+
+            {/* Classroom Dropdown */}
+            <div className="space-y-1.5">
+              <label htmlFor="classroom" className="block text-sm font-medium text-slate-700">
+                Classroom <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="classroom"
+                name="classroom"
+                value={formData.classroom}
+                onChange={handleChange}
+                className={`w-full px-4 py-2.5 rounded-lg border ${
+                  errors.classroom ? 'border-red-500' : 'border-slate-300'
+                } focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm`}
+              >
+                <option value="">Select a classroom</option>
+                {classrooms && classrooms.length > 0 ? (
+                  classrooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name} {room.code ? `(${room.code})` : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No classrooms available</option>
+                )}
+              </select>
+              {errors.classroom && (
+                <p className="text-xs text-red-500 mt-1">{errors.classroom}</p>
+              )}
+              {(!classrooms || classrooms.length === 0) && (
+                <p className="text-xs text-amber-500 mt-1">
+                  No classrooms found. Please add classrooms first.
                 </p>
               )}
             </div>
@@ -300,6 +375,29 @@ export default function AddClassPage() {
               {errors.tuition_fee && (
                 <p className="text-xs text-red-500 mt-1">{errors.tuition_fee}</p>
               )}
+            </div>
+
+            {/* Max Students */}
+            <div className="space-y-1.5">
+              <label htmlFor="max_students" className="block text-sm font-medium text-slate-700">
+                Max Students <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="max_students"
+                name="max_students"
+                type="number"
+                min={1}
+                value={formData.max_students}
+                onChange={handleChange}
+                placeholder="30"
+                className={`w-full px-4 py-2.5 rounded-lg border ${
+                  errors.max_students ? 'border-red-500' : 'border-slate-300'
+                } focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-colors text-sm`}
+              />
+              {errors.max_students && (
+                <p className="text-xs text-red-500 mt-1">{errors.max_students}</p>
+              )}
+              <p className="text-xs text-slate-400">Seat capacity. New students are blocked when the class is full.</p>
             </div>
 
             {/* Description */}

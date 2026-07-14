@@ -85,7 +85,15 @@ export default function PaySalaryPage() {
     setSearchQuery(teacher.full_name);
     setSuggestions([]);
 
-    const basic = teacher.monthlySalary ? Number(teacher.monthlySalary.toString().replace(/[^0-9]/g, '')) : 45000;
+    // Source-of-truth order: backend monthly_salary -> localStorage employees_extra_info -> 0
+    let rawSalary = teacher.monthly_salary ?? teacher.monthlySalary;
+    if (rawSalary === null || rawSalary === undefined || rawSalary === '') {
+      try {
+        const extrasMap = JSON.parse(localStorage.getItem('employees_extra_info') || '{}');
+        rawSalary = extrasMap[teacher.id]?.monthlySalary;
+      } catch (e) {}
+    }
+    const basic = rawSalary ? Number(rawSalary.toString().replace(/[^0-9.]/g, '')) : 0;
     setSalaryBasic(basic);
     setSalaryBonus(0);
     setSalaryDeduction(0);

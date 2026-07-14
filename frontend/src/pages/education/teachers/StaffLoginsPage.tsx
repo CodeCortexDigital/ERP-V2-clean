@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { GraduationCap, ArrowLeft, RotateCcw, Copy, Printer, ChevronDown, User, Lock, Eye, EyeOff, Save, Mail } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
+import { ensureStaffCredentials, saveStaffCredential } from '@/utils/staffCredentials';
 
 export default function StaffLoginsPage() {
   const navigate = useNavigate();
@@ -43,27 +44,9 @@ export default function StaffLoginsPage() {
       const combinedList = rawTeachers.length > 0 ? rawTeachers : defaultTeachers;
       setTeachers(combinedList);
 
-      // Load saved credentials from localStorage
-      const savedCreds = localStorage.getItem('staff_login_credentials');
-      let loadedCreds: Record<string, { username: string; password?: string }> = {};
-      if (savedCreds) {
-        try {
-          loadedCreds = JSON.parse(savedCreds);
-        } catch (e) {}
-      }
-
-      // Initialize default logins if missing
-      const updatedCreds = { ...loadedCreds };
-      combinedList.forEach(t => {
-        if (!updatedCreds[t.id]) {
-          const cleanName = t.full_name.toLowerCase().replace(/\s+/g, '');
-          const idSuffix = t.employee_id ? t.employee_id : String(Date.now()).slice(-4);
-          updatedCreds[t.id] = {
-            username: `${cleanName}${idSuffix}`,
-            password: `staff_${idSuffix}`
-          };
-        }
-      });
+      // Ensure every staff member has a persisted credential (so login works
+      // and the Job Letter shows the exact same username/password).
+      const updatedCreds = ensureStaffCredentials(combinedList);
       setCredentials(updatedCreds);
     } catch (err) {
       toast.error('Failed to load staff login list');
@@ -78,10 +61,7 @@ export default function StaffLoginsPage() {
       toast.error('Username cannot be empty');
       return;
     }
-    const savedCreds = localStorage.getItem('staff_login_credentials');
-    const allCreds = savedCreds ? JSON.parse(savedCreds) : {};
-    allCreds[teacherId] = cred;
-    localStorage.setItem('staff_login_credentials', JSON.stringify(allCreds));
+    saveStaffCredential(teacherId, { username: cred.username, password: cred.password || cred.username });
     toast.success('Login credentials saved successfully!');
   };
 
