@@ -64,6 +64,14 @@ urlpatterns = [
     path('teacher-feedback/<str:id>/', views.TeacherFeedbackDetailView.as_view(), name='teacher-feedback-detail'),
     path('teacher-attendance/', views.TeacherAttendanceListCreateView.as_view(), name='teacher-attendance-list'),
     path('teacher-attendance/<str:id>/', views.TeacherAttendanceDetailView.as_view(), name='teacher-attendance-detail'),
+
+    # LEVEL 7: LEAVE & SUBSTITUTION
+    path('teacher-leaves/', views.TeacherLeaveListCreateView.as_view(), name='teacher-leave-list'),
+    path('teacher-leaves/<str:id>/', views.TeacherLeaveDetailView.as_view(), name='teacher-leave-detail'),
+    path('timetable-substitutions/', views.TimetableSubstitutionListView.as_view(), name='timetable-substitution-list'),
+    path('leave-balances/', views.LeaveBalanceListView.as_view(), name='leave-balance-list'),
+    path('homework/', views.HomeworkListCreateView.as_view(), name='homework-list'),
+    path('homework/<str:id>/', views.HomeworkDetailView.as_view(), name='homework-detail'),
 ]
 
 

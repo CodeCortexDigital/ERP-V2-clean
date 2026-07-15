@@ -15,6 +15,7 @@ export interface Teacher {
   joining_date: string;
   is_active: boolean;
   profile_picture: string | null;
+  teacher_type?: 'regular' | 'relief';
   role?: string;
   department?: string;
   shift?: string;
@@ -245,6 +246,60 @@ const teacherService = {
       response.data.teacher = normalizeTeacher(response.data.teacher);
     }
     return response;
+  },
+
+  // ============================================================
+  // LEAVE & SUBSTITUTION
+  // ============================================================
+  leaves: {
+    getAll: async (params?: any) => {
+      try {
+        const response = await api.get(`/auth/academics/teacher-leaves/`, { params });
+        return extractListData<any>(response.data);
+      } catch {
+        return [];
+      }
+    },
+    create: async (data: any) => {
+      const response = await api.post(`/auth/academics/teacher-leaves/`, data);
+      return response.data;
+    },
+    update: async (id: string, data: any) => {
+      const response = await api.patch(`/auth/academics/teacher-leaves/${id}/`, data);
+      return response.data;
+    },
+    remove: async (id: string) => {
+      const response = await api.delete(`/auth/academics/teacher-leaves/${id}/`);
+      return response.data;
+    }
+  },
+
+  substitutions: {
+    getAll: async (params?: any) => {
+      try {
+        const response = await api.get(`/auth/academics/timetable-substitutions/`, { params });
+        return extractListData<any>(response.data);
+      } catch {
+        return [];
+      }
+    }
+  },
+
+  leaveBalances: {
+    get: async (params?: any) => {
+      try {
+        const response = await api.get(`/auth/academics/leave-balances/`, { params });
+        const data = response.data;
+        if (Array.isArray(data)) return data[0] || null;
+        return data || null;
+      } catch {
+        return null;
+      }
+    },
+    update: async (id: string, data: any) => {
+      const response = await api.patch(`/auth/academics/leave-balances/${id}/`, data);
+      return response.data;
+    }
   }
 };
 

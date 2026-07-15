@@ -38,6 +38,25 @@ const parseDateSafe = (dateStr: string) => {
   return { day, month };
 };
 
+const toEntry = (hw: any): HomeworkEntry => ({
+  id: hw.id,
+  homeworkDate: hw.homework_date,
+  dueDate: hw.due_date || '',
+  className: hw.class_name,
+  subjectName: hw.subject_name,
+  teacherName: hw.teacher_name,
+  title: hw.title,
+  description: hw.description || '',
+  attachmentName: hw.attachment_name || undefined,
+  attachmentData: hw.attachment_data || undefined,
+  status: hw.status
+});
+
+const isUUID = (value?: string) => {
+  if (!value) return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value);
+};
+
 export default function HomeworkManagementPage() {
   const navigate = useNavigate();
   const { role, user } = useAuth();
@@ -82,6 +101,21 @@ export default function HomeworkManagementPage() {
     fetchResources();
   }, []);
 
+  const loadHomeworks = async (allEntries: HomeworkEntry[]) => {
+    if (role === 'student') {
+      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
+      const matched = customStudents.find((s: any) =>
+        String(s.id) === String(user?.id) ||
+        String(s.student_id) === String(user?.id) ||
+        s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
+      );
+      const studentClass = matched?.class_name || (user as any)?.class_name || 'Grade 1-A';
+      setSearchedHomeworks(allEntries.filter((h) => h.className === studentClass));
+    } else {
+      setSearchedHomeworks(allEntries);
+    }
+  };
+
   const fetchResources = async () => {
     setLoading(true);
     try {
@@ -95,7 +129,6 @@ export default function HomeworkManagementPage() {
       const teachersData = Array.isArray(teachersRes.data) ? teachersRes.data : (teachersRes.data as any)?.results || [];
       const subjectsData = Array.isArray(subjectsRes.data) ? subjectsRes.data : (subjectsRes.data as any)?.results || [];
 
-      // Fallbacks if empty
       const finalClasses = classesData.length > 0 ? classesData : [
         { id: 'cls-1', name: 'Grade 1-A' }, { id: 'cls-2', name: 'Grade 1-B' },
         { id: 'cls-3', name: 'Grade 2-A' }, { id: 'cls-4', name: 'Grade 2-B' },
@@ -111,57 +144,11 @@ export default function HomeworkManagementPage() {
       setTeachers(finalTeachers);
       setSubjectsList(subjectsData);
 
-      // Load homework list from Local Storage
-      const savedHomeworks = localStorage.getItem('homework_entries_v1');
-      let finalHomeworksList = [];
-      if (savedHomeworks) {
-        finalHomeworksList = JSON.parse(savedHomeworks);
-      } else {
-        // Pre-seed some default homework entries
-        const initialHomeworks: HomeworkEntry[] = [
-          {
-            id: 'hw-1',
-            homeworkDate: '2026-07-04',
-            dueDate: '2026-07-05',
-            className: 'Grade 1-A',
-            subjectName: 'Mathematics',
-            teacherName: 'Zainab Ahmed',
-            title: 'Arithmetic Addition Exercise',
-            description: 'Solve page 12 of the Mathematics workbook. Complete questions 1 to 10.',
-            attachmentName: 'Math_Addition_Sheet.pdf',
-            status: 'assigned'
-          },
-          {
-            id: 'hw-2',
-            homeworkDate: '2026-07-04',
-            dueDate: '2026-07-06',
-            className: 'Grade 1-A',
-            subjectName: 'English',
-            teacherName: 'Maryam Fatima',
-            title: 'Noun Identification Essay',
-            description: 'Read the short story "The Blue Bear" and underline all nouns. Write 5 sentences using proper nouns.',
-            attachmentName: 'Noun_Reading_Story.pdf',
-            status: 'assigned'
-          }
-        ];
-        localStorage.setItem('homework_entries_v1', JSON.stringify(initialHomeworks));
-        finalHomeworksList = initialHomeworks;
-      }
-      setHomeworkList(finalHomeworksList);
-
-      if (role === 'student') {
-        const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-        const matched = customStudents.find((s: any) => 
-          String(s.id) === String(user?.id) || 
-          String(s.student_id) === String(user?.id) ||
-          s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-        );
-        const studentClass = matched?.class_name || (user as any)?.class_name || 'Grade 1-A';
-        const filtered = finalHomeworksList.filter((h: any) => h.className === studentClass);
-        setSearchedHomeworks(filtered);
-      } else {
-        setSearchedHomeworks(finalHomeworksList);
-      }
+      // Load homework from backend
+      const backendHomeworks = await academicService.homework.getAll().catch(() => [] as any[]);
+      const mapped = backendHomeworks.map(toEntry);
+      setHomeworkList(mapped);
+      await loadHomeworks(mapped);
     } catch (err) {
       console.error('Error fetching homework resources:', err);
     } finally {
@@ -242,12 +229,18 @@ export default function HomeworkManagementPage() {
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this homework entry?')) return;
+    try {
+      await academicService.homework.delete(id);
+      toast.success('Homework assignment deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete homework:', err);
+      toast.error('Failed to delete homework');
+      return;
+    }
     const updated = homeworkList.filter(h => h.id !== id);
-    localStorage.setItem('homework_entries_v1', JSON.stringify(updated));
     setHomeworkList(updated);
-    toast.success('Homework assignment deleted successfully');
     // Refresh filter results
     setTimeout(() => {
       const filtered = updated.filter(hw => {
@@ -260,51 +253,49 @@ export default function HomeworkManagementPage() {
     }, 50);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formClass || !formSubject || !formTeacher || !formTitle.trim()) {
       toast.error('Class, Subject, Teacher, and Title are required');
       return;
     }
 
-    const payload: HomeworkEntry = {
-      id: editingHomework ? editingHomework.id : `hw-${Date.now()}`,
-      homeworkDate: formDate,
-      dueDate: formDueDate,
-      className: formClass,
-      subjectName: formSubject,
-      teacherName: formTeacher,
+    const classObj = classes.find(c => c.name === formClass);
+    const teacherObj = teachers.find(t => (t.full_name || t.name) === formTeacher);
+
+    const payload: any = {
+      class_name: formClass,
+      teacher_name: formTeacher,
+      subject_name: formSubject,
       title: formTitle.trim(),
       description: formDesc.trim(),
-      attachmentName: formAttachment || undefined,
-      attachmentData: formAttachmentData || undefined,
+      homework_date: formDate,
+      due_date: formDueDate,
+      attachment_name: formAttachment || '',
+      attachment_data: formAttachmentData || '',
       status: editingHomework ? editingHomework.status : 'assigned'
     };
 
-    let updated: HomeworkEntry[] = [];
-    if (editingHomework) {
-      updated = homeworkList.map(h => h.id === editingHomework.id ? payload : h);
-      toast.success('Homework updated successfully');
-    } else {
-      updated = [payload, ...homeworkList];
-      toast.success('New Homework assigned successfully');
+    if (isUUID(classObj?.id)) payload.class_ref = classObj!.id;
+    if (isUUID(teacherObj?.id)) payload.teacher = teacherObj!.id;
+
+    try {
+      if (editingHomework) {
+        await academicService.homework.update(editingHomework.id, payload);
+        toast.success('Homework updated successfully');
+      } else {
+        await academicService.homework.create(payload);
+        toast.success('New Homework assigned successfully');
+      }
+    } catch (err) {
+      console.error('Failed to save homework:', err);
+      toast.error('Failed to save homework');
+      return;
     }
 
-    localStorage.setItem('homework_entries_v1', JSON.stringify(updated));
-    setHomeworkList(updated);
     setShowForm(false);
     resetForm();
-
-    // Trigger search to refresh layout
-    setTimeout(() => {
-      const filtered = updated.filter(hw => {
-        const matchDate = !filterDate || hw.homeworkDate === filterDate;
-        const matchClass = filterClass === 'all' || hw.className === filterClass;
-        const matchTeacher = filterTeacher === 'all' || hw.teacherName === filterTeacher;
-        return matchDate && matchClass && matchTeacher;
-      });
-      setSearchedHomeworks(filtered);
-    }, 50);
+    await fetchResources();
   };
 
   const resetForm = () => {
@@ -469,26 +460,22 @@ export default function HomeworkManagementPage() {
                         <span className="text-[10px] font-bold text-rose-600 font-mono">{hw.dueDate}</span>
                       </div>
 
-                      {/* File Attachment Pill */}
-                      {hw.attachmentName && (
-                        <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-[9px] font-bold text-slate-600 max-w-[180px]">
-                          <Paperclip className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[100px]">{hw.attachmentName}</span>
-                          {hw.attachmentData ? (
-                            <a
-                              href={hw.attachmentData}
-                              download={hw.attachmentName}
-                              className="text-[8px] font-black uppercase text-purple-600 hover:underline shrink-0 ml-1.5"
-                            >
-                              Download
-                            </a>
-                          ) : (
-                            <span className="text-[8px] font-black uppercase text-slate-400 shrink-0 ml-1.5">
-                              Preseeded
-                            </span>
-                          )}
-                        </div>
-                      )}
+                       {/* File Attachment Pill */}
+                       {hw.attachmentName && (
+                         <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-[9px] font-bold text-slate-600 max-w-[180px]">
+                           <Paperclip className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                           <span className="truncate max-w-[100px]">{hw.attachmentName}</span>
+                           {hw.attachmentData && (
+                             <a
+                               href={hw.attachmentData}
+                               download={hw.attachmentName}
+                               className="text-[8px] font-black uppercase text-purple-600 hover:underline shrink-0 ml-1.5"
+                             >
+                               Download
+                             </a>
+                           )}
+                         </div>
+                       )}
 
                       {/* Edit / Delete Buttons */}
                       {!isStudent && (

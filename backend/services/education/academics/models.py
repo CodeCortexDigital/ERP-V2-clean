@@ -289,6 +289,19 @@ class Teacher(SchoolAliasMixin, models.Model):
     is_active = models.BooleanField(default=True)
     profile_picture = models.ImageField(upload_to='teacher_photos/', null=True, blank=True)
 
+    # Teacher classification: regular staff vs relief/substitute pool
+    TEACHER_TYPES = [
+        ('regular', 'Regular'),
+        ('relief', 'Relief'),
+    ]
+    teacher_type = models.CharField(
+        max_length=20,
+        choices=TEACHER_TYPES,
+        default='regular',
+        db_index=True,
+        help_text="Relief teachers are kept available to cover regular teachers on leave",
+    )
+
     # HR / employee details
     role = models.CharField(max_length=100, blank=True, default='')
     department = models.CharField(max_length=100, blank=True, default='')
@@ -415,7 +428,7 @@ class TimetableEntry(models.Model):
         ('saturday', 'Saturday'),
         ('sunday', 'Sunday')
     ]
-    
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE)
     class_subject = models.ForeignKey(ClassSubject, on_delete=models.CASCADE)
@@ -427,15 +440,174 @@ class TimetableEntry(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
-        unique_together = ['class_subject', 'day_of_week', 'period', 'academic_year']
+        unique_together = ['class_subject', 'day_of_week', 'period', 'academic_year', 'section']
+
     
     def __str__(self):
         return f"{self.day_of_week} - {self.period} - {self.class_subject} - {self.teacher.full_name}"
 
 
-# LEVEL 6: PROGRESS TRACKING
+class TeacherLeave(models.Model):
+    """Leave record for a teacher. Creating one can trigger automatic
+    substitution of the teacher's timetable periods by an available relief
+    teacher (matched by subject specialisation)."""
+    LEAVE_TYPES = [
+        ('sick', 'Sick'),
+        ('casual', 'Casual'),
+        ('annual', 'Annual'),
+        ('maternity', 'Maternity'),
+        ('emergency', 'Emergency'),
+        ('other', 'Other'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(
+        Teacher, on_delete=models.CASCADE, related_name='leaves', null=True, blank=True
+    )
+    # Applicant details so non-teaching staff can also apply for leave even
+    # when no Teacher record is linked (used when `teacher` is null).
+    applicant_name = models.CharField(max_length=255, blank=True, default='')
+    applicant_email = models.CharField(max_length=255, blank=True, default='')
+    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES, default='sick')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='approved')
+    substitute_assigned = models.BooleanField(default=False)
+    created_by = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.teacher.full_name} leave ({self.start_date} - {self.end_date})"
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        today = timezone.localdate()
+        return self.status in ('approved', 'pending') and self.start_date <= today <= self.end_date
+
+
+class TimetableSubstitution(models.Model):
+    """A single timetable period reassigned from an absent (regular) teacher
+    to a relief teacher for the duration of a leave. The original
+    TimetableEntry is never modified; this record is the source of truth for
+    coverage and is removed automatically when the leave ends/cancels."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    leave = models.ForeignKey(
+        TeacherLeave, on_delete=models.CASCADE, related_name='substitutions'
+    )
+    original_entry = models.ForeignKey(
+        TimetableEntry, on_delete=models.CASCADE, related_name='substitutions'
+    )
+    relief_teacher = models.ForeignKey(
+        Teacher, on_delete=models.CASCADE, related_name='substitute_assignments'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['leave', 'original_entry']
+
+    def __str__(self):
+        return f"{self.original_entry} -> {self.relief_teacher.full_name}"
+
+
+class LeaveBalance(models.Model):
+    """Annual leave entitlement for a teacher or non-teaching staff member.
+
+    The remaining balance is derived (entitlement minus approved leave days),
+    so no field needs updating when leaves are approved/cancelled.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    teacher = models.ForeignKey(
+        Teacher, on_delete=models.CASCADE, related_name='leave_balance', null=True, blank=True
+    )
+    applicant_email = models.CharField(max_length=255, blank=True, default='')
+    annual_entitlement = models.IntegerField(default=0, help_text="Total leave days allowed per year")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['teacher'],
+                name='uniq_leave_balance_teacher',
+                condition=models.Q(teacher__isnull=False),
+            ),
+            models.UniqueConstraint(
+                fields=['applicant_email'],
+                name='uniq_leave_balance_email',
+                condition=models.Q(applicant_email__gt=''),
+            ),
+        ]
+
+    def __str__(self):
+        who = self.teacher.full_name if self.teacher else self.applicant_email
+        return f"Leave balance for {who}: {self.annual_entitlement} days"
+
+    def _approved_days(self):
+        from django.db.models import Q
+        leaves = TeacherLeave.objects.filter(
+            Q(teacher=self.teacher) if self.teacher else Q(applicant_email=self.applicant_email),
+            status='approved',
+        )
+        total = 0
+        for lv in leaves:
+            total += (lv.end_date - lv.start_date).days + 1
+        return total
+
+    @property
+    def used_days(self):
+        return self._approved_days()
+
+    @property
+    def balance_days(self):
+        return max(self.annual_entitlement - self.used_days, 0)
+
+
+class Homework(models.Model):
+    """Homework assignment given to a class by a teacher."""
+    STATUS_CHOICES = [
+        ('assigned', 'Assigned'),
+        ('collected', 'Collected'),
+        ('evaluated', 'Evaluated'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=True, blank=True)
+    class_ref = models.ForeignKey(SchoolClass, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='homeworks')
+    class_name = models.CharField(max_length=100, blank=True, default='')
+    teacher_name = models.CharField(max_length=255, blank=True, default='')
+    subject_name = models.CharField(max_length=100, blank=True, default='')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default='')
+    homework_date = models.DateField()
+    due_date = models.DateField(null=True, blank=True)
+    attachment_name = models.CharField(max_length=255, blank=True, default='')
+    attachment_data = models.TextField(blank=True, default='')  # base64 data URL
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='assigned')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-homework_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.class_name} - {self.subject_name}: {self.title}"
+
+
 class LessonPlan(models.Model):
     """Daily/weekly lesson plans"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

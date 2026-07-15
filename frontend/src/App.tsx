@@ -82,6 +82,8 @@ import WeekdayManagementPage from './pages/education/timetable/WeekdayManagement
 import ClassroomManagementPage from './pages/education/timetable/ClassroomManagementPage'
 import ClassTimetableListPage from './pages/education/timetable/ClassTimetableListPage'
 import TeacherTimetableListPage from './pages/education/timetable/TeacherTimetableListPage'
+import StaffLeavePage from './pages/education/timetable/StaffLeavePage'
+import TeacherLeaveApplyPage from './pages/education/timetable/TeacherLeaveApplyPage'
 
 // Progress
 import ProgressTrackingPage from './pages/education/progress/ProgressTrackingPage'
@@ -262,6 +264,8 @@ function App() {
                 <Route path="education/timetable/rooms" element={<ClassroomManagementPage />} />
                 <Route path="education/timetable/class" element={<ClassTimetableListPage />} />
                 <Route path="education/timetable/teacher" element={<TeacherTimetableListPage />} />
+                <Route path="education/timetable/leave" element={<StaffLeavePage />} />
+                <Route path="education/timetable/my-leave" element={<TeacherLeaveApplyPage />} />
                 
                 {/* Progress */}
                 <Route path="education/progress" element={<ProgressTrackingPage />} />

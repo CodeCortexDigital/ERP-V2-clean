@@ -92,7 +92,7 @@ export default function ExamsPage() {
       ]);
 
       // Parse Classes
-      const classes = Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data as any)?.results || [];
+      let classes: any[] = Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data as any)?.results || [];
       setClassesList(classes);
       if (classes.length > 0) {
         setDefaultClassId(classes[0].id);
@@ -128,6 +128,20 @@ export default function ExamsPage() {
       }
       setStudents(parsedStudents);
       setCardStudentId(parsedStudents[0].id);
+
+      // Derive classes from students if the classes API returned nothing,
+      // so the class dropdown always has real, selectable options.
+      if (classes.length === 0) {
+        const distinctClassNames = Array.from(
+          new Set(parsedStudents.map((s) => s.class_name).filter(Boolean))
+        );
+        classes = distinctClassNames.map((name) => ({ id: name, name }));
+        setClassesList(classes);
+        if (classes.length > 0) {
+          setDefaultClassId(classes[0].id);
+          setSelectedClassId(classes[0].id);
+        }
+      }
 
       // Parse Results
       const rawResults = Array.isArray(resultsRes.data) ? resultsRes.data : (resultsRes.data as any)?.results || [];
@@ -760,7 +774,7 @@ export default function ExamsPage() {
                   >
                     {classesList.map((cls) => (
                       <option key={cls.id || cls.name} value={cls.id || cls.name}>
-                        {cls.name}
+                        {cls.name || cls.code || cls.id || 'Class'}
                       </option>
                     ))}
                   </select>

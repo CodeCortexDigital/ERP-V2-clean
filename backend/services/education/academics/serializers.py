@@ -5,7 +5,7 @@ from .models import (
     GradeScale, AssessmentType, AssessmentWeightage,
     Syllabus, SyllabusUnit, SyllabusTopic, SyllabusSubTopic,
     LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability, TeacherDailyAvailability,
-    Period, Classroom, TimetableEntry,
+    Period, Classroom, TimetableEntry, TeacherLeave, TimetableSubstitution, LeaveBalance, Homework,
     LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback
 )
 
@@ -290,3 +290,138 @@ class TeacherAttendanceSerializer(serializers.ModelSerializer):
                     "Future dates can only be marked as 'On Leave'."
                 )
         return data
+
+
+class TeacherLeaveSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.CharField(source='teacher.full_name', read_only=True)
+    applicant_display = serializers.SerializerMethodField(read_only=True)
+    is_currently_active = serializers.BooleanField(read_only=True)
+    substitutions = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = TeacherLeave
+        fields = [
+            'id', 'teacher', 'teacher_name', 'applicant_name', 'applicant_email',
+            'applicant_display', 'leave_type', 'start_date',
+            'end_date', 'reason', 'status', 'substitute_assigned',
+            'created_by', 'created_at', 'updated_at',
+            'is_currently_active', 'substitutions',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'substitute_assigned',
+                            'applicant_display']
+
+    def get_applicant_display(self, obj):
+        if obj.teacher:
+            return obj.teacher.full_name
+        return obj.applicant_name or obj.applicant_email or 'Staff'
+
+    def get_substitutions(self, obj):
+        return TimetableSubstitutionSerializer(
+            obj.substitutions.all(), many=True, context=self.context
+        ).data
+
+    def validate(self, data):
+        start = data.get('start_date')
+        end = data.get('end_date')
+        if start and end and end < start:
+            raise serializers.ValidationError("End date cannot be before start date.")
+        # On partial updates (e.g. approving) only some fields are sent, so
+        # fall back to the existing instance to satisfy the requirement.
+        instance = self.instance
+        has_teacher = data.get('teacher') or (instance and instance.teacher)
+        has_applicant = (
+            data.get('applicant_name') or data.get('applicant_email')
+            or (instance and (instance.applicant_name or instance.applicant_email))
+        )
+        if not has_teacher and not has_applicant:
+            raise serializers.ValidationError(
+                "Either a teacher or applicant details must be provided."
+            )
+        return data
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if not validated_data.get('teacher') and request and request.user.is_authenticated:
+            user = request.user
+            if not validated_data.get('applicant_name'):
+                validated_data['applicant_name'] = getattr(user, 'full_name', '') or (getattr(user, 'get_full_name', lambda: '')() or user.email)
+            if not validated_data.get('applicant_email'):
+                validated_data['applicant_email'] = user.email
+        leave = super().create(validated_data)
+        # Only restructure the timetable immediately when the leave is created
+        # already approved (e.g. by an admin). Pending applications wait for
+        # admin approval before substitutions are generated.
+        if leave.status == 'approved':
+            from .substitution import create_substitutions_for_leave
+            create_substitutions_for_leave(leave)
+        return leave
+
+    def update(self, instance, validated_data):
+        # Substitutions are only built once a leave is approved. Approving
+        # (from pending/cancelled/rejected) restructures the timetable by
+        # assigning available relief teachers; cancelling/rejecting reverts it.
+        old_status = instance.status
+        leave = super().update(instance, validated_data)
+        from .substitution import (
+            create_substitutions_for_leave,
+            revert_substitutions_for_leave,
+        )
+        new_status = leave.status
+        if new_status in ('cancelled', 'rejected'):
+            revert_substitutions_for_leave(leave)
+        elif new_status == 'approved' and old_status != 'approved':
+            create_substitutions_for_leave(leave)
+        return leave
+
+
+class TimetableSubstitutionSerializer(serializers.ModelSerializer):
+    original_teacher_name = serializers.CharField(
+        source='original_entry.teacher.full_name', read_only=True
+    )
+    relief_teacher_name = serializers.CharField(
+        source='relief_teacher.full_name', read_only=True
+    )
+    day_of_week = serializers.CharField(
+        source='original_entry.day_of_week', read_only=True
+    )
+    period_id = serializers.CharField(
+        source='original_entry.period_id', read_only=True
+    )
+    subject_name = serializers.CharField(
+        source='original_entry.class_subject.subject.name', read_only=True
+    )
+
+    class Meta:
+        model = TimetableSubstitution
+        fields = [
+            'id', 'leave', 'original_entry', 'relief_teacher',
+            'original_teacher_name', 'relief_teacher_name',
+            'day_of_week', 'period_id', 'subject_name', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class LeaveBalanceSerializer(serializers.ModelSerializer):
+    used_days = serializers.IntegerField(read_only=True)
+    balance_days = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = LeaveBalance
+        fields = [
+            'id', 'teacher', 'applicant_email', 'annual_entitlement',
+            'used_days', 'balance_days', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'used_days', 'balance_days']
+
+
+class HomeworkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Homework
+        fields = [
+            'id', 'academic_year', 'class_ref', 'teacher',
+            'class_name', 'teacher_name', 'subject_name', 'title',
+            'description', 'homework_date', 'due_date',
+            'attachment_name', 'attachment_data', 'status',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

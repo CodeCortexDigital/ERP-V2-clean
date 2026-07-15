@@ -337,7 +337,72 @@ const academicService = {
   // SHORTCUT METHODS
   // ============================================================
   getClasses: async (params?: any) => {
-    return academicService.classes.getAll(params);
+    const data = await academicService.classes.getAll(params);
+    return { data };
+  },
+  getClass: async (id: string) => {
+    const data = await academicService.classes.getById(id);
+    return { data };
+  },
+  getPeriods: async (params?: any) => {
+    const data = await academicService.periods.getAll(params);
+    return { data };
+  },
+  getClassrooms: async (params?: any) => {
+    const data = await academicService.classrooms.getAll(params);
+    return { data };
+  },
+  getClassSubjects: async (params?: any) => {
+    const data = await academicService.classSubjects.getAll(params);
+    return { data };
+  },
+  getAcademicYears: async (params?: any) => {
+    const data = await academicService.academicYears.getAll(params);
+    return { data };
+  },
+  getTimetableEntries: async (params?: any) => {
+    const data = await academicService.timetable.getAll(params);
+    return { data };
+  },
+  getAllTimetableEntries: async () => {
+    try {
+      const response = await api.get(`${API_PREFIX}/timetable-entries/all/`);
+      return { data: extractListData<any>(response.data) };
+    } catch {
+      return { data: [] as any[] };
+    }
+  },
+  createTimetableEntry: async (data: any) => academicService.timetable.create(data),
+  updateTimetableEntry: async (id: string, data: any) => academicService.timetable.update(id, data),
+  deleteTimetableEntry: async (id: string) => academicService.timetable.delete(id),
+
+  // ============================================================
+  // HOMEWORK
+  // ============================================================
+  homework: {
+    getAll: async (params?: any) => {
+      try {
+        const response = await api.get(`/auth/academics/homework/`, { params });
+        return extractListData<any>(response.data);
+      } catch {
+        return [] as any[];
+      }
+    },
+    getById: async (id: string) => {
+      const response = await api.get(`/auth/academics/homework/${id}/`);
+      return response.data;
+    },
+    create: async (data: any) => {
+      const response = await api.post(`/auth/academics/homework/`, data);
+      return response.data;
+    },
+    update: async (id: string, data: any) => {
+      const response = await api.patch(`/auth/academics/homework/${id}/`, data);
+      return response.data;
+    },
+    delete: async (id: string) => {
+      await api.delete(`/auth/academics/homework/${id}/`);
+    }
   }
 };
 

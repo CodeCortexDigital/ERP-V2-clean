@@ -689,11 +689,15 @@ def download_fee_receipt(request, invoice_id):
 @permission_classes([IsAuthenticated])
 def get_my_teacher_profile(request):
     from django.apps import apps
+    from django.db.models import Q
     Teacher = apps.get_model('education_academics', 'Teacher')
-    
+
     user = request.user
-    teacher = Teacher.objects.filter(email=user.email).first()
-    
+    full_name = getattr(user, 'full_name', '') or (getattr(user, 'get_full_name', lambda: '')() or '')
+    teacher = Teacher.objects.filter(
+        Q(email__iexact=user.email) | Q(full_name__iexact=full_name)
+    ).first()
+
     if teacher:
         return Response({
             'id': str(teacher.id),

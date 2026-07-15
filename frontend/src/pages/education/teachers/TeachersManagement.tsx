@@ -73,9 +73,19 @@ export default function TeachersManagement() {
     }
   };
 
-  const getEmployeeRole = (teacher: Teacher) => {
-    return teacher.specializations?.[0] || 'Teacher';
+  const getEmployeeRole = (teacher: Teacher): string => {
+    // Prefer the actual job role; fall back to first specialization / default.
+    if (teacher.role && String(teacher.role).trim()) return String(teacher.role).trim();
+    if (Array.isArray(teacher.specializations) && teacher.specializations.length > 0) {
+      return String(teacher.specializations[0]).trim();
+    }
+    return 'Other';
   };
+
+  // Build the role filter options from the actual data so every real role is selectable.
+  const roleOptions = Array.from(
+    new Set(teachers.map(t => getEmployeeRole(t)).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
 
   const getStatus = (teacher: Teacher): 'active' | 'inactive' => {
     return teacher.is_active === true ? 'active' : 'inactive';
@@ -251,12 +261,9 @@ export default function TeachersManagement() {
               className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
             >
               <option value="">-- Select role --</option>
-              <option value="Principal">Principal</option>
-              <option value="Management Staff">Management Staff</option>
-              <option value="Teacher">Teacher</option>
-              <option value="Accountant">Accountant</option>
-              <option value="Store Manager">Store Manager</option>
-              <option value="Other">Other</option>
+              {roleOptions.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
             </select>
           </div>
 

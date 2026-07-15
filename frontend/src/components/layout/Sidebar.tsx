@@ -267,7 +267,9 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
         { label: 'Class Rooms', href: '/education/timetable/rooms' },
         { label: 'Create Timetable', href: '/education/timetable' },
         { label: 'Generate For Class', href: '/education/timetable/class' },
-        { label: 'Generate For Teacher', href: '/education/timetable/teacher' }
+        { label: 'Generate For Teacher', href: '/education/timetable/teacher' },
+        { label: 'My Leave', href: '/education/timetable/my-leave' },
+        { label: 'Staff Leave', href: '/education/timetable/leave' }
       ]
     },
     {
@@ -413,7 +415,10 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       id: 'timetable',
       label: 'My Timetable',
       icon: <Calendar className="w-4 h-4" />,
-      href: '/education/timetable/view'
+      subItems: [
+        { label: 'View Timetable', href: '/education/timetable/view' },
+        { label: 'My Leave', href: '/education/timetable/my-leave' }
+      ]
     },
     {
       id: 'behaviour',

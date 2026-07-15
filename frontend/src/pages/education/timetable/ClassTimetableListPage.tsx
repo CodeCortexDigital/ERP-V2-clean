@@ -85,8 +85,9 @@ export default function ClassTimetableListPage() {
     unique.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
     return unique.map(cls => {
-      // Find entries for this class
-      const classEntries = timetableEntries.filter(e => e.class_name === cls.name || e.class_subject?.split('-')[0] === cls.name);
+      // Find entries for this class (normalize dashes/spaces/case: "Grade 1-A" == "Grade 1A")
+      const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const classEntries = timetableEntries.filter(e => norm(e.class_name) === norm(cls.name) || norm(e.class_subject?.split('-')[0]) === norm(cls.name));
       return {
         id: cls.id,
         name: cls.name,
@@ -180,7 +181,7 @@ export default function ClassTimetableListPage() {
                           <Button 
                             variant="outline" 
                             className="h-8 px-2.5 rounded-lg border-slate-200 text-slate-600 font-bold"
-                            onClick={() => navigate(`/education/timetable/view?class_id=${cls.name}`)}
+                            onClick={() => navigate(`/education/timetable/view?class_id=${cls.id}`)}
                             title="View Timetable"
                           >
                             <Eye className="h-3.5 w-3.5" />
@@ -189,7 +190,7 @@ export default function ClassTimetableListPage() {
                             <Button 
                               variant="outline" 
                               className="h-8 px-2.5 rounded-lg border-slate-200 text-slate-650 hover:text-purple-650 font-bold"
-                              onClick={() => navigate(`/education/timetable/editor?class_id=${cls.name}`)}
+                              onClick={() => navigate(`/education/timetable/editor?class_id=${cls.id}`)}
                               title="Edit Timetable"
                             >
                               <Edit className="h-3.5 w-3.5" />
