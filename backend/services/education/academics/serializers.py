@@ -179,6 +179,12 @@ class TeacherSerializer(serializers.ModelSerializer):
         model = Teacher
         fields = '__all__'
 
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        if data.get('date_of_birth') == '':
+            data['date_of_birth'] = None
+        return super().to_internal_value(data)
+
 
 class TeacherSubjectAssignmentSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.full_name', read_only=True)

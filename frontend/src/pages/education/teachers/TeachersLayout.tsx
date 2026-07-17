@@ -39,7 +39,6 @@ export default function TeachersLayout() {
               <button
                 key={t.id}
                 onClick={() => navigate(t.path)}
-                onMouseEnter={() => navigate(t.path)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white transition-all ${t.dark} ${
                   isActive
                     ? 'ring-2 ring-offset-1 ring-black/20 shadow-md scale-105'

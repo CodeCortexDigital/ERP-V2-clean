@@ -42,7 +42,7 @@ export default function SubjectsPage() {
     setLoading(true);
     try {
       const response = await academicService.subjects.getAll();
-      const data = Array.isArray(response) ? response : response?.results || [];
+      const data = response || [];
       setSubjects(data);
     } catch (error) {
       console.error('Error fetching subjects:', error);

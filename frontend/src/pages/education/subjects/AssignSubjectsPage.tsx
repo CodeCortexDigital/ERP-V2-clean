@@ -63,9 +63,9 @@ export default function AssignSubjectsPage() {
         academicService.classSubjects.getAll().catch(() => ([]))
       ]);
 
-      setClasses(Array.isArray(classesRes) ? classesRes : classesRes?.results || []);
-      setSubjects(Array.isArray(subjectsRes) ? subjectsRes : subjectsRes?.results || []);
-      setAssignedSubjects(Array.isArray(assignmentsRes) ? assignmentsRes : assignmentsRes?.results || []);
+      setClasses(classesRes);
+      setSubjects(subjectsRes);
+      setAssignedSubjects(assignmentsRes);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
@@ -221,6 +221,7 @@ export default function AssignSubjectsPage() {
                 <option value="">-- Choose a subject --</option>
                 {subjects
                   .filter(s => !classSubjects.find(cs => cs.id === s.id))
+                  .sort((a, b) => a.name.localeCompare(b.name))
                   .map((subject) => (
                     <option key={subject.id} value={subject.id}>
                       {subject.name} ({subject.credits || 0} credits)
@@ -293,7 +294,9 @@ export default function AssignSubjectsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {classSubjects.map((subject) => (
+                  {[...classSubjects]
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((subject) => (
                     <tr key={subject.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                       <td className="py-3 px-4 font-bold text-slate-800">{subject.name}</td>
                       <td className="py-3 px-4 font-mono text-slate-500">{subject.code || '--'}</td>

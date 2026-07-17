@@ -214,6 +214,8 @@ try {
       formDataToSend.append('religion', formData.religion || '');
       formDataToSend.append('blood_group', formData.bloodGroup || '');
       formDataToSend.append('home_address', formData.homeAddress || '');
+      formDataToSend.append('experience_years', String(parseInt(formData.experience) || 0));
+      formDataToSend.append('date_of_birth', formData.dateOfBirth || '');
 
       if (profilePictureFile) {
         formDataToSend.append('profile_picture', profilePictureFile);

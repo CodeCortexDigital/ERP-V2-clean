@@ -42,7 +42,6 @@ export default function SettingsSidebar({ currentPath }: SettingsSidebarProps) {
           <button
             key={t.id}
             onClick={() => navigate(t.path)}
-            onMouseEnter={() => navigate(t.path)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
               isActive
                 ? 'bg-green-600 text-white shadow-md'
