@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/Input';
 import { toast } from 'sonner';
 import api from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
+import settingsService from '@/services/settings.service';
 
 interface BankItem {
   id: number;
@@ -27,6 +28,20 @@ export default function FeeChallanDetails() {
   const bankFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    loadBankDetails();
+  }, []);
+
+  const loadBankDetails = async () => {
+    try {
+      const response = await settingsService.getInstituteProfile();
+      if (response?.data && (response.data as any).banks) {
+        setBanks((response.data as any).banks);
+        return;
+      }
+    } catch (err) {
+      console.log('Backend load bank details fallback');
+    }
+    // Fallback to localStorage
     const saved = localStorage.getItem('bank_details');
     if (saved) {
       try {
@@ -48,7 +63,7 @@ export default function FeeChallanDetails() {
       setBanks(defaultBanks);
       localStorage.setItem('bank_details', JSON.stringify(defaultBanks));
     }
-  }, []);
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -108,7 +123,7 @@ export default function FeeChallanDetails() {
     setLogoUrl('');
 
     try {
-      await api.put(API_ENDPOINTS.SETTINGS, { banks: updatedBanks });
+      await settingsService.updateInstituteProfile({ banks: updatedBanks } as any);
     } catch (e) {
       console.log('Backend save bank fallback');
     }
@@ -131,7 +146,7 @@ export default function FeeChallanDetails() {
     toast.success('Bank deleted successfully');
 
     try {
-      await api.put(API_ENDPOINTS.SETTINGS, { banks: updated });
+      await settingsService.updateInstituteProfile({ banks: updated } as any);
     } catch (e) {
       console.log('Backend delete bank fallback');
     }

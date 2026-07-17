@@ -68,12 +68,9 @@ export default function DashboardPage() {
       const rawStd = extractListData<any>(stdRes.data || []);
       const rawTch = extractListData<any>(tchRes.data || []);
       const rawCls = extractListData<any>((clsRes as any).data || clsRes || []);
-      const deletedTch: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-
-      const filteredTch = rawTch.filter(t => !deletedTch.includes(t.id));
 
       setStudents(rawStd);
-      setTeachers(filteredTch);
+      setTeachers(rawTch);
       setClasses(rawCls);
       setFinanceSummary((summaryRes as any)?.data ?? null);
       setRevenueChart(extractListData<any>(revenueRes.data || []));
@@ -110,16 +107,12 @@ export default function DashboardPage() {
         }
       }
     } catch (err) {
-      console.warn('Attendance stats unavailable, falling back to local resolver:', err);
+      console.warn('Attendance stats unavailable:', err);
       if (mountedRef.current) {
-        const resolved = computeRealAttendance();
-        setStudentAttendance(resolved.studentAttendance);
-        setAbsentStudents(resolved.absentStudents);
-        setEmployeeAttendance(resolved.employeeAttendance);
-        setPresentEmployees(teachers.map(t => ({
-          id: t.id,
-          employee_name: t.full_name
-        })));
+        setStudentAttendance(null);
+        setAbsentStudents([]);
+        setEmployeeAttendance(null);
+        setPresentEmployees([]);
       }
     } finally {
       if (mountedRef.current) setAttendanceLoading(false);
@@ -247,43 +240,6 @@ export default function DashboardPage() {
     return {
       collections: Number(financeSummary?.total_paid) || 0,
       remainings: Number(financeSummary?.balance_due) || 0
-    };
-  };
-
-  const computeRealAttendance = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
-    const todayRecords = localRecords.filter((r: any) => r.date === todayStr);
-
-    const totalStds = students.length;
-
-    let presentCount = 0;
-    let lateCount = 0;
-    let absentCount = 0;
-    let absentList: any[] = [];
-
-    if (todayRecords.length > 0) {
-      todayRecords.forEach((r: any) => {
-        if (r.status === 'present') presentCount++;
-        else if (r.status === 'late') lateCount++;
-        else if (r.status === 'absent') {
-          absentCount++;
-          const matchStd = students.find(s => s.id === r.student_id || s.student_id === r.student_id);
-          absentList.push({
-            id: r.student_id,
-            student_name: matchStd?.full_name || 'Student',
-            class_name: matchStd?.class_name || 'Unassigned'
-          });
-        }
-      });
-    }
-
-    const teacherCount = teachers.length;
-
-    return {
-      studentAttendance: { present: presentCount + lateCount, total: totalStds },
-      absentStudents: absentList,
-      employeeAttendance: { present: teacherCount, total: teacherCount }
     };
   };
 

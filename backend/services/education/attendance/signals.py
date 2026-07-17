@@ -32,6 +32,24 @@ def _run_attendance_automation(instance: AttendanceRecord):
                 if parent_user:
                     create_user_notification(parent_user, title, message, 'attendance')
 
+            # Auto WhatsApp message to the student's own number
+            if student.phone:
+                try:
+                    from services.communication.whatsapp.tasks import send_whatsapp_message
+                    absence_msg = Message.objects.create(
+                        student=student,
+                        sender='ERP System',
+                        recipient=student.full_name,
+                        recipient_phone=student.phone,
+                        subject='Absence Notice',
+                        message=f"{student.full_name}, you missed today's classes.",
+                        template_name='attendance_absent',
+                        channel='whatsapp',
+                    )
+                    send_whatsapp_message.delay(str(absence_msg.id))
+                except Exception as exc:
+                    print(f"WhatsApp student absence notify error: {exc}")
+
         # Calculate attendance rate for student
         attendance_records = AttendanceRecord.objects.filter(student=student)
         total = attendance_records.count()

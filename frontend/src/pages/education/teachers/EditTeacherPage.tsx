@@ -97,76 +97,51 @@ export default function EditTeacherPage() {
     homeAddress: '',
   });
 
+  const [teacherData, setTeacherData] = useState<any>(null);
+
   useEffect(() => {
     fetchTeacherData();
   }, [id]);
 
   const fetchTeacherData = async () => {
     try {
-      let teacher: any = null;
-      try {
-        const res = await teacherService.getById(id!);
-        teacher = res.data;
-      } catch (err) {
-        console.log('Backend get teacher failed, trying localStorage fallback');
-      }
+      const res = await teacherService.getById(id!);
+      const teacher = res.data;
 
-      // Fetch extra details from localStorage
-      const savedExtras = localStorage.getItem('employees_extra_info');
-      let extra = {
-        role: teacher?.specializations?.[0] || 'Teacher',
-        monthlySalary: '45000',
-        fatherName: '',
-        gender: 'Male',
-        experience: String(teacher?.experience_years || '2'),
-        nationalId: '',
-        religion: 'Islam',
-        education: teacher?.qualifications?.[0] || 'N/A',
-        bloodGroup: 'O+',
-        dateOfBirth: '1995-05-15',
-        homeAddress: '',
-        profilePictureUrl: '',
-      };
+      setTeacherData(teacher);
+      setIsActive(teacher.is_active === true);
+      setProfilePicture(teacher.profile_picture || '');
 
-      if (savedExtras) {
+      const monthlySalary = teacher.monthly_salary != null && teacher.monthly_salary !== ''
+        ? String(teacher.monthly_salary).replace(/[^0-9.]/g, '')
+        : '';
+
+      // Convert backend date string to date format for date input
+      let dateOfBirthValue = '';
+      if (teacher.date_of_birth) {
         try {
-          const extrasMap = JSON.parse(savedExtras);
-          if (extrasMap[id!]) {
-            extra = { ...extra, ...extrasMap[id!] };
-          }
-        } catch (e) {}
-      }
-
-      // Backend monthly_salary is the source of truth when present
-      const backendSalary = teacher?.monthly_salary ?? teacher?.monthlySalary;
-      if (backendSalary !== null && backendSalary !== undefined && backendSalary !== '') {
-        extra.monthlySalary = String(backendSalary).replace(/[^0-9.]/g, '');
-      }
-
-      // Set active status and profile picture
-      if (teacher) {
-        setIsActive(teacher.is_active === true);
-        setProfilePicture(teacher.profile_picture || extra.profilePictureUrl || '');
-      } else {
-        setProfilePicture(extra.profilePictureUrl || '');
+          dateOfBirthValue = new Date(teacher.date_of_birth).toISOString().split('T')[0];
+        } catch (e) {
+          dateOfBirthValue = teacher.date_of_birth;
+        }
       }
 
       setFormData({
-        fullName: teacher?.full_name || '',
-        phone: teacher?.phone || '',
-        role: extra.role,
-        joiningDate: teacher?.joining_date || new Date().toISOString().split('T')[0],
-        monthlySalary: extra.monthlySalary,
-        fatherName: extra.fatherName,
-        gender: extra.gender,
-        experience: extra.experience,
-        nationalId: extra.nationalId,
-        religion: extra.religion,
-        email: teacher?.email || '',
-        education: extra.education,
-        bloodGroup: extra.bloodGroup,
-        dateOfBirth: extra.dateOfBirth,
-        homeAddress: extra.homeAddress,
+        fullName: teacher.full_name || '',
+        phone: teacher.phone || '',
+        role: teacher.role || teacher.specializations?.[0] || '',
+        joiningDate: teacher.joining_date || new Date().toISOString().split('T')[0],
+        monthlySalary,
+        fatherName: teacher.father_husband_name || '',
+        gender: teacher.gender || '',
+        experience: String(teacher.experience_years || ''),
+        nationalId: teacher.national_id || '',
+        religion: teacher.religion || '',
+        email: teacher.email || '',
+        education: teacher.education || teacher.qualifications?.[0] || '',
+        bloodGroup: teacher.blood_group || '',
+        dateOfBirth: dateOfBirthValue,
+        homeAddress: teacher.home_address || teacher.address || '',
       });
     } catch (err) {
       console.error(err);
@@ -214,15 +189,19 @@ export default function EditTeacherPage() {
       toast.error('Monthly Salary is required.');
       return;
     }
+    if (!formData.email) {
+      toast.error('Email is required.');
+      return;
+    }
 
     setSaving(true);
 
-    try {
+try {
       const formDataToSend = new FormData();
+      formDataToSend.append('employee_id', teacherData?.employee_id || '');
       formDataToSend.append('full_name', formData.fullName.trim());
+      formDataToSend.append('email', formData.email || teacherData?.email || '');
       formDataToSend.append('phone', formData.phone || '');
-      formDataToSend.append('email', formData.email || '');
-      formDataToSend.append('experience_years', String(parseInt(formData.experience) || 0));
       formDataToSend.append('joining_date', formData.joiningDate);
       formDataToSend.append('qualifications', JSON.stringify([formData.education || 'N/A']));
       formDataToSend.append('specializations', JSON.stringify([formData.role]));
@@ -230,7 +209,7 @@ export default function EditTeacherPage() {
       formDataToSend.append('role', formData.role || '');
       if (formData.monthlySalary) formDataToSend.append('monthly_salary', String(formData.monthlySalary));
       formDataToSend.append('father_husband_name', formData.fatherName || '');
-      formDataToSend.append('gender', formData.gender || '');
+      formDataToSend.append('gender', formData.gender?.toLowerCase() || '');
       formDataToSend.append('national_id', formData.nationalId || '');
       formDataToSend.append('religion', formData.religion || '');
       formDataToSend.append('blood_group', formData.bloodGroup || '');
@@ -242,32 +221,8 @@ export default function EditTeacherPage() {
         formDataToSend.append('profile_picture', '');
       }
 
-      try {
-        await teacherService.update(id!, formDataToSend);
-      } catch (e) {
-        console.log('Backend teacher update failed, updating locally:', e);
-      }
+      await teacherService.update(id!, formDataToSend);
 
-      // Save extra details in localStorage
-      const savedExtras = localStorage.getItem('employees_extra_info');
-      const extrasMap = savedExtras ? JSON.parse(savedExtras) : {};
-      
-      extrasMap[id!] = {
-        role: formData.role,
-        monthlySalary: formData.monthlySalary,
-        fatherName: formData.fatherName,
-        gender: formData.gender,
-        experience: formData.experience,
-        nationalId: formData.nationalId,
-        religion: formData.religion,
-        education: formData.education,
-        bloodGroup: formData.bloodGroup,
-        dateOfBirth: formData.dateOfBirth,
-        homeAddress: formData.homeAddress,
-        profilePictureUrl: profilePicture,
-      };
-
-      localStorage.setItem('employees_extra_info', JSON.stringify(extrasMap));
       toast.success('Employee details updated successfully!');
       navigate(`/education/teachers`);
     } catch (err: any) {
@@ -450,14 +405,14 @@ export default function EditTeacherPage() {
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">GENDER</label>
               <select 
-                value={formData.gender} 
+                value={formData.gender?.toLowerCase() || ''} 
                 onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                 className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700 font-semibold"
               >
                 <option value="">-- Select --</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
               </select>
             </div>
 

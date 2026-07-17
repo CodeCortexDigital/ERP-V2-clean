@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Landmark, Search, Printer, Calendar, TrendingUp, AlertCircle, CheckCircle, Wallet, Users } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
+import ledgerService from '@/services/ledger.service';
 
 interface SalaryPayment {
   id: string;
@@ -32,25 +33,23 @@ export default function SalaryReportPage() {
     try {
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const rawTeachers = extractListData<any>(tRes.data || []);
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      
-      // De-duplicate by ID (in case a custom teacher has same ID as DB teacher)
-      const uniqueTeachersMap = new Map<string, any>();
-      rawTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      customTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      const allTeachers = Array.from(uniqueTeachersMap.values());
-      setTeachers(allTeachers);
+      setTeachers(rawTeachers);
 
-      const savedSalaries = localStorage.getItem('custom_salaries');
-      if (savedSalaries) {
-        setSalaries(JSON.parse(savedSalaries));
-      } else {
-        setSalaries([]);
-      }
+      // Fetch payslips from API
+      const payslipRes = await ledgerService.getPayslips({ month: salaryMonth }).catch(() => ({ data: [] }));
+      const payslips = (payslipRes.data || []).map((p: any) => ({
+        id: p.id,
+        employee_id: p.employee,
+        employee_name: p.employee_name || '',
+        month: p.month,
+        basic_salary: p.basic_salary,
+        allowances: p.allowances,
+        deductions: p.deductions,
+        net_salary: p.net_salary,
+        status: p.status,
+        paid_date: p.payment_date || ''
+      }));
+      setSalaries(payslips);
     } catch (e) {
       console.error(e);
     }
@@ -136,9 +135,9 @@ export default function SalaryReportPage() {
           <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">
             🎓
           </div>
-          <h2 className="text-2xl font-black tracking-wide text-slate-850">eSkooly</h2>
+          <h2 className="text-2xl font-black tracking-wide text-slate-850">Code Cortex</h2>
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-          <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com</p>
+          <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.codecortex.com</p>
           <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Salary Report for {salaryMonth}</h3>
         </div>
       </div>

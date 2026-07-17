@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Video, Calendar, Clock, Plus, Trash2, CheckCircle, Eye, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { liveMeetingService, LiveMeeting } from '@/services/liveMeeting.service';
 
 interface MeetingItem {
   id: string;
@@ -61,71 +62,87 @@ export default function LiveClassPage() {
     setMeetingId(code);
   };
 
-  const loadMeetings = () => {
-    const defaultMeetings: MeetingItem[] = [
-      {
-        id: '12934',
-        code: 'ESK19772JMPZON6',
-        title: 'Leave Discussion',
-        date: new Date().toISOString().split('T')[0],
-        time: '09:54 PM',
-        duration: '30 min',
-        message: 'Introductory discussion regarding school leave certifications.',
-        status: true
-      }
-    ];
-
-    const localList = localStorage.getItem('local_meetings');
-    if (localList) {
-      setMeetings(JSON.parse(localList));
-    } else {
-      localStorage.setItem('local_meetings', JSON.stringify(defaultMeetings));
-      setMeetings(defaultMeetings);
+  const loadMeetings = async () => {
+    try {
+      const data = await liveMeetingService.getMeetings();
+      const mapped: MeetingItem[] = data.map(m => ({
+        id: m.id,
+        code: m.code,
+        title: m.title,
+        date: m.date,
+        time: m.time,
+        duration: m.duration,
+        message: m.message,
+        status: m.is_active
+      }));
+      setMeetings(mapped);
+    } catch (err) {
+      console.error(err);
+      setMeetings([]);
     }
   };
 
-  const handleCreateOrJoin = () => {
+  const handleCreateOrJoin = async () => {
     if (!meetingTitle) {
       toast.error('Please enter a meeting title!');
       return;
     }
 
-    const newMeeting: MeetingItem = {
-      id: String(Math.floor(10000 + Math.random() * 90000)),
-      code: meetingId,
-      title: meetingTitle,
-      date: isSchedule ? scheduleDate : new Date().toISOString().split('T')[0],
-      time: isSchedule ? scheduleTime : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      duration: isSchedule ? duration : '30 min',
-      message: messageText || 'No message provided.',
-      status: true
-    };
+    try {
+      const meetingWithMap: Record<string, string> = {
+        'All Students': 'all',
+        'Select Class': 'class',
+        'Teachers Only': 'teachers'
+      };
 
-    const updated = [newMeeting, ...meetings];
-    localStorage.setItem('local_meetings', JSON.stringify(updated));
-    setMeetings(updated);
+      const newMeeting = await liveMeetingService.createMeeting({
+        code: meetingId,
+        title: meetingTitle,
+        meeting_with: meetingWithMap[meetingWith] as any || 'all',
+        date: isSchedule ? scheduleDate : new Date().toISOString().split('T')[0],
+        time: isSchedule ? scheduleTime : new Date().toTimeString().slice(0, 5),
+        duration: isSchedule ? duration : '30 min',
+        message: messageText || '',
+        is_active: true
+      });
 
-    if (isSchedule) {
-      toast.success('✓ Meeting Scheduled successfully');
-      setMeetingTitle('');
-      generateRandomCode();
-      setMessageText('');
-    } else {
-      navigate(`/education/live-class/room?code=${meetingId}`);
+      if (isSchedule) {
+        toast.success('Meeting Scheduled successfully');
+        setMeetingTitle('');
+        generateRandomCode();
+        setMessageText('');
+        loadMeetings();
+      } else {
+        navigate(`/education/live-class/room?code=${meetingId}`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to create meeting');
     }
   };
 
-  const handleDelete = (id: string) => {
-    const updated = meetings.filter(m => m.id !== id);
-    localStorage.setItem('local_meetings', JSON.stringify(updated));
-    setMeetings(updated);
-    toast.success('Meeting deleted successfully!');
+  const handleDelete = async (id: string) => {
+    try {
+      await liveMeetingService.deleteMeeting(id);
+      setMeetings(prev => prev.filter(m => m.id !== id));
+      toast.success('Meeting deleted successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete meeting');
+    }
   };
 
-  const handleToggleStatus = (id: string) => {
-    const updated = meetings.map(m => m.id === id ? { ...m, status: !m.status } : m);
-    localStorage.setItem('local_meetings', JSON.stringify(updated));
-    setMeetings(updated);
+  const handleToggleStatus = async (id: string) => {
+    try {
+      const meeting = meetings.find(m => m.id === id);
+      if (meeting) {
+        await liveMeetingService.updateMeeting(id, { is_active: !meeting.status });
+        setMeetings(prev => prev.map(m => m.id === id ? { ...m, status: !m.status } : m));
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update meeting status');
+    }
   };
 
   return (
@@ -262,7 +279,7 @@ export default function LiveClassPage() {
             </div>
             <div className="z-10 text-right opacity-90">
               <span className="px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider">
-                ● esKooly live class
+                ● Code Cortex live class
               </span>
             </div>
             <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-white/5 skew-x-12 transform origin-bottom-right"></div>

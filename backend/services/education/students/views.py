@@ -291,3 +291,18 @@ def last_registration(request):
         'last_id': last['student_id'] if last else None,
         'count': total,
     })
+
+
+from rest_framework import viewsets
+from .models import Certificate
+from .serializers import CertificateSerializer
+
+
+class CertificateViewSet(viewsets.ModelViewSet):
+    queryset = Certificate.objects.all()
+    serializer_class = CertificateSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['recipient_type', 'template', 'issue_date']
+    search_fields = ['recipient_name', 'template']
+    ordering_fields = ['issue_date', 'created_at']
+    ordering = ['-issue_date']

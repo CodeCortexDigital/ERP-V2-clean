@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useEffect, memo } from 'react'
 import Layout from '@/components/layout/Layout';
+import ModuleTabsLayout from './components/layout/ModuleTabsLayout';
+import { accountsTabs, feesTabs, salaryTabs, attendanceTabs, timetableTabs, behaviourTabs, examTabs, subjectsTabs, communicationTabs, certificatesTabs, reportsTabs, academicSetupTabs } from './components/layout/moduleTabs';
 import ProtectedRoute from './components/ProtectedRoute'
 import { RoleBasedRoute } from './components/auth/RoleBasedRoute'
 import LoginPage from './pages/auth/LoginPage'
@@ -12,6 +14,7 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 // EDUCATION MODULE IMPORTS
 // ============================================================
 // Students
+import StudentsLayout from './pages/education/students/StudentsLayout'
 import StudentsListPage from './pages/education/students/StudentsListPage'
 import StudentProfilePage from './pages/education/students/StudentProfilePage'
 import StudentHistoryPage from './pages/education/students/StudentHistoryPage' // ✅ ADD THIS
@@ -26,6 +29,7 @@ import FamiliesPage from './pages/education/students/FamiliesPage'
 import ActiveInactivePage from './pages/education/students/ActiveInactivePage'
 
 // Teachers
+import TeachersLayout from './pages/education/teachers/TeachersLayout'
 import TeachersManagementPage from './pages/education/teachers/TeachersManagement'
 import AddTeacherPage from './pages/education/teachers/AddTeacherPage'
 import TeacherProfilePage from './pages/education/teachers/TeacherProfilePage'
@@ -49,16 +53,24 @@ import ExamResultsPage from './pages/education/exams/ExamResultsPage'
 import MarkSheetGeneration from './pages/education/exams/marksheets/MarkSheetGeneration'
 import DateSheet from './pages/education/exams/DateSheet'
 import BlankAwardList from './pages/education/exams/BlankAwardList'
+import MarksGrading from './pages/settings/MarksGrading'
 import ClassTestsPage from './pages/education/ClassTestsPage'
+
+// Question Bank
+import QuestionBankPage from './pages/education/questionbank/QuestionBankPage'
+import QuestionChaptersPage from './pages/education/questionbank/QuestionChaptersPage'
+import CreatePaperPage from './pages/education/questionbank/CreatePaperPage'
 
 // Attendance
 import AttendancePage from './pages/education/attendance/AttendancePage'
+import TeacherMarkAttendance from './pages/education/attendance/TeacherMarkAttendance'
 
 // Academics
 import AcademicsPage from './pages/education/AcademicsPage'
 import AllClassesPage from './pages/education/academics/AllClassesPage'
 import AddClassPage from './pages/education/academics/AddClassPage'
 import EditClassPage from './pages/education/academics/EditClassPage'
+import ClassDetailPage from './pages/education/academics/ClassDetailPage'
 
 // Subjects
 import SubjectsPage from './pages/education/subjects/SubjectsPage'
@@ -103,7 +115,6 @@ import AffectiveDomainReportPage from './pages/education/behaviour/AffectiveDoma
 import PsycomotorDomainReportPage from './pages/education/behaviour/PsycomotorDomainReportPage'
 
 // Finance
-import FinancePage from './pages/education/FinancePage'
 import ChartOfAccountsPage from './pages/education/finance/ChartOfAccountsPage'
 import AddIncomePage from './pages/education/finance/AddIncomePage'
 import AddExpensePage from './pages/education/finance/AddExpensePage'
@@ -115,6 +126,10 @@ import FeesPaidSlipPage from './pages/education/finance/FeesPaidSlipPage'
 import FeesDefaultersPage from './pages/education/finance/FeesDefaultersPage'
 import FeesReportPage from './pages/education/finance/FeesReportPage'
 import DeleteFeesPage from './pages/education/finance/DeleteFeesPage'
+import FeeParticulars from './pages/settings/FeeParticulars'
+import FeeStructure from './pages/settings/FeeStructure'
+import DiscountType from './pages/settings/DiscountType'
+import FeeChallanDetails from './pages/settings/FeeChallanDetails'
 
 // Salary
 import GenerateSalaryPage from './pages/education/finance/GenerateSalaryPage'
@@ -134,6 +149,7 @@ import LiveRoomPage from './pages/education/LiveRoomPage'
 // SETTINGS MODULE - NEW MODULAR VERSION
 // ============================================================
 import SettingsPage from './pages/settings'
+import RulesRegulations from './pages/settings/RulesRegulations'
 
 // ============================================================
 // PORTAL IMPORTS
@@ -188,42 +204,51 @@ function App() {
                 <Route path="education" element={<Navigate to="/education/academics" replace />} />
                 
                 {/* ============================================================
-                    STUDENTS ROUTES - ORDER MATTERS! Put specific routes first
+                    STUDENTS ROUTES - section pages share a top tab bar layout
                     ============================================================ */}
-                <Route path="education/students" element={<StudentsListPage />} />
-                <Route path="education/students/add" element={<AddStudentPage />} />
-                <Route path="education/students/families" element={<FamiliesPage />} />
-                <Route path="education/students/status" element={<ActiveInactivePage />} />
-                <Route path="education/students/admission-letter" element={<AdmissionLetterPage />} />
-                <Route path="education/students/id-cards" element={<StudentIdCardsPage />} />
-                <Route path="education/students/print-list" element={<PrintBasicListPage />} />
-                <Route path="education/students/logins" element={<StudentLoginsPage />} />
-                <Route path="education/students/promote" element={<PromoteStudentsPage />} />
-                
+                <Route path="education/students" element={<StudentsLayout />}>
+                  <Route index element={<StudentsListPage />} />
+                  <Route path="add" element={<AddStudentPage />} />
+                  <Route path="families" element={<FamiliesPage />} />
+                  <Route path="status" element={<ActiveInactivePage />} />
+                  <Route path="admission-letter" element={<AdmissionLetterPage />} />
+                  <Route path="id-cards" element={<StudentIdCardsPage />} />
+                  <Route path="print-list" element={<PrintBasicListPage />} />
+                  <Route path="logins" element={<StudentLoginsPage />} />
+                  <Route path="promote" element={<PromoteStudentsPage />} />
+                  <Route path="rules" element={<RulesRegulations mode="student" />} />
+                </Route>
+
                 {/* ✅ FIXED: Specific routes BEFORE the dynamic :id route */}
                 <Route path="education/students/:id/history" element={<StudentHistoryPage />} />
                 <Route path="education/students/:id/edit" element={<EditStudentPage />} />
                 <Route path="education/students/:id" element={<StudentProfilePage />} />
                 
-                {/* Teachers */}
-                <Route path="education/teachers" element={<TeachersManagementPage />} />
-                <Route path="education/teachers/add" element={<AddTeacherPage />} />
-                <Route path="education/teachers/job-letter" element={<JobLetterPage />} />
-                <Route path="education/teachers/id-cards" element={<StaffIdCardsPage />} />
-                <Route path="education/teachers/logins" element={<StaffLoginsPage />} />
+                {/* Teachers / Employees - section pages share a top tab bar layout */}
+                <Route path="education/teachers" element={<TeachersLayout />}>
+                  <Route index element={<TeachersManagementPage />} />
+                  <Route path="add" element={<AddTeacherPage />} />
+                  <Route path="job-letter" element={<JobLetterPage />} />
+                  <Route path="id-cards" element={<StaffIdCardsPage />} />
+                  <Route path="logins" element={<StaffLoginsPage />} />
+                  <Route path="rules" element={<RulesRegulations mode="employee" />} />
+                </Route>
                 <Route path="education/teachers/:id" element={<TeacherProfilePage />} />
                 <Route path="education/teachers/:id/edit" element={<EditTeacherPage />} />
                 <Route path="education/teachers/:id/history" element={<EmployeeHistoryPage />} />
                 
 
-                {/* Exams */}
-                <Route path="education/exams" element={<ExamsPage />} />
-                <Route path="education/exams/list" element={<ExamsListPage />} />
-                <Route path="education/exams/dashboard" element={<ExamDashboard />} />
-                <Route path="education/exams/schedules" element={<ExamSchedules />} />
-                <Route path="education/exams/schedule" element={<ExamSchedules />} />
-                <Route path="education/exams/datesheet" element={<DateSheet />} />
-                <Route path="education/exams/awardlist" element={<BlankAwardList />} />
+                {/* Examination (Question Papers + Exams + Class Tests) */}
+                <Route path="education/exams" element={<ModuleTabsLayout tabs={examTabs} scopeClass="exam-scope" />}>
+                  <Route index element={<ExamsPage />} />
+                  <Route path="list" element={<ExamsListPage />} />
+                  <Route path="dashboard" element={<ExamDashboard />} />
+                  <Route path="schedules" element={<ExamSchedules />} />
+                  <Route path="schedule" element={<ExamSchedules />} />
+                  <Route path="datesheet" element={<DateSheet />} />
+                  <Route path="awardlist" element={<BlankAwardList />} />
+                  <Route path="grading" element={<MarksGrading />} />
+                </Route>
                 <Route path="education/exams/registrations" element={<ExamRegistrations />} />
                 <Route path="education/exams/results-entry" element={<ExamResultsEntry />} />
                 <Route path="education/exams/types" element={<ExamTypes />} />
@@ -233,18 +258,43 @@ function App() {
                 <Route path="education/exams/sheet" element={<MarkSheetGeneration />} />
                 
                 {/* Class Tests & Attendance */}
-                <Route path="education/class-tests" element={<ClassTestsPage />} />
-                <Route path="education/attendance" element={<AttendancePage />} />
+                <Route path="education/class-tests" element={<ModuleTabsLayout tabs={examTabs} scopeClass="exam-scope" />}>
+                  <Route index element={<ClassTestsPage />} />
+                </Route>
+
+                {/* Question Bank */}
+                <Route path="education/question-bank" element={<QuestionBankPage />} />
+                <Route path="education/question-bank/chapters" element={<QuestionChaptersPage />} />
+                <Route path="education/question-bank/create" element={<CreatePaperPage />} />
+                <Route path="education/attendance" element={<ModuleTabsLayout tabs={attendanceTabs} scopeClass="attendance-scope" />}>
+                  <Route index element={<AttendancePage />} />
+                </Route>
+                <Route path="education/attendance/mark" element={<TeacherMarkAttendance />} />
                 
                 {/* Academics */}
                 <Route path="education/academics" element={<AcademicsPage />} />
                 <Route path="education/academics/classes" element={<AllClassesPage />} />
                 <Route path="education/academics/classes/add" element={<AddClassPage />} />
                 <Route path="education/academics/classes/edit/:id" element={<EditClassPage />} />
-                
-                {/* Subjects */}
+                <Route path="education/academics/classes/view/:id" element={<ClassDetailPage />} />
+
+                {/* Legacy aliases for Classes / Subjects / Homework (render without tab bar) */}
                 <Route path="education/subjects" element={<SubjectsPage />} />
                 <Route path="education/subjects/assign" element={<AssignSubjectsPage />} />
+                <Route path="education/homework" element={<HomeworkManagementPage />} />
+
+                {/* Academic Setup — Classes + Subjects + Homework merged into one tab bar */}
+                <Route path="education/academic-setup" element={<ModuleTabsLayout tabs={academicSetupTabs} scopeClass="academic-setup-scope" />}>
+                  <Route index element={<Navigate to="/education/academic-setup/classes" replace />} />
+                  <Route path="classes" element={<AllClassesPage />} />
+                  <Route path="classes/add" element={<AddClassPage />} />
+                  <Route path="classes/edit/:id" element={<EditClassPage />} />
+                  <Route path="classes/view/:id" element={<ClassDetailPage />} />
+                  <Route path="subjects" element={<SubjectsPage />} />
+                  <Route path="subjects/assign" element={<AssignSubjectsPage />} />
+                  <Route path="homework" element={<HomeworkManagementPage />} />
+                  <Route path="live-class" element={<LiveClassPage />} />
+                </Route>
                 
                 {/* Curriculum */}
                 <Route path="education/curriculum" element={<CurriculumManagementPage />} />
@@ -256,16 +306,18 @@ function App() {
                 <Route path="education/store" element={<OnlineStorePage />} />
                 
                 {/* Timetable */}
-                <Route path="education/timetable" element={<TimetableManagement />} />
-                <Route path="education/timetable/view" element={<TimetableViewPage />} />
-                <Route path="education/timetable/periods" element={<PeriodManagementPage />} />
-                <Route path="education/timetable/editor" element={<TimetableEditorPage />} />
-                <Route path="education/timetable/weekdays" element={<WeekdayManagementPage />} />
-                <Route path="education/timetable/rooms" element={<ClassroomManagementPage />} />
-                <Route path="education/timetable/class" element={<ClassTimetableListPage />} />
-                <Route path="education/timetable/teacher" element={<TeacherTimetableListPage />} />
-                <Route path="education/timetable/leave" element={<StaffLeavePage />} />
-                <Route path="education/timetable/my-leave" element={<TeacherLeaveApplyPage />} />
+                <Route path="education/timetable" element={<ModuleTabsLayout tabs={timetableTabs} scopeClass="timetable-scope" />}>
+                  <Route index element={<TimetableManagement />} />
+                  <Route path="view" element={<TimetableViewPage />} />
+                  <Route path="periods" element={<PeriodManagementPage />} />
+                  <Route path="editor" element={<TimetableEditorPage />} />
+                  <Route path="weekdays" element={<WeekdayManagementPage />} />
+                  <Route path="rooms" element={<ClassroomManagementPage />} />
+                  <Route path="class" element={<ClassTimetableListPage />} />
+                  <Route path="teacher" element={<TeacherTimetableListPage />} />
+                  <Route path="leave" element={<StaffLeavePage />} />
+                  <Route path="my-leave" element={<TeacherLeaveApplyPage />} />
+                </Route>
                 
                 {/* Progress */}
                 <Route path="education/progress" element={<ProgressTrackingPage />} />
@@ -277,15 +329,44 @@ function App() {
                 <Route path="education/admissions" element={<AdmissionsPage />} />
                 <Route path="education/admissions/new" element={<NewApplicationPage />} />
                 
-                {/* Behaviour */}
-                <Route path="education/behaviour/rate" element={<RateBehavioursPage />} />
-                <Route path="education/skills/rate" element={<RateSkillsPage />} />
-                <Route path="education/behaviour/observations" element={<ObservationsPage />} />
-                <Route path="education/behaviour/affective-report" element={<AffectiveDomainReportPage />} />
-                <Route path="education/behaviour/psycomotor-report" element={<PsycomotorDomainReportPage />} />
+                {/* Behaviour & Skills */}
+                <Route path="education/behaviour" element={<ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" />}>
+                  <Route path="rate" element={<RateBehavioursPage />} />
+                  <Route path="observations" element={<ObservationsPage />} />
+                  <Route path="affective-report" element={<AffectiveDomainReportPage />} />
+                  <Route path="psycomotor-report" element={<PsycomotorDomainReportPage />} />
+                </Route>
+                <Route path="education/skills" element={<ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" />}>
+                  <Route path="rate" element={<RateSkillsPage />} />
+                </Route>
                 
-                {/* Finance */}
-                <Route path="education/finance" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><FinancePage /></RoleBasedRoute>} />
+                {/* Accounts */}
+                <Route path="education/accounts" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><ModuleTabsLayout tabs={accountsTabs} scopeClass="finance-scope" /></RoleBasedRoute>}>
+                  <Route index element={<Navigate to="/education/accounts/chart-of-accounts" replace />} />
+                  <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
+                  <Route path="add-income" element={<AddIncomePage />} />
+                  <Route path="add-expense" element={<AddExpensePage />} />
+                  <Route path="account-statement" element={<AccountStatementPage />} />
+                </Route>
+
+                {/* Fees */}
+                <Route path="education/fees" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><ModuleTabsLayout tabs={feesTabs} scopeClass="finance-scope" /></RoleBasedRoute>}>
+                  <Route index element={<Navigate to="/education/fees/invoices" replace />} />
+                  <Route path="fee-items" element={<FeeParticulars />} />
+                  <Route path="fee-plan" element={<FeeStructure />} />
+                  <Route path="discount" element={<DiscountType />} />
+                  <Route path="fee-accounts" element={<FeeChallanDetails />} />
+                  <Route path="generate-invoices" element={<GenerateFeesInvoicePage />} />
+                  <Route path="invoices" element={<InvoicesPage />} />
+                  <Route path="collect-fees" element={<CollectFeesPage />} />
+                  <Route path="fees-paid-slip" element={<FeesPaidSlipPage />} />
+                  <Route path="fees-defaulters" element={<FeesDefaultersPage />} />
+                  <Route path="report" element={<FeesReportPage />} />
+                  <Route path="delete" element={<DeleteFeesPage />} />
+                </Route>
+
+                {/* Legacy Finance aliases (Accounts + Fees) */}
+                <Route path="education/finance" element={<Navigate to="/education/accounts" replace />} />
                 <Route path="education/finance/chart-of-accounts" element={<ChartOfAccountsPage />} />
                 <Route path="education/finance/add-income" element={<AddIncomePage />} />
                 <Route path="education/finance/add-expense" element={<AddExpensePage />} />
@@ -299,25 +380,38 @@ function App() {
                 <Route path="education/finance/delete" element={<DeleteFeesPage />} />
 
                 {/* Salary */}
-                <Route path="education/salary/generate" element={<GenerateSalaryPage />} />
-                <Route path="education/salary/pay" element={<PaySalaryPage />} />
-                <Route path="education/salary/slips" element={<SalaryPaidSlipPage />} />
-                <Route path="education/salary/sheet" element={<SalarySheetPage />} />
-                <Route path="education/salary/report" element={<SalaryReportPage />} />
+                <Route path="education/salary" element={<ModuleTabsLayout tabs={salaryTabs} scopeClass="salary-scope" />}>
+                  <Route path="generate" element={<GenerateSalaryPage />} />
+                  <Route path="pay" element={<PaySalaryPage />} />
+                  <Route path="slips" element={<SalaryPaidSlipPage />} />
+                  <Route path="sheet" element={<SalarySheetPage />} />
+                  <Route path="report" element={<SalaryReportPage />} />
+                </Route>
 
                 {/* Communication & Analytics */}
-                <Route path="education/communication" element={<CommunicationPage />} />
-                <Route path="education/analytics" element={<AnalyticsPage />} />
-                <Route path="education/analytics/attendance-student" element={<AnalyticsPage />} />
-                <Route path="education/analytics/attendance-staff" element={<AnalyticsPage />} />
-                <Route path="education/analytics/fees" element={<AnalyticsPage />} />
-                <Route path="education/analytics/progress" element={<AnalyticsPage />} />
-                <Route path="education/analytics/accounts" element={<AnalyticsPage />} />
-                <Route path="education/analytics/custom" element={<AnalyticsPage />} />
+                <Route path="education/communication" element={<ModuleTabsLayout tabs={communicationTabs} scopeClass="communication-scope" />}>
+                  <Route index element={<CommunicationPage />} />
+                </Route>
+                {/* Legacy/alias communication routes (Sidebar & deep links) */}
+                <Route path="communication/whatsapp" element={<CommunicationPage />} />
+                <Route path="communication/sms-gateway" element={<CommunicationPage />} />
+                <Route path="communication/branded-sms" element={<CommunicationPage />} />
+                <Route path="communication/sms-templates" element={<CommunicationPage />} />
+                <Route path="education/analytics" element={<ModuleTabsLayout tabs={reportsTabs} scopeClass="reports-scope" />}>
+                  <Route index element={<AnalyticsPage />} />
+                  <Route path="attendance-student" element={<AnalyticsPage />} />
+                  <Route path="attendance-staff" element={<AnalyticsPage />} />
+                  <Route path="fees" element={<AnalyticsPage />} />
+                  <Route path="progress" element={<AnalyticsPage />} />
+                  <Route path="accounts" element={<AnalyticsPage />} />
+                  <Route path="custom" element={<AnalyticsPage />} />
+                </Route>
                 
                 {/* Certificates & Live Class */}
-                <Route path="education/certificates" element={<CertificatesPage />} />
-                <Route path="education/certificates/templates" element={<CertificatesPage />} />
+                <Route path="education/certificates" element={<ModuleTabsLayout tabs={certificatesTabs} scopeClass="certificates-scope" />}>
+                  <Route index element={<CertificatesPage />} />
+                  <Route path="templates" element={<CertificatesPage />} />
+                </Route>
                 <Route path="education/live-class" element={<LiveClassPage />} />
                 <Route path="education/live-class/room" element={<LiveRoomPage />} />
                 
@@ -325,6 +419,13 @@ function App() {
                     SETTINGS ROUTES
                     ============================================================ */}
                 <Route path="settings/*" element={<SettingsPage />} />
+                {/* Legacy aliases: fee/settings moved to Fees top tabs */}
+                <Route path="settings/fee-particulars" element={<Navigate to="/education/fees/fee-items" replace />} />
+                <Route path="settings/fee-structure" element={<Navigate to="/education/fees/fee-plan" replace />} />
+                <Route path="settings/discount-type" element={<Navigate to="/education/fees/discount" replace />} />
+                <Route path="settings/bank-accounts" element={<Navigate to="/education/fees/fee-accounts" replace />} />
+                {/* Legacy alias: Grading moved to Examination */}
+                <Route path="settings/grading" element={<MarksGrading />} />
                 
                 {/* ============================================================
                     PORTAL ROUTES

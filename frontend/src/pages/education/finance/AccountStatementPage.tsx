@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Wallet, Printer, ChevronDown, RotateCcw, Trash2 } from 'lucide-react';
+import ledgerService from '@/services/ledger.service';
 
 interface Transaction {
   id: string;
@@ -22,40 +23,47 @@ export default function AccountStatementPage() {
     fetchTransactions();
   }, []);
 
-  const fetchTransactions = () => {
-    const saved = localStorage.getItem('finance_transactions');
-    if (saved) {
-      try {
-        setTransactions(JSON.parse(saved));
-      } catch (e) {
-        console.log('Error parsing finance transactions');
-      }
-    } else {
-      // Default statement records
-      const defaultTxs: Transaction[] = [
-        { id: 'tx-1', date: '2026-06-28', description: 'Tuition Fees Collection', amount: 8500, type: 'Income' },
-        { id: 'tx-2', date: '2026-06-29', description: 'Office Stationary Purchase', amount: 1200, type: 'Expense' },
-        { id: 'tx-3', date: '2026-06-29', description: 'Admission Fees Collection', amount: 4500, type: 'Income' },
-        { id: 'tx-4', date: '2026-06-30', description: 'Monthly Electricity Bill Payment', amount: 6500, type: 'Expense' }
-      ];
-      setTransactions(defaultTxs);
-      localStorage.setItem('finance_transactions', JSON.stringify(defaultTxs));
+  const fetchTransactions = async () => {
+    try {
+      const response = await ledgerService.getLedgerEntries();
+      const entries = response.data || [];
+      const txs: Transaction[] = entries.map((e: any) => ({
+        id: e.id,
+        date: e.date,
+        description: e.description,
+        amount: Math.abs(e.amount),
+        type: e.type === 'income' ? 'Income' : 'Expense'
+      }));
+      setTransactions(txs);
+    } catch (err) {
+      console.log('Error fetching ledger entries');
+      setTransactions([]);
     }
   };
 
-  const handleResetBalance = () => {
+  const handleResetBalance = async () => {
     if (!confirm('Are you sure you want to reset all statement records? This will clear all transactions.')) return;
-    localStorage.removeItem('finance_transactions');
-    setTransactions([]);
-    toast.success('Ledger statement reset successfully!');
+    try {
+      const response = await ledgerService.getLedgerEntries();
+      for (const entry of response.data || []) {
+        await ledgerService.deleteLedgerEntry(entry.id);
+      }
+      setTransactions([]);
+      toast.success('Ledger statement reset successfully!');
+    } catch (err) {
+      toast.error('Failed to reset statement');
+    }
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
     if (!confirm('Are you sure you want to delete this statement entry?')) return;
-    const updated = transactions.filter(t => t.id !== id);
-    setTransactions(updated);
-    localStorage.setItem('finance_transactions', JSON.stringify(updated));
-    toast.success('Statement record deleted');
+    try {
+      await ledgerService.deleteLedgerEntry(id);
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      toast.success('Statement record deleted');
+    } catch (err) {
+      toast.error('Failed to delete entry');
+    }
   };
 
   const handleExport = (type: string) => {
@@ -253,13 +261,7 @@ export default function AccountStatementPage() {
           </button>
 
           <button
-            onClick={() => {
-              if (confirm('Clear entire transaction ledger statement?')) {
-                localStorage.removeItem('finance_transactions');
-                setTransactions([]);
-                toast.success('Statement cleared');
-              }
-            }}
+            onClick={handleResetBalance}
             className="h-10 w-10 flex items-center justify-center border border-rose-200 hover:bg-rose-50 text-rose-500 rounded-xl transition-colors shadow-2xs"
           >
             <Trash2 className="w-4 h-4" />
@@ -298,7 +300,7 @@ export default function AccountStatementPage() {
           </div>
         </div>
 
-        {/* Ledger table matching eSkooly mockup */}
+        {/* Ledger table matching Code Cortex mockup */}
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
             <thead>

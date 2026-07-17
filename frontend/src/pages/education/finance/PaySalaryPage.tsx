@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Search, CreditCard, ArrowLeft, Check, Printer, Calendar, User, Banknote } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
+import ledgerService from '@/services/ledger.service';
 
 interface SalaryPayment {
   id: string;
@@ -50,18 +51,7 @@ export default function PaySalaryPage() {
     try {
       const res = await teacherService.getAll().catch(() => ({ data: [] }));
       const rawTeachers = extractListData<any>(res.data || []);
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      
-      // De-duplicate by ID (in case a custom teacher has same ID as DB teacher)
-      const uniqueTeachersMap = new Map<string, any>();
-      rawTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      customTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      const allTeachers = Array.from(uniqueTeachersMap.values());
-      setTeachers(allTeachers);
+      setTeachers(rawTeachers);
     } catch (e) {
       console.error(e);
     }
@@ -85,51 +75,70 @@ export default function PaySalaryPage() {
     setSearchQuery(teacher.full_name);
     setSuggestions([]);
 
-    // Source-of-truth order: backend monthly_salary -> localStorage employees_extra_info -> 0
-    let rawSalary = teacher.monthly_salary ?? teacher.monthlySalary;
-    if (rawSalary === null || rawSalary === undefined || rawSalary === '') {
-      try {
-        const extrasMap = JSON.parse(localStorage.getItem('employees_extra_info') || '{}');
-        rawSalary = extrasMap[teacher.id]?.monthlySalary;
-      } catch (e) {}
-    }
+    // Use backend monthly_salary directly
+    const rawSalary = teacher.monthly_salary ?? teacher.monthlySalary;
     const basic = rawSalary ? Number(rawSalary.toString().replace(/[^0-9.]/g, '')) : 0;
     setSalaryBasic(basic);
     setSalaryBonus(0);
     setSalaryDeduction(0);
   };
 
-  const handleProceed = (e: React.FormEvent) => {
+  const handleProceed = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTeacher) {
       toast.error('Please select an employee first');
       return;
     }
     
-    // Check if already paid
-    const savedSalaries = JSON.parse(localStorage.getItem('custom_salaries') || '[]');
-    const isPaid = savedSalaries.some((s: any) => 
-      s.employee_id === selectedTeacher.id && 
-      s.month.toLowerCase().trim() === salaryMonth.toLowerCase().trim()
-    );
-
-    if (isPaid) {
-      toast.error(`${selectedTeacher.full_name} is already paid for ${salaryMonth}.`);
-      return;
+    // Check if already paid via API
+    try {
+      const response = await ledgerService.getPayslips({
+        employee_id: selectedTeacher.id,
+        month: salaryMonth
+      });
+      const existingPayslips = response.data || [];
+      if (existingPayslips.length > 0) {
+        toast.error(`${selectedTeacher.full_name} is already paid for ${salaryMonth}.`);
+        return;
+      }
+    } catch (err) {
+      // If API fails, proceed anyway
     }
 
     setShowForm(true);
   };
 
-  const handleSubmitPayment = (e: React.FormEvent) => {
+  const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTeacher) return;
     setLoading(true);
     try {
       const netSalary = salaryBasic + salaryBonus - salaryDeduction;
       
+      // Create payslip via API
+      const payslipResponse = await ledgerService.createPayslip({
+        employee: selectedTeacher.id,
+        month: salaryMonth,
+        basic_salary: salaryBasic,
+        allowances: salaryBonus,
+        deductions: salaryDeduction,
+        net_salary: netSalary,
+        paid_amount: netSalary,
+        status: 'paid',
+        payment_date: paymentDate,
+        payment_method: 'bank_transfer'
+      });
+
+      // Create ledger entry for the expense
+      await ledgerService.createLedgerEntry({
+        date: paymentDate,
+        description: `Salary Paid to ${selectedTeacher.full_name} (${salaryMonth})`,
+        amount: netSalary,
+        type: 'expense'
+      });
+
       const newPayment: SalaryPayment = {
-        id: `sal-${Date.now()}`,
+        id: payslipResponse.data?.id || `sal-${Date.now()}`,
         employee_id: selectedTeacher.id,
         employee_name: selectedTeacher.full_name,
         month: salaryMonth,
@@ -140,25 +149,6 @@ export default function PaySalaryPage() {
         status: 'paid',
         paid_date: paymentDate
       };
-
-      // Save to database
-      const savedSalaries = localStorage.getItem('custom_salaries');
-      const salaries = savedSalaries ? JSON.parse(savedSalaries) : [];
-      salaries.push(newPayment);
-      localStorage.setItem('custom_salaries', JSON.stringify(salaries));
-
-      // Save to accounts ledger
-      const savedTxs = localStorage.getItem('finance_transactions');
-      const transactions = savedTxs ? JSON.parse(savedTxs) : [];
-      const newTx = {
-        id: `tx-sal-${Date.now()}`,
-        date: paymentDate,
-        description: `Salary Paid to ${selectedTeacher.full_name} (${salaryMonth})`,
-        amount: netSalary,
-        type: 'Expense' as const
-      };
-      transactions.push(newTx);
-      localStorage.setItem('finance_transactions', JSON.stringify(transactions));
 
       toast.success(`Salary of Rs ${netSalary} paid to ${selectedTeacher.full_name} successfully!`);
       setActiveSlip(newPayment);
@@ -232,9 +222,9 @@ export default function PaySalaryPage() {
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">
               🎓
             </div>
-            <h2 className="text-2xl font-black tracking-wide text-slate-800">eSkooly</h2>
+            <h2 className="text-2xl font-black tracking-wide text-slate-800">Code Cortex</h2>
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-            <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com | info@eskooly.com</p>
+            <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.codecortex.com | info@codecortex.com</p>
             <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Salary Payment Slip</h3>
           </div>
 

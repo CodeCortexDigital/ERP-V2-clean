@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Landmark, Search, Printer, Calendar, Users, DollarSign, Wallet, FileText, Trash2 } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
 import api, { extractListData } from '@/services/api';
+import ledgerService from '@/services/ledger.service';
 
 interface SalaryPayment {
   id: string;
@@ -33,39 +34,31 @@ export default function SalarySheetPage() {
     try {
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const rawTeachers = extractListData<any>(tRes.data || []);
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      
-      // De-duplicate by ID (in case a custom teacher has same ID as DB teacher)
-      const uniqueTeachersMap = new Map<string, any>();
-      rawTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      customTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      const allTeachers = Array.from(uniqueTeachersMap.values());
-      setTeachers(allTeachers);
+      setTeachers(rawTeachers);
 
-      const savedSalaries = localStorage.getItem('custom_salaries');
-      if (savedSalaries) {
-        setSalaries(JSON.parse(savedSalaries));
-      } else {
-        setSalaries([]);
-      }
+      // Fetch payslips from API
+      const payslipRes = await ledgerService.getPayslips({ month: salaryMonth }).catch(() => ({ data: [] }));
+      const payslips = (payslipRes.data || []).map((p: any) => ({
+        id: p.id,
+        employee_id: p.employee,
+        employee_name: p.employee_name || '',
+        month: p.month,
+        basic_salary: p.basic_salary,
+        allowances: p.allowances,
+        deductions: p.deductions,
+        net_salary: p.net_salary,
+        status: p.status,
+        paid_date: p.payment_date || ''
+      }));
+      setSalaries(payslips);
     } catch (e) {
       console.error(e);
     }
   };
 
-  // Resolve fixed salary: backend monthly_salary -> localStorage employees_extra_info -> 0
+  // Resolve fixed salary: backend monthly_salary only
   const getFixedSalary = (teacher: any): number => {
-    let raw = teacher.monthly_salary ?? teacher.monthlySalary;
-    if (raw === null || raw === undefined || raw === '') {
-      try {
-        const extrasMap = JSON.parse(localStorage.getItem('employees_extra_info') || '{}');
-        raw = extrasMap[teacher.id]?.monthlySalary;
-      } catch (e) {}
-    }
+    const raw = teacher.monthly_salary ?? teacher.monthlySalary;
     return raw ? Number(raw.toString().replace(/[^0-9.]/g, '')) : 0;
   };
 
@@ -116,22 +109,11 @@ export default function SalarySheetPage() {
   };
 
   const handleClearAllSalaryData = async () => {
-    if (!window.confirm('This will permanently DELETE the monthly (fixed) salary of ALL employees in the database, and clear all salary payment records. This cannot be undone. Continue?')) {
+    if (!window.confirm('This will permanently DELETE all salary payment records. This cannot be undone. Continue?')) {
       return;
     }
     try {
       await api.post('/teachers/clear-salaries/');
-
-      localStorage.removeItem('custom_salaries');
-      const savedTxs = localStorage.getItem('finance_transactions');
-      if (savedTxs) {
-        const txs = JSON.parse(savedTxs);
-        const cleaned = txs.filter((t: any) =>
-          !String(t.id).startsWith('tx-sal-') && !/^Salary Paid to/i.test(t.description || '')
-        );
-        localStorage.setItem('finance_transactions', JSON.stringify(cleaned));
-      }
-
       setSalaries([]);
       toast.success('All salary data cleared for every employee.');
       await fetchInitialData();
@@ -227,9 +209,9 @@ export default function SalarySheetPage() {
           <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">
             🎓
           </div>
-          <h2 className="text-2xl font-black tracking-wide text-slate-850">eSkooly</h2>
+          <h2 className="text-2xl font-black tracking-wide text-slate-850">Code Cortex</h2>
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-          <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com</p>
+          <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.codecortex.com</p>
           <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Salary Sheet for {salaryMonth}</h3>
         </div>
       </div>

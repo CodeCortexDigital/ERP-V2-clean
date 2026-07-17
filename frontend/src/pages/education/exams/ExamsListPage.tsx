@@ -25,7 +25,7 @@ export default function ExamsListPage() {
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [formData, setFormData] = useState({
     title: '',
-    exam_type: 'midterm',
+    exam_type: 'mid_term' as const,
     class_ref: '',
     subject: '',
     total_marks: 100,
@@ -65,10 +65,10 @@ export default function ExamsListPage() {
     try {
       const [classesRes, subjectsRes] = await Promise.all([
         classService.getAll(),
-        academicService.getSubjects()
+        academicService.subjects.getAll()
       ]);
       setClasses(classesRes.data || []);
-      setSubjects(subjectsRes.data || []);
+      setSubjects(subjectsRes || []);
     } catch (error) {
       console.error('Error fetching classes/subjects:', error);
     }
@@ -90,7 +90,7 @@ export default function ExamsListPage() {
       setShowForm(false);
       setEditingExam(null);
       setFormData({
-        title: '', exam_type: 'midterm', class_ref: '', subject: '',
+        title: '', exam_type: 'mid_term', class_ref: '', subject: '',
         total_marks: 100, passing_marks: 40, exam_date: '', term: 'first', description: ''
       });
       fetchAllData();
@@ -112,11 +112,12 @@ export default function ExamsListPage() {
 
   const getExamTypeBadge = (type: string) => {
     const types: Record<string, React.ReactNode> = {
-      midterm: <Badge variant="info">📝 Mid Term</Badge>,
-      final: <Badge variant="danger">🎓 Final Term</Badge>,
+      mid_term: <Badge variant="info">📝 Mid Term</Badge>,
+      final_term: <Badge variant="danger">🎓 Final Term</Badge>,
       quiz: <Badge variant="warning">📋 Quiz</Badge>,
       test: <Badge variant="secondary">📊 Test</Badge>,
-      assignment: <Badge variant="outline">📚 Assignment</Badge>
+      practical: <Badge variant="outline">🔬 Practical</Badge>,
+      others: <Badge variant="outline">📚 Others</Badge>
     };
     return types[type] || <Badge>{type}</Badge>;
   };
@@ -216,12 +217,13 @@ export default function ExamsListPage() {
             </div>
             <div className="space-y-4">
               <Input placeholder="Exam Title *" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
-              <select className="w-full border rounded-lg px-3 py-2" value={formData.exam_type} onChange={(e) => setFormData({...formData, exam_type: e.target.value})}>
-                <option value="midterm">Mid Term Examination</option>
-                <option value="final">Final Term Examination</option>
+              <select className="w-full border rounded-lg px-3 py-2" value={formData.exam_type} onChange={(e) => setFormData({...formData, exam_type: e.target.value as typeof formData.exam_type})}>
+                <option value="mid_term">Mid Term Examination</option>
+                <option value="final_term">Final Term Examination</option>
                 <option value="quiz">Quiz</option>
                 <option value="test">Unit Test</option>
-                <option value="assignment">Assignment</option>
+                <option value="practical">Practical</option>
+                <option value="others">Others</option>
               </select>
               <select className="w-full border rounded-lg px-3 py-2" value={formData.class_ref} onChange={(e) => setFormData({...formData, class_ref: e.target.value})}>
                 <option value="">Select Class *</option>

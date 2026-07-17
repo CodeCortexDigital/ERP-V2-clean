@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import teacherService, { Teacher } from '@/services/teacher.service';
+import classService, { SchoolClass } from '@/services/class.service';
 import { extractListData } from '@/services/api';
-import { Calendar, Clock, DollarSign, BookOpen, User, RefreshCw, UserCheck, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, DollarSign, BookOpen, User, RefreshCw, UserCheck, AlertCircle, Users, FileText, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function TeacherDashboard() {
@@ -12,6 +13,8 @@ export default function TeacherDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [employee, setEmployee] = useState<any | null>(null);
+  const [myClasses, setMyClasses] = useState<SchoolClass[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(true);
 
   // Clock state
   const [currentTime, setCurrentTime] = useState('');
@@ -19,6 +22,7 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     fetchProfileData();
+    fetchMyClasses();
     updateClock();
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
@@ -30,50 +34,122 @@ export default function TeacherDashboard() {
     setCurrentDateStr(now.toLocaleDateString([], { weekday: 'long', month: 'short', day: '2-digit', year: 'numeric' }));
   };
 
+  const fetchMyClasses = async () => {
+    try {
+      setLoadingClasses(true);
+      const response = await classService.getAll().catch(() => ({ data: [] }));
+      const rawClasses = extractListData<SchoolClass>(response.data || []);
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
+      const seenClasses = new Set();
+      let classList: SchoolClass[] = [...rawClasses, ...customClasses].filter((c: any) => {
+        const cid = String(c.id || c.name);
+        if (seenClasses.has(cid)) return false;
+        seenClasses.add(cid);
+        return true;
+      });
+
+      // Find current teacher's employee_id
+      const empIdMatch = user?.full_name?.match(/EMP[_-]?(\d+)/i);
+      const empIdFromUser = empIdMatch ? empIdMatch[0] : ''; // "EMP-99815"
+      const empIdDigits = empIdMatch ? empIdMatch[1] : '';
+
+      // Check if user is a Principal/Head who should see all classes
+      const userRole = (employee?.role || '').toLowerCase();
+      const isPrincipalOrHead = userRole.includes('principal') || userRole.includes('head') || userRole.includes('director');
+
+      let myAssignedClasses: SchoolClass[];
+
+      if (isPrincipalOrHead) {
+        // Principals/Heads see all active classes
+        myAssignedClasses = classList.filter(c => c.is_active !== false);
+      } else {
+        // Regular teachers see only their assigned classes
+        const teacherName = (user?.full_name || user?.email || '').toLowerCase();
+        myAssignedClasses = classList.filter((c: SchoolClass) => {
+          // Match by teacher_id (employee_id)
+          if (empIdFromUser && c.teacher_id === empIdFromUser) return true;
+          if (empIdDigits && c.teacher_id?.includes(empIdDigits)) return true;
+          // Match by teacher_name
+          if (c.teacher_name && teacherName && (
+            c.teacher_name.toLowerCase().includes(teacherName) || 
+            teacherName.includes(c.teacher_name.toLowerCase())
+          )) return true;
+          return false;
+        });
+      }
+
+      setMyClasses(myAssignedClasses);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+    } finally {
+      setLoadingClasses(false);
+    }
+  };
+
   const fetchProfileData = async () => {
     try {
       setLoading(true);
+
+      // Load saved employee data from login
+      const savedData = localStorage.getItem('current_employee_data');
+      const savedEmployee = savedData ? JSON.parse(savedData) : null;
+
+      // Fetch ALL teachers from API
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const fetched = extractListData<Teacher>(tRes.data);
       const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
       const filtered = fetched.filter(t => !deletedIds.includes(t.id));
 
-      // Find the logged-in employee matching user name or email
-      let currentEmp = filtered.find(
-        (t) => 
-          String(t.id) === String(user?.id) || 
-          t.full_name?.toLowerCase() === user?.full_name?.toLowerCase() ||
-          t.email?.toLowerCase() === user?.email?.toLowerCase()
-      );
+      // Match: try every strategy against API data
+      const fullName = (user?.full_name || '').trim();
+      const email = (user?.email || '').trim().toLowerCase();
 
-      // If still not found, check the first employee in the list
-      if (!currentEmp && filtered.length > 0) {
-        currentEmp = filtered[0];
-      }
+      // Extract EMP digits from full_name (e.g. "mr.bilalhassanEMP0010" → "0010")
+      const empIdMatch = fullName.match(/EMP[_-]?(\d+)/i);
+      const empIdDigits = empIdMatch ? empIdMatch[1] : '';
+      const empIdFull = empIdMatch ? empIdMatch[0] : ''; // "EMP0010"
+      // Name part before EMP for fuzzy name matching
+      const namePart = fullName.split(/EMP[_-]?\d+/i)[0]?.toLowerCase().replace(/[^a-z]/g, '') || '';
 
-      // Load extra info
-      const extras = JSON.parse(localStorage.getItem('employees_extra_info') || '{}');
-      const empId = currentEmp?.id || 't-1';
-      const empExtra = extras[empId] || {};
+      let currentEmp = filtered.find((t) => {
+        const tEmpId = String(t.employee_id || '').toUpperCase();
+        const tEmpDigits = tEmpId.replace(/[^0-9]/g, '');
+        return (
+          // Match by backend ID if user.id looks real
+          (user?.id && !user.id.startsWith('t-') && String(t.id) === String(user.id)) ||
+          // Match by employee_id (exact)
+          (empIdFull && tEmpId === empIdFull.toUpperCase()) ||
+          // Match by employee_id (contains full EMP ID)
+          (empIdFull && tEmpId.includes(empIdFull.toUpperCase())) ||
+          // Match by digits only (flexible)
+          (empIdDigits && tEmpDigits.includes(empIdDigits)) ||
+          // Match by email
+          (email && t.email?.toLowerCase() === email) ||
+          // Match by full_name
+          (fullName && t.full_name?.toLowerCase() === fullName.toLowerCase()) ||
+          // Fuzzy name match: name before EMP matches teacher name
+          (namePart && t.full_name?.toLowerCase().replace(/[^a-z]/g, '').includes(namePart))
+        );
+      });
 
-      // Build complete employee info object matching Picture 2
+      // Build employee: API data > saved data > defaults
       const fullEmployee = {
-        name: currentEmp?.full_name || user?.full_name || 'Maryam Fatima',
-        regNo: currentEmp?.employee_id || '250622',
-        role: empExtra.role || currentEmp?.specializations?.[0] || 'Teacher',
-        monthlySalary: empExtra.monthlySalary || 'Rs. 1,000',
-        fatherName: empExtra.fatherName || 'Husband Name',
-        phone: currentEmp?.phone || '+92 300 1234567',
-        email: currentEmp?.email || 'maryam.fatima@school.edu',
-        address: empExtra.homeAddress || 'Main Street, School Block',
-        cnic: empExtra.nationalId || '35202-1234567-8',
-        education: empExtra.education || currentEmp?.qualifications?.[0] || 'Master of Education',
-        gender: empExtra.gender || 'Female',
-        religion: empExtra.religion || 'Islam',
-        bloodGroup: empExtra.bloodGroup || 'O+',
-        dob: empExtra.dateOfBirth || '1995-08-12',
-        joiningDate: currentEmp?.joining_date || '2026-06-29',
-        experience: empExtra.experience ? `${empExtra.experience} years` : '5 years'
+        name: currentEmp?.full_name || savedEmployee?.name || fullName || 'Employee',
+        regNo: currentEmp?.employee_id || savedEmployee?.regNo || 'N/A',
+        role: currentEmp?.specializations?.[0] || savedEmployee?.role || 'Teacher',
+        monthlySalary: currentEmp?.monthly_salary || savedEmployee?.monthlySalary || 'Rs. 1,000',
+        fatherName: currentEmp?.father_husband_name || savedEmployee?.fatherName || '--',
+        phone: currentEmp?.phone || savedEmployee?.phone || '--',
+        email: currentEmp?.email || savedEmployee?.email || '--',
+        address: currentEmp?.home_address || currentEmp?.address || savedEmployee?.address || '--',
+        cnic: currentEmp?.national_id || savedEmployee?.cnic || '--',
+        education: currentEmp?.qualifications?.[0] || currentEmp?.education || savedEmployee?.education || 'N/A',
+        gender: currentEmp?.gender || savedEmployee?.gender || 'Male',
+        religion: currentEmp?.religion || savedEmployee?.religion || 'Islam',
+        bloodGroup: currentEmp?.blood_group || savedEmployee?.bloodGroup || 'O+',
+        dob: currentEmp?.date_of_birth || savedEmployee?.dob || '--',
+        joiningDate: currentEmp?.joining_date || savedEmployee?.joiningDate || '--',
+        experience: currentEmp?.experience_years ? `${currentEmp.experience_years} Years` : savedEmployee?.experience || 'N/A'
       };
 
       setEmployee(fullEmployee);
@@ -85,6 +161,7 @@ export default function TeacherDashboard() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('current_employee_data');
     logout();
     navigate('/login');
     toast.success('Logged out successfully');
@@ -255,68 +332,49 @@ export default function TeacherDashboard() {
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              
-              {/* Donut chart simulation */}
-              <div className="md:col-span-5 flex flex-col items-center justify-center border-r border-slate-100 pr-0 md:pr-6">
-                <div className="relative w-36 h-36 flex items-center justify-center">
-                  {/* SVG Circle */}
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="72" cy="72" r="60" stroke="#f1f5f9" strokeWidth="12" fill="transparent" />
-                    <circle cx="72" cy="72" r="60" stroke="#3b82f6" strokeWidth="12" fill="transparent" 
-                            strokeDasharray={2 * Math.PI * 60} 
-                            strokeDashoffset={0} />
-                  </svg>
-                  <div className="absolute text-center space-y-0.5">
-                    <span className="block text-xl font-black text-blue-650 leading-none">100%</span>
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Overall</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 mt-3 text-[9px] font-bold text-slate-400">
-                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Present</div>
-                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-450"></span> Leave</div>
-                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-450"></span> Absent</div>
-                </div>
+            {loadingClasses ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-650" />
               </div>
-
-              {/* Status capsules & Grid list */}
-              <div className="md:col-span-7 space-y-4">
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-150 text-center">
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Today</span>
-                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[8px] font-black uppercase">
-                      NOT MARKED
-                    </span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-150 text-center">
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Yesterday</span>
-                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[8px] font-black uppercase">
-                      NOT MARKED
-                    </span>
-                  </div>
-                </div>
-
-                {/* Presentation counts */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100 text-center space-y-1">
-                    <span className="block text-xl font-black text-blue-600">1</span>
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Presents</span>
-                  </div>
-                  <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 text-center space-y-1">
-                    <span className="block text-xl font-black text-purple-600">0</span>
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Leaves</span>
-                  </div>
-                  <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-100 text-center space-y-1">
-                    <span className="block text-xl font-black text-rose-600">0</span>
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Absents</span>
-                  </div>
-                </div>
-
+            ) : myClasses.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <Users className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                <p className="font-medium">No classes assigned</p>
+                <p className="text-sm mt-1">You are not assigned as class teacher to any class yet.</p>
               </div>
-
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myClasses.map((cls) => (
+                  <div key={cls.id} className="bg-slate-50 rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">{cls.name}</h4>
+                        <p className="text-xs text-slate-500">Code: {cls.code}</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                        {cls.sections_count || 1} Section{cls.sections_count > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigate(`/education/attendance/mark?class=${cls.id}&date=${new Date().toISOString().split('T')[0]}`)}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <CheckSquare className="w-3.5 h-3.5" />
+                        Mark Attendance
+                      </button>
+                      <button
+                        onClick={() => navigate(`/education/attendance/reports?class=${cls.id}`)}
+                        className="flex-1 bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Review Report
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Section 2: Salary Report */}

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Search, CreditCard, ArrowLeft, Printer, FileText, Ban, User } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
+import ledgerService from '@/services/ledger.service';
 
 interface SalaryPayment {
   id: string;
@@ -40,18 +41,7 @@ export default function SalaryPaidSlipPage() {
     try {
       const res = await teacherService.getAll().catch(() => ({ data: [] }));
       const rawTeachers = extractListData<any>(res.data || []);
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      
-      // De-duplicate by ID (in case a custom teacher has same ID as DB teacher)
-      const uniqueTeachersMap = new Map<string, any>();
-      rawTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      customTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      const allTeachers = Array.from(uniqueTeachersMap.values());
-      setTeachers(allTeachers);
+      setTeachers(rawTeachers);
     } catch (e) {
       console.error(e);
     }
@@ -76,7 +66,7 @@ export default function SalaryPaidSlipPage() {
     setSuggestions([]);
   };
 
-  const handleProceed = (e: React.FormEvent) => {
+  const handleProceed = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTeacher) {
       toast.error('Please select an employee first');
@@ -85,17 +75,24 @@ export default function SalaryPaidSlipPage() {
 
     setLoading(true);
     try {
-      const savedSalaries = localStorage.getItem('custom_salaries');
-      if (savedSalaries) {
-        const parsed: SalaryPayment[] = JSON.parse(savedSalaries);
-        const filtered = parsed.filter(s => s.employee_id === selectedTeacher.id);
-        
-        // Sort by date latest first
-        filtered.sort((a, b) => new Date(b.paid_date).getTime() - new Date(a.paid_date).getTime());
-        setTeacherSalaries(filtered);
-      } else {
-        setTeacherSalaries([]);
-      }
+      // Fetch payslips from API
+      const payslipRes = await ledgerService.getPayslips({ employee_id: selectedTeacher.id });
+      const payslips = (payslipRes.data || []).map((p: any) => ({
+        id: p.id,
+        employee_id: p.employee,
+        employee_name: p.employee_name || selectedTeacher.full_name,
+        month: p.month,
+        basic_salary: p.basic_salary,
+        allowances: p.allowances,
+        deductions: p.deductions,
+        net_salary: p.net_salary,
+        status: p.status,
+        paid_date: p.payment_date || ''
+      }));
+      
+      // Sort by date latest first
+      payslips.sort((a: any, b: any) => new Date(b.paid_date).getTime() - new Date(a.paid_date).getTime());
+      setTeacherSalaries(payslips);
       setProceedClicked(true);
     } catch (err) {
       toast.error('Failed to search records');
@@ -121,7 +118,7 @@ export default function SalaryPaidSlipPage() {
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12 print:bg-white print:p-0 print:m-0">
       
-      {/* Dynamic Print CSS - Replicates eSkooly print slip with profile image (Image 2) */}
+      {/* Dynamic Print CSS - Replicates Code Cortex print slip with profile image (Image 2) */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           @page {
@@ -160,9 +157,9 @@ export default function SalaryPaidSlipPage() {
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">
               🎓
             </div>
-            <h2 className="text-2xl font-black tracking-wide text-slate-850">eSkooly</h2>
+            <h2 className="text-2xl font-black tracking-wide text-slate-850">Code Cortex</h2>
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">"YOUR SCHOOL SOFTWARE"</p>
-            <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.eskooly.com | info@eskooly.com</p>
+            <p className="text-[9px] font-bold text-slate-400">+923460004443 | www.codecortex.com | info@codecortex.com</p>
             <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Salary Slip</h3>
           </div>
 
@@ -224,12 +221,12 @@ export default function SalaryPaidSlipPage() {
           {/* Signatures */}
           <div className="grid grid-cols-2 pt-16 text-[9px] font-bold text-slate-500">
             <div className="space-y-12">
-              <p>Prepared By: <strong className="text-slate-800">eSkooly</strong></p>
+              <p>Prepared By: <strong className="text-slate-800">Code Cortex</strong></p>
               <p>Checked By: ___________________________</p>
             </div>
             <div className="text-right pt-20">
               <p>Accounts Department Signature</p>
-              <p className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">eSkooly</p>
+              <p className="text-[8px] text-slate-400 uppercase tracking-widest mt-1">Code Cortex</p>
             </div>
           </div>
         </div>

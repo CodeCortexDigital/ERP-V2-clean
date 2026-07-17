@@ -27,6 +27,8 @@ interface AttendanceStudent {
   isSaved: boolean;
   guardian_name?: string;
   profile_picture?: string;
+  classId?: string;
+  className?: string;
 }
 
 function localDateInputValue(d = new Date()): string {
@@ -75,8 +77,20 @@ function resolveStatusForMarking(
 export default function AttendancePage() {
   const { role, user } = useAuth();
   const isAdmin = role === 'admin' || role === 'staff' || !!user?.is_staff || !!user?.is_superuser;
+  
+  // Check if user is a teacher (not admin)
+  const isTeacher = !isAdmin && (role === 'teacher' || !user?.is_superuser && !user?.is_staff);
+  
+  // For teachers, force the view to students tab only
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const typeParam = searchParams.get('type');
+  // Teachers only see student attendance tab
+  const activeView = isTeacher ? 'students' : (tabParam || (typeParam === 'staff' ? 'teachers' : 'students'));
+  
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [selectedSection, setSelectedSection] = useState('');
   const [sections, setSections] = useState<{ id: string; name: string }[]>([]);
   const [students, setStudents] = useState<AttendanceStudent[]>([]);
@@ -118,13 +132,10 @@ export default function AttendancePage() {
   );
 
   // Statistics based on actual teacher data
-  const totalTeachers = teachers.length;  const [subTab, setSubTab] = useState<'manual' | 'card'>('manual');
+  const totalTeachers = teachers.length;  
+  const [subTab, setSubTab] = useState<'manual' | 'card'>('manual');
   const [manualSubmitClicked, setManualSubmitClicked] = useState(false);
   const [teacherSubmitClicked, setTeacherSubmitClicked] = useState(false);
-  const [searchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab');
-  const typeParam = searchParams.get('type');
-  const activeView = tabParam || (typeParam === 'staff' ? 'teachers' : 'students');
 
   const teacherPresentCount = teachers.filter(t => t.status === 'present').length;
   const teacherAbsentCount = teachers.filter(t => t.status === 'absent').length;
@@ -142,10 +153,10 @@ export default function AttendancePage() {
   }, [selectedClass]);
 
   useEffect(() => {
-    if (selectedClass && selectedDate && manualSubmitClicked) {
+    if (manualSubmitClicked && selectedClasses.length > 0 && selectedDate) {
       fetchStudentsAndAttendance();
     }
-  }, [selectedClass, selectedSection, selectedDate]);
+  }, [selectedClasses, selectedDate, manualSubmitClicked]);
 
   const handleTeacherManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,29 +181,9 @@ export default function AttendancePage() {
       // the DB. Match on id, employee_id or email so stale localStorage copies
       // of teachers that now exist server-side don't create duplicate rows
       // (which caused attendance to be saved against the wrong id).
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      const dbIds = new Set(activeTList.map((t: any) => String(t.id)));
-      const dbEmpIds = new Set(activeTList.map((t: any) => String(t.employee_id || '').toLowerCase()).filter(Boolean));
-      const dbEmails = new Set(activeTList.map((t: any) => String(t.email || '').toLowerCase()).filter(Boolean));
-
-      const merged = [...activeTList];
-      customTeachers.forEach((ct: any) => {
-        const alreadyInDb =
-          dbIds.has(String(ct.id)) ||
-          (ct.employee_id && dbEmpIds.has(String(ct.employee_id).toLowerCase())) ||
-          (ct.email && dbEmails.has(String(ct.email).toLowerCase()));
-        if (!alreadyInDb) {
-          merged.push(ct);
-        }
-      });
-
-      // Filter out deleted teachers (same logic as TeachersManagement)
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const filteredTeacherList = merged.filter((t: any) => !deletedIds.includes(t.id));
-
       // Deduplicate final teacher list by ID
       const seenTeacherIds = new Set();
-      const finalTeacherList = filteredTeacherList.filter((t: any) => {
+      const finalTeacherList = activeTList.filter((t: any) => {
         const tid = String(t.id);
         if (seenTeacherIds.has(tid)) return false;
         seenTeacherIds.add(tid);
@@ -299,10 +290,8 @@ export default function AttendancePage() {
       // 1. Fetch classes
       const classRes = await classService.getAll().catch(() => ({ data: [] }));
       const rawClasses = extractListData<any>(classRes.data || []);
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      const rawAllClasses = [...rawClasses, ...customClasses];
       const seenClasses = new Set();
-      const allClasses = rawAllClasses.filter((c: any) => {
+      const allClasses = rawClasses.filter((c: any) => {
         const cid = String(c.id || c.name);
         if (seenClasses.has(cid)) return false;
         seenClasses.add(cid);
@@ -311,32 +300,16 @@ export default function AttendancePage() {
 
       // 2. Fetch students
       const studentRes = await studentService.getAll().catch(() => ({ data: [] }));
-      const rawStudents = extractListData<any>(studentRes.data || []);
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents];
+      const allStudents = extractListData<any>(studentRes.data || []);
 
       // 3. Fetch attendance
-      let apiAttendance: any[] = [];
+      let mergedAttendance: any[] = [];
       try {
         const attRes = await attendanceService.getByDate(selectedDate);
-        apiAttendance = attRes.data || [];
+        mergedAttendance = attRes.data || [];
       } catch (err) {
         console.log('No backend attendance found for report');
       }
-
-      // Merge local attendance
-      const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
-      const matchingLocal = localRecords.filter((r: any) => r.date === selectedDate);
-      
-      const mergedAttendance = [...apiAttendance];
-      matchingLocal.forEach((lr: any) => {
-        const index = mergedAttendance.findIndex((a: any) => String(a.student_id) === String(lr.student_id));
-        if (index === -1) {
-          mergedAttendance.push(lr);
-        } else {
-          mergedAttendance[index] = { ...mergedAttendance[index], ...lr };
-        }
-      });
 
       // 4. Group by class
       const mappedData = allClasses.map((cls: any) => {
@@ -416,10 +389,8 @@ export default function AttendancePage() {
       // 1. Fetch classes
       const classRes = await classService.getAll().catch(() => ({ data: [] }));
       const rawClasses = extractListData<any>(classRes.data || []);
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      const rawAllClasses = [...rawClasses, ...customClasses];
       const seenClasses = new Set();
-      const allClasses = rawAllClasses.filter((c: any) => {
+      const allClasses = rawClasses.filter((c: any) => {
         const cid = String(c.id || c.name);
         if (seenClasses.has(cid)) return false;
         seenClasses.add(cid);
@@ -428,9 +399,7 @@ export default function AttendancePage() {
 
       // 2. Fetch students
       const studentRes = await studentService.getAll().catch(() => ({ data: [] }));
-      const rawStudents = extractListData<any>(studentRes.data || []);
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents];
+      const allStudents = extractListData<any>(studentRes.data || []);
 
       // 3. Fetch all attendance records in range
       const datesInRange: string[] = [];
@@ -444,33 +413,18 @@ export default function AttendancePage() {
         current.setDate(current.getDate() + 1);
       }
 
-      let apiRecords: any[] = [];
+      let mergedAttendance: any[] = [];
       for (const dateStr of datesInRange) {
         try {
           const res = await api.get(`/auth/attendance/?date=${dateStr}`).catch(() => ({ data: [] }));
           const list = extractListData<any>(res.data || []);
           list.forEach((r: any) => {
-            apiRecords.push({ ...r, date: dateStr });
+            mergedAttendance.push({ ...r, date: dateStr });
           });
         } catch (e) {
           // ignore
         }
       }
-
-      const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
-      const matchingLocal = localRecords.filter((r: any) => r.date >= reportStartDate && r.date <= reportEndDate);
-      
-      const mergedAttendance = [...apiRecords];
-      matchingLocal.forEach((lr: any) => {
-        const index = mergedAttendance.findIndex(
-          (a: any) => String(a.student_id) === String(lr.student_id) && a.date === lr.date
-        );
-        if (index === -1) {
-          mergedAttendance.push(lr);
-        } else {
-          mergedAttendance[index] = { ...mergedAttendance[index], ...lr };
-        }
-      });
 
       // 4. Map to report format
       const mappedRecords: any[] = [];
@@ -705,9 +659,8 @@ export default function AttendancePage() {
     try {
       const response = await classService.getAll().catch(() => ({ data: [] }));
       const rawClasses = extractListData<SchoolClass>(response.data || []);
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
       const seenClasses = new Set();
-      let classList: SchoolClass[] = [...rawClasses, ...customClasses].filter((c: any) => {
+      let classList: SchoolClass[] = rawClasses.filter((c: any) => {
         const cid = String(c.id || c.name);
         if (seenClasses.has(cid)) return false;
         seenClasses.add(cid);
@@ -728,15 +681,15 @@ export default function AttendancePage() {
         if (directAssigned.length > 0) {
           classList = directAssigned;
         } else {
-          let targetClasses = []; // Using API data // Default Maryam Fatima TCH-001
+          let targetClasses = []; // Using API data // Default Rimsai TCH-001
 
-          if (teacherName.includes('ahmed') || teacherName.includes('raza')) {
+          if (teacherName.includes('John') || teacherName.includes('raza')) {
             targetClasses = []; // Using API data
           } else if (teacherName.includes('asim') || teacherName.includes('azhar')) {
             targetClasses = ['Grade 3', 'Grade 6', 'GRD03', 'GRD06', '3', '6'];
           } else if (teacherName.includes('atif') || teacherName.includes('aslam')) {
             targetClasses = ['Grade 4', 'Grade 7', 'GRD04', 'GRD07', '4', '7'];
-          } else if (teacherName.includes('maryam') || teacherName.includes('fatima')) {
+          } else if (teacherName.includes('Rimsai') || teacherName.includes('fatima')) {
             targetClasses = []; // Using API data
           }
 
@@ -816,14 +769,73 @@ export default function AttendancePage() {
     }
   };
 
+  const handleClassToggle = (classId: string) => {
+    setSelectedClasses((prev) =>
+      prev.includes(classId)
+        ? prev.filter((id) => id !== classId)
+        : [...prev, classId]
+    );
+  };
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClass) {
-      toast.error('Please select a class first');
+    if (selectedClasses.length === 0) {
+      toast.error('Please select at least one class');
       return;
     }
+    setSelectedClass(selectedClasses[0]);
     setManualSubmitClicked(true);
     fetchStudentsAndAttendance();
+  };
+
+  const markHolidayBulk = async () => {
+    if (selectedClasses.length === 0) {
+      toast.error('Please select at least one class');
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await studentService.getAll().catch(() => ({ data: [] }));
+      let rawStudents: any[] = [];
+      if (Array.isArray(response.data)) rawStudents = response.data;
+      else if (response.data && Array.isArray((response.data as any).results)) rawStudents = (response.data as any).results;
+      else if (response.data && Array.isArray((response.data as any).data)) rawStudents = (response.data as any).data;
+
+      const records: any[] = [];
+      for (const clsId of selectedClasses) {
+        const cls = classes.find((c) => c.id === clsId);
+        const filtered = rawStudents.filter((s: any) => {
+          const studentClass = s.current_class || s.class_id || s.class_ref || s.class_name;
+          return studentClass === clsId || studentClass === cls?.name;
+        });
+        filtered.forEach((s: any) => {
+          records.push({
+            student_id: s.id,
+            status: 'holiday',
+            date: selectedDate,
+            class_id: clsId,
+            section_id: '',
+          });
+        });
+      }
+
+      if (records.length === 0) {
+        toast.error('No students found in the selected classes');
+        setSaving(false);
+        return;
+      }
+
+      await attendanceService.bulkSave(selectedDate, records);
+
+      toast.success(
+        `Holiday marked for ${records.length} student(s) across ${selectedClasses.length} class(es)`
+      );
+    } catch (error) {
+      console.error('Error marking holiday:', error);
+      toast.error('Failed to mark holiday');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const fetchStudentsAndAttendance = async () => {
@@ -839,79 +851,47 @@ export default function AttendancePage() {
         rawStudents = (response.data as any).data;
       }
       
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const allStudents = [...rawStudents, ...customStudents];
+      const targetClasses = classes.filter((c) => selectedClasses.includes(c.id));
+      const studentsWithStatus: AttendanceStudent[] = [];
+      let anyExisting = false;
       
-      const filtered = allStudents.filter((s: any) => {
-        const studentClass = s.current_class || s.class_id || s.class_ref || s.class_name;
-        // Match either class name or ID/reference
-        const isMatch = !selectedClass || 
-          studentClass === selectedClass || 
-          (classes.find(c => c.id === selectedClass)?.name === studentClass);
+      for (const cls of targetClasses) {
+        const filtered = rawStudents.filter((s: any) => {
+          const studentClass = s.current_class || s.class_id || s.class_ref || s.class_name;
+          return studentClass === cls.id || studentClass === cls.name;
+        });
         
-        return isMatch;
-      });
-      
-      let existingAttendance: any[] = [];
-      let hasExisting = false;
-      
-      const isCustomClass = selectedClass && selectedClass.startsWith('cls-');
-      
-      if (!isCustomClass) {
+        let existingAttendance: any[] = [];
+        
         try {
-          const attResponse = await attendanceService.getByDate(
-            selectedDate,
-            selectedClass || undefined,
-            selectedSection || undefined,
-          );
+          const attResponse = await attendanceService.getByDate(selectedDate, cls.id || undefined, undefined);
           existingAttendance = attResponse.data || [];
-          // If there are ANY records for this date+class → already taken
-          hasExisting = existingAttendance.length > 0;
+          if (existingAttendance.length > 0) anyExisting = true;
         } catch (err) {
-          console.log('No existing attendance found');
+          console.log('No existing attendance found for', cls.name);
         }
-      }
-
-      // Merge from localStorage for offline/fallback persistence
-      try {
-        const localRecords = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
-        const matchingLocal = localRecords.filter((r: any) => 
-          r.date === selectedDate && 
-          (!selectedClass || r.class_id === selectedClass)
-        );
-        if (matchingLocal.length > 0) {
-          hasExisting = true;
-          matchingLocal.forEach((lr: any) => {
-            const index = existingAttendance.findIndex((a: any) => String(a.student_id) === String(lr.student_id));
-            if (index !== -1) {
-              existingAttendance[index] = { ...existingAttendance[index], ...lr, marked_by: 'local' };
-            } else {
-              existingAttendance.push({ ...lr, marked_by: 'local' });
-            }
+        
+        filtered.forEach((student) => {
+          const existing = matchAttendanceRecord(existingAttendance, student);
+          const status = resolveStatusForMarking(existing, selectedDate);
+          const teacherMarked = Boolean(existing?.marked_by_id || existing?.marked_by_name || existing?.marked_by);
+          studentsWithStatus.push({
+            id: student.id || `std-${Math.random()}`,
+            student_id: student.student_id || student.registration_no || '001',
+            full_name: student.full_name || student.name || 'Student Name',
+            guardian_name: student.parent_name || student.guardian_name || student.father_name || 'Guardian Name',
+            profile_picture: student.profile_picture || student.avatar || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150',
+            status,
+            savedStatus: teacherMarked ? (existing?.status as AttendanceStatus) : undefined,
+            isSaved: teacherMarked,
+            classId: cls.id,
+            className: cls.name,
           });
-        }
-      } catch (e) {
-        console.error('Error loading local attendance:', e);
+        });
       }
-      
-      const studentsWithStatus: AttendanceStudent[] = filtered.map((student) => {
-        const existing = matchAttendanceRecord(existingAttendance, student);
-        const status = resolveStatusForMarking(existing, selectedDate);
-        const teacherMarked = Boolean(existing?.marked_by_id || existing?.marked_by_name || existing?.marked_by);
-        return {
-          id: student.id || `std-${Math.random()}`,
-          student_id: student.student_id || student.registration_no || '001',
-          full_name: student.full_name || student.name || 'Student Name',
-          guardian_name: student.parent_name || student.guardian_name || student.father_name || 'Guardian Name',
-          profile_picture: student.profile_picture || student.avatar || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150',
-          status,
-          savedStatus: teacherMarked ? (existing?.status as AttendanceStatus) : undefined,
-          isSaved: teacherMarked,
-        };
-      });
       
       setStudents(studentsWithStatus);
-      setHasSavedData(hasExisting);
+      setHasSavedData(anyExisting);
       
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -972,7 +952,7 @@ export default function AttendancePage() {
           student_id: student.id,
           status: student.status,
           date: selectedDate,
-          class_id: selectedClass,
+          class_id: student.classId || selectedClass,
           section_id: selectedSection
         }));
       
@@ -984,24 +964,7 @@ export default function AttendancePage() {
       
       console.log('Saving attendance records:', recordsToSave);
       
-      const isCustomClass = selectedClass && selectedClass.startsWith('cls-');
-      if (!isCustomClass) {
-        try {
-          await attendanceService.bulkSave(selectedDate, recordsToSave);
-        } catch (apiErr) {
-          console.warn('Backend API bulkSave failed, falling back to localStorage persistence:', apiErr);
-        }
-      }
-
-      // Store in localStorage for instant student dashboard & calendar synchronization
-      try {
-        const existingStored = JSON.parse(localStorage.getItem('marked_student_attendance') || '[]');
-        const updatedStored = [...existingStored.filter((r: any) => r.date !== selectedDate)];
-        recordsToSave.forEach(r => updatedStored.push(r));
-        localStorage.setItem('marked_student_attendance', JSON.stringify(updatedStored));
-      } catch (e) {
-        console.error('Error syncing attendance to localStorage:', e);
-      }
+      await attendanceService.bulkSave(selectedDate, recordsToSave);
       
       setStudents(prev => prev.map(s => ({ 
         ...s, 
@@ -1245,32 +1208,64 @@ export default function AttendancePage() {
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black tracking-wider text-slate-400 uppercase mb-2">SEARCH CLASS *</label>
-                    <select
-                      className="w-full h-11 px-4 rounded-xl border border-slate-205 bg-white text-xs font-semibold text-slate-650 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all shadow-4xs"
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                      required
-                    >
-                      <option value="">Select Class</option>
-                      {classes.map(cls => (
-                        <option key={cls.id} value={cls.id}>{cls.name}</option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[9px] font-black tracking-wider text-slate-400 uppercase">SELECT CLASS *</label>
+                      {classes.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedClasses(selectedClasses.length === classes.length ? [] : classes.map(c => c.id))}
+                          className="text-[10px] font-bold text-[#5C53CD] hover:underline"
+                        >
+                          {selectedClasses.length === classes.length ? 'Clear All' : 'Select All'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-205 bg-white divide-y divide-slate-100">
+                      {classes.map(cls => {
+                        const checked = selectedClasses.includes(cls.id);
+                        return (
+                          <label
+                            key={cls.id}
+                            className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                              checked ? 'bg-purple-50' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded border-slate-300 text-[#5C53CD] focus:ring-purple-500"
+                              checked={checked}
+                              onChange={() => handleClassToggle(cls.id)}
+                            />
+                            <span className="text-xs font-semibold text-slate-700">{cls.name}</span>
+                          </label>
+                        );
+                      })}
+                      {classes.length === 0 && (
+                        <p className="px-4 py-3 text-xs text-slate-400">No classes available</p>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="pt-2 flex justify-center">
+                  <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
                     <button
                       type="submit"
                       className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center gap-1"
                     >
-                      ✓ Submit
+                      ✓ Mark Attendance
+                    </button>
+                    <button
+                      type="button"
+                      onClick={markHolidayBulk}
+                      disabled={saving || selectedClasses.length === 0}
+                      className="px-8 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center gap-1"
+                    >
+                      Mark Holiday
                     </button>
                   </div>
                 </form>
               </div>
             ) : (
-              /* ── MARKING SHEET — eskooly style ─────────────────────────── */
+              /* ── MARKING SHEET — Code Cortex style ─────────────────────────── */
               <div className="space-y-4 max-w-2xl mx-auto">
 
                 {/* Stats row */}
@@ -1297,7 +1292,9 @@ export default function AttendancePage() {
                   <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between">
                     <div>
                       <h3 className="text-base font-black text-slate-800">
-                        {classes.find(c => c.id === selectedClass)?.name || 'Class'}
+                        {selectedClasses.length > 1
+                          ? `${selectedClasses.length} Classes`
+                          : (classes.find(c => c.id === selectedClass)?.name || 'Class')}
                       </h3>
                       <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
                         {parseDateOnly(selectedDate).toLocaleDateString('en-GB', {
@@ -1333,8 +1330,8 @@ export default function AttendancePage() {
                         <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"/>
                       </div>
                     ) : students.length === 0 ? (
-                      <div className="text-center py-12 text-slate-400 text-sm font-semibold">
-                        No students found for this class
+                        <div className="text-center py-12 text-slate-400 text-sm font-semibold">
+                        No students found for the selected class(es)
                       </div>
                     ) : (
                       students.map((student) => (
@@ -1366,7 +1363,9 @@ export default function AttendancePage() {
                             <p className="font-bold text-slate-800 text-sm truncate capitalize">
                               {student.full_name}
                             </p>
-                            <p className="text-[11px] text-slate-400 font-semibold">{student.student_id} ↓</p>
+                            <p className="text-[11px] text-slate-400 font-semibold">
+                              {student.student_id}{student.className ? ` · ${student.className}` : ''}
+                            </p>
                           </div>
 
                           {/* P / L / A buttons */}
@@ -2103,7 +2102,7 @@ export default function AttendancePage() {
             </div>
           </div>
 
-          {/* Blue Date Range Selector Card - Matches eSkooly */}
+          {/* Blue Date Range Selector Card - Matches Code Cortex */}
           <div className="bg-[#5C53CD] p-6 rounded-2xl border border-[#4c43bd] shadow-sm print:hidden text-white space-y-4 max-w-lg">
             <div className="flex items-center gap-2 text-xs font-bold">
               <Calendar className="w-4 h-4" />

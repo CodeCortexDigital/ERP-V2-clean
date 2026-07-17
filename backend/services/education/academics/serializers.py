@@ -6,7 +6,7 @@ from .models import (
     Syllabus, SyllabusUnit, SyllabusTopic, SyllabusSubTopic,
     LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability, TeacherDailyAvailability,
     Period, Classroom, TimetableEntry, TeacherLeave, TimetableSubstitution, LeaveBalance, Homework,
-    LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback
+    LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback, LiveMeeting
 )
 
 
@@ -91,7 +91,7 @@ class ClassSubjectSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ClassSubject
-        fields = ['id', 'class_ref', 'subject', 'class_name', 'subject_name', 'created_at']
+        fields = ['id', 'class_ref', 'subject', 'class_name', 'subject_name', 'marks', 'created_at']
         read_only_fields = ['id', 'created_at']
 
     def validate(self, data):
@@ -424,4 +424,14 @@ class HomeworkSerializer(serializers.ModelSerializer):
             'attachment_name', 'attachment_data', 'status',
             'created_at', 'updated_at',
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class LiveMeetingSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+    class_name = serializers.CharField(source='class_ref.name', read_only=True)
+    
+    class Meta:
+        model = LiveMeeting
+        fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']

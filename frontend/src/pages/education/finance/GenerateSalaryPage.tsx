@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Landmark, DollarSign, Users, CalendarDays, Plus, Printer, ArrowLeft, Search, User, Banknote, Wallet, CreditCard, Trash2 } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
+import ledgerService from '@/services/ledger.service';
 
 interface Employee {
   id: string;
@@ -119,28 +120,12 @@ export default function GenerateSalaryPage() {
       // Fetch teachers/employees
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const rawTeachers = extractListData<any>(tRes.data || []);
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      
-      // De-duplicate by ID (in case a custom teacher has same ID as DB teacher)
-      const uniqueTeachersMap = new Map<string, any>();
-      rawTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      customTeachers.forEach((t: any) => {
-        if (t.id) uniqueTeachersMap.set(String(t.id), t);
-      });
-      const allTeachers = Array.from(uniqueTeachersMap.values());
 
-      // Get custom extra details (like role and salary) from localStorage
-      const savedExtras = localStorage.getItem('employees_extra_info');
-      const extrasMap = savedExtras ? JSON.parse(savedExtras) : {};
-
-      // Map to Employee format - FIXED: Properly map salary and department fields
-      const employeesList: Employee[] = allTeachers.map((t: any) => {
-        const extra = extrasMap[t.id] || {};
-        const role = extra.role || t.designation || t.role || 'Teacher';
-        const dept = extra.department || t.department || getDepartmentForRole(role);
-        const salary = Number(extra.monthlySalary) || Number(t.monthly_salary) || Number(t.basic_salary) || Number(t.salary) || Number(t.pay) || 0;
+      // Map to Employee format using backend data only
+      const employeesList: Employee[] = rawTeachers.map((t: any) => {
+        const role = t.designation || t.role || 'Teacher';
+        const dept = t.department || getDepartmentForRole(role);
+        const salary = Number(t.monthly_salary) || Number(t.basic_salary) || Number(t.salary) || Number(t.pay) || 0;
         
         return {
           id: t.id,
@@ -160,20 +145,7 @@ export default function GenerateSalaryPage() {
       });
 
       setEmployees(employeesList);
-
-      // Load banks
-      const savedBanks = localStorage.getItem('bank_details');
-      if (savedBanks) {
-        try {
-          const parsed = JSON.parse(savedBanks);
-          setBanks(parsed);
-          if (parsed.length > 0) setBankName(parsed[0].name);
-        } catch (e) {}
-      } else {
-        const defaultBanks = [{ id: 'b-1', name: 'HBL' }];
-        setBanks(defaultBanks);
-        setBankName('HBL');
-      }
+      setBankName('HBL');
     } catch (e) {
       console.error(e);
       toast.error('Failed to load employees');
@@ -197,7 +169,7 @@ export default function GenerateSalaryPage() {
   };
 
   // FIXED: Auto-populate salary when employee is selected and fetch pending credits/unpaid salaries
-  const handleSelectEmployee = (emp: Employee) => {
+  const handleSelectEmployee = async (emp: Employee) => {
     setSelectedEmployee(emp.id);
     setSearchQuery(`${emp.full_name} (${emp.employee_id || 'N/A'})`);
     setSuggestions([]);
@@ -212,21 +184,33 @@ export default function GenerateSalaryPage() {
       toast.warning(`No salary record found for ${emp.full_name}. Please enter manually.`);
     }
 
-    // Load unpaid salaries
-    const savedSalaries = localStorage.getItem('custom_salaries');
-    const allSalaries = savedSalaries ? JSON.parse(savedSalaries) : [];
-    const unpaid = allSalaries.filter((s: any) => s.employee_id === emp.id && s.status === 'unpaid');
-    setUnpaidSalaries(unpaid);
+    // Load unpaid payslips from API
+    try {
+      const payslipRes = await ledgerService.getPayslips({ employee_id: emp.id, status: 'pending' });
+      const unpaidPayslips = (payslipRes.data || []).map((p: any) => ({
+        id: p.id,
+        employee_id: p.employee,
+        month: p.month,
+        net_salary: p.net_salary,
+        status: p.status
+      }));
+      setUnpaidSalaries(unpaidPayslips);
+    } catch (err) {
+      setUnpaidSalaries([]);
+    }
 
-    // Load pending credits
-    const savedCredits = localStorage.getItem('employee_credits');
-    const allCredits = savedCredits ? JSON.parse(savedCredits) : [];
-    const pending = allCredits.filter((c: any) => c.employee_id === emp.id && c.status === 'pending');
-    setPendingCredits(pending);
+    // Load pending credits from API
+    try {
+      const creditRes = await ledgerService.getEmployeeCredits({ employee_id: emp.id });
+      const pendingCreditsList = (creditRes.data || []).filter((c: any) => !c.is_settled);
+      setPendingCredits(pendingCreditsList);
 
-    // Auto-apply pending credits to allowances/bonus field
-    const totalCredits = pending.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
-    setAllowances(String(totalCredits));
+      // Auto-apply pending credits to allowances/bonus field
+      const totalCredits = pendingCreditsList.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
+      setAllowances(String(totalCredits));
+    } catch (err) {
+      setPendingCredits([]);
+    }
   };
 
   const calculateNetSalary = () => {
@@ -260,7 +244,7 @@ export default function GenerateSalaryPage() {
     }
   };
 
-  const handleAddCredit = () => {
+  const handleAddCredit = async () => {
     if (!selectedEmployee) {
       toast.error('Please select an employee first');
       return;
@@ -271,53 +255,54 @@ export default function GenerateSalaryPage() {
       return;
     }
 
-    const newCredit = {
-      id: `credit-${Date.now()}`,
-      employee_id: selectedEmployee,
-      type: creditType,
-      amount: amountVal,
-      description: creditDescription,
-      status: 'pending',
-      created_at: new Date().toISOString()
-    };
+    try {
+      const apiType = creditType.toLowerCase();
+      let finalType: 'advance' | 'bonus' | 'loan' | 'deduction' = 'bonus';
+      if (apiType === 'advance') finalType = 'advance';
+      else if (apiType === 'loan') finalType = 'loan';
+      else if (apiType === 'deduction') finalType = 'deduction';
+      else finalType = 'bonus';
 
-    const savedCredits = localStorage.getItem('employee_credits');
-    const allCredits = savedCredits ? JSON.parse(savedCredits) : [];
-    allCredits.push(newCredit);
-    localStorage.setItem('employee_credits', JSON.stringify(allCredits));
+      await ledgerService.createEmployeeCredit({
+        employee: selectedEmployee,
+        type: finalType,
+        amount: amountVal,
+        date: new Date().toISOString().split('T')[0],
+        description: creditDescription,
+        is_settled: false
+      });
 
-    toast.success(`Rs ${amountVal.toLocaleString()} credit/bonus allotted to employee!`);
+      toast.success(`Rs ${amountVal.toLocaleString()} credit/bonus allotted to employee!`);
 
-    // Reset inputs
-    setCreditAmount('');
-    setCreditDescription('');
+      // Reset inputs
+      setCreditAmount('');
+      setCreditDescription('');
 
-    // Reload pending credits
-    const pending = allCredits.filter((c: any) => c.employee_id === selectedEmployee && c.status === 'pending');
-    setPendingCredits(pending);
+      // Reload pending credits
+      const creditRes = await ledgerService.getEmployeeCredits({ employee_id: selectedEmployee });
+      const pendingCreditsList = (creditRes.data || []).filter((c: any) => !c.is_settled);
+      setPendingCredits(pendingCreditsList);
 
-    // Update allowances
-    const totalCredits = pending.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
-    setAllowances(String(totalCredits));
+      // Update allowances
+      const totalCredits = pendingCreditsList.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
+      setAllowances(String(totalCredits));
+    } catch (err) {
+      toast.error('Failed to add credit');
+    }
   };
 
-  const handleDeleteCredit = (creditId: string) => {
-    const savedCredits = localStorage.getItem('employee_credits');
-    if (!savedCredits) return;
-
+  const handleDeleteCredit = async (creditId: string) => {
     try {
-      const allCredits = JSON.parse(savedCredits);
-      const updatedCredits = allCredits.filter((c: any) => c.id !== creditId);
-      localStorage.setItem('employee_credits', JSON.stringify(updatedCredits));
-
+      await ledgerService.deleteEmployeeCredit(creditId);
       toast.success('Credit removed successfully');
 
       // Reload pending credits
-      const pending = updatedCredits.filter((c: any) => c.employee_id === selectedEmployee && c.status === 'pending');
-      setPendingCredits(pending);
+      const creditRes = await ledgerService.getEmployeeCredits({ employee_id: selectedEmployee });
+      const pendingCreditsList = (creditRes.data || []).filter((c: any) => !c.is_settled);
+      setPendingCredits(pendingCreditsList);
 
       // Update allowances
-      const totalCredits = pending.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
+      const totalCredits = pendingCreditsList.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
       setAllowances(String(totalCredits));
     } catch (e) {
       console.error(e);
@@ -329,12 +314,7 @@ export default function GenerateSalaryPage() {
     setLoading(true);
 
     try {
-      const savedSalaries = localStorage.getItem('custom_salaries');
-      const allSalaries = savedSalaries ? JSON.parse(savedSalaries) : [];
       const generatedList: Salary[] = [];
-
-      const savedCredits = localStorage.getItem('employee_credits');
-      let allCredits = savedCredits ? JSON.parse(savedCredits) : [];
 
       if (bulkMode) {
         // Generate for all employees or by department
@@ -344,28 +324,33 @@ export default function GenerateSalaryPage() {
         }
 
         for (const emp of targetEmployees) {
-          // Check if salary already exists for this month
-          const existing = allSalaries.find((s: any) => 
-            s.employee_id === emp.id && 
-            s.month === salaryMonth
-          );
-
-          if (existing) {
-            continue; // Skip if already exists
+          // Check if salary already exists for this month via API
+          const existingRes = await ledgerService.getPayslips({ employee_id: emp.id, month: salaryMonth });
+          if (existingRes.data && existingRes.data.length > 0) {
+            continue;
           }
 
-          // Get pending credits for this employee
-          const employeePending = allCredits.filter((c: any) => c.employee_id === emp.id && c.status === 'pending');
-          const pendingSum = employeePending.reduce((sum: number, c: any) => sum + (Number(c.amount) || 0), 0);
-
           const basic = emp.monthly_salary || emp.basic_salary || emp.salary || 0;
-          // Apply employee's specific pending credits, otherwise fallback to the form allowance
-          const allowancesVal = pendingSum > 0 ? pendingSum : (parseFloat(allowances) || 0);
+          const allowancesVal = parseFloat(allowances) || 0;
           const deductionsVal = parseFloat(deductions) || 0;
           const netSalary = basic + allowancesVal - deductionsVal;
 
+          // Create payslip via API
+          const payslipRes = await ledgerService.createPayslip({
+            employee: emp.id,
+            month: salaryMonth,
+            basic_salary: basic,
+            allowances: allowancesVal,
+            deductions: deductionsVal,
+            net_salary: netSalary,
+            paid_amount: 0,
+            status: 'pending',
+            payment_method: 'bank_transfer',
+            notes: notes
+          });
+
           const newSalary: Salary = {
-            id: `sal-${Date.now()}-${emp.id}`,
+            id: payslipRes.data?.id || `sal-${Date.now()}-${emp.id}`,
             salary_number: `SAL-${Date.now().toString().slice(-6)}-${emp.id.slice(-3)}`,
             employee_id: emp.id,
             employee_name: emp.full_name,
@@ -388,18 +373,7 @@ export default function GenerateSalaryPage() {
             notes: notes
           };
 
-          allSalaries.push(newSalary);
           generatedList.push(newSalary);
-
-          // Mark this employee's credits as completed
-          if (employeePending.length > 0) {
-            allCredits = allCredits.map((c: any) => {
-              if (c.employee_id === emp.id && c.status === 'pending') {
-                return { ...c, status: 'completed', salary_id: newSalary.id };
-              }
-              return c;
-            });
-          }
         }
 
         toast.success(`${generatedList.length} salary slips generated successfully!`);
@@ -419,12 +393,8 @@ export default function GenerateSalaryPage() {
         }
 
         // Check if salary already exists
-        const existing = allSalaries.find((s: any) => 
-          s.employee_id === emp.id && 
-          s.month === salaryMonth
-        );
-
-        if (existing) {
+        const existingRes = await ledgerService.getPayslips({ employee_id: emp.id, month: salaryMonth });
+        if (existingRes.data && existingRes.data.length > 0) {
           toast.error(`Salary already generated for ${emp.full_name} for ${salaryMonth}`);
           setLoading(false);
           return;
@@ -435,8 +405,22 @@ export default function GenerateSalaryPage() {
         const deductionsVal = parseFloat(deductions) || 0;
         const netSalary = basic + allowancesVal - deductionsVal;
 
+        // Create payslip via API
+        const payslipRes = await ledgerService.createPayslip({
+          employee: emp.id,
+          month: salaryMonth,
+          basic_salary: basic,
+          allowances: allowancesVal,
+          deductions: deductionsVal,
+          net_salary: netSalary,
+          paid_amount: 0,
+          status: 'pending',
+          payment_method: 'bank_transfer',
+          notes: notes
+        });
+
         const newSalary: Salary = {
-          id: `sal-${Date.now()}`,
+          id: payslipRes.data?.id || `sal-${Date.now()}`,
           salary_number: `SAL-${Date.now().toString().slice(-6)}`,
           employee_id: emp.id,
           employee_name: emp.full_name,
@@ -459,22 +443,10 @@ export default function GenerateSalaryPage() {
           notes: notes
         };
 
-        allSalaries.push(newSalary);
         generatedList.push(newSalary);
-
-        // Mark this employee's credits as completed
-        allCredits = allCredits.map((c: any) => {
-          if (c.employee_id === emp.id && c.status === 'pending') {
-            return { ...c, status: 'completed', salary_id: newSalary.id };
-          }
-          return c;
-        });
-
         toast.success(`Salary generated for ${emp.full_name} successfully!`);
       }
 
-      localStorage.setItem('custom_salaries', JSON.stringify(allSalaries));
-      localStorage.setItem('employee_credits', JSON.stringify(allCredits));
       setGeneratedSalaries(generatedList);
 
       // Clear local states
@@ -856,7 +828,7 @@ function SalarySlipCard({ salary, banks }: { salary: Salary; banks: any[] }) {
       {/* Header */}
       <div className="text-center border-b border-slate-100 pb-4">
         <h2 className="text-xl font-black text-slate-800">Salary Slip</h2>
-        <p className="text-[10px] text-slate-400 font-bold">eSkooly - Employee Salary Statement</p>
+        <p className="text-[10px] text-slate-400 font-bold">Code Cortex - Employee Salary Statement</p>
       </div>
 
       {/* Employee Details */}

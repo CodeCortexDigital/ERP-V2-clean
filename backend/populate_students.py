@@ -17,17 +17,6 @@ with connection.cursor() as cursor:
     cursor.execute("PRAGMA foreign_keys = ON;")
 print("HARD DELETED all student database records.")
 
-first_names = [
-    'Abdullah', 'Nadia', 'Saif', 'Ayesha', 'Bilal', 'Sana', 'Zain', 'Hamza', 'Fatima', 'Ali',
-    'Usman', 'Hassan', 'Maryam', 'Tariq', 'Sara', 'Haris', 'Hania', 'Omar', 'Mahnoor', 'Saad',
-    'Danish', 'Laiba', 'Fahad', 'Anum', 'Waqas', 'Rida', 'Kashif', 'Iqra', 'Ahsan', 'Kinza'
-]
-
-last_names = [
-    'Chaudhry', 'Sheikh', 'Khan', 'Rana', 'Butt', 'Malik', 'Ahmed', 'Shah', 'Iqbal', 'Hussain',
-    'Zafar', 'Azhar', 'Raza', 'Mehmood', 'Baig', 'Siddiqui', 'Mirza', 'Qureshi', 'Hashmi', 'Akram',
-    'Nawaz', 'Ghafoor', 'Javed', 'Tariq', 'Farooq', 'Bhatti', 'Gill', 'Lodhi', 'Vohra', 'Abbasi'
-]
 
 # Generate unique name list
 unique_names = []

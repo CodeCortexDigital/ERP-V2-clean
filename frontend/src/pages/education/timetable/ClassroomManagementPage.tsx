@@ -109,34 +109,11 @@ export default function ClassroomManagementPage() {
     setLoading(true);
     try {
       const apiRooms = await academicService.classrooms.getAll().catch(() => []);
-      const customRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
-      const deletedIds = JSON.parse(localStorage.getItem('deleted_classroom_ids') || '[]');
-      
-      // Override default classroom values with user edited values if matches ID
-      const customMap = new Map<string, Classroom>();
-      customRooms.forEach((r: any) => {
-        customMap.set(r.id, r);
-      });
-
-      const merged = apiRooms.map((r: any) => {
-        if (customMap.has(r.id)) {
-          return customMap.get(r.id)!;
-        }
-        return r;
-      });
-
-      customRooms.forEach((r: any) => {
-        if (!apiRooms.some((ar: any) => ar.id === r.id)) {
-          merged.push(r);
-        }
-      });
-
-      const combined = merged.filter(r => !deletedIds.includes(r.id));
       
       // De-duplicate rooms by code (case-insensitive)
       const seen = new Set<string>();
       const deduped: Classroom[] = [];
-      combined.forEach(r => {
+      apiRooms.forEach((r: any) => {
         const cCode = (r.code || '').toLowerCase().trim();
         if (cCode && !seen.has(cCode)) {
           seen.add(cCode);
@@ -182,20 +159,12 @@ export default function ClassroomManagementPage() {
     if (!confirm(`Are you sure you want to delete classroom ${roomName}?`)) return;
 
     try {
-      await academicService.classrooms.delete(id).catch(() => {});
-    } catch (e) {}
-
-    const deletedIds = JSON.parse(localStorage.getItem('deleted_classroom_ids') || '[]');
-    deletedIds.push(id);
-    localStorage.setItem('deleted_classroom_ids', JSON.stringify(deletedIds));
-
-    // Also remove from custom_classrooms
-    const customRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
-    const updated = customRooms.filter((r: any) => r.id !== id);
-    localStorage.setItem('custom_classrooms', JSON.stringify(updated));
-
-    toast.success('Classroom deleted successfully');
-    fetchClassrooms();
+      await academicService.classrooms.delete(id);
+      toast.success('Classroom deleted successfully');
+      fetchClassrooms();
+    } catch (e) {
+      toast.error('Failed to delete classroom');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -217,28 +186,11 @@ export default function ClassroomManagementPage() {
     try {
       if (editingRoom) {
         // Edit Mode
-        try {
-          await academicService.classrooms.update(editingRoom.id, payload as any).catch(() => {});
-        } catch (e) {}
-
-        const customRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
-        const updated = customRooms.some((r: any) => r.id === editingRoom.id)
-          ? customRooms.map((r: any) => r.id === editingRoom.id ? { ...r, ...payload } : r)
-          : [...customRooms, { id: editingRoom.id, ...payload }];
-        localStorage.setItem('custom_classrooms', JSON.stringify(updated));
-
+        await academicService.classrooms.update(editingRoom.id, payload as any);
         toast.success('Classroom updated successfully');
       } else {
         // Create Mode
-        const newId = `room-${Date.now()}`;
-        try {
-          await academicService.classrooms.create(payload as any).catch(() => {});
-        } catch (e) {}
-
-        const customRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
-        customRooms.push({ id: newId, ...payload });
-        localStorage.setItem('custom_classrooms', JSON.stringify(customRooms));
-
+        await academicService.classrooms.create(payload as any);
         toast.success('Classroom created successfully');
       }
 

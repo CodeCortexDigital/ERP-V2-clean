@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
+import behaviourService from '@/services/behaviour.service';
 
 const INCIDENT_TYPES = [
   "Late Arrival", "Uniform Issue", "Homework Missing", "Bullying", "Cheating",
@@ -63,6 +64,7 @@ export default function ObservationsPage() {
   // Search & Selector State
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('Grade 1-A');
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [students, setStudents] = useState<any[]>([]);
   const [activeStudent, setActiveStudent] = useState<any | null>(null);
 
@@ -108,13 +110,7 @@ export default function ObservationsPage() {
   }, []);
 
   useEffect(() => {
-    const names = [
-      { id: 's-1', name: 'Maryam Fatima', roll: '101' },
-      { id: 's-2', name: 'Zainab Ahmed', roll: '102' },
-      { id: 's-3', name: 'Ali Khan', roll: '103' },
-      { id: 's-4', name: 'Muhammad Rizwan', roll: '104' },
-      { id: 's-5', name: 'Ayesha Siddiqua', roll: '105' }
-    ];
+    const names = [];
     setStudents(names);
     setActiveStudent(names[0]);
   }, [selectedClass]);
@@ -126,6 +122,7 @@ export default function ObservationsPage() {
       if (data.length > 0) {
         setClasses(data);
         setSelectedClass(data[0].name);
+        setSelectedClassId(data[0].id);
       } else {
         setClasses([{ id: '1', name: 'Grade 1-A' }, { id: '2', name: 'Grade 1-B' }]);
       }
@@ -134,10 +131,28 @@ export default function ObservationsPage() {
     }
   };
 
-  const loadAllLogs = () => {
-    setIncidents(JSON.parse(localStorage.getItem('obs_incidents_v1') || '[]'));
-    setMeetings(JSON.parse(localStorage.getItem('obs_meetings_v1') || '[]'));
-    setCounsellingList(JSON.parse(localStorage.getItem('obs_counselling_v1') || '[]'));
+  const loadAllLogs = async () => {
+    try {
+      const res = await behaviourService.getObservations({});
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      const inc: IncidentEntry[] = [];
+      const met: ParentMeetingEntry[] = [];
+      const coun: CounsellingEntry[] = [];
+      data.forEach((o: any) => {
+        if (o.observation_type === 'incident') {
+          inc.push({ id: o.id, studentId: o.student, studentName: o.student_name, className: o.class_name, type: o.title, date: o.date, teacherName: o.reported_by_name || '', description: o.description, actionTaken: o.action_taken || '', parentNotified: o.parent_notified || false, status: o.status || 'Pending' });
+        } else if (o.observation_type === 'meeting') {
+          met.push({ id: o.id, studentId: o.student, studentName: o.student_name, className: o.class_name, meetingDate: o.date, reason: o.title, discussion: o.description, outcome: o.outcome || '', followUpDate: o.follow_up_date || '', status: o.status || 'Scheduled' });
+        } else {
+          coun.push({ id: o.id, studentId: o.student, studentName: o.student_name, className: o.class_name, date: o.date, counsellor: o.reported_by_name || '', reason: o.title, recommendations: o.description, followUp: o.follow_up_date || '', improvementNotes: o.outcome || '' });
+        }
+      });
+      setIncidents(inc);
+      setMeetings(met);
+      setCounsellingList(coun);
+    } catch {
+      // empty on failure
+    }
   };
 
   const resetFormFields = () => {
@@ -159,73 +174,67 @@ export default function ObservationsPage() {
     setCounselNotes('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeStudent) return;
+    if (!activeStudent || !selectedClassId) return;
 
-    if (activeTab === 'incidents') {
-      const payload: IncidentEntry = {
-        id: `inc-${Date.now()}`,
-        studentId: activeStudent.id,
-        studentName: activeStudent.name,
-        className: selectedClass,
-        type: incType,
-        date: incDate,
-        teacherName: incTeacher,
-        description: incDesc,
-        actionTaken: incAction,
-        parentNotified: incNotified,
-        status: incStatus
+    try {
+      const basePayload: any = {
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        date: activeTab === 'incidents' ? incDate : activeTab === 'meetings' ? meetDate : counselDate,
       };
-      const updated = [payload, ...incidents];
-      localStorage.setItem('obs_incidents_v1', JSON.stringify(updated));
-      setIncidents(updated);
-      toast.success('Incident logged successfully');
-    } else if (activeTab === 'meetings') {
-      const payload: ParentMeetingEntry = {
-        id: `meet-${Date.now()}`,
-        studentId: activeStudent.id,
-        studentName: activeStudent.name,
-        className: selectedClass,
-        meetingDate: meetDate,
-        reason: meetReason,
-        discussion: meetDiscussion,
-        outcome: meetOutcome,
-        followUpDate: meetFollowUp,
-        status: meetStatus
-      };
-      const updated = [payload, ...meetings];
-      localStorage.setItem('obs_meetings_v1', JSON.stringify(updated));
-      setMeetings(updated);
-      toast.success('Parent meeting logged successfully');
-    } else {
-      const payload: CounsellingEntry = {
-        id: `counsel-${Date.now()}`,
-        studentId: activeStudent.id,
-        studentName: activeStudent.name,
-        className: selectedClass,
-        date: counselDate,
-        counsellor: counselorName,
-        reason: counselReason,
-        recommendations: counselRec,
-        followUp: counselFollowUp,
-        improvementNotes: counselNotes
-      };
-      const updated = [payload, ...counsellingList];
-      localStorage.setItem('obs_counselling_v1', JSON.stringify(updated));
-      setCounsellingList(updated);
-      toast.success('Counselling session logged successfully');
+
+      if (activeTab === 'incidents') {
+        await behaviourService.createObservation({
+          ...basePayload,
+          observation_type: 'incident',
+          title: incType,
+          description: incDesc,
+          action_taken: incAction,
+          parent_notified: incNotified,
+          status: incStatus,
+        });
+        toast.success('Incident logged successfully');
+      } else if (activeTab === 'meetings') {
+        await behaviourService.createObservation({
+          ...basePayload,
+          observation_type: 'meeting',
+          title: meetReason,
+          description: meetDiscussion,
+          outcome: meetOutcome,
+          follow_up_date: meetFollowUp,
+          status: meetStatus,
+        });
+        toast.success('Parent meeting logged successfully');
+      } else {
+        await behaviourService.createObservation({
+          ...basePayload,
+          observation_type: 'counselling',
+          title: counselReason,
+          description: counselRec,
+          follow_up_date: counselFollowUp,
+          outcome: counselNotes,
+        });
+        toast.success('Counselling session logged successfully');
+      }
+      await loadAllLogs();
+    } catch {
+      toast.error('Failed to save record');
     }
 
     setShowForm(false);
     resetFormFields();
   };
 
-  const handleResolveIncident = (id: string) => {
-    const updated = incidents.map(inc => inc.id === id ? { ...inc, status: 'Resolved' as const } : inc);
-    localStorage.setItem('obs_incidents_v1', JSON.stringify(updated));
-    setIncidents(updated);
-    toast.success('Incident resolved successfully');
+  const handleResolveIncident = async (id: string) => {
+    try {
+      await behaviourService.updateObservation(id, { status: 'Resolved' });
+      setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'Resolved' as const } : inc));
+      toast.success('Incident resolved successfully');
+    } catch {
+      toast.error('Failed to resolve incident');
+    }
   };
 
   // Filter logs based on active student
@@ -262,7 +271,11 @@ export default function ObservationsPage() {
             <CardContent className="p-4">
               <select
                 value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
+                onChange={(e) => {
+                  const cls = classes.find(c => c.name === e.target.value);
+                  setSelectedClass(e.target.value);
+                  setSelectedClassId(cls?.id || '');
+                }}
                 className="w-full text-xs h-9.5 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-700 focus:outline-none"
               >
                 {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}

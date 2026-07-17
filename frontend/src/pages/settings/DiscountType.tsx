@@ -173,7 +173,7 @@ export default function DiscountType() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+      <div className="sticky-summary flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-100">
         <div className="w-full md:w-80">
           <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Search Discount Type</label>
           <input 

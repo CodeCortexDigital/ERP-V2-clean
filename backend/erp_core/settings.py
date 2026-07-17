@@ -68,7 +68,9 @@ INSTALLED_APPS = [
     'services.education.finance',
     'services.education.admissions',
     'services.education.communication',
+    'services.education.behaviour',
     'services.analytics',
+    'services.ai',
 ]
 
 MIDDLEWARE = [
@@ -160,12 +162,25 @@ REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
 CACHE_URL = os.environ.get('CACHE_URL', 'redis://127.0.0.1:6379/1')
 CHANNEL_REDIS_URL = os.environ.get('CHANNEL_REDIS_URL', REDIS_URL)
 
-# WebSockets (Django Channels) — InMemory fallback when USE_INMEMORY_CHANNELS=true or Redis unavailable
+# WebSockets (Django Channels) — InMemory fallback when USE_INMEMORY_CHANNELS=true,
+# channels_redis missing, or the configured Redis is too old (< 5.0, no BZPOPMIN support).
 _use_inmemory_channels = os.environ.get('USE_INMEMORY_CHANNELS', '').lower() in ('1', 'true', 'yes')
 if not _use_inmemory_channels:
     try:
         import channels_redis  # noqa: F401
     except ImportError:
+        _use_inmemory_channels = True
+if not _use_inmemory_channels:
+    # channels_redis uses BZPOPMIN (Redis >= 5.0); fall back if the server is too old.
+    try:
+        import redis as _redis_mod
+        _ch_client = _redis_mod.from_url(CHANNEL_REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+        _ch_client.ping()
+        _ch_ver = _ch_client.info('server').get('redis_version', '0') or '0'
+        _ch_major = int(_ch_ver.split('.')[0]) if _ch_ver.split('.')[0].isdigit() else 0
+        if _ch_major < 5:
+            _use_inmemory_channels = True
+    except Exception:
         _use_inmemory_channels = True
 if _use_inmemory_channels:
     CHANNEL_LAYERS = {
@@ -418,5 +433,11 @@ try:
     }
 except ImportError:
     CELERY_BEAT_SCHEDULE = {}
+
+# ---------------------------------------------------------------------------
+# AI Assistant (OpenAI)
+# ---------------------------------------------------------------------------
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 

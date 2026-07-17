@@ -1,50 +1,56 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Building2, Receipt, Landmark, BookOpenCheck, Award,
-  Palette, ShieldCheck, Tag, LayoutGrid
+  Building2, Receipt, Landmark, Award,
+  Palette, ShieldCheck, Tag, Languages
 } from 'lucide-react';
 
 interface SettingsSidebarProps {
   currentPath: string;
 }
 
-const menuItems = [
-  { id: 'overview', path: '/settings', label: 'Overview', icon: LayoutGrid },
-  { id: 'profile', path: '/settings/profile', label: 'Institute Profile', icon: Building2 },
-  { id: 'fee-particulars', path: '/settings/fee-particulars', label: 'Fee Particulars', icon: Receipt },
-  { id: 'fee-structure', path: '/settings/fee-structure', label: 'Fee Structure', icon: Receipt },
-  { id: 'discount-type', path: '/settings/discount-type', label: 'Discount Type', icon: Tag },
-  { id: 'bank-accounts', path: '/settings/bank-accounts', label: 'Accounts For Fees Invoice', icon: Landmark },
-  { id: 'rules', path: '/settings/rules', label: 'Rules & Regulations', icon: BookOpenCheck },
-  { id: 'grading', path: '/settings/grading', label: 'Marks Grading', icon: Award },
-  { id: 'theme', path: '/settings/theme', label: 'Theme & Language', icon: Palette },
-  { id: 'account', path: '/settings/account', label: 'Account Settings', icon: ShieldCheck },
+export interface SettingsTab {
+  id: string;
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  dark: string;
+  light: string;
+  rgb: string;
+}
+
+export const menuItems: SettingsTab[] = [
+  { id: 'profile', path: '/settings/profile', label: 'Profile', icon: Building2, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
+  { id: 'theme', path: '/settings/theme', label: 'Theme', icon: Palette, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
+  { id: 'language', path: '/settings/language', label: 'Language', icon: Languages, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'account', path: '/settings/account', label: 'Account', icon: ShieldCheck, dark: 'bg-slate-700', light: 'bg-slate-100', rgb: '51 65 85' },
 ];
+
+export const isSettingsTabActive = (t: SettingsTab, pathname: string) =>
+  pathname === t.path || (t.path !== '/settings' && pathname.startsWith(t.path));
 
 export default function SettingsSidebar({ currentPath }: SettingsSidebarProps) {
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-1">
-      <h3 className="text-[10px] font-bold tracking-wider text-slate-400 uppercase px-3 mb-3">Settings</h3>
-      {menuItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = currentPath === item.path || 
-          (item.path !== '/settings' && currentPath.startsWith(item.path));
-        
+    <div className="flex flex-wrap gap-2">
+      {menuItems.map((t) => {
+        const Icon = t.icon;
+        const isActive = isSettingsTabActive(t, currentPath);
+
         return (
           <button
-            key={item.id}
-            onClick={() => navigate(item.path)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+            key={t.id}
+            onClick={() => navigate(t.path)}
+            onMouseEnter={() => navigate(t.path)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
               isActive
-                ? 'bg-purple-50 text-purple-700 shadow-xs'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-green-50 text-green-700 hover:bg-green-100'
             }`}
           >
-            <Icon className={`w-4 h-4 ${isActive ? 'text-purple-600' : 'text-slate-400'}`} />
-            <span>{item.label}</span>
+            <Icon className="w-3.5 h-3.5" />
+            {t.label}
           </button>
         );
       })}

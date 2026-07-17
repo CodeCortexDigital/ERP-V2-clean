@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Wallet, MinusCircle } from 'lucide-react';
+import ledgerService from '@/services/ledger.service';
 
 export default function AddExpensePage() {
   const navigate = useNavigate();
@@ -12,21 +13,22 @@ export default function AddExpensePage() {
   const [expenseHeads, setExpenseHeads] = useState<any[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('account_heads');
-    if (saved) {
+    const fetchHeads = async () => {
       try {
-        const allHeads = JSON.parse(saved);
-        setExpenseHeads(allHeads.filter((h: any) => h.type === 'Expense'));
-      } catch (e) {}
-    } else {
-      setExpenseHeads([
-        { id: 'h-2', name: 'Electricity Bill', type: 'Expense' },
-        { id: 'h-4', name: 'Staff Salaries', type: 'Expense' }
-      ]);
-    }
+        const response = await ledgerService.getAccountHeads({ type: 'expense' });
+        setExpenseHeads(response.data || []);
+      } catch (err) {
+        // Fallback to defaults if API fails
+        setExpenseHeads([
+          { id: 'h-2', name: 'Electricity Bill', type: 'Expense' },
+          { id: 'h-4', name: 'Staff Salaries', type: 'Expense' }
+        ]);
+      }
+    };
+    fetchHeads();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date) {
       toast.error('Date is required');
@@ -43,19 +45,12 @@ export default function AddExpensePage() {
 
     setLoading(true);
     try {
-      const savedTransactions = localStorage.getItem('finance_transactions');
-      const transactions = savedTransactions ? JSON.parse(savedTransactions) : [];
-      
-      const newTransaction = {
-        id: `tx-${Date.now()}`,
+      await ledgerService.createLedgerEntry({
         date,
         description: description.trim(),
         amount: parseFloat(amount),
-        type: 'Expense'
-      };
-
-      transactions.push(newTransaction);
-      localStorage.setItem('finance_transactions', JSON.stringify(transactions));
+        type: 'expense',
+      });
       toast.success('Expense transaction added successfully!');
       
       // Reset fields

@@ -181,7 +181,7 @@ export default function EditClassPage() {
       
       const result = await academicService.classes.update(id, payload);
       toast.success(`Class "${result.name}" updated successfully!`);
-      navigate('/education/academics/classes');
+      navigate('/education/academic-setup/classes');
     } catch (error: any) {
       console.error('❌ Error updating class:', error);
       
@@ -236,7 +236,7 @@ export default function EditClassPage() {
     <div className="min-h-screen bg-slate-50 p-6 text-slate-800">
       <div className="mx-auto max-w-4xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <button
-          onClick={() => navigate('/education/academics/classes')}
+              onClick={() => navigate('/education/academic-setup/classes')}
           className="mb-6 flex items-center gap-2 text-sm font-medium text-purple-700 hover:text-purple-800 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -449,7 +449,7 @@ export default function EditClassPage() {
           <div className="flex items-center gap-4 pt-4 border-t border-slate-200">
             <button
               type="button"
-              onClick={() => navigate('/education/academics/classes')}
+          onClick={() => navigate('/education/academic-setup/classes')}
               className="px-6 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
             >
               Cancel

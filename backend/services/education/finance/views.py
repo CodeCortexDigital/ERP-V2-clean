@@ -19,6 +19,11 @@ from .models import (
     PaymentGatewayConfig,
     PaymentTransaction,
     FinanceSettings,
+    AccountHead,
+    LedgerEntry,
+    Payslip,
+    EmployeeCredit,
+    WeekdayConfig,
 )
 from .serializers import (
     FeeStructureSerializer,
@@ -1707,4 +1712,321 @@ def bulk_delete_invoices(request):
         "message": f"Successfully deleted {count} invoices.",
         "deleted_count": count
     })
+
+
+# ============================================================
+# ACCOUNT HEADS (Chart of Accounts)
+# ============================================================
+
+class AccountHeadListCreateView(generics.ListCreateAPIView):
+    """List all account heads or create a new one"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = AccountHead.objects.all()
+        type_filter = self.request.query_params.get('type')
+        if type_filter:
+            queryset = queryset.filter(type=type_filter)
+        return queryset
+    
+    def get_serializer_class(self):
+        from .serializers import AccountHeadSerializer
+        return AccountHeadSerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        from .serializers import AccountHeadSerializer
+        serializer = AccountHeadSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    def create(self, request, *args, **kwargs):
+        from .serializers import AccountHeadSerializer
+        serializer = AccountHeadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AccountHeadDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete an account head"""
+    queryset = AccountHead.objects.all()
+    lookup_field = 'id'
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        from .serializers import AccountHeadSerializer
+        return AccountHeadSerializer
+
+
+# ============================================================
+# LEDGER ENTRIES (General Ledger)
+# ============================================================
+
+class LedgerEntryListCreateView(generics.ListCreateAPIView):
+    """List all ledger entries or create a new one"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = LedgerEntry.objects.all()
+        type_filter = self.request.query_params.get('type')
+        if type_filter:
+            queryset = queryset.filter(type=type_filter)
+        start_date = self.request.query_params.get('start_date')
+        if start_date:
+            queryset = queryset.filter(date__gte=start_date)
+        end_date = self.request.query_params.get('end_date')
+        if end_date:
+            queryset = queryset.filter(date__lte=end_date)
+        return queryset
+    
+    def get_serializer_class(self):
+        from .serializers import LedgerEntrySerializer
+        return LedgerEntrySerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        from .serializers import LedgerEntrySerializer
+        serializer = LedgerEntrySerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    def create(self, request, *args, **kwargs):
+        from .serializers import LedgerEntrySerializer
+        data = request.data.copy()
+        data['created_by'] = request.user.id
+        serializer = LedgerEntrySerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LedgerEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a ledger entry"""
+    queryset = LedgerEntry.objects.all()
+    lookup_field = 'id'
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        from .serializers import LedgerEntrySerializer
+        return LedgerEntrySerializer
+
+
+# ============================================================
+# PAYSLIPS (Salary Records)
+# ============================================================
+
+class PayslipListCreateView(generics.ListCreateAPIView):
+    """List all payslips or create a new one"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Payslip.objects.select_related('employee').all()
+        employee_id = self.request.query_params.get('employee_id')
+        if employee_id:
+            queryset = queryset.filter(employee_id=employee_id)
+        month = self.request.query_params.get('month')
+        if month:
+            queryset = queryset.filter(month__startswith=month)
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        return queryset
+    
+    def get_serializer_class(self):
+        from .serializers import PayslipSerializer
+        return PayslipSerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        from .serializers import PayslipSerializer
+        serializer = PayslipSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    def create(self, request, *args, **kwargs):
+        from .serializers import PayslipSerializer
+        serializer = PayslipSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class PayslipDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a payslip"""
+    queryset = Payslip.objects.all()
+    lookup_field = 'id'
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        from .serializers import PayslipSerializer
+        return PayslipSerializer
+
+
+class PayslipBulkGenerateView(APIView):
+    """Bulk generate payslips for a month"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        month = request.data.get('month')
+        if not month:
+            return Response({'error': 'month is required'}, status=400)
+        
+        from services.education.academics.models import Teacher
+        teachers = Teacher.objects.filter(is_active=True)
+        
+        created = 0
+        for teacher in teachers:
+            payslip, was_created = Payslip.objects.get_or_create(
+                employee=teacher,
+                month=month,
+                defaults={
+                    'basic_salary': teacher.monthly_salary or 0,
+                    'net_salary': teacher.monthly_salary or 0,
+                }
+            )
+            if was_created:
+                created += 1
+        
+        return Response({
+            'success': True,
+            'created': created,
+            'total_teachers': teachers.count()
+        })
+
+
+class PayslipBulkPayView(APIView):
+    """Bulk mark payslips as paid"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        payslip_ids = request.data.get('payslip_ids', [])
+        payment_date = request.data.get('payment_date')
+        payment_method = request.data.get('payment_method', 'bank_transfer')
+        
+        if not payslip_ids:
+            return Response({'error': 'payslip_ids is required'}, status=400)
+        
+        updated = Payslip.objects.filter(id__in=payslip_ids).update(
+            status='paid',
+            paid_amount=models.F('net_salary'),
+            payment_date=payment_date,
+            payment_method=payment_method
+        )
+        
+        return Response({
+            'success': True,
+            'updated': updated
+        })
+
+
+# ============================================================
+# EMPLOYEE CREDITS
+# ============================================================
+
+class EmployeeCreditListCreateView(generics.ListCreateAPIView):
+    """List all employee credits or create a new one"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = EmployeeCredit.objects.select_related('employee').all()
+        employee_id = self.request.query_params.get('employee_id')
+        if employee_id:
+            queryset = queryset.filter(employee_id=employee_id)
+        type_filter = self.request.query_params.get('type')
+        if type_filter:
+            queryset = queryset.filter(type=type_filter)
+        return queryset
+    
+    def get_serializer_class(self):
+        from .serializers import EmployeeCreditSerializer
+        return EmployeeCreditSerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        from .serializers import EmployeeCreditSerializer
+        serializer = EmployeeCreditSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    def create(self, request, *args, **kwargs):
+        from .serializers import EmployeeCreditSerializer
+        serializer = EmployeeCreditSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class EmployeeCreditDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete an employee credit"""
+    queryset = EmployeeCredit.objects.all()
+    lookup_field = 'id'
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        from .serializers import EmployeeCreditSerializer
+        return EmployeeCreditSerializer
+
+
+# ============================================================
+# WEEKDAY CONFIGURATION
+# ============================================================
+
+class WeekdayConfigListCreateView(generics.ListCreateAPIView):
+    """List all weekday configs or create a new one"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return WeekdayConfig.objects.all()
+    
+    def get_serializer_class(self):
+        from .serializers import WeekdayConfigSerializer
+        return WeekdayConfigSerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        from .serializers import WeekdayConfigSerializer
+        serializer = WeekdayConfigSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    def create(self, request, *args, **kwargs):
+        from .serializers import WeekdayConfigSerializer
+        serializer = WeekdayConfigSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class WeekdayConfigDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a weekday config"""
+    queryset = WeekdayConfig.objects.all()
+    lookup_field = 'id'
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        from .serializers import WeekdayConfigSerializer
+        return WeekdayConfigSerializer
+
+
+class WeekdayConfigBulkUpdateView(APIView):
+    """Bulk update weekday configurations"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        weekdays = request.data.get('weekdays', [])
+        if not weekdays:
+            return Response({'error': 'weekdays array is required'}, status=400)
+        
+        for day_data in weekdays:
+            day_code = day_data.get('day_code')
+            if day_code:
+                WeekdayConfig.objects.update_or_create(
+                    day_code=day_code,
+                    defaults={
+                        'name': day_data.get('name', ''),
+                        'is_active': day_data.get('is_active', True),
+                        'is_half_day': day_data.get('is_half_day', False),
+                        'notes': day_data.get('notes', ''),
+                        'order': day_data.get('order', 0),
+                    }
+                )
+        
+        return Response({'success': True, 'message': 'Weekdays updated successfully'})
+
 

@@ -177,57 +177,6 @@ export default function AddTeacherPage() {
       const response = await teacherService.create(formDataToSend);
       console.log('✅ Teacher created:', response);
 
-      // ✅ Save to localStorage for persistence
-      const newId = response?.id || generatedEmpId;
-      
-      // Save custom teacher data
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      const newCustomTeacher = {
-        id: newId,
-        employee_id: generatedEmpId,
-        full_name: formData.fullName.trim(),
-        email: formData.email || `${formData.fullName.toLowerCase().replace(/\s+/g, '')}@school.edu`,
-        phone: formData.phone || '',
-        experience_years: parseInt(formData.experience) || 0,
-        joining_date: formData.joiningDate,
-        qualifications: formData.education ? [formData.education] : ['N/A'],
-        specializations: [formData.role],
-        is_active: true,
-        role: formData.role,
-        monthlySalary: formData.monthlySalary,
-        fatherName: formData.fatherName,
-        gender: formData.gender,
-        nationalId: formData.nationalId,
-        religion: formData.religion,
-        education: formData.education,
-        bloodGroup: formData.bloodGroup,
-        dateOfBirth: formData.dateOfBirth,
-        homeAddress: formData.homeAddress,
-      };
-      customTeachers.push(newCustomTeacher);
-      localStorage.setItem('custom_teachers', JSON.stringify(customTeachers));
-
-      // Save extra details
-      const savedExtras = localStorage.getItem('employees_extra_info');
-      const extrasMap = savedExtras ? JSON.parse(savedExtras) : {};
-      
-      extrasMap[newId] = {
-        role: formData.role,
-        monthlySalary: formData.monthlySalary,
-        fatherName: formData.fatherName,
-        gender: formData.gender,
-        experience: formData.experience,
-        nationalId: formData.nationalId,
-        religion: formData.religion,
-        education: formData.education,
-        bloodGroup: formData.bloodGroup,
-        dateOfBirth: formData.dateOfBirth,
-        homeAddress: formData.homeAddress,
-        profilePictureUrl: profilePicturePreview,
-      };
-
-      localStorage.setItem('employees_extra_info', JSON.stringify(extrasMap));
-
       toast.success(`Employee "${formData.fullName}" added successfully!`);
       navigate('/education/teachers');
       

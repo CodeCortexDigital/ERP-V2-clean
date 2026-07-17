@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, Save, CheckCircle2, AlertCircle } from 'lucide
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { toast } from 'sonner';
+import ledgerService from '@/services/ledger.service';
 
 interface Weekday {
   id: string;
@@ -30,16 +31,19 @@ export default function WeekdayManagementPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('active_weekdays');
-    if (saved) {
+    const fetchWeekdays = async () => {
       try {
-        setWeekdays(JSON.parse(saved));
-      } catch (e) {
+        const response = await ledgerService.getWeekdays();
+        if (response.data && response.data.length > 0) {
+          setWeekdays(response.data);
+        } else {
+          setWeekdays(DEFAULT_DAYS);
+        }
+      } catch (err) {
         setWeekdays(DEFAULT_DAYS);
       }
-    } else {
-      setWeekdays(DEFAULT_DAYS);
-    }
+    };
+    fetchWeekdays();
   }, []);
 
   const handleToggleActive = (id: string) => {
@@ -71,10 +75,10 @@ export default function WeekdayManagementPage() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
-      localStorage.setItem('active_weekdays', JSON.stringify(weekdays));
+      await ledgerService.updateWeekdays(weekdays);
       toast.success('Weekdays configuration saved successfully!');
     } catch (e) {
       toast.error('Failed to save configuration');

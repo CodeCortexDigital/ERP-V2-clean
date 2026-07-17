@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Edit, Trash2, Check, BookOpen, AlertCircle, FileText, Search, User, RefreshCw } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/services/api';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -88,7 +88,7 @@ export default function ExamsPage() {
         api.get('/auth/academics/classes/').catch(() => ({ data: [] })),
         api.get('/auth/academics/subjects/').catch(() => ({ data: [] })),
         api.get('/auth/students/').catch(() => ({ data: [] })),
-        api.get('/exams-results/').catch(() => ({ data: [] }))
+        api.get('/auth/exams/results/').catch(() => ({ data: [] }))
       ]);
 
       // Parse Classes
@@ -150,22 +150,13 @@ export default function ExamsPage() {
       // Parse Exams
       const rawExams = Array.isArray(examsRes.data) ? examsRes.data : examsRes.data?.results || [];
       const mappedExams: Exam[] = rawExams.map((item: any) => {
-        const storedDates = localStorage.getItem(`exam_dates_${item.id}`);
         let sDate = item.exam_date || '';
         let eDate = item.exam_date || '';
         
-        if (storedDates) {
-          try {
-            const parsed = JSON.parse(storedDates);
-            sDate = parsed.startDate || sDate;
-            eDate = parsed.endDate || eDate;
-          } catch (e) {}
-        } else {
-          if (sDate) {
-            const d = new Date(sDate);
-            d.setDate(d.getDate() + 6);
-            eDate = d.toISOString().split('T')[0];
-          }
+        if (sDate) {
+          const d = new Date(sDate);
+          d.setDate(d.getDate() + 6);
+          eDate = d.toISOString().split('T')[0];
         }
 
         return {
@@ -222,9 +213,7 @@ export default function ExamsPage() {
       }
 
       if (targetStudent) {
-        const localResults = JSON.parse(localStorage.getItem('local_results') || '[]');
-        const combinedResults = [...rawResults, ...localResults];
-        const studentResults = combinedResults.filter(r => r.student === targetStudentId);
+        const studentResults = rawResults.filter(r => r.student === targetStudentId);
 
         setGeneratedResult({
           type: 'student',
@@ -240,29 +229,17 @@ export default function ExamsPage() {
     }
   };
 
-  const getLocalExams = (): Exam[] => {
-    const local = localStorage.getItem('local_exams');
-    return local ? JSON.parse(local) : [];
-  };
-
-  const saveLocalExams = (list: Exam[]) => {
-    localStorage.setItem('local_exams', JSON.stringify(list));
-  };
-
   const reloadExamsOnly = async () => {
     try {
       const res = await api.get('/auth/exams/');
       const raw = Array.isArray(res.data) ? res.data : res.data?.results || [];
       const mapped = raw.map((item: any) => {
-        const storedDates = localStorage.getItem(`exam_dates_${item.id}`);
         let sDate = item.exam_date || '';
         let eDate = item.exam_date || '';
-        if (storedDates) {
-          try {
-            const parsed = JSON.parse(storedDates);
-            sDate = parsed.startDate || sDate;
-            eDate = parsed.endDate || eDate;
-          } catch (e) {}
+        if (sDate) {
+          const d = new Date(sDate);
+          d.setDate(d.getDate() + 6);
+          eDate = d.toISOString().split('T')[0];
         }
         return {
           id: item.id,
@@ -274,16 +251,9 @@ export default function ExamsPage() {
         };
       });
 
-      const localOnly = getLocalExams();
-      const combined = [...mapped];
-      localOnly.forEach(item => {
-        if (!combined.some(b => b.id === item.id)) {
-          combined.push(item);
-        }
-      });
-      setExams(combined);
+      setExams(mapped);
     } catch (err) {
-      setExams(getLocalExams());
+      // Keep current exams state on error
     }
   };
 
@@ -310,41 +280,11 @@ export default function ExamsPage() {
 
     try {
       if (editingId) {
-        if (editingId.startsWith('local-')) {
-          const list = getLocalExams();
-          const updated = list.map(item => 
-            item.id === editingId 
-              ? { ...item, name: examName, start_date: startDate, end_date: endDate }
-              : item
-          );
-          saveLocalExams(updated);
-        } else {
-          await api.put(`/auth/exams/${editingId}/`, payload);
-          localStorage.setItem(`exam_dates_${editingId}`, JSON.stringify({ startDate, endDate }));
-        }
+        await api.put(`/auth/exams/${editingId}/`, payload);
         toast.success('Exam Information has been updated successfully!');
         setEditingId(null);
       } else {
-        try {
-          if (!defaultClassId || !defaultSubjectId) throw new Error();
-          const res = await api.post('/auth/exams/', payload);
-          const newExamId = res.data?.id;
-          if (newExamId) {
-            localStorage.setItem(`exam_dates_${newExamId}`, JSON.stringify({ startDate, endDate }));
-          }
-        } catch {
-          const list = getLocalExams();
-          const newLocal: Exam = {
-            id: `local-exam-${Date.now()}`,
-            exam_code: `EXM-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-            name: examName,
-            start_date: startDate,
-            end_date: endDate,
-            is_published: false
-          };
-          list.push(newLocal);
-          saveLocalExams(list);
-        }
+        await api.post('/auth/exams/', payload);
         toast.success('Exam Information has been saved successfully!');
       }
 
@@ -366,14 +306,7 @@ export default function ExamsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      if (id.startsWith('local-')) {
-        const list = getLocalExams();
-        const updated = list.filter(item => item.id !== id);
-        saveLocalExams(updated);
-      } else {
-        await api.delete(`/auth/exams/${id}/`);
-        localStorage.removeItem(`exam_dates_${id}`);
-      }
+      await api.delete(`/auth/exams/${id}/`);
       toast.success('Exam deleted successfully');
       await reloadExamsOnly();
     } catch (err) {
@@ -384,15 +317,7 @@ export default function ExamsPage() {
   const handleTogglePublish = async (exam: Exam) => {
     const nextStatus = !exam.is_published;
     try {
-      if (exam.id.startsWith('local-')) {
-        const list = getLocalExams();
-        const updated = list.map(item => 
-          item.id === exam.id ? { ...item, is_published: nextStatus } : item
-        );
-        saveLocalExams(updated);
-      } else {
-        await api.patch(`/auth/exams/${exam.id}/`, { is_published: nextStatus });
-      }
+      await api.patch(`/auth/exams/${exam.id}/`, { is_published: nextStatus });
       toast.success(`Exam status updated successfully`);
       await reloadExamsOnly();
     } catch (err) {
@@ -416,29 +341,14 @@ export default function ExamsPage() {
           student: studentId,
           obtained_marks: parseFloat(marks)
         };
-        // Attempt backend save, catch if offline/local exam
-        return api.post('/auth/exams/results/create/', payload).catch(() => {
-          const localResults = JSON.parse(localStorage.getItem('local_results') || '[]');
-          const cleanLocal = localResults.filter((r: any) => r.exam !== selectedExamId || r.student !== studentId);
-          const percent = (parseFloat(marks) / 100) * 100;
-          cleanLocal.push({
-            id: `local-res-${Date.now()}-${studentId}`,
-            exam: selectedExamId,
-            student: studentId,
-            obtained_marks: parseFloat(marks),
-            percentage: percent,
-            grade: percent >= 80 ? 'A' : percent >= 60 ? 'B' : percent >= 40 ? 'C' : 'F',
-            is_pass: percent >= 40
-          });
-          localStorage.setItem('local_results', JSON.stringify(cleanLocal));
-        });
+        return api.post('/auth/exams/results/create/', payload);
       });
 
       await Promise.all(promises);
       toast.success('Exam marks updated successfully!');
       
-      // Refresh local results list
-      const resultsRes = await api.get('/exams-results/').catch(() => ({ data: [] }));
+      // Refresh results list
+      const resultsRes = await api.get('/auth/exams/results/').catch(() => ({ data: [] }));
       const rawResults = Array.isArray(resultsRes.data) ? resultsRes.data : (resultsRes.data as any)?.results || [];
       setResultsList(rawResults);
     } catch (err) {
@@ -457,9 +367,7 @@ export default function ExamsPage() {
       }
       
       // Find results for student
-      const localResults = JSON.parse(localStorage.getItem('local_results') || '[]');
-      const combinedResults = [...resultsList, ...localResults];
-      const studentResults = combinedResults.filter(r => r.student === cardStudentId);
+      const studentResults = resultsList.filter(r => r.student === cardStudentId);
 
       setGeneratedResult({
         type: 'student',
@@ -470,11 +378,9 @@ export default function ExamsPage() {
     } else {
       // Class Wise Result
       const classStudents = students.filter(s => s.class_name.toLowerCase() === cardClassId.toLowerCase() || s.class_id === cardClassId);
-      const localResults = JSON.parse(localStorage.getItem('local_results') || '[]');
-      const combinedResults = [...resultsList, ...localResults];
 
       const classData = classStudents.map(s => {
-        const studentResults = combinedResults.filter(r => r.student === s.id);
+        const studentResults = resultsList.filter(r => r.student === s.id);
         return {
           student: s,
           results: studentResults

@@ -133,17 +133,6 @@ for sc in classes:
         class_subjects.append(cs)
 
 # 6. Create 45 Teachers & User Accounts
-pakistani_names = [
-    "Maryam Fatima", "Dr. Ahmed Raza", "Prof. Sara Khan", "Ms. Fatima Ali", "Mr. Hassan Malik",
-    "Dr. Ayesha Hussain", "Mr. Bilal Ahmed", "Ms. Zainab Sheikh", "Prof. Omar Farooq", "Dr. Mariam Butt",
-    "Mr. Saad Rana", "Ms. Hina Chaudhry", "Prof. Usman Shah", "Dr. Tariq Mahmood", "Ms. Sadia Iqbal",
-    "Mr. Kamran Akmal", "Prof. Nida Yasir", "Dr. Rehan Siddiqui", "Ms. Amna Tariq", "Mr. Faisal Qureshi",
-    "Dr. Bushra Ansari", "Mr. Zeeshan Haider", "Ms. Rabia Anum", "Prof. Tahir Ul Qadri", "Mr. Shoaib Akhtar",
-    "Ms. Saba Qamar", "Dr. Danish Taimoor", "Mr. Hamza Ali Abbasi", "Ms. Yumna Zaidi", "Prof. Adnan Siddiqui",
-    "Dr. Mahira Khan", "Mr. Fawad Khan", "Ms. Sajal Aly", "Mr. Ahad Raza Mir", "Prof. Sanam Saeed",
-    "Dr. Atif Aslam", "Mr. Rahat Fateh", "Ms. Abida Parveen", "Prof. Ghulam Ali", "Mr. Ali Zafar",
-    "Ms. Momina Mustehsan", "Dr. Asim Azhar", "Mr. Shehzad Roy", "Ms. Hadiqa Kiani", "Prof. Abrar Ul Haq"
-]
 
 qual_list = ["M.Sc Mathematics", "M.A English", "M.Sc Physics", "M.A Urdu", "M.Sc Chemistry", "M.Sc Computer Science", "PhD Physics", "M.Ed", "B.Ed"]
 spec_list = ["Mathematics", "English", "Physics", "Urdu", "Chemistry", "Biology", "Computer Science", "History", "Islamic Studies"]

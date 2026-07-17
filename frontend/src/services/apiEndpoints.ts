@@ -1,42 +1,46 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// All endpoints are RELATIVE to the `api` instance baseURL (VITE_API_URL, e.g. http://host/api/v1).
+// Do NOT prepend the host or `/api` here — that produces doubled paths like /api/v1//api/auth/students/.
 
 export const API_ENDPOINTS = {
   // Auth
-  LOGIN: `${API_BASE_URL}/api/auth/login/`,
-  ME: `${API_BASE_URL}/api/auth/me/`,
-  LOGOUT: `${API_BASE_URL}/api/auth/logout/`,
-  
+  LOGIN: '/auth/login/',
+  ME: '/auth/me/',
+  LOGOUT: '/auth/logout/',
+
   // Demo & Google
-  DEMO_LOGIN: `${API_BASE_URL}/api/auth/demo/`,
-  GOOGLE_LOGIN: `${API_BASE_URL}/api/auth/google/`,
-  
+  DEMO_LOGIN: '/auth/demo/',
+  GOOGLE_LOGIN: '/auth/google/',
+
   // Students
-  STUDENTS: `${API_BASE_URL}/api/auth/students/`,
-  STUDENT_360: (id: string) => `${API_BASE_URL}/api/education/students/student-360/${id}/`,
-  
+  STUDENTS: '/auth/students/',
+  STUDENT_360: (id: string) => `/education/students/student-360/${id}/`,
+
   // Academics
-  CLASSES_WITH_SECTIONS: `${API_BASE_URL}/api/academics/classes-with-sections/`,
-  SECTIONS_FOR_CLASS: (classId: string) => `${API_BASE_URL}/api/academics/sections-for-class/${classId}/`,
-  
+  CLASSES_WITH_SECTIONS: '/academics/classes-with-sections/',
+  SECTIONS_FOR_CLASS: (classId: string) => `/academics/sections-for-class/${classId}/`,
+
   // Attendance
-  ATTENDANCE: `${API_BASE_URL}/api/auth/attendance/`,
-  
+  ATTENDANCE: '/auth/attendance/',
+
   // Exams
-  EXAMS: `${API_BASE_URL}/api/auth/exams/`,
-  EXAM_RESULTS: `${API_BASE_URL}/api/auth/exams/results/`,
-  
+  EXAMS: '/auth/exams/',
+  EXAM_RESULTS: '/auth/exams/results/',
+
   // Finance
-  INVOICES: `${API_BASE_URL}/api/auth/invoices/`,
-  PAYMENTS: `${API_BASE_URL}/api/auth/payments/`,
-  
+  INVOICES: '/auth/invoices/',
+  PAYMENTS: '/auth/payments/',
+
   // Communication
-  MESSAGES: `${API_BASE_URL}/api/communication/messages/`,
-  TEMPLATES: `${API_BASE_URL}/api/communication/templates/`,
-  
+  MESSAGES: '/communication/messages/',
+  TEMPLATES: '/communication/templates/',
+
   // Admissions
-  APPLICANTS: `${API_BASE_URL}/api/auth/applicants/`,
-  APPLICATIONS: `${API_BASE_URL}/api/auth/applications/`,
+  APPLICANTS: '/auth/applicants/',
+  APPLICATIONS: '/auth/applications/',
 
   // Settings & Tenant
-  SETTINGS: `${API_BASE_URL}/api/tenants/settings/`,
+  SETTINGS: '/tenants/settings/',
+
+  // AI Assistant
+  AI_CHAT: '/ai/chat/',
 }

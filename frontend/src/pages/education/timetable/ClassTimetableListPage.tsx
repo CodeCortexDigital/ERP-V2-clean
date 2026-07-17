@@ -66,10 +66,7 @@ export default function ClassTimetableListPage() {
       { id: 'cls-20', name: 'Grade 10-B', code: 'G10B' }
     ];
 
-    const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-    const combined = classes.length > 0 ? classes : defaultClasses;
-    const deletedIds = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
-    const active = [...combined, ...customClasses].filter(c => !deletedIds.includes(c.id));
+    const active = classes.length > 0 ? classes : defaultClasses;
 
     // Deduplicate by name (case-insensitive)
     const unique = [];

@@ -123,7 +123,7 @@ export default function LiveRoomPage() {
             <span className="p-1.5 bg-rose-500 rounded-lg text-white font-black text-xs uppercase tracking-wide">
               eS
             </span>
-            <span className="font-extrabold text-sm text-slate-100 uppercase tracking-widest">eSkooly Room</span>
+            <span className="font-extrabold text-sm text-slate-100 uppercase tracking-widest">Code Cortex Room</span>
           </div>
 
           {/* Room Name display */}

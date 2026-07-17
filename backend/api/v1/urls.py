@@ -28,8 +28,18 @@ from services.education.finance.views import (
     monthly_revenue_chart,
 )
 
+# ✅ Import certificate viewset for explicit URL registration
+from services.education.students.views import CertificateViewSet
+
 urlpatterns = [
     path('health/', include('services.core.health.urls')),
+    
+    # ============================================================
+    # STUDENT CERTIFICATES (must be before auth/ catch-all to avoid
+    # being captured by accounts/students/<str:pk>/)
+    # ============================================================
+    path('auth/students/certificates/', CertificateViewSet.as_view({'get': 'list', 'post': 'create'}), name='certificate-list-root'),
+    path('auth/students/certificates/<str:pk>/', CertificateViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='certificate-detail-root'),
     
     # ============================================================
     # AUTH & IDENTITY
@@ -137,6 +147,7 @@ urlpatterns = [
     # ============================================================
     # OTHER SERVICES
     # ============================================================
+    path('ai/', include('services.ai.urls')),
     path('search/', include('services.core.search.urls')),
     path('communication/whatsapp/', include('services.communication.whatsapp.urls')),
     path('core/audit/', include('services.core.audit.urls')),

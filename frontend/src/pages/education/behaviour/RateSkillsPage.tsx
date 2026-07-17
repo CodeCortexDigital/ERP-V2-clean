@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
+import behaviourService from '@/services/behaviour.service';
 
 const ACADEMIC_SKILLS = [
   "Reading", "Writing", "Listening", "Speaking", "Mathematics", "Science Skills",
@@ -38,6 +39,7 @@ export default function RateSkillsPage() {
   // Search & Selector State
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('Grade 1-A');
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSession, setSelectedSession] = useState('2026-2027');
   const [selectedTerm, setSelectedTerm] = useState('Term 1');
   const [selectedMonth, setSelectedMonth] = useState('July');
@@ -58,37 +60,45 @@ export default function RateSkillsPage() {
   }, []);
 
   useEffect(() => {
-    const names = [
-      { id: 's-1', name: 'Maryam Fatima', roll: '101' },
-      { id: 's-2', name: 'Zainab Ahmed', roll: '102' },
-      { id: 's-3', name: 'Ali Khan', roll: '103' },
-      { id: 's-4', name: 'Muhammad Rizwan', roll: '104' },
-      { id: 's-5', name: 'Ayesha Siddiqua', roll: '105' }
-    ];
+    const names = [];
     setStudents(names);
     setActiveStudent(names[0]);
   }, [selectedClass]);
 
   useEffect(() => {
     if (activeStudent) {
-      const key = `skills_ratings_${selectedSession}_${selectedTerm}_${selectedMonth}_${activeStudent.id}`;
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setRatings(parsed.ratings || {});
-        setNotObserved(parsed.notObserved || {});
+      loadRatings();
+    }
+  }, [activeStudent, selectedMonth, selectedTerm, selectedSession, selectedClassId]);
+
+  const loadRatings = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      const res = await behaviourService.getRatings({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        academic_year: selectedSession,
+        term: selectedTerm,
+        month: selectedMonth,
+      });
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      if (data.length > 0) {
+        const entry = data[0];
+        setRatings(entry.ratings || {});
+        setNotObserved(entry.not_observed || {});
       } else {
-        // Clear / set default
         const initialRatings: Record<string, number> = {};
-        const allSkills = [...ACADEMIC_SKILLS, ...SOCIAL_SKILLS, ...DIGITAL_SKILLS, ...LIFE_SKILLS];
-        allSkills.forEach(s => {
-          initialRatings[s] = 4; // Default Good
-        });
+        [...ACADEMIC_SKILLS, ...SOCIAL_SKILLS, ...DIGITAL_SKILLS, ...LIFE_SKILLS].forEach(s => { initialRatings[s] = 4; });
         setRatings(initialRatings);
         setNotObserved({});
       }
+    } catch {
+      const initialRatings: Record<string, number> = {};
+      [...ACADEMIC_SKILLS, ...SOCIAL_SKILLS, ...DIGITAL_SKILLS, ...LIFE_SKILLS].forEach(s => { initialRatings[s] = 4; });
+      setRatings(initialRatings);
+      setNotObserved({});
     }
-  }, [activeStudent, selectedMonth, selectedTerm, selectedSession]);
+  };
 
   const fetchClasses = async () => {
     try {
@@ -97,6 +107,7 @@ export default function RateSkillsPage() {
       if (data.length > 0) {
         setClasses(data);
         setSelectedClass(data[0].name);
+        setSelectedClassId(data[0].id);
       } else {
         setClasses([
           { id: '1', name: 'Grade 1-A' },
@@ -140,21 +151,23 @@ export default function RateSkillsPage() {
     return LIFE_SKILLS;
   };
 
-  const handleSave = () => {
-    if (!activeStudent) return;
-    const key = `skills_ratings_${selectedSession}_${selectedTerm}_${selectedMonth}_${activeStudent.id}`;
-    const payload = {
-      studentId: activeStudent.id,
-      studentName: activeStudent.name,
-      class: selectedClass,
-      session: selectedSession,
-      term: selectedTerm,
-      month: selectedMonth,
-      ratings,
-      notObserved
-    };
-    localStorage.setItem(key, JSON.stringify(payload));
-    toast.success(`Skills Assessment for ${activeStudent.name} saved successfully!`);
+  const handleSave = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      await behaviourService.createRating({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        domain: 'psychomotor',
+        term: selectedTerm,
+        month: selectedMonth,
+        academic_year: selectedSession,
+        ratings,
+        not_observed: notObserved,
+      });
+      toast.success(`Skills Assessment for ${activeStudent.name} saved successfully!`);
+    } catch {
+      toast.error('Failed to save skills ratings');
+    }
   };
 
   return (
@@ -221,7 +234,11 @@ export default function RateSkillsPage() {
                 <label className="block text-[8px] font-black text-slate-455 uppercase mb-1">Class Name</label>
                 <select
                   value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
+                  onChange={(e) => {
+                    const cls = classes.find(c => c.name === e.target.value);
+                    setSelectedClass(e.target.value);
+                    setSelectedClassId(cls?.id || '');
+                  }}
                   className="w-full text-xs h-9.5 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-700 focus:outline-none"
                 >
                   {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}

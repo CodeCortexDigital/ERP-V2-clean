@@ -136,8 +136,8 @@ export default function HomeworkManagementPage() {
       ];
 
       const finalTeachers = teachersData.length > 0 ? teachersData : [
-        { id: 't-1', full_name: 'Maryam Fatima' }, { id: 't-2', full_name: 'Zainab Ahmed' },
-        { id: 't-3', full_name: 'Ali Khan' }
+        { id: 't-1', full_name: 'Rimsai' }, { id: 't-2', full_name: 'John' },
+        { id: 't-3', full_name: 'John' }
       ];
 
       setClasses(finalClasses);
@@ -393,7 +393,7 @@ export default function HomeworkManagementPage() {
           </CardContent>
         </Card>
 
-        {/* Content Area - eSkooly Card List Layout */}
+        {/* Content Area - Code Cortex Card List Layout */}
         {loading ? (
           <div className="flex justify-center items-center h-48">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>

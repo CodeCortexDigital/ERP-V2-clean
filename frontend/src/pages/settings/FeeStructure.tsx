@@ -180,7 +180,7 @@ export default function FeeStructure() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+      <div className="sticky-summary flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/50 p-4 rounded-xl border border-slate-100">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full md:w-auto md:flex md:items-center flex-1">
           <div className="w-full md:w-72">
             <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Search Fee Name or Class</label>

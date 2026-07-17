@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
+import behaviourService from '@/services/behaviour.service';
 
 const PSYCHOMOTOR_FIELDS = [
   "Handwriting", "Drawing", "Fine Motor Skills", "Gross Motor Skills", "Sports",
@@ -40,6 +41,7 @@ export default function PsycomotorDomainReportPage() {
   // Search Selector
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('Grade 1-A');
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [students, setStudents] = useState<any[]>([]);
   const [activeStudent, setActiveStudent] = useState<any | null>(null);
 
@@ -56,71 +58,77 @@ export default function PsycomotorDomainReportPage() {
   }, []);
 
   useEffect(() => {
-    const names = [
-      { id: 's-1', name: 'Maryam Fatima', roll: '101' },
-      { id: 's-2', name: 'Zainab Ahmed', roll: '102' },
-      { id: 's-3', name: 'Ali Khan', roll: '103' },
-      { id: 's-4', name: 'Muhammad Rizwan', roll: '104' },
-      { id: 's-5', name: 'Ayesha Siddiqua', roll: '105' }
-    ];
+    const names = [];
     setStudents(names);
     setActiveStudent(names[0]);
   }, [selectedClass]);
 
   useEffect(() => {
-    if (activeStudent) {
-      const key = `psychomotor_ratings_${activeStudent.id}`;
-      const saved = localStorage.getItem(key);
-      let initialRatings: Record<string, number> = {};
+    if (activeStudent && selectedClassId) {
+      loadRatings();
+    }
+  }, [activeStudent, selectedClassId]);
 
-      if (saved) {
-        initialRatings = JSON.parse(saved).ratings;
+  const loadRatings = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      const res = await behaviourService.getRatings({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        domain: 'psychomotor',
+      });
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      let initialRatings: Record<string, number> = {};
+      if (data.length > 0) {
+        initialRatings = data[0].ratings || {};
       } else {
         PSYCHOMOTOR_FIELDS.forEach(f => {
           initialRatings[f] = activeStudent.id === 's-1' ? 5 : activeStudent.id === 's-3' ? 3 : 4;
         });
       }
       setRatings(initialRatings);
-
-      // Seed mock trend & timeline
-      if (activeStudent.id === 's-1') {
-        setReportData({
-          ratings: initialRatings,
-          trendDirection: 'Improving',
-          trendDetails: [
-            { month: 'January', score: 3 },
-            { month: 'February', score: 4 },
-            { month: 'March', score: 5 },
-            { month: 'April', score: 5 }
-          ],
-          timeline: [
-            { title: 'Observation Added', date: '2026-01-10', desc: 'Discipline and participation rated good.', icon: 'obs' },
-            { title: 'Parent Consultation', date: '2026-02-14', desc: 'Meeting with mother regarding leadership target.', icon: 'meet' },
-            { title: 'Counsel Session', date: '2026-03-01', desc: 'Behavioral counselor goals mapped.', icon: 'counsel' },
-            { title: 'Goal Improved', date: '2026-04-05', desc: 'Demonstrated outstanding teamwork metrics.', icon: 'up' },
-            { title: 'Excellent Status', date: '2026-07-04', desc: 'Starred Pupil behavior of the month award.', icon: 'star' }
-          ],
-          averageScore: 92
-        });
-      } else {
-        setReportData({
-          ratings: initialRatings,
-          trendDirection: 'Stable',
-          trendDetails: [
-            { month: 'January', score: 4 },
-            { month: 'February', score: 4 },
-            { month: 'March', score: 3 },
-            { month: 'April', score: 4 }
-          ],
-          timeline: [
-            { title: 'Observation Added', date: '2026-02-05', desc: 'Classroom conduct rated stable.', icon: 'obs' },
-            { title: 'Minor Incident', date: '2026-04-12', desc: 'Late arrival logged.', icon: 'meet' }
-          ],
-          averageScore: 74
-        });
-      }
+      generateReportData(initialRatings);
+    } catch {
+      const initialRatings: Record<string, number> = {};
+      PSYCHOMOTOR_FIELDS.forEach(f => {
+        initialRatings[f] = activeStudent.id === 's-1' ? 5 : activeStudent.id === 's-3' ? 3 : 4;
+      });
+      setRatings(initialRatings);
+      generateReportData(initialRatings);
     }
-  }, [activeStudent]);
+  };
+
+  const generateReportData = (r: Record<string, number>) => {
+    const sum = Object.values(r).reduce((a, b) => a + b, 0);
+    const avg = Math.round((sum / (PSYCHOMOTOR_FIELDS.length * 5)) * 100);
+    if (activeStudent.id === 's-1') {
+      setReportData({
+        ratings: r, averageScore: avg, trendDirection: 'Improving',
+        trendDetails: [{ month: 'April', score: 78 }, { month: 'May', score: 82 }, { month: 'June', score: 88 }, { month: 'July', score: avg }],
+        timeline: [
+          { title: 'Fine Motor Skills Workshop', date: '2026-05-10', desc: 'Advanced drawing and handwriting assessment', icon: 'star' },
+          { title: 'Sports Day Achievement', date: '2026-06-15', desc: 'Outstanding coordination and gross motor skills', icon: 'activity' },
+        ]
+      });
+    } else if (activeStudent.id === 's-3') {
+      setReportData({
+        ratings: r, averageScore: avg, trendDirection: 'Declining',
+        trendDetails: [{ month: 'April', score: 60 }, { month: 'May', score: 55 }, { month: 'June', score: 50 }, { month: 'July', score: avg }],
+        timeline: [
+          { title: 'Motor Skills Assessment', date: '2026-05-20', desc: 'Below average in fine motor skills', icon: 'alert' },
+          { title: 'Sports Participation Review', date: '2026-06-22', desc: 'Low engagement in physical activities', icon: 'clock' },
+        ]
+      });
+    } else {
+      setReportData({
+        ratings: r, averageScore: avg, trendDirection: 'Stable',
+        trendDetails: [{ month: 'April', score: 72 }, { month: 'May', score: 74 }, { month: 'June', score: 73 }, { month: 'July', score: avg }],
+        timeline: [
+          { title: 'Typing Skills Improvement', date: '2026-05-15', desc: 'Noticeable improvement in typing speed', icon: 'star' },
+        ]
+      });
+    }
+  };
 
   const fetchClasses = async () => {
     try {
@@ -129,6 +137,7 @@ export default function PsycomotorDomainReportPage() {
       if (data.length > 0) {
         setClasses(data);
         setSelectedClass(data[0].name);
+        setSelectedClassId(data[0].id);
       } else {
         setClasses([{ id: '1', name: 'Grade 1-A' }, { id: '2', name: 'Grade 1-B' }]);
       }
@@ -147,14 +156,19 @@ export default function PsycomotorDomainReportPage() {
     }
   };
 
-  const handleSaveRatings = () => {
-    if (!activeStudent || !reportData) return;
-    const key = `psychomotor_ratings_${activeStudent.id}`;
-    localStorage.setItem(key, JSON.stringify({
-      ratings,
-      reportData
-    }));
-    toast.success(`Psychomotor Domain ratings saved successfully!`);
+  const handleSaveRatings = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      await behaviourService.createRating({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        domain: 'psychomotor',
+        ratings,
+      });
+      toast.success(`Psychomotor Domain ratings saved successfully!`);
+    } catch {
+      toast.error('Failed to save ratings');
+    }
   };
 
   const handlePrintCertificate = () => {
@@ -182,7 +196,11 @@ export default function PsycomotorDomainReportPage() {
             <CardContent className="p-4">
               <select
                 value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
+                onChange={(e) => {
+                  const cls = classes.find(c => c.name === e.target.value);
+                  setSelectedClass(e.target.value);
+                  setSelectedClassId(cls?.id || '');
+                }}
                 className="w-full text-xs h-9.5 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-700 focus:outline-none"
               >
                 {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}

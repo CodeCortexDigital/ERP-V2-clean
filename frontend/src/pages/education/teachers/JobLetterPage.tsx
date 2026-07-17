@@ -16,27 +16,15 @@ export default function JobLetterPage() {
   const [employeeRules, setEmployeeRules] = useState('');
 
   useEffect(() => {
-    // 1. Try local storage fallback
-    const saved = localStorage.getItem('rules_settings');
-    let localRules = '';
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        localRules = parsed.employeeRules || '';
-      } catch (e) {
-        console.log('Error parsing local rules settings');
-      }
-    }
-
-    // 2. Fetch canonical rules from backend settings API
+    // Fetch canonical rules from backend settings API
     api.get(API_ENDPOINTS.SETTINGS).then(res => {
       if (res.data && res.data.rules && res.data.rules.employeeRules) {
         setEmployeeRules(res.data.rules.employeeRules);
       } else {
-        setEmployeeRules(localRules || '<p>Employees are expected to perform their duties diligently and adhere to professional standards at all times.</p>');
+        setEmployeeRules('<p>Employees are expected to perform their duties diligently and adhere to professional standards at all times.</p>');
       }
     }).catch(() => {
-      setEmployeeRules(localRules || '<p>Employees are expected to perform their duties diligently and adhere to professional standards at all times.</p>');
+      setEmployeeRules('<p>Employees are expected to perform their duties diligently and adhere to professional standards at all times.</p>');
     });
   }, []);
 
@@ -45,30 +33,20 @@ export default function JobLetterPage() {
   const getLoginCredentials = (teacher: Teacher) => getStaffCredential(teacher);
 
   const getExtraDetails = (teacher: Teacher) => {
-    const savedExtras = localStorage.getItem('employees_extra_info');
-    let extra = {
-      role: teacher.specializations?.[0] || 'Teacher',
-      monthlySalary: '45000',
-      fatherName: 'Muhammad Fatima',
-      gender: 'Female',
-      experience: '5 Years',
-      nationalId: '42101-1234567-8',
-      religion: 'Islam',
-      education: teacher.qualifications?.[0] || 'Master of Education',
-      bloodGroup: 'O+',
-      dateOfBirth: '1992-08-20',
-      homeAddress: 'House 123, Sector A, Karachi, Pakistan',
+    const t = teacher as any;
+    return {
+      role: t.role || t.designation || t.specializations?.[0] || 'Teacher',
+      monthlySalary: t.monthly_salary || '0',
+      fatherName: t.father_husband_name || '--',
+      gender: t.gender || 'Female',
+      experience: t.experience_years ? `${t.experience_years} Years` : '0 Years',
+      nationalId: t.national_id || '--',
+      religion: t.religion || 'Islam',
+      education: t.education || 'N/A',
+      bloodGroup: t.blood_group || 'O+',
+      dateOfBirth: t.date_of_birth || '--',
+      homeAddress: t.home_address || '--',
     };
-
-    if (savedExtras) {
-      try {
-        const extrasMap = JSON.parse(savedExtras);
-        if (extrasMap[teacher.id]) {
-          extra = { ...extra, ...extrasMap[teacher.id] };
-        }
-      } catch (e) {}
-    }
-    return extra;
   };
 
   useEffect(() => {
@@ -81,26 +59,7 @@ export default function JobLetterPage() {
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const fetched = extractListData<Teacher>(tRes.data);
       
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const filtered = fetched.filter(t => !deletedIds.includes(t.id));
-      
-      const defaultTeachers = [
-        {
-          id: 't-1',
-          employee_id: '250622',
-          full_name: 'Maryam Fatima',
-          email: 'maryam.fatima@school.edu',
-          phone: '+92 300 1234567',
-          qualifications: ['Master of Education'],
-          specializations: ['Teacher'],
-          experience_years: 5,
-          joining_date: '2026-06-29',
-          is_active: true,
-          profile_picture: null
-        }
-      ];
-
-      setTeachers(filtered.length > 0 ? filtered : defaultTeachers);
+      setTeachers(fetched.length > 0 ? fetched : []);
     } catch (error) {
       console.error('Error fetching employees:', error);
     } finally {

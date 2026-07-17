@@ -46,33 +46,16 @@ export default function EmployeeHistoryPage() {
         const response = await teacherService.getById(id);
         teacherData = response.data;
       } catch (err) {
-        console.log('Fetching teacher by ID failed, falling back to localStorage');
-      }
-
-      // If backend fails, try fallback
-      if (!teacherData) {
-        const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-        teacherData = customTeachers.find((t: any) => t.id === id);
+        console.log('Fetching teacher by ID failed');
       }
 
       setTeacher(teacherData);
 
-      // Load extra details for salary/role
-      const savedExtras = localStorage.getItem('employees_extra_info');
-      let extra = {
-        role: teacherData?.specializations?.[0] || 'Teacher',
-        monthlySalary: 'Rs 45,000',
-        profilePictureUrl: '',
+      // Load extra details from teacher record
+      const extra = {
+        role: teacherData?.designation || teacherData?.specializations?.[0] || 'Teacher',
+        monthlySalary: teacherData?.monthly_salary || 'Rs 0'
       };
-
-      if (savedExtras) {
-        try {
-          const extrasMap = JSON.parse(savedExtras);
-          if (extrasMap[id]) {
-            extra = { ...extra, ...extrasMap[id] };
-          }
-        } catch (e) {}
-      }
 
       // Generate history
       if (teacherData) {

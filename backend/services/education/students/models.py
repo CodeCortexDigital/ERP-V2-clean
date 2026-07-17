@@ -122,3 +122,28 @@ class Student(SchoolAliasMixin, SoftDeleteModel):
         if class_name and section_name:
             return f'{self.full_name} ({self.student_id}) — {class_name}-{section_name}'
         return f'{self.full_name} ({self.student_id})'
+
+
+class Certificate(models.Model):
+    """Generated certificates for students and employees"""
+    RECIPIENT_CHOICES = [
+        ('student', 'Student'),
+        ('employee', 'Employee'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    template = models.CharField(max_length=100)
+    recipient_type = models.CharField(max_length=20, choices=RECIPIENT_CHOICES)
+    recipient_name = models.CharField(max_length=255)
+    recipient_id = models.CharField(max_length=100, blank=True, default='')
+    recipient_details = models.JSONField(default=dict, blank=True)
+    custom_text = models.TextField(blank=True, default='')
+    issue_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.template} - {self.recipient_name}"
+    
+    class Meta:
+        ordering = ['-issue_date', '-created_at']

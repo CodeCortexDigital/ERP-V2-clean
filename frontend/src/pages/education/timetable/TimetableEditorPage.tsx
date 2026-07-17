@@ -67,18 +67,7 @@ export default function TimetableEditorPage() {
   const [periods, setPeriods] = useState<Period[]>([])
   const [activeDays, setActiveDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
 
-  useEffect(() => {
-    const saved = localStorage.getItem('active_weekdays');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const active = parsed.filter((d: any) => d.is_active).map((d: any) => d.day_code);
-        if (active.length > 0) {
-          setActiveDays(active);
-        }
-      } catch (e) {}
-    }
-  }, []);
+  useEffect(() => {}, []);
   
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [teachers, setTeachers] = useState<Teacher[]>([])
@@ -144,18 +133,7 @@ export default function TimetableEditorPage() {
       // FIX: Extract teachers properly and check if we have actual data
       const rawTeachers = Array.isArray(teachersRes.data) ? teachersRes.data : (teachersRes.data as any)?.results || []
       
-      // Merge custom_teachers from localStorage (same logic as TeachersManagement)
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      const merged = [...rawTeachers];
-      customTeachers.forEach((ct: any) => {
-        if (!merged.some(t => String(t.id) === String(ct.id))) {
-          merged.push(ct);
-        }
-      });
-
-      // Filter out deleted teachers (same logic as TeachersManagement)
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const teachersData = merged.filter(t => !deletedIds.includes(t.id));
+      const teachersData = rawTeachers;
 
       console.log('✅ Teachers loaded from API:', teachersData.length)
       
@@ -335,19 +313,7 @@ export default function TimetableEditorPage() {
     const getTeacherSpecialties = (name: string): string[] => {
       const lower = name.toLowerCase();
       
-      const actualTeacherSubjects: Record<string, string[]> = {
-        'maryam': ['English', 'General Knowledge', 'Islamiyat'],
-        'ali': ['Mathematics', 'Physics', 'Computer Science'],
-        'bilal': ['Chemistry', 'Biology', 'General Science'],
-        'hina': ['Urdu', 'Pakistan Studies', 'Social Studies'],
-        'fatima': ['Islamiyat', 'Arabic', 'Quran'],
-        'ayan': ['Computer Science', 'ICT', 'Programming'],
-        'rizwan': ['Physics', 'Mathematics', 'General Science'],
-        'ayesha': ['Urdu', 'English', 'Arts'],
-        'hamza': ['English', 'Pakistan Studies', 'History'],
-        'sanaullah': ['Islamiyat', 'Arabic', 'Urdu'],
-        'tayyaba': ['General Science', 'Biology', 'Chemistry']
-      };
+      const actualTeacherSubjects: Record<string, string[]> = {};
       
       // Check if this teacher has defined subjects
       for (const [teacherName, subjects] of Object.entries(actualTeacherSubjects)) {
@@ -502,8 +468,6 @@ export default function TimetableEditorPage() {
       
       const generated = generateCompleteTimetable();
       if (generated.length > 0) {
-        localStorage.setItem('custom_timetable_entries', JSON.stringify(generated));
-        localStorage.setItem('timetable_seeded_v9', 'true');
         toast.success(`✅ Generated ${generated.length} conflict-free sessions using ${teachers.length} teachers`)
       }
       
@@ -517,8 +481,6 @@ export default function TimetableEditorPage() {
       setTimeout(async () => {
         const generated = generateCompleteTimetable();
         if (generated.length > 0) {
-          localStorage.setItem('custom_timetable_entries', JSON.stringify(generated));
-          localStorage.setItem('timetable_seeded_v9', 'true');
           toast.success(`✅ Conflict-free weekly schedule optimized! Scheduled ${generated.length} sessions using ${teachers.length} teachers.`);
         } else {
           toast.error('Failed to generate. Please verify that classes, teachers, and classrooms exist.');

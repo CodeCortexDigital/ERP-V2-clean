@@ -6,6 +6,11 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Roboto', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['Mulish', '"Museo Sans"', 'Roboto', 'sans-serif'],
+        heading: ['Mulish', '"Museo Sans"', 'Roboto', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

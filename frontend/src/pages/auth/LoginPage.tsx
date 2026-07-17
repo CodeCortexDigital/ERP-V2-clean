@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { User, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import teacherService from '@/services/teacher.service';
+import { extractListData } from '@/services/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -21,8 +23,8 @@ export default function LoginPage() {
     if (!savedStaff) {
       const defaultStaffCreds = {
         't-1': {
-          username: 'maryamfatima250822',
-          password: 'staff_250822'
+          username: 'mr.bilalhassanEMP0010',
+          password: 'staff_EMP0010'
         }
       };
       localStorage.setItem('staff_login_credentials', JSON.stringify(defaultStaffCreds));
@@ -108,9 +110,9 @@ export default function LoginPage() {
           });
 
           if (matchedStaffId) {
-            // Find employee name
+            // Find employee name from localStorage extras
             const employeesExtra = JSON.parse(localStorage.getItem('employees_extra_info') || '{}');
-            const staffName = employeesExtra[matchedStaffId]?.fullName || 'Maryam Fatima';
+            const staffName = employeesExtra[matchedStaffId]?.fullName || userId;
 
             const mockUser = {
               id: matchedStaffId,
@@ -120,6 +122,91 @@ export default function LoginPage() {
               full_name: staffName,
               portal_path: '/teacher'
             };
+
+            // Extract employee_id fragments from the username for matching
+            const empIdMatch = userId.match(/EMP[_-]?(\d+)/i);
+            const empIdFromUsername = empIdMatch ? empIdMatch[0] : ''; // e.g. "EMP0010"
+            const empIdDigits = empIdMatch ? empIdMatch[1] : '';      // e.g. "0010"
+            // Also extract the name part before EMP for name matching
+            const namePart = userId.split(/EMP[_-]?\d+/i)[0]?.toLowerCase().replace(/[^a-z]/g, '') || '';
+
+            // Fetch real employee data from API to store for dashboard
+            let currentEmployeeData: any = null;
+            try {
+              const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
+              const allTeachers = extractListData<any>(tRes.data);
+              const matchedTeacher = allTeachers.find((t: any) => {
+                const empId = String(t.employee_id || '').toUpperCase();
+                const empDigits = empId.replace(/[^0-9]/g, '');
+                return (
+                  String(t.id) === String(matchedStaffId) ||
+                  empId === empIdFromUsername.toUpperCase() ||
+                  empId.includes(empIdFromUsername.toUpperCase()) ||
+                  (empIdDigits && empDigits.includes(empIdDigits)) ||
+                  t.full_name?.toLowerCase().replace(/[^a-z]/g, '').includes(namePart)
+                );
+              });
+              if (matchedTeacher) {
+                currentEmployeeData = {
+                  name: matchedTeacher.full_name,
+                  regNo: matchedTeacher.employee_id,
+                  role: matchedTeacher.specializations?.[0] || 'Teacher',
+                  monthlySalary: matchedTeacher.monthly_salary || 'Rs. 1,000',
+                  fatherName: matchedTeacher.father_husband_name || '--',
+                  phone: matchedTeacher.phone || '--',
+                  email: matchedTeacher.email || mockUser.email,
+                  address: matchedTeacher.home_address || matchedTeacher.address || '--',
+                  cnic: matchedTeacher.national_id || '--',
+                  education: matchedTeacher.qualifications?.[0] || matchedTeacher.education || 'N/A',
+                  gender: matchedTeacher.gender || 'Male',
+                  religion: matchedTeacher.religion || 'Islam',
+                  bloodGroup: matchedTeacher.blood_group || 'O+',
+                  dob: matchedTeacher.date_of_birth || '--',
+                  joiningDate: matchedTeacher.joining_date || '--',
+                  experience: matchedTeacher.experience_years ? `${matchedTeacher.experience_years} Years` : 'N/A',
+                  _apiId: matchedTeacher.id // store the real API id for dashboard matching
+                };
+              }
+            } catch (_) {}
+            // Fallback: try employeesExtra by employee_id
+            if (!currentEmployeeData) {
+              let extraInfo: any = null;
+              for (const [, extra] of Object.entries(employeesExtra)) {
+                const e = extra as any;
+                const eId = String(e.employeeId || '').toUpperCase();
+                if (eId === empIdFromUsername.toUpperCase() || (empIdDigits && eId.includes(empIdDigits))) {
+                  extraInfo = e;
+                  break;
+                }
+              }
+              currentEmployeeData = {
+                name: extraInfo?.fullName || staffName,
+                regNo: extraInfo?.employeeId || matchedStaffId,
+                role: extraInfo?.role || 'Teacher',
+                monthlySalary: extraInfo?.monthlySalary || 'Rs. 1,000',
+                fatherName: extraInfo?.fatherName || '--',
+                phone: extraInfo?.phone || '--',
+                email: mockUser.email,
+                address: extraInfo?.homeAddress || '--',
+                cnic: extraInfo?.nationalId || '--',
+                education: extraInfo?.education || 'N/A',
+                gender: extraInfo?.gender || 'Male',
+                religion: extraInfo?.religion || 'Islam',
+                bloodGroup: extraInfo?.bloodGroup || 'O+',
+                dob: extraInfo?.dateOfBirth || '--',
+                joiningDate: extraInfo?.joiningDate || '--',
+                experience: extraInfo?.experience ? `${extraInfo.experience} Years` : 'N/A'
+              };
+            }
+            localStorage.setItem('current_employee_data', JSON.stringify(currentEmployeeData));
+
+            // If we matched a real teacher from API, use its ID for the auth user
+            const realApiId = currentEmployeeData?._apiId;
+            if (realApiId) {
+              mockUser.id = String(realApiId);
+              currentEmployeeData._apiId = undefined; // clean up
+              localStorage.setItem('current_employee_data', JSON.stringify(currentEmployeeData));
+            }
 
             localStorage.setItem('access_token', 'mock-access-token');
             localStorage.setItem('refresh_token', 'mock-refresh-token');
@@ -207,8 +294,8 @@ export default function LoginPage() {
           }
         } catch (e) {}
       }
-      setUserId('maryamfatima250822');
-      setPassword('staff_250822');
+      setUserId('169081w710230');
+      setPassword('169081w710230');
     } else if (role === 'student') {
       // Find a generated student credential
       const savedStudents = localStorage.getItem('student_login_credentials');
@@ -232,7 +319,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#DEDDF8] flex items-center justify-center p-4 sm:p-8 font-sans">
       <div className="max-w-6xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col lg:flex-row min-h-[620px]">
         
-        {/* Left Side: Login Form (eSkooly theme) */}
+        {/* Left Side: Login Form (Code Cortex theme) */}
         <div className="w-full lg:w-1/2 p-8 sm:p-12 flex flex-col justify-between space-y-8 bg-slate-50/50">
           
           {/* Logo & Header */}
@@ -240,7 +327,7 @@ export default function LoginPage() {
             <div className="flex items-center gap-2">
               <span className="text-3xl text-purple-650">🎓</span>
               <span className="text-2xl font-black tracking-tight text-slate-800">
-                eSkooly
+                Code Cortex
               </span>
             </div>
             <div className="space-y-1">

@@ -3,7 +3,9 @@ from django.views.decorators.cache import cache_page
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
 import uuid as _uuid
 from services.education.students.permissions import IsStaffOrReadOnly
 from services.core.utils.cache import get_timeout
@@ -13,7 +15,7 @@ from .models import (
     Syllabus, SyllabusUnit, SyllabusTopic, SyllabusSubTopic,
     LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability, TeacherDailyAvailability, TeacherAttendance,
     Period, Classroom, TimetableEntry, TeacherLeave, TimetableSubstitution, LeaveBalance, Homework,
-    LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback
+    LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback, LiveMeeting
 )
 from .serializers import (
     AcademicYearSerializer, SchoolClassSerializer, 
@@ -23,7 +25,8 @@ from .serializers import (
     LearningResourceSerializer, TeacherSerializer, TeacherSubjectAssignmentSerializer, TeacherAvailabilitySerializer, TeacherDailyAvailabilitySerializer, TeacherAttendanceSerializer,
     PeriodSerializer, ClassroomSerializer, TimetableEntrySerializer,
     LessonPlanSerializer, TopicCoverageSerializer, StudentTopicProgressSerializer, TeacherFeedbackSerializer,
-    TeacherLeaveSerializer, TimetableSubstitutionSerializer, LeaveBalanceSerializer, HomeworkSerializer
+    TeacherLeaveSerializer, TimetableSubstitutionSerializer, LeaveBalanceSerializer, HomeworkSerializer,
+    LiveMeetingSerializer
 )
 
 
@@ -828,3 +831,17 @@ class HomeworkDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Homework.objects.all()
     serializer_class = HomeworkSerializer
     lookup_field = 'id'
+
+
+class LiveMeetingViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = LiveMeeting.objects.select_related('class_ref', 'created_by')
+    serializer_class = LiveMeetingSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['is_active', 'meeting_with', 'class_ref', 'date']
+    search_fields = ['title', 'code', 'message']
+    ordering_fields = ['date', 'time', 'created_at']
+    ordering = ['-date', '-created_at']
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.teacher_profile if hasattr(self.request.user, 'teacher_profile') else None)

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Wallet, Plus, Trash2, Edit3, Save, ArrowLeft } from 'lucide-react';
+import ledgerService from '@/services/ledger.service';
 
 interface AccountHead {
   id: string;
@@ -32,14 +33,20 @@ export default function ChartOfAccountsPage() {
     fetchTransactions();
   }, []);
 
-  const fetchTransactions = () => {
-    const saved = localStorage.getItem('finance_transactions');
-    if (saved) {
-      try {
-        setTransactions(JSON.parse(saved));
-      } catch (e) {
-        console.log('Error parsing finance transactions');
-      }
+  const fetchTransactions = async () => {
+    try {
+      const response = await ledgerService.getLedgerEntries();
+      const entries = response.data || [];
+      const txs: Transaction[] = entries.map((e: any) => ({
+        id: e.id,
+        date: e.date,
+        description: e.description,
+        amount: Math.abs(e.amount),
+        type: e.type === 'income' ? 'Income' : 'Expense'
+      }));
+      setTransactions(txs);
+    } catch (err) {
+      console.log('Error fetching ledger entries');
     }
   };
 
@@ -57,28 +64,21 @@ export default function ChartOfAccountsPage() {
     .reduce((acc, t) => acc + Number(t.amount || 0), 0);
   const netBalance = totalIncome - totalExpense;
 
-  const fetchHeads = () => {
-    const saved = localStorage.getItem('account_heads');
-    if (saved) {
-      try {
-        setHeads(JSON.parse(saved));
-      } catch (e) {
-        console.log('Error parsing account heads');
-      }
-    } else {
-      // Default placeholder accounts matching eSkooly
-      const defaultHeads: AccountHead[] = [
-        { id: 'h-1', name: 'Tuition Fee', type: 'Income' },
-        { id: 'h-2', name: 'Electricity Bill', type: 'Expense' },
-        { id: 'h-3', name: 'Admission Fee', type: 'Income' },
-        { id: 'h-4', name: 'Staff Salaries', type: 'Expense' }
-      ];
-      setHeads(defaultHeads);
-      localStorage.setItem('account_heads', JSON.stringify(defaultHeads));
+  const fetchHeads = async () => {
+    try {
+      const response = await ledgerService.getAccountHeads();
+      const apiHeads: AccountHead[] = (response.data || []).map((h: any) => ({
+        id: h.id,
+        name: h.name,
+        type: h.type === 'income' ? 'Income' : 'Expense'
+      }));
+      setHeads(apiHeads);
+    } catch (err) {
+      console.log('Error fetching account heads');
     }
   };
 
-  const handleSaveHead = () => {
+  const handleSaveHead = async () => {
     if (!headName.trim()) {
       toast.error('Please enter Head Name');
       return;
@@ -88,32 +88,32 @@ export default function ChartOfAccountsPage() {
       return;
     }
 
-    let updatedHeads: AccountHead[] = [];
+    try {
+      const apiType = headType === 'Income' ? 'income' : 'expense';
+      
+      if (editingId) {
+        await ledgerService.updateAccountHead(editingId, {
+          name: headName.trim(),
+          type: apiType
+        });
+        setEditingId(null);
+        toast.success('Account Head updated successfully!');
+      } else {
+        await ledgerService.createAccountHead({
+          name: headName.trim(),
+          type: apiType
+        });
+        toast.success('Account Head added successfully!');
+      }
 
-    if (editingId) {
-      updatedHeads = heads.map(h => h.id === editingId ? {
-        id: h.id,
-        name: headName.trim(),
-        type: headType
-      } : h);
-      setEditingId(null);
-      toast.success('Account Head updated successfully!');
-    } else {
-      const newHead: AccountHead = {
-        id: `head-${Date.now()}`,
-        name: headName.trim(),
-        type: headType
-      };
-      updatedHeads = [...heads, newHead];
-      toast.success('Account Head added successfully!');
+      await fetchHeads();
+      
+      // Reset Form
+      setHeadName('');
+      setHeadType('');
+    } catch (err) {
+      toast.error('Failed to save account head');
     }
-
-    setHeads(updatedHeads);
-    localStorage.setItem('account_heads', JSON.stringify(updatedHeads));
-    
-    // Reset Form
-    setHeadName('');
-    setHeadType('');
   };
 
   const handleEditClick = (h: AccountHead) => {
@@ -122,12 +122,15 @@ export default function ChartOfAccountsPage() {
     setHeadType(h.type);
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = async (id: string) => {
     if (!confirm('Are you sure you want to delete this Account Head?')) return;
-    const updated = heads.filter(h => h.id !== id);
-    setHeads(updated);
-    localStorage.setItem('account_heads', JSON.stringify(updated));
-    toast.success('Account Head deleted successfully');
+    try {
+      await ledgerService.deleteAccountHead(id);
+      toast.success('Account Head deleted successfully');
+      await fetchHeads();
+    } catch (err) {
+      toast.error('Failed to delete account head');
+    }
   };
 
   return (

@@ -32,13 +32,7 @@ export default function StaffLoginsPage() {
       const rawTeachers = extractListData<any>(res.data || []);
 
       const defaultTeachers = [
-        {
-          id: 't-1',
-          employee_id: '250822',
-          full_name: 'Maryam Fatima',
-          specializations: ['Teacher'],
-          phone: '+92 300 1234567'
-        }
+        {}
       ];
 
       const combinedList = rawTeachers.length > 0 ? rawTeachers : defaultTeachers;
@@ -75,16 +69,7 @@ export default function StaffLoginsPage() {
 
   // Filter staff based on selection & search
   const filteredTeachers = teachers.filter(t => {
-    const savedExtras = localStorage.getItem('employees_extra_info');
-    let extraRole = t.specializations?.[0] || 'Teacher';
-    if (savedExtras) {
-      try {
-        const extrasMap = JSON.parse(savedExtras);
-        if (extrasMap[t.id] && extrasMap[t.id].role) {
-          extraRole = extrasMap[t.id].role;
-        }
-      } catch (e) {}
-    }
+    const extraRole = t.designation || t.specializations?.[0] || 'Teacher';
 
     const roleMatch = selectedRole === '' || extraRole.toLowerCase().trim() === selectedRole.toLowerCase().trim();
     
@@ -237,16 +222,7 @@ export default function StaffLoginsPage() {
             <tbody>
               {currentItems.length > 0 ? (
                 currentItems.map((t) => {
-                  const savedExtras = localStorage.getItem('employees_extra_info');
-                  let extraRole = t.specializations?.[0] || 'Teacher';
-                  if (savedExtras) {
-                    try {
-                      const extrasMap = JSON.parse(savedExtras);
-                      if (extrasMap[t.id] && extrasMap[t.id].role) {
-                        extraRole = extrasMap[t.id].role;
-                      }
-                    } catch (e) {}
-                  }
+                  const extraRole = t.designation || t.specializations?.[0] || 'Teacher';
 
                   const cred = credentials[t.id] || { username: '', password: '' };
                   const isVisible = visiblePasswords[t.id] || false;

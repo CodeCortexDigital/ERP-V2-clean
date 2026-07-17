@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, Calendar, Clock, MapPin, FileText } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/services/api';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/Input';
 
@@ -39,15 +39,6 @@ export default function ExamSchedules() {
     status: 'scheduled' as 'scheduled' | 'ongoing' | 'completed'
   });
 
-  const getLocalSchedules = (): ExamSchedule[] => {
-    const local = localStorage.getItem('local_exam_schedules');
-    return local ? JSON.parse(local) : [];
-  };
-
-  const saveLocalSchedules = (list: ExamSchedule[]) => {
-    localStorage.setItem('local_exam_schedules', JSON.stringify(list));
-  };
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -63,21 +54,17 @@ export default function ExamSchedules() {
         exam_code: e.exam_code || 'EXM-001'
       }));
 
-      // Fallback exam if database empty
-      if (formattedExams.length === 0) {
-        formattedExams.push({ id: 'exam-fallback-1', title: 'mids', exam_code: 'EXM-2026-0001' });
-      }
       setExams(formattedExams);
 
-      // Parse schedules
+      // Parse schedules from API only
       const rawSchedules = Array.isArray(schedulesRes.data) ? schedulesRes.data : schedulesRes.data?.results || [];
       const backendMapped: ExamSchedule[] = rawSchedules.map((s: any) => {
         const matchingExam = formattedExams.find(ex => ex.id === s.exam);
         return {
           id: s.id,
           exam_id: s.exam,
-          exam_name: matchingExam ? matchingExam.title : 'mids',
-          exam_code: matchingExam ? matchingExam.exam_code : 'EXM-2026-0001',
+          exam_name: matchingExam ? matchingExam.title : 'Exam',
+          exam_code: matchingExam ? matchingExam.exam_code : 'EXM-001',
           date: s.date || '',
           start_time: s.start_time || '',
           end_time: s.end_time || '',
@@ -87,38 +74,12 @@ export default function ExamSchedules() {
         };
       });
 
-      // Merge with local storage
-      const localOnly = getLocalSchedules();
-      const combined = [...backendMapped];
-      localOnly.forEach(item => {
-        if (!combined.some(b => b.id === item.id)) {
-          combined.push(item);
-        }
-      });
-
-      // Fallback schedule if empty
-      if (combined.length === 0) {
-        combined.push({
-          id: 'schedule-fallback-1',
-          exam_id: 'exam-fallback-1',
-          exam_name: 'mids',
-          exam_code: 'EXM-2026-0001',
-          date: '2026-07-04',
-          start_time: '09:00',
-          end_time: '12:00',
-          venue: 'Main Hall',
-          room: 'Hall A',
-          status: 'scheduled'
-        });
-      }
-
-      setSchedules(combined);
+      setSchedules(backendMapped);
       if (formattedExams.length > 0 && !formData.exam_id) {
         setFormData(prev => ({ ...prev, exam_id: formattedExams[0].id }));
       }
     } catch (error) {
       console.error('Error fetching schedules:', error);
-      setSchedules(getLocalSchedules());
     } finally {
       setLoading(false);
     }
@@ -147,93 +108,10 @@ export default function ExamSchedules() {
 
     try {
       if (editingItem) {
-        if (editingItem.id.startsWith('local-')) {
-          const list = getLocalSchedules();
-          const updated = list.map(item => {
-            if (item.id === editingItem.id) {
-              const matchedExam = exams.find(ex => ex.id === formData.exam_id);
-              return {
-                ...item,
-                exam_id: formData.exam_id,
-                exam_name: matchedExam ? matchedExam.title : 'Exam',
-                exam_code: matchedExam ? matchedExam.exam_code : 'EXM-001',
-                date: formData.date,
-                start_time: formData.start_time,
-                end_time: formData.end_time,
-                venue: formData.venue,
-                room: formData.room,
-                status: formData.status
-              };
-            }
-            return item;
-          });
-          saveLocalSchedules(updated);
-        } else {
-          try {
-            await api.put(`/auth/exams/schedules/${editingItem.id}/`, payload);
-          } catch (backendError) {
-            console.warn('Backend update failed, falling back to local storage:', backendError);
-            const list = getLocalSchedules();
-            const matchedExam = exams.find(ex => ex.id === formData.exam_id);
-            const updated = list.map(item => {
-              if (item.id === editingItem.id) {
-                return {
-                  ...item,
-                  exam_id: formData.exam_id,
-                  exam_name: matchedExam ? matchedExam.title : 'Exam',
-                  exam_code: matchedExam ? matchedExam.exam_code : 'EXM-001',
-                  date: formData.date,
-                  start_time: formData.start_time,
-                  end_time: formData.end_time,
-                  venue: formData.venue,
-                  room: formData.room,
-                  status: formData.status
-                };
-              }
-              return item;
-            });
-            
-            // If it wasn't in local list (e.g. it was the hardcoded fallback schedule-fallback-1), we append it to the local list
-            if (!updated.some(item => item.id === editingItem.id)) {
-              updated.push({
-                id: editingItem.id,
-                exam_id: formData.exam_id,
-                exam_name: matchedExam ? matchedExam.title : 'Exam',
-                exam_code: matchedExam ? matchedExam.exam_code : 'EXM-001',
-                date: formData.date,
-                start_time: formData.start_time,
-                end_time: formData.end_time,
-                venue: formData.venue,
-                room: formData.room,
-                status: formData.status
-              });
-            }
-            saveLocalSchedules(updated);
-          }
-        }
+        await api.put(`/auth/exams/schedules/${editingItem.id}/`, payload);
         toast.success('Exam schedule updated successfully!');
       } else {
-        try {
-          await api.post('/auth/exams/schedules/', payload);
-        } catch {
-          // Local fallback
-          const list = getLocalSchedules();
-          const matchedExam = exams.find(ex => ex.id === formData.exam_id);
-          const newLocal: ExamSchedule = {
-            id: `local-sched-${Date.now()}`,
-            exam_id: formData.exam_id,
-            exam_name: matchedExam ? matchedExam.title : 'Exam',
-            exam_code: matchedExam ? matchedExam.exam_code : 'EXM-001',
-            date: formData.date,
-            start_time: formData.start_time,
-            end_time: formData.end_time,
-            venue: formData.venue,
-            room: formData.room,
-            status: formData.status
-          };
-          list.push(newLocal);
-          saveLocalSchedules(list);
-        }
+        await api.post('/auth/exams/schedules/', payload);
         toast.success('Exam schedule created successfully!');
       }
       await fetchData();
@@ -271,13 +149,7 @@ export default function ExamSchedules() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this schedule?')) return;
     try {
-      if (id.startsWith('local-')) {
-        const list = getLocalSchedules();
-        const updated = list.filter(item => item.id !== id);
-        saveLocalSchedules(updated);
-      } else {
-        await api.delete(`/auth/exams/schedules/${id}/`);
-      }
+      await api.delete(`/auth/exams/schedules/${id}/`);
       toast.success('Schedule deleted successfully');
       await fetchData();
     } catch (error) {

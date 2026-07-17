@@ -64,17 +64,7 @@ for code_idx, s_name in enumerate(all_subject_names, 1):
     subject_objects[s_name] = sub_obj
 
 # 4. Setup Teachers & Specializations (45 Teachers)
-teacher_specialization_map = {
-    'Mathematics': ['Maryam Fatima', 'Dr. Mariam Butt', 'Mr. Hamza Ali Abbasi', 'Ms. Amna Tariq', 'Mr. Hassan Malik'],
-    'English': ['Dr. Ahmed Raza', 'Mr. Faisal Qureshi', 'Mr. Saad Rana', 'Ms. Abida Parveen', 'Prof. Sara Khan'],
-    'Urdu': ['Ms. Fatima Ali', 'Prof. Usman Shah', 'Mr. Ali Zafar', 'Mr. Zeeshan Haider', 'Ms. Sadia Iqbal'],
-    'Physics': ['Dr. Bushra Ansari', 'Prof. Ghulam Ali', 'Dr. Atif Aslam', 'Prof. Omar Farooq', 'Prof. Tahir Ul Qadri'],
-    'Chemistry': ['Dr. Tariq Mahmood', 'Dr. Rehan Siddiqui', 'Dr. Danish Taimoor', 'Ms. Saba Qamar', 'Ms. Hina Chaudhry'],
-    'Biology': ['Dr. Ayesha Hussain', 'Dr. Asim Azhar', 'Ms. Yumna Zaidi', 'Ms. Sajal Aly', 'Ms. Momina Mustehsan'],
-    'Computer': ['Mr. Bilal Ahmed', 'Mr. Kamran Akmal', 'Mr. Shoaib Akhtar', 'Mr. Ahad Raza Mir', 'Prof. Adnan Siddiqui'],
-    'History': ['Ms. Zainab Sheikh', 'Ms. Hadiqa Kiani', 'Prof. Sanam Saeed', 'Ms. Rabia Anum', 'Mr. Rahat Fateh'],
-    'Islamic Studies': ['Prof. Abrar Ul Haq', 'Mr. Shehzad Roy', 'Mr. Fawad Khan', 'Dr. Mahira Khan', 'Prof. Nida Yasir']
-}
+
 
 teacher_specialization_map['Computer Science'] = teacher_specialization_map['Computer']
 teacher_specialization_map['Games'] = teacher_specialization_map['History']

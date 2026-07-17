@@ -471,7 +471,7 @@ export default function AcademicsPage() {
             onClick={() => {
               if (activeTab === 'classes') {
                 // Navigate to Add Class page instead of opening modal
-                navigate('/education/academics/classes/add');
+                navigate('/education/academic-setup/classes/add');
               } else if (activeTab === 'classrooms') {
                 setEditingClassroom(null);
                 setClassroomForm({ name: '', code: '', capacity: 30, floor: 1, building: 'Main' });
@@ -547,7 +547,7 @@ export default function AcademicsPage() {
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <button
-                              onClick={() => navigate(`/education/academics/classes/edit/${item.id}`)}
+                              onClick={() => navigate(`/education/academic-setup/classes/edit/${item.id}`)}
                               className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors"
                               title="Edit Class"
                             >

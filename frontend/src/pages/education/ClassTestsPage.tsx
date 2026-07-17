@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Edit, Trash2, Check, FileText, Search, Printer, Download } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/services/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import examService from '@/services/exam.service';
 
 interface Student {
   id: string;
@@ -137,19 +138,51 @@ export default function ClassTestsPage() {
     }
   };
 
-  const getSavedTests = (): ClassTest[] => {
-    const saved = localStorage.getItem('local_class_tests');
-    return saved ? JSON.parse(saved) : [];
+  const getSavedTests = async (): Promise<ClassTest[]> => {
+    try {
+      const res = await examService.getExams({
+        class_id: selectedClassId,
+        subject: selectedSubjectId,
+        exam_type: 'test',
+      });
+      const exams = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      return exams.map((e: any) => ({
+        id: e.id,
+        class_id: e.class_ref,
+        class_name: e.class_name || '',
+        subject_id: e.subject,
+        subject_name: e.subject_name || '',
+        date: e.exam_date,
+        total_marks: e.total_marks,
+        marks: {} // Will be populated by loadResultsForExam
+      }));
+    } catch {
+      return [];
+    }
   };
 
-  const saveTestsList = (list: ClassTest[]) => {
-    localStorage.setItem('local_class_tests', JSON.stringify(list));
+  const loadResultsForExam = async (examId: string): Promise<Record<string, number>> => {
+    try {
+      const res = await examService.getResults({ exam_id: examId });
+      const results = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      const marksMap: Record<string, number> = {};
+      results.forEach((r: any) => {
+        marksMap[r.student] = r.obtained_marks;
+      });
+      return marksMap;
+    } catch {
+      return {};
+    }
+  };
+
+  const saveTestsList = async (list: ClassTest[]) => {
+    // No longer needed - saves happen per exam
   };
 
   // Find saved test for selectors
-  const loadSavedTest = (classId: string, subjectId: string, date: string, currentStudentsList = students) => {
-    const list = getSavedTests();
-    const test = list.find(t => 
+  const loadSavedTest = async (classId: string, subjectId: string, date: string, currentStudentsList = students) => {
+    const tests = await getSavedTests();
+    const test = tests.find(t => 
       (t.class_id === classId || t.class_name === classId || (classes.find(c => c.id === classId)?.name === t.class_name)) &&
       (t.subject_id === subjectId || t.subject_name === subjectId || (subjects.find(s => s.id === subjectId)?.name === t.subject_name)) &&
       t.date === date
@@ -162,9 +195,10 @@ export default function ClassTestsPage() {
 
     if (test) {
       setTotalMarks(String(test.total_marks));
+      const marksFromApi = await loadResultsForExam(test.id);
       const marksMap: Record<string, string> = {};
       classStudents.forEach(s => {
-        marksMap[s.id] = test.marks[s.id] !== undefined ? String(test.marks[s.id]) : '';
+        marksMap[s.id] = marksFromApi[s.id] !== undefined ? String(marksFromApi[s.id]) : '';
       });
       setObtainedMarks(marksMap);
     } else {
@@ -177,7 +211,7 @@ export default function ClassTestsPage() {
     }
   };
 
-  const handleSelectorChange = (field: 'class' | 'subject' | 'date', val: string) => {
+  const handleSelectorChange = async (field: 'class' | 'subject' | 'date', val: string) => {
     let cId = selectedClassId;
     let sId = selectedSubjectId;
     let dt = testDate;
@@ -193,112 +227,178 @@ export default function ClassTestsPage() {
       dt = val;
     }
 
-    loadSavedTest(cId, sId, dt);
+    await loadSavedTest(cId, sId, dt);
   };
 
-  const handleSaveMarks = (e: React.FormEvent) => {
+  const handleSaveMarks = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClassId || !selectedSubjectId || !testDate || !totalMarks) {
       toast.error('Please select class, subject, date, and enter total marks');
       return;
     }
 
-    const testList = getSavedTests();
-    const cleanList = testList.filter(t => !(
-      (t.class_id === selectedClassId || t.class_name === selectedClassId || (classes.find(c => c.id === selectedClassId)?.name === t.class_name)) &&
-      (t.subject_id === selectedSubjectId || t.subject_name === selectedSubjectId || (subjects.find(s => s.id === selectedSubjectId)?.name === t.subject_name)) &&
-      t.date === testDate
-    ));
-
-    const marksMap: Record<string, number> = {};
-    Object.entries(obtainedMarks).forEach(([id, val]) => {
-      if (val !== '') {
-        marksMap[id] = parseFloat(val);
-      }
-    });
-
     const targetClass = classes.find(c => c.id === selectedClassId);
     const targetSubject = subjects.find(s => s.id === selectedSubjectId);
 
-    const newTest: ClassTest = {
-      id: `test-${Date.now()}`,
-      class_id: selectedClassId,
-      class_name: targetClass?.name || 'Class',
-      subject_id: selectedSubjectId,
-      subject_name: targetSubject?.name || 'Subject',
-      date: testDate,
-      total_marks: parseFloat(totalMarks),
-      marks: marksMap
-    };
+    try {
+      // Create or find the exam
+      const examsRes = await examService.getExams({
+        class_id: selectedClassId,
+        subject: selectedSubjectId,
+        exam_type: 'test',
+      });
+      const exams = Array.isArray(examsRes.data) ? examsRes.data : (examsRes.data as any)?.results || [];
+      const existingExam = exams.find((ex: any) => ex.exam_date === testDate);
 
-    cleanList.push(newTest);
-    saveTestsList(cleanList);
-    toast.success('Test marks saved successfully!');
-    loadSavedTest(selectedClassId, selectedSubjectId, testDate);
+      let examId: string;
+      if (existingExam) {
+        examId = existingExam.id;
+        // Update exam total marks if needed
+        await examService.updateExam(examId, { total_marks: parseFloat(totalMarks) });
+      } else {
+        const newExam = await examService.createExam({
+          title: `Class Test - ${targetSubject?.name || 'Subject'}`,
+          exam_type: 'test',
+          class_ref: selectedClassId,
+          subject: selectedSubjectId,
+          total_marks: parseFloat(totalMarks),
+          passing_marks: Math.round(parseFloat(totalMarks) * 0.4),
+          exam_date: testDate,
+        });
+        examId = (newExam.data as any).id;
+      }
+
+      // Save results for each student
+      const classStudents = students.filter(s => {
+        const targetClassObj = classes.find(c => c.id === selectedClassId);
+        return s.class_id === selectedClassId || s.class_name === targetClassObj?.name;
+      });
+
+      for (const student of classStudents) {
+        const marksVal = obtainedMarks[student.id];
+        if (marksVal !== undefined && marksVal !== '') {
+          const obtained = parseFloat(marksVal);
+          const pct = Math.round((obtained / parseFloat(totalMarks)) * 100);
+          const isPass = pct >= 40;
+          
+          // Check if result already exists
+          const resultsRes = await examService.getResults({ exam_id: examId, student_id: student.id });
+          const existingResults = Array.isArray(resultsRes.data) ? resultsRes.data : (resultsRes.data as any)?.results || [];
+          
+          if (existingResults.length > 0) {
+            await examService.updateResult(existingResults[0].id, {
+              obtained_marks: obtained,
+            });
+          } else {
+            await examService.createResult({
+              exam: examId,
+              student: student.id,
+              obtained_marks: obtained,
+            });
+          }
+        }
+      }
+
+      toast.success('Test marks saved successfully!');
+      await loadSavedTest(selectedClassId, selectedSubjectId, testDate);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save test marks');
+    }
   };
 
-  const handleDeleteTest = () => {
+  const handleDeleteTest = async () => {
     if (!confirm('Are you sure you want to delete these test marks?')) return;
-    const testList = getSavedTests();
-    const updated = testList.filter(t => !(
-      (t.class_id === selectedClassId || t.class_name === selectedClassId || (classes.find(c => c.id === selectedClassId)?.name === t.class_name)) &&
-      (t.subject_id === selectedSubjectId || t.subject_name === selectedSubjectId || (subjects.find(s => s.id === selectedSubjectId)?.name === t.subject_name)) &&
-      t.date === testDate
-    ));
-    saveTestsList(updated);
-    toast.success('Test marks deleted successfully!');
-    loadSavedTest(selectedClassId, selectedSubjectId, testDate);
+    
+    try {
+      const examsRes = await examService.getExams({
+        class_id: selectedClassId,
+        subject: selectedSubjectId,
+        exam_type: 'test',
+      });
+      const exams = Array.isArray(examsRes.data) ? examsRes.data : (examsRes.data as any)?.results || [];
+      const examToDelete = exams.find((ex: any) => ex.exam_date === testDate);
+      
+      if (examToDelete) {
+        await examService.deleteExam(examToDelete.id);
+      }
+      
+      toast.success('Test marks deleted successfully!');
+      await loadSavedTest(selectedClassId, selectedSubjectId, testDate);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete test marks');
+    }
   };
 
   // ================= TAB 2: TEST RESULT GENERATOR =================
-  const handleGenerateResults = (e: React.FormEvent) => {
+  const handleGenerateResults = async (e: React.FormEvent) => {
     e.preventDefault();
-    const testList = getSavedTests();
-    const test = testList.find(t => 
-      (t.class_id === selectedClassId || t.class_name === selectedClassId || (classes.find(c => c.id === selectedClassId)?.name === t.class_name)) &&
-      (t.subject_id === selectedSubjectId || t.subject_name === selectedSubjectId || (subjects.find(s => s.id === selectedSubjectId)?.name === t.subject_name)) &&
-      t.date === testDate
-    );
-
-    const classStudents = students.filter(s => {
-      const targetClass = classes.find(c => c.id === selectedClassId);
-      return s.class_id === selectedClassId || s.class_name === targetClass?.name;
-    });
-
-    if (!test) {
-      setGeneratedResult({
-        exists: false,
-        className: classes.find(c => c.id === selectedClassId)?.name || 'Class',
-        subjectName: subjects.find(s => s.id === selectedSubjectId)?.name || 'Subject',
-        date: testDate
+    
+    try {
+      const examsRes = await examService.getExams({
+        class_id: selectedClassId,
+        subject: selectedSubjectId,
+        exam_type: 'test',
       });
-      return;
+      const exams = Array.isArray(examsRes.data) ? examsRes.data : (examsRes.data as any)?.results || [];
+      const exam = exams.find((ex: any) => ex.exam_date === testDate);
+
+      const classStudents = students.filter(s => {
+        const targetClass = classes.find(c => c.id === selectedClassId);
+        return s.class_id === selectedClassId || s.class_name === targetClass?.name;
+      });
+
+      if (!exam) {
+        setGeneratedResult({
+          exists: false,
+          className: classes.find(c => c.id === selectedClassId)?.name || 'Class',
+          subjectName: subjects.find(s => s.id === selectedSubjectId)?.name || 'Subject',
+          date: testDate
+        });
+        return;
+      }
+
+      // Load results for this exam
+      const resultsRes = await examService.getResults({ exam_id: exam.id });
+      const results = Array.isArray(resultsRes.data) ? resultsRes.data : (resultsRes.data as any)?.results || [];
+      const marksMap: Record<string, number> = {};
+      results.forEach((r: any) => {
+        marksMap[r.student] = r.obtained_marks;
+      });
+
+      const marksData = classStudents.map(s => {
+        const score = marksMap[s.id];
+        const pct = score !== undefined ? Math.round((score / exam.total_marks) * 100) : null;
+        return {
+          student: s,
+          score,
+          percentage: pct,
+          isPass: pct !== null ? pct >= 40 : false
+        };
+      });
+
+      const scoresList = Object.values(marksMap);
+      const average = scoresList.length > 0 
+        ? Math.round(scoresList.reduce((acc, cur) => acc + cur, 0) / scoresList.length)
+        : 0;
+
+      setGeneratedResult({
+        exists: true,
+        test: {
+          ...exam,
+          class_name: classes.find(c => c.id === selectedClassId)?.name || 'Class',
+          subject_name: subjects.find(s => s.id === selectedSubjectId)?.name || 'Subject',
+        },
+        data: marksData,
+        average,
+        maxScore: scoresList.length > 0 ? Math.max(...scoresList) : 0,
+        passRate: marksData.length > 0 ? Math.round((marksData.filter(d => d.isPass).length / marksData.length) * 100) : 0
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to generate results');
     }
-
-    const marksData = classStudents.map(s => {
-      const score = test.marks[s.id];
-      const pct = score !== undefined ? Math.round((score / test.total_marks) * 100) : null;
-      return {
-        student: s,
-        score,
-        percentage: pct,
-        isPass: pct !== null ? pct >= 40 : false
-      };
-    });
-
-    const scoresList = Object.values(test.marks);
-    const average = scoresList.length > 0 
-      ? Math.round(scoresList.reduce((acc, cur) => acc + cur, 0) / scoresList.length)
-      : 0;
-
-    setGeneratedResult({
-      exists: true,
-      test,
-      data: marksData,
-      average,
-      maxScore: scoresList.length > 0 ? Math.max(...scoresList) : 0,
-      passRate: marksData.length > 0 ? Math.round((marksData.filter(d => d.isPass).length / marksData.length) * 100) : 0
-    });
   };
 
   const handlePrint = () => {
@@ -318,24 +418,53 @@ export default function ClassTestsPage() {
     return s.class_id === selectedClassId || s.class_name === targetClass?.name;
   });
 
-  const getStudentTests = () => {
-    const list = getSavedTests();
-    // Resolve logged-in student class
-    const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-    const matched = customStudents.find((s: any) => 
-      String(s.id) === String(user?.id) || 
-      String(s.student_id) === String(user?.id) ||
-      s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-    );
-    const studentClass = matched?.class_name || (user as any)?.class_name || 'Grade 1-A';
-    
-    // Filter tests matching studentClass
-    return list.filter(t => 
-      t.class_name === studentClass || t.class_id === studentClass || (classes.find(c => c.id === t.class_id)?.name === studentClass)
-    );
+  const getStudentTests = async () => {
+    try {
+      // Get all tests
+      const examsRes = await examService.getExams({ exam_type: 'test' });
+      const exams = Array.isArray(examsRes.data) ? examsRes.data : (examsRes.data as any)?.results || [];
+      
+      // Filter by student's class
+      const studentClass = (user as any)?.class_name || 'Grade 1-A';
+      return exams.filter((e: any) => {
+        const className = classes.find(c => c.id === e.class_ref)?.name;
+        return className === studentClass || e.class_name === studentClass;
+      }).map((e: any) => ({
+        id: e.id,
+        class_id: e.class_ref,
+        class_name: classes.find(c => c.id === e.class_ref)?.name || 'Class',
+        subject_id: e.subject,
+        subject_name: e.subject_name || subjects.find(s => s.id === e.subject)?.name || 'Subject',
+        date: e.exam_date,
+        total_marks: e.total_marks,
+        marks: {} as Record<string, number>
+      }));
+    } catch {
+      return [];
+    }
   };
 
-  const savedTestsList = getSavedTests();
+  const [savedTestsList, setSavedTestsList] = useState<ClassTest[]>([]);
+  const [studentTestsList, setStudentTestsList] = useState<ClassTest[]>([]);
+  
+  useEffect(() => {
+    const loadTests = async () => {
+      const tests = await getSavedTests();
+      setSavedTestsList(tests);
+    };
+    loadTests();
+  }, [selectedClassId, selectedSubjectId, testDate]);
+  
+  useEffect(() => {
+    if (isStudent) {
+      const loadStudentTests = async () => {
+        const tests = await getStudentTests();
+        setStudentTestsList(tests);
+      };
+      loadStudentTests();
+    }
+  }, [isStudent]);
+  
   const testExists = savedTestsList.some(t => 
     (t.class_id === selectedClassId || t.class_name === selectedClassId || (classes.find(c => c.id === selectedClassId)?.name === t.class_name)) &&
     (t.subject_id === selectedSubjectId || t.subject_name === selectedSubjectId || (subjects.find(s => s.id === selectedSubjectId)?.name === t.subject_name)) &&
@@ -696,8 +825,7 @@ export default function ClassTestsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-50 font-semibold text-slate-700">
                   {(() => {
-                    const studentTests = getStudentTests();
-                    if (studentTests.length === 0) {
+                    if (studentTestsList.length === 0) {
                       // Fallback mock test records for Sundas to look populated and stunning
                       const mockTests = [
                         { subject_name: 'English', date: '2026-06-30', total_marks: 50, score: 40 },
@@ -726,16 +854,9 @@ export default function ClassTestsPage() {
                       });
                     }
                     
-                    return studentTests.map((t, idx) => {
+                    return studentTestsList.map((t, idx) => {
                       const studentKey = user?.id || 'st-1';
-                      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-                      const matched = customStudents.find((s: any) => 
-                        String(s.id) === String(user?.id) || 
-                        String(s.student_id) === String(user?.id) ||
-                        s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-                      );
-                      const stdId = matched?.id || 'st-1';
-                      const score = t.marks[stdId] !== undefined ? t.marks[stdId] : (t.marks['st-1'] ?? 40);
+                      const score = t.marks[studentKey] !== undefined ? t.marks[studentKey] : (t.marks['st-1'] ?? 40);
                       const pct = Math.round((score / t.total_marks) * 100);
                       const isPass = pct >= 40;
                       return (

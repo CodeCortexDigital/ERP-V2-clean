@@ -155,13 +155,16 @@ export default function TeachersManagement() {
     );
   }
 
-  const savedExtras = localStorage.getItem('employees_extra_info');
-  let extrasMap: any = {};
-  if (savedExtras) {
-    try {
-      extrasMap = JSON.parse(savedExtras);
-    } catch (e) {}
-  }
+  const getTeacherAvatar = (teacher: any): string => {
+    if (teacher.profile_picture && teacher.profile_picture.startsWith('http')) {
+      return teacher.profile_picture;
+    }
+    const name = teacher.full_name || 'Teacher';
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    const colors = ['4C469D', 'E74C3C', '2ECC71', '3498DB', 'F39C12', '9B59B6', '1ABC9C', 'E67E22'];
+    const colorIndex = name.length % colors.length;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=${colors[colorIndex]}&color=fff&size=128&bold=true&font-size=0.5`;
+  };
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-4 text-slate-800">
@@ -346,7 +349,7 @@ export default function TeachersManagement() {
               {currentItems.map((teacher) => {
                 const empRole = getEmployeeRole(teacher);
                 const status = getStatus(teacher);
-                const profilePic = teacher.profile_picture || extrasMap[teacher.id]?.profilePictureUrl || '';
+                const avatarUrl = getTeacherAvatar(teacher);
                 return (
                   <div 
                     key={teacher.id}
@@ -368,13 +371,15 @@ export default function TeachersManagement() {
                       className="flex flex-col items-center space-y-2 mt-2 cursor-pointer group"
                     >
                       <div className="w-16 h-16 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden p-0.5 shadow-2xs group-hover:border-purple-300 transition-colors">
-                        {profilePic ? (
-                          <img src={profilePic} alt={teacher.full_name} className="w-full h-full object-cover rounded-full" />
-                        ) : (
-                          <span className="text-2xl font-bold text-purple-600">
-                            {teacher.full_name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
+                        <img
+                          src={avatarUrl}
+                          alt={teacher.full_name}
+                          className="w-full h-full object-cover rounded-full"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent((teacher.full_name || 'Teacher').charAt(0))}&background=4C469D&color=fff&size=128&bold=true`;
+                          }}
+                        />
                       </div>
 
                       <div className="space-y-0.5 text-center">
@@ -433,7 +438,7 @@ export default function TeachersManagement() {
                     {currentItems.map((teacher) => {
                       const empRole = getEmployeeRole(teacher);
                       const status = getStatus(teacher);
-                      const profilePic = teacher.profile_picture || extrasMap[teacher.id]?.profilePictureUrl || '';
+                      const avatarUrl = getTeacherAvatar(teacher);
                       return (
                         <tr key={teacher.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                           <td className="py-3 px-4">
@@ -442,11 +447,15 @@ export default function TeachersManagement() {
                               className="flex items-center gap-3 cursor-pointer group"
                             >
                               <div className="w-8 h-8 rounded-full border border-slate-200 bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold overflow-hidden group-hover:border-purple-300 transition-colors">
-                                {profilePic ? (
-                                  <img src={profilePic} alt={teacher.full_name} className="w-full h-full object-cover rounded-full" />
-                                ) : (
-                                  teacher.full_name.charAt(0).toUpperCase()
-                                )}
+                                <img
+                                  src={avatarUrl}
+                                  alt={teacher.full_name}
+                                  className="w-full h-full object-cover rounded-full"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent((teacher.full_name || 'Teacher').charAt(0))}&background=4C469D&color=fff&size=128&bold=true`;
+                                  }}
+                                />
                               </div>
                               <div>
                                 <p className="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">{teacher.full_name}</p>

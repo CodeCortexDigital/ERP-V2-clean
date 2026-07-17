@@ -63,6 +63,27 @@ urlpatterns = [
     path('admin/run-monthly-invoices/', views.run_monthly_invoices, name='run-monthly-invoices'),
     path('admin/apply-late-fees/', views.trigger_apply_late_fees, name='trigger-apply-late-fees'),
     path('admin/send-reminders/', views.trigger_send_reminders, name='trigger-send-reminders'),
+    
+    # ─── General Ledger (Account Heads & Ledger Entries) ─────────────────────
+    path('account-heads/', views.AccountHeadListCreateView.as_view(), name='account-head-list'),
+    path('account-heads/<str:id>/', views.AccountHeadDetailView.as_view(), name='account-head-detail'),
+    path('ledger-entries/', views.LedgerEntryListCreateView.as_view(), name='ledger-entry-list'),
+    path('ledger-entries/<str:id>/', views.LedgerEntryDetailView.as_view(), name='ledger-entry-detail'),
+    
+    # ─── Payslips & Salary ───────────────────────────────────────────────────
+    path('payslips/', views.PayslipListCreateView.as_view(), name='payslip-list'),
+    path('payslips/<str:id>/', views.PayslipDetailView.as_view(), name='payslip-detail'),
+    path('payslips/bulk-generate/', views.PayslipBulkGenerateView.as_view(), name='payslip-bulk-generate'),
+    path('payslips/bulk-pay/', views.PayslipBulkPayView.as_view(), name='payslip-bulk-pay'),
+    
+    # ─── Employee Credits ─────────────────────────────────────────────────────
+    path('employee-credits/', views.EmployeeCreditListCreateView.as_view(), name='employee-credit-list'),
+    path('employee-credits/<str:id>/', views.EmployeeCreditDetailView.as_view(), name='employee-credit-detail'),
+    
+    # ─── Weekday Configuration ────────────────────────────────────────────────
+    path('weekdays/', views.WeekdayConfigListCreateView.as_view(), name='weekday-list'),
+    path('weekdays/<str:id>/', views.WeekdayConfigDetailView.as_view(), name='weekday-detail'),
+    path('weekdays/bulk-update/', views.WeekdayConfigBulkUpdateView.as_view(), name='weekday-bulk-update'),
 ]
 
 

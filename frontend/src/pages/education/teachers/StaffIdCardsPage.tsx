@@ -21,26 +21,11 @@ export default function StaffIdCardsPage() {
       const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
       const fetched = extractListData<any>(tRes.data);
       
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const filtered = fetched.filter(t => !deletedIds.includes(t.id));
-      
       const defaultTeachers = [
-        {
-          id: 't-1',
-          employee_id: '250822',
-          full_name: 'Maryam Fatima',
-          email: 'maryam.fatima@school.edu',
-          phone: '+92 300 1234567',
-          qualifications: ['Master of Education'],
-          specializations: ['Teacher'],
-          experience_years: 5,
-          joining_date: '2026-06-29',
-          is_active: true,
-          profile_picture: null
-        }
+        {}
       ];
 
-      const combined = filtered.length > 0 ? filtered : defaultTeachers;
+      const combined = fetched.length > 0 ? fetched : defaultTeachers;
       setTeachers(combined);
     } catch (error) {
       console.error('Error fetching teachers:', error);
@@ -50,28 +35,13 @@ export default function StaffIdCardsPage() {
   };
 
   const getExtraDetails = (tch: any) => {
-    const savedExtras = localStorage.getItem('employees_extra_info');
-    let extra = {
-      role: tch.specializations?.[0] || 'Teacher',
-      fatherName: '--',
+    return {
+      role: tch.designation || tch.specializations?.[0] || 'Teacher',
+      fatherName: tch.father_name || '--',
       phone: tch.phone || '+92 300 1234567',
-      address: 'Lahore, Pakistan',
+      address: tch.address || 'Lahore, Pakistan',
       avatar: tch.profile_picture || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200'
     };
-
-    if (savedExtras) {
-      try {
-        const extrasMap = JSON.parse(savedExtras);
-        if (extrasMap[tch.id]) {
-          extra = { 
-            ...extra, 
-            ...extrasMap[tch.id],
-            avatar: extrasMap[tch.id].profilePictureUrl || extra.avatar
-          };
-        }
-      } catch (e) {}
-    }
-    return extra;
   };
 
   const handlePrint = () => {

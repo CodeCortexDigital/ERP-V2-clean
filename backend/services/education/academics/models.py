@@ -103,6 +103,7 @@ class ClassSubject(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     class_ref = models.ForeignKey(SchoolClass, on_delete=models.CASCADE, related_name='subjects')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='classes')
+    marks = models.IntegerField(default=100)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -319,6 +320,7 @@ class Teacher(SchoolAliasMixin, models.Model):
     education = models.CharField(max_length=200, blank=True, default='')
     blood_group = models.CharField(max_length=10, blank=True, default='')
     home_address = models.TextField(blank=True, default='')
+    date_of_birth = models.DateField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -768,3 +770,32 @@ class SectionTeacherAssignment(models.Model):
     
     def __str__(self):
         return f"{self.section.class_ref.name} - Section {self.section.name} -> {self.teacher.full_name}"
+
+
+class LiveMeeting(models.Model):
+    """Live class sessions / online meetings"""
+    MEETING_WITH_CHOICES = [
+        ('all', 'All Students'),
+        ('class', 'Select Class'),
+        ('teachers', 'Teachers Only'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    code = models.CharField(max_length=20, unique=True)
+    title = models.CharField(max_length=200)
+    meeting_with = models.CharField(max_length=20, choices=MEETING_WITH_CHOICES, default='all')
+    class_ref = models.ForeignKey('SchoolClass', on_delete=models.SET_NULL, null=True, blank=True, related_name='live_meetings')
+    date = models.DateField()
+    time = models.TimeField()
+    duration = models.CharField(max_length=20, default='30 min')
+    message = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey('Teacher', on_delete=models.SET_NULL, null=True, blank=True, related_name='live_meetings')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.title} ({self.code})"
+    
+    class Meta:
+        ordering = ['-date', '-created_at']

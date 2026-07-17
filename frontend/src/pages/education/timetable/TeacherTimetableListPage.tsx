@@ -50,37 +50,12 @@ export default function TeacherTimetableListPage() {
   };
 
   const teacherSchedules = useMemo(() => {
-    const defaultTeachers = [
-      { id: 't-1', full_name: 'Maryam Fatima', employee_id: 'EMP001' },
-      { id: 't-2', full_name: 'Zainab Ahmed', employee_id: 'EMP002' },
-      { id: 't-3', full_name: 'Ali Khan', employee_id: 'EMP003' },
-      { id: 't-4', full_name: 'Muhammad Rizwan', employee_id: 'EMP004' },
-      { id: 't-5', full_name: 'Ayesha Siddiqua', employee_id: 'EMP005' },
-      { id: 't-6', full_name: 'Fatima Zahra', employee_id: 'EMP006' },
-      { id: 't-7', full_name: 'Bilal Mustafa', employee_id: 'EMP007' },
-      { id: 't-8', full_name: 'Hamza Niaz', employee_id: 'EMP008' },
-      { id: 't-9', full_name: 'Sanaullah', employee_id: 'EMP009' },
-      { id: 't-10', full_name: 'Tayyaba', employee_id: 'EMP010' }
-    ];
-
-    const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-    const combined = teachers.length > 0 ? teachers : defaultTeachers;
-    // Only keep custom teachers that actually exist in the backend; drop
-    // stale localStorage-only entries (e.g. EMP-##### placeholders).
-    const backendIds = new Set(combined.map((t: any) => String(t.id)));
-    const backendEmpIds = new Set(combined.map((t: any) => String(t.employee_id)));
-    const realCustom = customTeachers.filter((ct: any) =>
-      backendIds.has(String(ct.id)) || backendEmpIds.has(String(ct.employee_id)));
-    const active = [...combined, ...realCustom];
-
-    // Filter out deleted teachers (same logic as TeachersManagement)
-    const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-    const filtered = active.filter(t => !deletedIds.includes(t.id));
+    const active = teachers.length > 0 ? teachers : [];
 
     // Deduplicate by name (case-insensitive)
     const unique = [];
     const seen = new Set();
-    for (const t of filtered) {
+    for (const t of active) {
       const name = t.full_name || t.name || '';
       if (name && !seen.has(name.toLowerCase())) {
         seen.add(name.toLowerCase());

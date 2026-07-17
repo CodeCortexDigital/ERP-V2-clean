@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Plus, Clock, Users, BookOpen, Calendar, ShieldAlert, CheckCircle2, 
-  Settings, Layers, Home, Eye, Sparkles, RefreshCw, AlertTriangle,
-  GraduationCap, MapPin, Zap, ChevronRight
+  Plus, Clock, Users, BookOpen, ShieldAlert, CheckCircle2, 
+  Settings, Layers, Eye, Sparkles, RefreshCw, AlertTriangle,
+  GraduationCap, MapPin, Zap, ChevronRight, Copy, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
 import teacherService from '@/services/teacher.service';
@@ -40,34 +40,37 @@ export default function TimetableManagement() {
   const [previewClass, setPreviewClass] = useState('');
   const [activeDays] = useState(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
 
-  // Load local timetable entries for the preview panel
+  // Load timetable entries and periods from API for the preview panel
   useEffect(() => {
-    const saved = localStorage.getItem('custom_timetable_entries');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setLocalEntries(parsed);
-        // Extract unique class names for the preview selector
-        const uniqueClasses = Array.from(new Set(parsed.map((e: any) => e.class_name))).filter(Boolean) as string[];
-        if (uniqueClasses.length > 0 && !previewClass) {
-          setPreviewClass(uniqueClasses[0]);
-        }
-      } catch {}
+    if (timetableEntries.length > 0) {
+      setLocalEntries(timetableEntries);
+      const uniqueClasses = Array.from(new Set(timetableEntries.map((e: any) => e.class_name))).filter(Boolean) as string[];
+      if (uniqueClasses.length > 0 && !previewClass) {
+        setPreviewClass(uniqueClasses[0]);
+      }
     }
-    const savedPeriods = localStorage.getItem('custom_periods');
-    if (savedPeriods) {
-      try {
-        const parsed = JSON.parse(savedPeriods);
-        setLocalPeriods(parsed.sort((a: any, b: any) => a.period_number - b.period_number));
-      } catch {}
+    if (periods.length > 0) {
+      setLocalPeriods(periods.sort((a: any, b: any) => a.period_number - b.period_number));
     }
-  }, [timetableEntries]);
+  }, [timetableEntries, periods]);
 
   // Conflict Checker Modal states
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [checking, setChecking] = useState(false);
   const [conflictsList, setConflictsList] = useState<TimetableConflict[]>([]);
   const [auditRun, setAuditRun] = useState(false);
+
+  // Duplication Checker Modal states
+  interface DuplicationGroup {
+    key: string;
+    count: number;
+    entries: any[];
+  }
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [checkingDup, setCheckingDup] = useState(false);
+  const [dupeGroups, setDupeGroups] = useState<DuplicationGroup[]>([]);
+  const [dupeRun, setDupeRun] = useState(false);
+  const [removingDup, setRemovingDup] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -87,25 +90,12 @@ export default function TimetableManagement() {
       const classesList = Array.isArray(classesRes.data) ? classesRes.data : (classesRes.data as any)?.results || [];
       const rawTeachers = Array.isArray(teachersRes.data) ? teachersRes.data : (teachersRes.data as any)?.results || [];
       
-      // Merge custom_teachers from localStorage (same logic as TeachersManagement)
-      const customTeachers = JSON.parse(localStorage.getItem('custom_teachers') || '[]');
-      const merged = [...rawTeachers];
-      customTeachers.forEach((ct: any) => {
-        if (!merged.some(t => String(t.id) === String(ct.id))) {
-          merged.push(ct);
-        }
-      });
-
-      // Filter out deleted teachers (same logic as TeachersManagement)
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const teachersList = merged.filter(t => !deletedIds.includes(t.id));
-
       const periodsList = Array.isArray(periodsRes.data) ? periodsRes.data : (periodsRes.data as any)?.results || [];
       const classroomsList = Array.isArray(classroomsRes.data) ? classroomsRes.data : (classroomsRes.data as any)?.results || [];
       const entriesList = Array.isArray(entriesRes.data) ? entriesRes.data : (entriesRes.data as any)?.results || [];
 
       setClasses(classesList);
-      setTeachers(teachersList);
+      setTeachers(rawTeachers);
       setPeriods(periodsList);
       setClassrooms(classroomsList);
       setTimetableEntries(entriesList);
@@ -212,6 +202,85 @@ export default function TimetableManagement() {
     navigate('/education/timetable/editor');
   };
 
+  // Run duplication detection: group identical entries (same class + day + period + subject + teacher + room)
+  const handleRunDuplicationCheck = () => {
+    setCheckingDup(true);
+    setDupeGroups([]);
+    setDupeRun(false);
+
+    setTimeout(() => {
+      const groupMap: Record<string, any[]> = {};
+      const allEntries = [...timetableEntries, ...localEntries];
+
+      allEntries.forEach(e => {
+        const key = [
+          (e.class_name || '').trim().toLowerCase(),
+          (e.day_of_week || '').trim().toLowerCase(),
+          String(e.period || '').trim().toLowerCase(),
+          (e.subject_name || '').trim().toLowerCase(),
+          (e.teacher_name || '').trim().toLowerCase(),
+          (e.classroom_name || '').trim().toLowerCase(),
+        ].join('||');
+        if (!groupMap[key]) groupMap[key] = [];
+        groupMap[key].push(e);
+      });
+
+      const groups: DuplicationGroup[] = Object.keys(groupMap)
+        .filter(k => groupMap[k].length > 1)
+        .map(k => ({ key: k, count: groupMap[k].length, entries: groupMap[k] }))
+        .sort((a, b) => b.count - a.count);
+
+      setDupeGroups(groups);
+      setCheckingDup(false);
+      setDupeRun(true);
+    }, 800);
+  };
+
+  // Remove duplicate entries (keep one, delete the rest) from the API + localStorage
+  const handleRemoveDuplicates = async () => {
+    if (dupeGroups.length === 0) return;
+    setRemovingDup(true);
+    try {
+      let removed = 0;
+      for (const g of dupeGroups) {
+        // Keep the first entry, delete the rest
+        const toDelete = g.entries.slice(1);
+        for (const e of toDelete) {
+          if (e.id && !String(e.id).startsWith('local_')) {
+            await academicService.deleteTimetableEntry(e.id).catch(() => {});
+          }
+          removed++;
+        }
+      }
+
+      // Clean up duplicate entries from local state
+      if (localEntries.length > 0) {
+        const removeKeys = new Set(
+          dupeGroups.flatMap(g => g.entries.slice(1).map(e => `${e.class_name}|${e.day_of_week}|${e.period}|${e.subject_name}|${e.teacher_name}|${e.classroom_name}`))
+        );
+        const cleaned = localEntries.filter(e => {
+          const k = `${e.class_name}|${e.day_of_week}|${e.period}|${e.subject_name}|${e.teacher_name}|${e.classroom_name}`;
+          return !removeKeys.has(k);
+        });
+        setLocalEntries(cleaned);
+      }
+
+      setTimetableEntries(prev => {
+        const delIds = new Set(dupeGroups.flatMap(g => g.entries.slice(1).map(e => String(e.id))));
+        return prev.filter(e => !delIds.has(String(e.id)));
+      });
+
+      setDupeGroups([]);
+      toast.success(`Removed ${removed} duplicate ${removed === 1 ? 'entry' : 'entries'}`);
+      setShowDuplicateModal(false);
+    } catch (err) {
+      console.error('Error removing duplicates:', err);
+      toast.error('Failed to remove some duplicates');
+    } finally {
+      setRemovingDup(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -236,6 +305,14 @@ export default function TimetableManagement() {
             className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-9.5 rounded-xl flex items-center gap-1.5 shadow-2xs"
           >
             <ShieldAlert className="w-4 h-4" /> Conflict Query Checker
+          </Button>
+
+          {/* Duplication Checker Button */}
+          <Button
+            onClick={() => { setShowDuplicateModal(true); handleRunDuplicationCheck(); }}
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-9.5 rounded-xl flex items-center gap-1.5 shadow-2xs"
+          >
+            <Copy className="w-4 h-4" /> Check Duplication
           </Button>
 
           {isAdmin && (
@@ -300,157 +377,6 @@ export default function TimetableManagement() {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Main Core Management Modules Navigation Grid */}
-      <div className="space-y-4">
-        <h2 className="text-xs font-black uppercase text-slate-400 tracking-wider">Quick Configurations & Modules</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Module 1: Weekday Setup */}
-          <Card className="border border-slate-100 shadow-3xs hover:shadow-2xs transition-all rounded-2xl bg-white flex flex-col justify-between overflow-hidden">
-            <CardHeader className="p-5 border-b border-slate-50 flex flex-row items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-650 flex items-center justify-center shrink-0">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xs font-black text-slate-800">Operating Weekdays</CardTitle>
-                <p className="text-[9px] text-slate-400 font-semibold">Define school working days & half-days.</p>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                Configure school operating schedule, select weekdays (Monday - Friday), and designate short half-day hours.
-              </p>
-              <Button 
-                onClick={() => navigate('/education/timetable/weekdays')} 
-                className="w-full text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold h-9 rounded-xl transition-all"
-              >
-                Configure Working Days
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Module 2: Time Periods */}
-          <Card className="border border-slate-100 shadow-3xs hover:shadow-2xs transition-all rounded-2xl bg-white flex flex-col justify-between overflow-hidden">
-            <CardHeader className="p-5 border-b border-slate-50 flex flex-row items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-650 flex items-center justify-center shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xs font-black text-slate-800">Daily Time Periods</CardTitle>
-                <p className="text-[9px] text-slate-400 font-semibold">Set up class periods & break times.</p>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                Define the duration of periods, configure morning assemblies, recess breaks, prayer hours, and academic time grids.
-              </p>
-              <Button 
-                onClick={() => navigate('/education/timetable/periods')} 
-                className="w-full text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold h-9 rounded-xl transition-all"
-              >
-                Configure Time Slots
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Module 3: Classrooms Directory */}
-          <Card className="border border-slate-100 shadow-3xs hover:shadow-2xs transition-all rounded-2xl bg-white flex flex-col justify-between overflow-hidden">
-            <CardHeader className="p-5 border-b border-slate-50 flex flex-row items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-655 flex items-center justify-center shrink-0">
-                <Home className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xs font-black text-slate-800">Classrooms & Facilities</CardTitle>
-                <p className="text-[9px] text-slate-400 font-semibold">Manage physical room and labs floor-wise.</p>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                Directory of 70+ campus classrooms, chemistry/physics/computer laboratories, staff facilities, and outdoor fields.
-              </p>
-              <Button 
-                onClick={() => navigate('/education/timetable/rooms')} 
-                className="w-full text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold h-9 rounded-xl transition-all"
-              >
-                Manage Campus Layout
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Module 4: Class Schedules list */}
-          <Card className="border border-slate-100 shadow-3xs hover:shadow-2xs transition-all rounded-2xl bg-white flex flex-col justify-between overflow-hidden">
-            <CardHeader className="p-5 border-b border-slate-50 flex flex-row items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-650 flex items-center justify-center shrink-0">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xs font-black text-slate-800">Class Timetables</CardTitle>
-                <p className="text-[9px] text-slate-400 font-semibold">View schedules class-by-class.</p>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                Review and configure weekly class-wise schedules, verify subjects taught per day, and resolve curriculum requirements.
-              </p>
-              <Button 
-                onClick={() => navigate('/education/timetable/class')} 
-                className="w-full text-xs bg-slate-150 hover:bg-purple-100 text-purple-700 font-bold h-9 rounded-xl transition-all border border-purple-100"
-              >
-                Open Class Schedules
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Module 5: Teacher Schedules list */}
-          <Card className="border border-slate-100 shadow-3xs hover:shadow-2xs transition-all rounded-2xl bg-white flex flex-col justify-between overflow-hidden">
-            <CardHeader className="p-5 border-b border-slate-50 flex flex-row items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-650 flex items-center justify-center shrink-0">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xs font-black text-slate-800">Teacher Timetables</CardTitle>
-                <p className="text-[9px] text-slate-400 font-semibold">View scheduled periods employee-wise.</p>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                Audit weekly timelines for teachers, monitor employee loads, configure free period arrangements and avoid double assignments.
-              </p>
-              <Button 
-                onClick={() => navigate('/education/timetable/teacher')} 
-                className="w-full text-xs bg-slate-150 hover:bg-purple-100 text-purple-700 font-bold h-9 rounded-xl transition-all border border-purple-100"
-              >
-                Open Teacher Schedules
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Module 6: Grid Calendar Scheduler */}
-          <Card className="border border-slate-100 shadow-3xs hover:shadow-2xs transition-all rounded-2xl bg-white flex flex-col justify-between overflow-hidden">
-            <CardHeader className="p-5 border-b border-slate-50 flex flex-row items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xs font-black text-slate-800">AI Scheduler & Editor</CardTitle>
-                <p className="text-[9px] text-slate-400 font-semibold">Interactive calendar editor with AI clash checks.</p>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                Manually edit slots via drag & drop, or automatically generate a 100% clash-free schedule in seconds using the genetic optimizer.
-              </p>
-              <Button 
-                onClick={() => navigate('/education/timetable/editor')} 
-                className="w-full text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold h-9 rounded-xl transition-all shadow-sm"
-              >
-                Open Schedule Optimizer
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* ============================================================ */}
@@ -757,6 +683,109 @@ export default function TimetableManagement() {
               )}
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* 🔍 DUPLICATION CHECK MODAL OVERLAY */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[85vh]">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Copy className="w-5 h-5 text-rose-600" />
+                <h3 className="text-sm font-black text-slate-800">Timetable Duplication Check</h3>
+              </div>
+              <button
+                onClick={() => setShowDuplicateModal(false)}
+                className="p-1.5 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
+              >
+                <XCloseIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {checkingDup ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-3">
+                  <RefreshCw className="w-8 h-8 text-rose-600 animate-spin" />
+                  <p className="text-xs font-bold text-slate-700">Scanning timetable entries for duplicates...</p>
+                  <p className="text-[9px] text-slate-400">Comparing class, day, period, subject, teacher and room of every entry...</p>
+                </div>
+              ) : dupeRun && dupeGroups.length === 0 ? (
+                <div className="py-8 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-650 flex items-center justify-center mx-auto shadow-sm">
+                    <CheckCircle2 className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-black text-slate-800">No Duplicates Found!</h4>
+                    <p className="text-[10px] text-slate-500 font-semibold px-6">
+                      Every timetable entry is unique. There are no repeated (duplicate) schedules to clean up.
+                    </p>
+                  </div>
+                </div>
+              ) : dupeRun && dupeGroups.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-3 text-rose-700">
+                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-black">Duplicate Entries Detected</h4>
+                      <p className="text-[10px] font-semibold text-rose-600 mt-0.5">
+                        Found <span className="font-bold text-rose-750">{dupeGroups.length}</span> set(s) of identical entries
+                        ({dupeGroups.reduce((s, g) => s + g.count - 1, 0)} extra copies). Keep one of each and remove the rest.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {dupeGroups.map((g, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-semibold"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[8px] font-black uppercase tracking-wider">
+                              x{g.count}
+                            </span>
+                            <span className="text-slate-850 font-bold">{g.entries[0].class_name}</span>
+                            <span className="text-slate-400">·</span>
+                            <span className="capitalize text-slate-600">{g.entries[0].day_of_week}</span>
+                            <span className="text-slate-400">·</span>
+                            <span className="text-slate-600">{g.entries[0].subject_name}</span>
+                            <span className="text-slate-400">·</span>
+                            <span className="text-slate-500">{g.entries[0].teacher_name}</span>
+                          </div>
+                          <span className="text-slate-400 text-[9px] whitespace-nowrap">{g.count - 1} duplicate{g.count - 1 > 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2 shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowDuplicateModal(false)}
+                className="text-xs h-9 rounded-xl px-4 border-slate-200"
+              >
+                Close
+              </Button>
+              {dupeRun && dupeGroups.length > 0 && (
+                <Button
+                  onClick={handleRemoveDuplicates}
+                  disabled={removingDup}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-9 rounded-xl px-5 shadow-sm flex items-center gap-1.5"
+                >
+                  {removingDup ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {removingDup ? 'Removing...' : 'Remove Duplicates'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

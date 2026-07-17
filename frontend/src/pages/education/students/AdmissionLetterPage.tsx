@@ -6,6 +6,7 @@ import studentService, { Student } from '@/services/student.service';
 import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import { useAuth } from '@/contexts/AuthContext';
+import settingsService from '@/services/settings.service';
 
 export default function AdmissionLetterPage() {
   const navigate = useNavigate();
@@ -26,33 +27,17 @@ export default function AdmissionLetterPage() {
   const [instituteProfile, setInstituteProfile] = useState<any>({});
 
   useEffect(() => {
-    // Load institute profile
-    const savedProfile = localStorage.getItem('institute_profile');
-    if (savedProfile) {
-      try {
-        setInstituteProfile(JSON.parse(savedProfile));
-      } catch (e) {}
-    }
+    // Load institute profile from API
+    settingsService.getInstituteProfile().then(res => {
+      if (res.data) setInstituteProfile(res.data);
+    }).catch(() => {});
 
-    // Load rules
-    const saved = localStorage.getItem('rules_settings');
-    let localRules = '';
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        localRules = parsed.studentRules || '';
-      } catch (e) {}
-    }
-
+    // Load rules from API
     api.get(API_ENDPOINTS.SETTINGS).then(res => {
       if (res.data && res.data.rules && res.data.rules.studentRules) {
         setStudentRules(res.data.rules.studentRules);
-      } else {
-        setStudentRules(localRules || '');
       }
-    }).catch(() => {
-      setStudentRules(localRules || '');
-    });
+    }).catch(() => {});
   }, []);
 
   // Helper function to get student status

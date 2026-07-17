@@ -4,6 +4,8 @@ import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';  // Default import
 import { useAuth } from '@/contexts/AuthContext';
 import { useUIStore } from '@/store/uiStore';
+import { initGlobalTheme } from '@/utils/theme';
+import AiAssistant from '@/components/AiAssistant';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -14,6 +16,11 @@ export function Layout({ children }: LayoutProps) {
   const { logout } = useAuth();
   const { sidebarCollapsed } = useUIStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Apply General Settings theme globally (sidebar/header/accent) to all pages
+  useEffect(() => {
+    initGlobalTheme();
+  }, []);
 
   // Check mobile on mount and resize
   useEffect(() => {
@@ -68,6 +75,8 @@ export function Layout({ children }: LayoutProps) {
           {children || <Outlet />}
         </main>
       </div>
+
+      <AiAssistant />
     </div>
   );
 }

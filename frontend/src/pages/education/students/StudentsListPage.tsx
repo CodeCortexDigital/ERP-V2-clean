@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   GraduationCap, Plus, Trash2, Edit3, RefreshCw, Eye, Hexagon, FileText,
-  Grid3X3, List, ArrowUpDown, User, Users, UserCheck, UserX
+  Grid3X3, List, ArrowUpDown, User, Users, UserCheck, UserX, Armchair, CircleCheck
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import studentService from '@/services/student.service';
@@ -55,14 +55,18 @@ const getStudentAvatar = (student: any): string => {
 export default function StudentsListPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const isNewStudentAction = location.search.includes('action=new');
+  // When arriving from a class "View" action, pre-select that class filter.
+  const classFromQuery = searchParams.get('class') || '';
 
   const [students, setStudents] = useState<StudentItem[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedClass, setSelectedClass] = useState(classFromQuery);
+  const [classCapacity, setClassCapacity] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
@@ -198,6 +202,18 @@ export default function StudentsListPage() {
       console.log('📚 Final classes list:', sortedClasses);
       setClasses(sortedClasses);
 
+      // Resolve selected class capacity (total seats) from classrooms
+      const selectedName = (searchParams.get('class') || '').toLowerCase();
+      if (selectedName) {
+        const classroomsRes = await academicService.classrooms.getAll().catch(() => [] as any[]);
+        const classrooms = Array.isArray(classroomsRes) ? classroomsRes : (classroomsRes?.results || classroomsRes?.data || []);
+        const matched = classrooms.find((c: any) => (c.name || '').toLowerCase() === selectedName);
+        const cap = matched ? Number(matched.capacity) : 0;
+        setClassCapacity(isNaN(cap) ? null : cap);
+      } else {
+        setClassCapacity(null);
+      }
+
       // Process students
       const processedStudents = rawStudents.map((s: any) => ({
         id: s.id || `std-${Math.random()}`,
@@ -253,7 +269,9 @@ export default function StudentsListPage() {
     .filter(s => {
       const matchesSearch = (s.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (s.student_id || '').includes(searchTerm);
-      const matchesClass = !selectedClass || (s.class_name || '') === selectedClass;
+      const matchesClass = !selectedClass ||
+        (s.class_name || '').toLowerCase().includes(selectedClass.toLowerCase()) ||
+        selectedClass.toLowerCase().includes((s.class_name || '').toLowerCase());
       return matchesSearch && matchesClass;
     })
     .sort((a, b) => {
@@ -275,7 +293,8 @@ export default function StudentsListPage() {
   }
 
   return (
-    <div className="space-y-4 bg-slate-50 min-h-screen p-2 text-slate-800">
+    <div className="flex flex-col h-screen overflow-hidden gap-4 p-2 bg-slate-50 text-slate-800">
+      <div className="flex-shrink-0 space-y-4 top-section">
       {/* Top Breadcrumb Bar */}
       <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
@@ -343,6 +362,31 @@ export default function StudentsListPage() {
           </div>
         </div>
       </div>
+
+      {/* Selected Class Info Banner */}
+      {selectedClass && (
+        <div className="bg-purple-50 border border-purple-100 rounded-xl px-5 py-3 flex flex-wrap items-center gap-x-8 gap-y-2">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-purple-600" />
+            <span className="text-sm font-bold text-purple-800">Class: {selectedClass}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <Users className="w-4 h-4 text-purple-500" />
+            <span className="font-semibold text-slate-800">{students.length}</span> Students
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <Armchair className="w-4 h-4 text-amber-500" />
+            Total Seats: <span className="font-semibold text-slate-800">{classCapacity ?? '--'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <CircleCheck className="w-4 h-4 text-teal-500" />
+            Available Seats:{' '}
+            <span className={`font-semibold ${classCapacity != null && (classCapacity - students.length) > 0 ? 'text-teal-700' : 'text-rose-600'}`}>
+              {classCapacity != null ? Math.max(0, classCapacity - students.length) : '--'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Filter Bar Container */}
       <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -423,8 +467,10 @@ export default function StudentsListPage() {
           </div>
         </div>
       </div>
+      </div>
 
       {/* Student Display */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
       {students.length === 0 ? (
         <div className="bg-white p-12 text-center rounded-2xl border border-slate-100 shadow-sm">
           <div className="text-4xl mb-4">👨‍🎓</div>
@@ -523,10 +569,10 @@ export default function StudentsListPage() {
         </div>
       ) : (
         // LIST VIEW
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <div>
             <table className="w-full text-xs text-left border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
                   <th className="py-3 px-4">Student</th>
                   <th className="py-3 px-4">Registration No</th>
@@ -614,7 +660,7 @@ export default function StudentsListPage() {
           </div>
           
           {/* List View Footer */}
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between sticky bottom-0 bg-white z-10">
             <p className="text-[11px] text-slate-400">
               Showing {filteredAndSortedStudents.length} of {students.length} students
             </p>
@@ -626,6 +672,7 @@ export default function StudentsListPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

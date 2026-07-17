@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Settings, BookOpen, GraduationCap, Users, 
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText, 
-  Eye, MessageSquare, Mail, Video, FileQuestion, 
+  Eye, MessageSquare, Video, FileQuestion, 
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
   DollarSign, ShoppingCart
 } from 'lucide-react';
@@ -149,239 +149,97 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       id: 'settings',
       label: 'General Settings',
       icon: <Settings className="w-4 h-4" />,
-      subItems: [
-        { label: 'Institute Profile', href: '/settings/profile' },
-        { label: 'Fees Particulars', href: '/settings/fee-particulars' },
-        { label: 'Fees Structure', href: '/settings/fee-structure', isLocked: true },
-        { label: 'Discount Type', href: '/settings/discount-type', isLocked: true },
-        { label: 'Accounts For Fees Invoice', href: '/settings/bank-accounts' },
-        { label: 'Rules & Regulations', href: '/settings/rules' },
-        { label: 'Marks Grading', href: '/settings/grading' },
-        { label: 'Theme & Language', href: '/settings/theme' },
-        { label: 'Account Settings', href: '/settings/account' },
-        { label: '──────────', href: '#', isDivider: true },
-        { label: 'Log out', href: '#logout', isLogout: true }
-      ]
+      href: '/settings'
     },
     {
-      id: 'classes',
-      label: 'Classes',
+      id: 'academic-setup',
+      label: 'Academic Setup',
       icon: <GraduationCap className="w-4 h-4" />,
-      subItems: [
-        { label: 'All Classes', href: '/education/academics/classes' },
-        { label: 'New Class', href: '/education/academics/classes/add' }
-      ]
-    },
-    {
-      id: 'subjects',
-      label: 'Subjects',
-      icon: <BookOpen className="w-4 h-4" />,
-      subItems: [
-        { label: 'All Subjects', href: '/education/subjects' },
-        { label: 'Assign Subjects', href: '/education/subjects/assign' }
-      ]
+      href: '/education/academic-setup'
     },
     {
       id: 'students',
       label: 'Students',
       icon: <Users className="w-4 h-4" />,
-      subItems: [
-        { label: 'All Students', href: '/education/students' },
-        { label: 'Add New', href: '/education/students/add' },
-        { label: 'Manage Families', href: '/education/students/families', isLocked: true },
-        { label: 'Active / Inactive', href: '/education/students/status', isLocked: true },
-        { label: 'Admission Letter', href: '/education/students/admission-letter' },
-        { label: 'Student ID Cards', href: '/education/students/id-cards' },
-        { label: 'Print Basic List', href: '/education/students/print-list' },
-        { label: 'Manage Login', href: '/education/students/logins' },
-        { label: 'Promote Students', href: '/education/students/promote' }
-      ]
+      href: '/education/students'
     },
     {
       id: 'employees',
       label: 'Employees',
       icon: <Users className="w-4 h-4" />,
-      subItems: [
-        { label: 'All Employees', href: '/education/teachers' },
-        { label: 'Add New', href: '/education/teachers/add' },
-        { label: 'Staff ID Cards', href: '/education/teachers/id-cards' },
-        { label: 'Job Letter', href: '/education/teachers/job-letter' },
-        { label: 'Manage Login', href: '/education/teachers/logins' }
-      ]
+      href: '/education/teachers'
     },
     {
       id: 'accounts',
       label: 'Accounts',
       icon: <Wallet className="w-4 h-4" />,
-      subItems: [
-        { label: 'Chart Of Account', href: '/education/finance/chart-of-accounts' },
-        { label: 'Add Income', href: '/education/finance/add-income' },
-        { label: 'Add Expense', href: '/education/finance/add-expense' },
-        { label: 'Account Statement', href: '/education/finance/account-statement' }
-      ]
+      href: '/education/accounts/chart-of-accounts'
     },
     {
       id: 'fees',
       label: 'Fees',
       icon: <Banknote className="w-4 h-4" />,
-      subItems: [
-        { label: 'Generate Fees Invoice', href: '/education/finance/generate-invoices' },
-        { label: 'Invoices', href: '/education/finance/invoices' },
-        { label: 'Collect Fees', href: '/education/finance/collect-fees' },
-        { label: 'Fees Paid Slip', href: '/education/finance/fees-paid-slip' },
-        { label: 'Fees Defaulters', href: '/education/finance/fees-defaulters' },
-        { label: 'Fees Report', href: '/education/finance/report' }
-      ]
+      href: '/education/fees/invoices'
     },
     {
       id: 'salary',
       label: 'Salary',
       icon: <DollarSign className="w-4 h-4" />,
-      subItems: [
-        { label: 'Generate Salary', href: '/education/salary/generate' },
-        { label: 'Pay Salary', href: '/education/salary/pay' },
-        { label: 'Salary Paid Slip', href: '/education/salary/slips' },
-        { label: 'Salary Sheet', href: '/education/salary/sheet' },
-        { label: 'Salary Report', href: '/education/salary/report' }
-      ]
+      href: '/education/salary/generate'
     },
     {
       id: 'attendance',
       label: 'Attendance',
       icon: <Hand className="w-4 h-4" />,
-      subItems: [
-        { label: 'Students Attendance', href: '/education/attendance' },
-        { label: 'Employees Attendance', href: '/education/attendance?type=staff' },
-        { label: 'Class wise Report', href: '/education/attendance?tab=class-report' },
-        { label: 'Students Attendance Report', href: '/education/attendance?tab=student-report' },
-        { label: 'Employees Attendance Report', href: '/education/attendance?tab=staff-report' }
-      ]
+      href: '/education/attendance'
     },
     {
       id: 'timetable',
       label: 'Timetable',
       icon: <Calendar className="w-4 h-4" />,
-      subItems: [
-        { label: 'Weekdays', href: '/education/timetable/weekdays' },
-        { label: 'Time Periods', href: '/education/timetable/periods' },
-        { label: 'Class Rooms', href: '/education/timetable/rooms' },
-        { label: 'Create Timetable', href: '/education/timetable' },
-        { label: 'Generate For Class', href: '/education/timetable/class' },
-        { label: 'Generate For Teacher', href: '/education/timetable/teacher' },
-        { label: 'My Leave', href: '/education/timetable/my-leave' },
-        { label: 'Staff Leave', href: '/education/timetable/leave' }
-      ]
-    },
-    {
-      id: 'homework',
-      label: 'Homework',
-      icon: <FileText className="w-4 h-4" />,
-      href: '/education/homework'
+      href: '/education/timetable'
     },
     {
       id: 'behaviour',
       label: 'Behaviour & Skills',
       icon: <Eye className="w-4 h-4" />,
-      subItems: [
-        { label: 'Rate Behaviours', href: '/education/behaviour/rate' },
-        { label: 'Rate Skills', href: '/education/skills/rate' },
-        { label: 'Observations', href: '/education/behaviour/observations' },
-        { label: 'Affective Domain Rating Report', href: '/education/behaviour/affective-report' },
-        { label: 'Psycomotor Domain Rating Report', href: '/education/behaviour/psycomotor-report' }
-      ]
+      href: '/education/behaviour/rate'
     },
     {
-      id: 'whatsapp',
-      label: 'WhatsApp',
-      icon: <MessageSquare className="w-4 h-4" />,
-      href: '/communication/whatsapp',
-      isLocked: true
-    },
-    {
-      id: 'messaging',
-      label: 'Messaging',
+      id: 'communication',
+      label: 'Communication',
       icon: <MessageSquare className="w-4 h-4" />,
       href: '/education/communication'
     },
     {
-      id: 'sms',
-      label: 'SMS Services',
-      icon: <Mail className="w-4 h-4" />,
-      subItems: [
-        { label: 'Free SMS Gateway', href: '/communication/sms-gateway' },
-        { label: 'Branded SMS', href: '/communication/branded-sms', isLocked: true },
-        { label: 'SMS Templates', href: '/communication/sms-templates', isLocked: true }
-      ]
-    },
-    {
-      id: 'liveclass',
-      label: 'Live Class',
-      icon: <Video className="w-4 h-4" />,
-      href: '/education/live-class'
-    },
-    {
-      id: 'questionpaper',
-      label: 'Question Paper',
-      icon: <FileQuestion className="w-4 h-4" />,
-      subItems: [
-        { label: 'Subject Chapters', href: '/education/question-bank/chapters', isLocked: true },
-        { label: 'Question Bank', href: '/education/question-bank', isLocked: true },
-        { label: 'Create Question Paper', href: '/education/question-bank/create', isLocked: true }
-      ]
-    },
-    {
-      id: 'exams',
-      label: 'Exams',
+      id: 'examination',
+      label: 'Examination',
       icon: <Edit className="w-4 h-4" />,
-      subItems: [
-        { label: 'Create New Exam', href: '/education/exams' },
-        { label: 'Add / update Exam Marks', href: '/education/exams?tab=marks' },
-        { label: 'Result Card', href: '/education/exams?tab=results' },
-        { label: 'Result Sheet', href: '/education/exams/sheet' },
-        { label: 'Exam Schedule', href: '/education/exams/schedule' },
-        { label: 'Date Sheet', href: '/education/exams/datesheet' },
-        { label: 'Blank Award List', href: '/education/exams/awardlist' }
-      ]
-    },
-    {
-      id: 'classtests',
-      label: 'Class Tests',
-      icon: <FileText className="w-4 h-4" />,
-      subItems: [
-        { label: 'Manage Test Marks', href: '/education/class-tests' },
-        { label: 'Test Result', href: '/education/class-tests?tab=results' }
-      ]
+      href: '/education/exams'
     },
     {
       id: 'reports',
       label: 'Reports',
       icon: <Award className="w-4 h-4" />,
-      subItems: [
-        { label: 'Students report Card', href: '/education/analytics?report=card' },
-        { label: 'Students info report', href: '/education/analytics?report=students-info' },
-        { label: 'Parents info report', href: '/education/analytics?report=parents-info' },
-        { label: 'Students Monthly Attendance Report', href: '/education/analytics/attendance-student' },
-        { label: 'Staff Monthly Attendance Report', href: '/education/analytics/attendance-staff' },
-        { label: 'Fee Collection Report', href: '/education/analytics/fees' },
-        { label: 'Student Progress Report', href: '/education/analytics/progress' },
-        { label: 'Accounts Report', href: '/education/analytics/accounts' },
-        { label: 'Customised Reports', href: '/education/analytics/custom' }
-      ]
+      href: '/education/analytics'
     },
     {
       id: 'certificates',
       label: 'Certificates',
       icon: <Award className="w-4 h-4" />,
-      subItems: [
-        { label: 'Generate Certificate', href: '/education/certificates' },
-        { label: 'Certificate Templates', href: '/education/certificates?tab=templates' }
-      ]
+      href: '/education/certificates'
     },
     {
       id: 'online-store',
       label: 'Online Store',
       icon: <ShoppingCart className="w-4 h-4" />,
       href: '/education/store'
+    },
+    {
+      id: 'logout',
+      label: 'Log out',
+      icon: <LogOut className="w-4 h-4" />,
+      isLogout: true
     }
   ];
 
@@ -403,13 +261,10 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       ]
     },
     {
-      id: 'homework',
-      label: 'Homework',
-      icon: <FileText className="w-4 h-4" />,
-      subItems: [
-        { label: 'Daily Homework', href: '/education/homework' },
-        { label: 'Add New Homework', href: '/education/homework/add' }
-      ]
+      id: 'academic-setup',
+      label: 'Academic Setup',
+      icon: <GraduationCap className="w-4 h-4" />,
+      href: '/education/academic-setup'
     },
     {
       id: 'timetable',
@@ -435,12 +290,6 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       label: 'Messaging',
       icon: <MessageSquare className="w-4 h-4" />,
       href: '/education/communication'
-    },
-    {
-      id: 'liveclass',
-      label: 'Live Class',
-      icon: <Video className="w-4 h-4" />,
-      href: '/education/live-class'
     },
     {
       id: 'exams',
@@ -530,7 +379,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       id: 'home_assignments',
       label: 'Home Assignments',
       icon: <FileText className="w-4 h-4" />,
-      href: '/education/homework'
+      href: '/education/academic-setup'
     },
     {
       id: 'online_store',
@@ -543,12 +392,6 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       label: 'Messaging',
       icon: <MessageSquare className="w-4 h-4" />,
       href: '/education/communication'
-    },
-    {
-      id: 'liveclass',
-      label: 'Live Class',
-      icon: <Video className="w-4 h-4" />,
-      href: '/education/live-class'
     },
     {
       id: 'settings',
@@ -648,7 +491,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       {/* Search Input Bar & Menu Title Header */}
       {!isCollapsed && (
         <div className={searchBarClass}>
-          <div className={`text-xs font-bold tracking-wider uppercase ${isDarkSidebar ? 'text-slate-400' : 'text-slate-800'}`}>menu</div>
+          <div className={`text-xs font-bold tracking-wider uppercase font-display ${isDarkSidebar ? 'text-slate-400' : 'text-slate-800'}`}>menu</div>
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
             <input 
@@ -663,14 +506,29 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       )}
 
       {/* Navigation List */}
-      <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1 custom-scrollbar">
+      <div className="sidebar-nav flex-1 overflow-y-auto py-3 px-2 space-y-1 custom-scrollbar">
         {filteredMenuItems.map((item) => {
           const hasSub = item.subItems && item.subItems.length > 0;
           const hasActiveSub = item.subItems?.some(sub => isLinkActive(sub.href));
           const isSettingsItem = item.id === 'settings';
 
-          // Single item without sub-items (and not logout - logout is inside settings subItems)
+          // Single item without sub-items
           if (!hasSub) {
+            // Top-level logout button
+            if (item.isLogout) {
+              return (
+                <button
+                  key={item.id}
+                  onClick={handleLogout}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${isDarkSidebar ? 'text-slate-300 hover:bg-rose-900/40 hover:text-rose-300' : 'text-slate-700 hover:bg-rose-50 hover:text-rose-600'} ${isCollapsed ? 'justify-center' : ''}`}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <div className="flex-shrink-0">{item.icon}</div>
+                  {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+                </button>
+              );
+            }
+
             return (
               <NavLink
                 key={item.id}
@@ -728,17 +586,66 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                 {!isCollapsed && (
                   <div className="flex items-center gap-1">
                     {item.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500" />}
-                    <span className="text-slate-400 hover:text-slate-600 text-xs font-bold px-1">
+                    <span className={`text-slate-400 hover:text-slate-600 text-xs font-bold px-1 transition-transform duration-200 ${expandedItems.includes(item.id) ? 'rotate-90' : ''}`}>
                       <ChevronRight className="w-3 h-3" />
                     </span>
                   </div>
                 )}
               </button>
 
+              {/* Expanded Sub-Items (when sidebar is open) */}
+              {!isCollapsed && expandedItems.includes(item.id) && item.subItems && (
+                <div className="ml-3 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-0.5">
+                  {item.subItems.map((sub, idx) => {
+                    if (sub.isDivider) {
+                      return (
+                        <div key={`divider-${idx}`} className="flex items-center justify-center px-2 py-0.5">
+                          <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                        </div>
+                      );
+                    }
+                    if (sub.isLogout) {
+                      return (
+                        <button
+                          key={`logout-${idx}`}
+                          onClick={handleLogout}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all text-left ${isDarkSidebar ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800' : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'}`}
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          <span>Log out</span>
+                        </button>
+                      );
+                    }
+                    const subActive = isLinkActive(sub.href);
+                    return (
+                      <NavLink
+                        key={`${sub.href}-${idx}`}
+                        to={sub.href}
+                        onClick={(e) => {
+                          if (isMobile && onClose) {
+                            onClose();
+                          }
+                        }}
+                        className={`
+                          relative flex items-center justify-between px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                          ${subActive 
+                            ? `${activeStyle.bg} ${activeStyle.text}` 
+                            : isDarkSidebar ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                          }
+                        `}
+                      >
+                        {sub.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 ml-auto" />}
+                        <span className="truncate">{sub.label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Right-side Flyout Sub-Menu */}
               {hoveredId === item.id && flyoutPos && (
                 <div
-                  className={`fixed z-50 min-w-[220px] max-h-[80vh] overflow-y-auto custom-scrollbar rounded-lg shadow-2xl border py-2 px-2 space-y-1 ${isDarkSidebar ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+                  className={`sidebar-nav fixed z-50 min-w-[220px] max-h-[80vh] overflow-y-auto custom-scrollbar rounded-lg shadow-2xl border py-2 px-2 space-y-1 ${isDarkSidebar ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
                   style={{ top: flyoutPos.top, left: flyoutPos.left }}
                   onMouseEnter={cancelClose}
                   onMouseLeave={scheduleClose}

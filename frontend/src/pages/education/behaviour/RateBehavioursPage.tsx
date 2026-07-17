@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
+import behaviourService from '@/services/behaviour.service';
 
 const BEHAVIOUR_CATEGORIES = [
   "Discipline", "Respect", "Attendance Behaviour", "Punctuality", "Responsibility",
@@ -35,6 +36,7 @@ export default function RateBehavioursPage() {
   // Search & Selector State
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('Grade 1-A');
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSession, setSelectedSession] = useState('2026-2027');
   const [selectedTerm, setSelectedTerm] = useState('Term 1');
   const [selectedMonth, setSelectedMonth] = useState('July');
@@ -62,36 +64,39 @@ export default function RateBehavioursPage() {
 
   useEffect(() => {
     // Generate dummy students for the selected class
-    const names = [
-      { id: 's-1', name: 'Maryam Fatima', roll: '101' },
-      { id: 's-2', name: 'Zainab Ahmed', roll: '102' },
-      { id: 's-3', name: 'Ali Khan', roll: '103' },
-      { id: 's-4', name: 'Muhammad Rizwan', roll: '104' },
-      { id: 's-5', name: 'Ayesha Siddiqua', roll: '105' }
-    ];
+    const names = [];
     setStudents(names);
     setActiveStudent(names[0]);
   }, [selectedClass]);
 
   useEffect(() => {
     if (activeStudent) {
-      // Load previous ratings for this student if any
-      const key = `behaviour_ratings_${selectedSession}_${selectedTerm}_${selectedMonth}_${activeStudent.id}`;
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setRatings(parsed.ratings || {});
-        setNotObserved(parsed.notObserved || {});
-        setSelectedRewards(parsed.rewards || []);
-        setSelectedPlans(parsed.plans || []);
-        setAiTeacherRec(parsed.aiTeacherRec || '');
-        setAiParentRec(parsed.aiParentRec || '');
+      loadRatings();
+    }
+  }, [activeStudent, selectedMonth, selectedTerm, selectedSession, selectedClassId]);
+
+  const loadRatings = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      const res = await behaviourService.getRatings({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        academic_year: selectedSession,
+        term: selectedTerm,
+        month: selectedMonth,
+      });
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+      if (data.length > 0) {
+        const entry = data[0];
+        setRatings(entry.ratings || {});
+        setNotObserved(entry.not_observed || {});
+        setSelectedRewards(entry.rewards || []);
+        setSelectedPlans(entry.plans || []);
+        setAiTeacherRec(entry.ai_teacher_rec || '');
+        setAiParentRec(entry.ai_parent_rec || '');
       } else {
-        // Clear / set default
         const initialRatings: Record<string, number> = {};
-        BEHAVIOUR_CATEGORIES.forEach(c => {
-          initialRatings[c] = 4; // Default 4 stars (Very Good)
-        });
+        BEHAVIOUR_CATEGORIES.forEach(c => { initialRatings[c] = 4; });
         setRatings(initialRatings);
         setNotObserved({});
         setSelectedRewards([]);
@@ -99,8 +104,17 @@ export default function RateBehavioursPage() {
         setAiTeacherRec('');
         setAiParentRec('');
       }
+    } catch {
+      const initialRatings: Record<string, number> = {};
+      BEHAVIOUR_CATEGORIES.forEach(c => { initialRatings[c] = 4; });
+      setRatings(initialRatings);
+      setNotObserved({});
+      setSelectedRewards([]);
+      setSelectedPlans([]);
+      setAiTeacherRec('');
+      setAiParentRec('');
     }
-  }, [activeStudent, selectedMonth, selectedTerm, selectedSession]);
+  };
 
   const fetchClasses = async () => {
     try {
@@ -109,6 +123,7 @@ export default function RateBehavioursPage() {
       if (data.length > 0) {
         setClasses(data);
         setSelectedClass(data[0].name);
+        setSelectedClassId(data[0].id);
       } else {
         setClasses([
           { id: '1', name: 'Grade 1-A' },
@@ -163,10 +178,10 @@ export default function RateBehavioursPage() {
     setTimeout(() => {
       const avg = Object.values(ratings).reduce((a, b) => a + b, 0) / BEHAVIOUR_CATEGORIES.length;
       if (avg >= 4.2) {
-        setAiTeacherRec("Continue giving Maryam leadership roles in group projects. Encourage peer tutoring to maximize communication skills.");
-        setAiParentRec("Keep up the outstanding motivation at home. Share stories of inspiring historical leaders to fuel Maryam's drive.");
+        setAiTeacherRec("Continue giving Rimsai leadership roles in group projects. Encourage peer tutoring to maximize communication skills.");
+        setAiParentRec("Keep up the outstanding motivation at home. Share stories of inspiring historical leaders to fuel Rimsai's drive.");
       } else if (avg >= 3.0) {
-        setAiTeacherRec("Include Maryam in structured cooperative class assignments. Focus on active participation and punctuality validation.");
+        setAiTeacherRec("Include Rimsai in structured cooperative class assignments. Focus on active participation and punctuality validation.");
         setAiParentRec("Support homework scheduling at home. Provide positive reinforcement for tasks completed ahead of the due date.");
       } else {
         setAiTeacherRec("Introduce structured behavior monitoring reports. Consider scheduling counselling sessions to focus on classroom conduct.");
@@ -178,42 +193,27 @@ export default function RateBehavioursPage() {
     }, 1200);
   };
 
-  const handleSave = () => {
-    if (!activeStudent) return;
-    const key = `behaviour_ratings_${selectedSession}_${selectedTerm}_${selectedMonth}_${activeStudent.id}`;
-    const payload = {
-      studentId: activeStudent.id,
-      studentName: activeStudent.name,
-      class: selectedClass,
-      session: selectedSession,
-      term: selectedTerm,
-      month: selectedMonth,
-      ratings,
-      notObserved,
-      rewards: selectedRewards,
-      plans: selectedPlans,
-      aiTeacherRec,
-      aiParentRec
-    };
-    localStorage.setItem(key, JSON.stringify(payload));
-
-    // Save index in log of all ratings
-    const allKey = 'all_student_behaviour_ratings_v1';
-    const allSaved = JSON.parse(localStorage.getItem(allKey) || '[]');
-    const nextList = allSaved.filter((item: any) => item.key !== key);
-    nextList.push({
-      key,
-      studentId: activeStudent.id,
-      studentName: activeStudent.name,
-      className: selectedClass,
-      session: selectedSession,
-      term: selectedTerm,
-      month: selectedMonth,
-      averageScore: Object.values(ratings).reduce((a, b) => a + b, 0) / BEHAVIOUR_CATEGORIES.length
-    });
-    localStorage.setItem(allKey, JSON.stringify(nextList));
-
-    toast.success(`Behaviour Assessment for ${activeStudent.name} saved successfully!`);
+  const handleSave = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      await behaviourService.createRating({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        domain: 'affective',
+        term: selectedTerm,
+        month: selectedMonth,
+        academic_year: selectedSession,
+        ratings,
+        not_observed: notObserved,
+        rewards: selectedRewards,
+        plans: selectedPlans,
+        ai_teacher_rec: aiTeacherRec,
+        ai_parent_rec: aiParentRec,
+      });
+      toast.success(`Behaviour Assessment for ${activeStudent.name} saved successfully!`);
+    } catch {
+      toast.error('Failed to save ratings');
+    }
   };
 
   return (
@@ -280,7 +280,11 @@ export default function RateBehavioursPage() {
                 <label className="block text-[8px] font-black text-slate-455 uppercase mb-1">Class Name</label>
                 <select
                   value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
+                  onChange={(e) => {
+                    const cls = classes.find(c => c.name === e.target.value);
+                    setSelectedClass(e.target.value);
+                    setSelectedClassId(cls?.id || '');
+                  }}
                   className="w-full text-xs h-9.5 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-700 focus:outline-none"
                 >
                   {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}

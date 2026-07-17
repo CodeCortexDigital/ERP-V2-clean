@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Download, Printer, Search, Calendar, Clock, MapPin } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/services/api';
 import { toast } from 'sonner';
 
 interface Exam {
@@ -85,11 +85,7 @@ export default function DateSheet() {
       const schedsRes = await api.get('/auth/exams/schedules/').catch(() => ({ data: [] }));
       const rawSchedules = Array.isArray(schedsRes.data) ? schedsRes.data : schedsRes.data?.results || [];
 
-      // Mapped items
-      const localSchedules = JSON.parse(localStorage.getItem('local_exam_schedules') || '[]');
-      const combined = [...rawSchedules, ...localSchedules];
-
-      const filtered = combined
+      const filtered = rawSchedules
         .filter(s => s.exam === selectedExamId || selectedExamId === '-- LAST 2 EXAMS --')
         .map((s, idx) => ({
           id: s.id || `ds-item-${idx}`,

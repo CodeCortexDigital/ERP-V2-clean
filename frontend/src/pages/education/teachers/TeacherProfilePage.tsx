@@ -8,6 +8,24 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import teacherService, { Teacher } from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
+import api from '@/services/api';
+
+interface AttendanceStats {
+  present: number;
+  leave: number;
+  absent: number;
+  total: number;
+  todayStatus: string | null;
+  yesterdayStatus: string | null;
+}
+
+interface PayslipData {
+  net_salary: number;
+  status: string;
+  month: string;
+  paid_amount: number;
+  payment_date: string | null;
+}
 
 export default function TeacherProfilePage() {
   const { id } = useParams<{ id?: string }>();
@@ -15,17 +33,21 @@ export default function TeacherProfilePage() {
   const navigate = useNavigate();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({
+    present: 0, leave: 0, absent: 0, total: 0, todayStatus: null, yesterdayStatus: null
+  });
+  const [latestPayslip, setLatestPayslip] = useState<PayslipData | null>(null);
   const [extraDetails, setExtraDetails] = useState<any>({
     role: 'Teacher',
-    monthlySalary: 'Rs 1,000',
+    monthlySalary: 'Rs 0',
     fatherName: '--',
     gender: 'Male',
-    experience: '2',
+    experience: '0',
     nationalId: '--',
     religion: 'Islam',
     education: 'N/A',
     bloodGroup: 'O+',
-    dateOfBirth: '1995-05-15',
+    dateOfBirth: '--',
     homeAddress: '--',
     phone: '--'
   });
@@ -33,6 +55,46 @@ export default function TeacherProfilePage() {
   useEffect(() => {
     loadTeacherData();
   }, [id]);
+
+  const loadAttendanceStats = async (teacherId: string) => {
+    try {
+      const now = new Date();
+      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const res = await api.get(`/auth/academics/teacher-attendance/`, {
+        params: { teacher: teacherId, month }
+      });
+      const records = extractListData<any>(res.data);
+      const today = now.toISOString().split('T')[0];
+      const yesterday = new Date(now.getTime() - 86400000).toISOString().split('T')[0];
+
+      const stats = { present: 0, leave: 0, absent: 0, total: records.length, todayStatus: null as string | null, yesterdayStatus: null as string | null };
+      for (const r of records) {
+        const s = (r.status || '').toUpperCase();
+        if (s === 'P' || s === 'PRESENT') stats.present++;
+        else if (s === 'L' || s === 'LEAVE') stats.leave++;
+        else if (s === 'A' || s === 'ABSENT') stats.absent++;
+        if (r.date === today) stats.todayStatus = s;
+        if (r.date === yesterday) stats.yesterdayStatus = s;
+      }
+      setAttendanceStats(stats);
+    } catch {
+      // Attendance endpoint may not have teacher filter; silently ignore
+    }
+  };
+
+  const loadLatestPayslip = async (teacherId: string) => {
+    try {
+      const res = await api.get('/auth/finance/payslips/', {
+        params: { teacher: teacherId, page_size: 1, ordering: '-month' }
+      });
+      const slips = extractListData<any>(res.data);
+      if (slips.length > 0) {
+        setLatestPayslip(slips[0]);
+      }
+    } catch {
+      // Payslip endpoint may not exist yet; silently ignore
+    }
+  };
 
   const loadTeacherData = async () => {
     setLoading(true);
@@ -43,88 +105,41 @@ export default function TeacherProfilePage() {
           const response = await teacherService.getById(id);
           teacherData = response.data;
         } catch (err) {
-          console.log('Fetching teacher by ID failed, falling back to localStorage');
+          console.log('Fetching teacher by ID failed');
         }
       }
 
-      // If backend fails or empty, try loading from localStorage cached list
       if (!teacherData) {
         const res = await teacherService.getAll().catch(() => ({ data: [] }));
         const list = extractListData<any>(res.data);
         if (id) {
           teacherData = list.find((t: any) => t.id === id);
         } else {
-          // Logged in teacher fallback
           const userEmail = user?.email?.toLowerCase();
           teacherData = list.find((t: any) => t.email?.toLowerCase() === userEmail) || list[0];
         }
       }
 
-      // Load extra info from localStorage
-      const savedExtras = localStorage.getItem('employees_extra_info');
-      let extra = {
-        role: 'Teacher',
-        monthlySalary: 'Rs 1,000',
-        fatherName: '--',
-        gender: 'Male',
-        experience: '2',
-        nationalId: '--',
-        religion: 'Islam',
-        education: 'N/A',
-        bloodGroup: 'O+',
-        dateOfBirth: '1995-05-15',
-        homeAddress: '--',
-        phone: '--',
-        profilePictureUrl: ''
-      };
-
-      const targetId = teacherData?.id || id;
-      if (savedExtras && targetId) {
-        try {
-          const extrasMap = JSON.parse(savedExtras);
-          if (extrasMap[targetId]) {
-            extra = { ...extra, ...extrasMap[targetId] };
-          }
-        } catch (e) {}
-      }
-
-      // format salary display
-      if (extra.monthlySalary && !extra.monthlySalary.toString().startsWith('Rs')) {
-        extra.monthlySalary = `Rs ${Number(extra.monthlySalary).toLocaleString()}`;
-      }
-
       if (teacherData) {
         setTeacher(teacherData);
         setExtraDetails({
-          role: extra.role || teacherData.specializations?.[0] || 'Teacher',
-          monthlySalary: extra.monthlySalary || 'Rs 1,000',
-          fatherName: extra.fatherName || '--',
-          gender: extra.gender || 'Male',
-          experience: extra.experience || String(teacherData.experience_years || '2'),
-          nationalId: extra.nationalId || '--',
-          religion: extra.religion || 'Islam',
-          education: extra.education || teacherData.qualifications?.[0] || 'N/A',
-          bloodGroup: extra.bloodGroup || 'O+',
-          dateOfBirth: extra.dateOfBirth || '1995-05-15',
-          homeAddress: extra.homeAddress || '--',
-          phone: teacherData.phone || extra.phone || '--',
-          profilePictureUrl: extra.profilePictureUrl || ''
+          role: teacherData.role || teacherData.designation || teacherData.specializations?.[0] || 'Teacher',
+          monthlySalary: teacherData.monthly_salary ? `Rs ${Number(teacherData.monthly_salary).toLocaleString()}` : 'Rs 0',
+          fatherName: teacherData.father_husband_name || '--',
+          gender: teacherData.gender || 'Male',
+          experience: String(teacherData.experience_years || '0'),
+          nationalId: teacherData.national_id || '--',
+          religion: teacherData.religion || 'Islam',
+          education: teacherData.education || 'N/A',
+          bloodGroup: teacherData.blood_group || 'O+',
+          dateOfBirth: teacherData.date_of_birth || '--',
+          homeAddress: teacherData.home_address || '--',
+          phone: teacherData.phone || '--'
         });
+        loadAttendanceStats(teacherData.id);
+        loadLatestPayslip(teacherData.id);
       } else {
-        // Ultimate fallback default teacher
-        setTeacher({
-          id: 't-1',
-          employee_id: '250822',
-          full_name: 'Maryam Fatima',
-          email: 'maryam.fatima@school.edu',
-          phone: '+92 300 1234567',
-          qualifications: ['Master of Education'],
-          specializations: ['Teacher'],
-          experience_years: 5,
-          joining_date: '2026-06-29',
-          is_active: true,
-          profile_picture: null
-        } as any);
+        setTeacher({} as any);
       }
     } catch (error) {
       console.error('Error loading teacher profile:', error);
@@ -217,10 +232,14 @@ export default function TeacherProfilePage() {
         <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
           <div className="flex flex-col items-center text-center space-y-3">
             <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 bg-slate-100 shadow-xs">
-              <img 
-                src={extraDetails.profilePictureUrl || teacher.profile_picture || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=200'} 
-                alt={teacher.full_name} 
-                className="w-full h-full object-cover" 
+              <img
+                src={teacher.profile_picture?.startsWith('http') ? teacher.profile_picture : `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.full_name || 'Teacher')}&background=4C469D&color=fff&size=128&bold=true`}
+                alt={teacher.full_name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.full_name || 'Teacher')}&background=4C469D&color=fff&size=128&bold=true`;
+                }}
               />
             </div>
             <h2 className="text-xl font-bold text-[#4C469D]">{teacher.full_name}</h2>
@@ -330,58 +349,54 @@ export default function TeacherProfilePage() {
               {/* Two Circular Gauge representation */}
               <div className="flex items-center gap-8">
                 <div className="text-center space-y-1.5">
-                  <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-pink-500 flex flex-col justify-center items-center bg-slate-50/50">
-                    <span className="text-xs font-black text-slate-700">0%</span>
+                  <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-blue-500 flex flex-col justify-center items-center bg-slate-50/50">
+                    <span className="text-xs font-black text-slate-700">{attendanceStats.total > 0 ? Math.round((attendanceStats.present / attendanceStats.total) * 100) : 0}%</span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-bold block">Overall</span>
                 </div>
 
                 <div className="text-center space-y-1.5">
-                  <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-pink-500 flex flex-col justify-center items-center bg-slate-50/50">
-                    <span className="text-xs font-black text-slate-700">0%</span>
+                  <div className="w-16 h-16 rounded-full border-4 border-slate-100 border-t-blue-500 flex flex-col justify-center items-center bg-slate-50/50">
+                    <span className="text-xs font-black text-slate-700">{attendanceStats.total > 0 ? Math.round((attendanceStats.present / attendanceStats.total) * 100) : 0}%</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-bold block">Jun 2026</span>
+                  <span className="text-[10px] text-slate-400 font-bold block">{new Date().toLocaleString('default', { month: 'short', year: 'numeric' })}</span>
                 </div>
               </div>
             </div>
 
-            {/* Attendance Status Buttons */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-center text-xs font-bold text-slate-400">
-                Today NOT MARKED
+              <div className={`py-2.5 border rounded-xl text-center text-xs font-bold ${attendanceStats.todayStatus ? 'border-green-200 bg-green-50 text-green-600' : 'border-slate-200 bg-slate-50/50 text-slate-400'}`}>
+                {attendanceStats.todayStatus ? `Today: ${attendanceStats.todayStatus}` : 'Today NOT MARKED'}
               </div>
-              <div className="py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-center text-xs font-bold text-slate-400">
-                Yesterday NOT MARKED
+              <div className={`py-2.5 border rounded-xl text-center text-xs font-bold ${attendanceStats.yesterdayStatus ? 'border-green-200 bg-green-50 text-green-600' : 'border-slate-200 bg-slate-50/50 text-slate-400'}`}>
+                {attendanceStats.yesterdayStatus ? `Yesterday: ${attendanceStats.yesterdayStatus}` : 'Yesterday NOT MARKED'}
               </div>
             </div>
 
-            {/* Attendance Count Cards Grid */}
             <div className="grid grid-cols-3 gap-4">
               <div className="p-4 bg-blue-600 rounded-2xl text-white space-y-1 shadow-sm">
                 <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">PRESENTS</p>
                 <div className="flex justify-between items-baseline pt-2">
                   <span className="text-sm font-bold">↪</span>
-                  <span className="text-2xl font-black">0</span>
+                  <span className="text-2xl font-black">{attendanceStats.present}</span>
                 </div>
-                <p className="text-[9px] font-medium opacity-70">This Month: 0</p>
+                <p className="text-[9px] font-medium opacity-70">This Month: {attendanceStats.present}</p>
               </div>
-
               <div className="p-4 bg-[#7671FA] rounded-2xl text-white space-y-1 shadow-sm">
                 <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">LEAVES</p>
                 <div className="flex justify-between items-baseline pt-2">
                   <span className="text-sm font-bold">↪</span>
-                  <span className="text-2xl font-black">0</span>
+                  <span className="text-2xl font-black">{attendanceStats.leave}</span>
                 </div>
-                <p className="text-[9px] font-medium opacity-70">This Month: 0</p>
+                <p className="text-[9px] font-medium opacity-70">This Month: {attendanceStats.leave}</p>
               </div>
-
               <div className="p-4 bg-rose-500 rounded-2xl text-white space-y-1 shadow-sm">
                 <p className="text-[10px] font-bold opacity-80 uppercase tracking-wider">ABSENTS</p>
                 <div className="flex justify-between items-baseline pt-2">
                   <span className="text-sm font-bold">↪</span>
-                  <span className="text-2xl font-black">0</span>
+                  <span className="text-2xl font-black">{attendanceStats.absent}</span>
                 </div>
-                <p className="text-[9px] font-medium opacity-70">This Month: 0</p>
+                <p className="text-[9px] font-medium opacity-70">This Month: {attendanceStats.absent}</p>
               </div>
             </div>
           </div>
@@ -398,23 +413,46 @@ export default function TeacherProfilePage() {
               <div className="py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-center text-xs font-bold text-slate-500">
                 💵 Current Salary: <strong className="text-[#4C469D]">{extraDetails.monthlySalary}</strong>
               </div>
-              <div className="py-2.5 border border-red-200 bg-red-50/30 rounded-xl text-center text-xs font-bold text-red-500">
-                This Month: <strong className="uppercase">SALARY NOT RECEIVED</strong>
+              <div className={`py-2.5 border rounded-xl text-center text-xs font-bold ${latestPayslip ? 'border-green-200 bg-green-50 text-green-600' : 'border-red-200 bg-red-50/30 text-red-500'}`}>
+                This Month: <strong className="uppercase">{latestPayslip ? `PAID Rs ${Number(latestPayslip.paid_amount || latestPayslip.net_salary).toLocaleString()}` : 'SALARY NOT RECEIVED'}</strong>
               </div>
             </div>
 
-            {/* No Record Found Section */}
-            <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">• Latest salary record •</p>
-              <div className="w-32 h-32 opacity-85">
-                <img 
-                  src="https://illustrations.popsy.co/purple/searching.svg" 
-                  alt="No Record Found" 
-                  className="w-full h-full object-contain"
-                />
+            {latestPayslip ? (
+              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Latest Salary Record</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-slate-400 font-bold">Month</p>
+                    <p className="font-bold text-slate-700">{latestPayslip.month}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 font-bold">Net Salary</p>
+                    <p className="font-bold text-slate-700">Rs {Number(latestPayslip.net_salary).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 font-bold">Status</p>
+                    <p className={`font-bold ${latestPayslip.status === 'paid' ? 'text-green-600' : 'text-red-500'}`}>{latestPayslip.status?.toUpperCase()}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 font-bold">Paid Amount</p>
+                    <p className="font-bold text-slate-700">Rs {Number(latestPayslip.paid_amount || 0).toLocaleString()}</p>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs font-extrabold text-slate-400">🔍 No Record Found.</p>
-            </div>
+            ) : (
+              <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">• Latest salary record •</p>
+                <div className="w-32 h-32 opacity-85">
+                  <img 
+                    src="https://illustrations.popsy.co/purple/searching.svg" 
+                    alt="No Record Found" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <p className="text-xs font-extrabold text-slate-400">🔍 No Record Found.</p>
+              </div>
+            )}
           </div>
 
         </div>

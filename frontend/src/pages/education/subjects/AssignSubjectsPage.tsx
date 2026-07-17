@@ -174,12 +174,12 @@ export default function AssignSubjectsPage() {
       <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
           <GraduationCap className="w-4 h-4" />
-          <span className="cursor-pointer hover:underline" onClick={() => navigate('/education/subjects')}>Subjects</span>
+          <span className="cursor-pointer hover:underline" onClick={() => navigate('/education/academic-setup/subjects')}>Subjects</span>
           <span>&gt;</span>
           <span className="text-slate-500">Assign Subjects</span>
         </div>
         <button 
-          onClick={() => navigate('/education/subjects')}
+          onClick={() => navigate('/education/academic-setup/subjects')}
           className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back

@@ -11,13 +11,14 @@ urlpatterns = [
 
     # Exams
     path('', views.ExamListCreateView.as_view(), name='exam-list'),
-    path('<str:id>/', views.ExamDetailView.as_view(), name='exam-detail'),
-    
-    # Results - Using function-based views
+
+    # Results - MUST come before `<str:id>/` so that 'results' is not captured as an exam id
     path('results/', views.get_exam_results, name='get-results'),
     path('results/create/', views.create_exam_result, name='create-result'),
     path('results/<str:result_id>/delete/', views.delete_exam_result, name='delete-result'),
-    
+
+    path('<str:id>/', views.ExamDetailView.as_view(), name='exam-detail'),
+
     # Bulk operations
     path('<str:exam_id>/bulk-results/', views.bulk_enter_results, name='bulk-results'),
     path('<str:exam_id>/summary/', views.exam_summary, name='exam-summary'),

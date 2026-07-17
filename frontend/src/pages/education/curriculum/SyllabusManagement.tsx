@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
 import teacherService from '@/services/teacher.service';
-import { extractListData } from '@/services/api';
+import api, { extractListData } from '@/services/api';
 
 interface SubjectRow {
   id: string;
@@ -221,10 +221,7 @@ export default function SyllabusManagement() {
         { id: 'cls-1', name: 'Grade 1-A' },
         { id: 'cls-2', name: 'Grade 1-B' }
       ];
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-      const combinedClassesRaw = [...(rawClasses.length > 0 ? rawClasses : defaultClasses), ...customClasses];
-      const deletedClassIds: string[] = JSON.parse(localStorage.getItem('deleted_class_ids') || '[]');
-      const finalClasses = combinedClassesRaw.filter(c => !deletedClassIds.includes(c.id));
+      const finalClasses = rawClasses.length > 0 ? rawClasses : defaultClasses;
 
       // Unique by name to avoid duplicate dropdown entries
       const uniqueClasses: any[] = [];
@@ -244,14 +241,33 @@ export default function SyllabusManagement() {
       setClasses(sortedClassesList);
       setTeachers(rawTeachers);
 
-      // Load assigned class subjects from localStorage or set defaults
-      const savedClassSubjects = localStorage.getItem('assigned_class_subjects');
-      const isSeededV2 = localStorage.getItem('subjects_seeded_v2');
+      // Load assigned class subjects from API
       let loadedClassSubjects: AssignedClassSubject[] = [];
 
-      if (savedClassSubjects && isSeededV2 === 'true') {
-        loadedClassSubjects = JSON.parse(savedClassSubjects);
-      } else {
+      try {
+        const classSubjectsRes = await academicService.getClassSubjects();
+        const apiClassSubjects = Array.isArray(classSubjectsRes) ? classSubjectsRes : (classSubjectsRes as any)?.results || [];
+        
+        // Group by class_name
+        const grouped: Record<string, { name: string; marks: number }[]> = {};
+        apiClassSubjects.forEach((cs: any) => {
+          const className = cs.class_name || '';
+          if (!grouped[className]) grouped[className] = [];
+          grouped[className].push({
+            name: cs.subject_name || cs.subject,
+            marks: cs.marks || 100
+          });
+        });
+        
+        loadedClassSubjects = Object.entries(grouped).map(([className, subjectsList], index) => ({
+          id: `cs-${index + 1}`,
+          className,
+          subjectsCount: subjectsList.length,
+          totalMarks: subjectsList.reduce((sum, s) => sum + s.marks, 0),
+          subjectsList
+        }));
+      } catch (err) {
+        console.warn('Failed to load class subjects from API, using defaults');
         // Pre-seed subjects for ALL existing classes based on class name matching
         loadedClassSubjects = finalClasses.map((cls: any, index: number) => {
           const predefined = getPredefinedSubjectsForClass(cls.name) || [
@@ -267,8 +283,6 @@ export default function SyllabusManagement() {
             subjectsList: predefined.map((s: any) => ({ name: s.subject, marks: s.marks }))
           };
         });
-        localStorage.setItem('assigned_class_subjects', JSON.stringify(loadedClassSubjects));
-        localStorage.setItem('subjects_seeded_v2', 'true');
       }
 
       // Filter classSubjects so we only show subjects for classes that currently exist and are not deleted
@@ -306,7 +320,7 @@ export default function SyllabusManagement() {
     setSubjectRows(prev => prev.slice(0, -1));
   };
 
-  const handleAssignSubjectsSubmit = () => {
+  const handleAssignSubjectsSubmit = async () => {
     if (!selectedClass) {
       toast.error('Please select a class');
       return;
@@ -318,49 +332,72 @@ export default function SyllabusManagement() {
       return;
     }
 
-    // Update class subjects list in local storage & state
-    const savedClassSubjects = localStorage.getItem('assigned_class_subjects');
-    let loadedClassSubjects: AssignedClassSubject[] = [];
-    if (savedClassSubjects) {
-      try {
-        loadedClassSubjects = JSON.parse(savedClassSubjects);
-      } catch (e) {}
+    // Find class ID
+    const selectedClassObj = classes.find(c => c.name === selectedClass);
+    if (!selectedClassObj) {
+      toast.error('Class not found');
+      return;
     }
 
-    const existingIndex = loadedClassSubjects.findIndex(c => c.className === selectedClass);
-    const newSubjects = validRows.map(r => ({ name: r.name, marks: Number(r.marks) || 100 }));
-    let updatedSubjectsList: AssignedClassSubject[] = [];
+    try {
+      // Delete existing ClassSubjects for this class
+      const existing = await academicService.getClassSubjects();
+      const existingList = Array.isArray(existing) ? existing : (existing as any)?.results || [];
+      const toDelete = existingList.filter((cs: any) => cs.class_name === selectedClass || cs.class_ref === selectedClassObj.id);
+      for (const cs of toDelete) {
+        await academicService.classSubjects.delete(cs.id);
+      }
 
-    if (existingIndex >= 0) {
-      const updated = [...loadedClassSubjects];
-      const total = newSubjects.reduce((sum, s) => sum + s.marks, 0);
-      updated[existingIndex] = {
-        ...updated[existingIndex],
-        subjectsCount: newSubjects.length,
-        totalMarks: total,
-        subjectsList: newSubjects
-      };
-      updatedSubjectsList = updated;
-    } else {
-      const total = newSubjects.reduce((sum, s) => sum + s.marks, 0);
-      updatedSubjectsList = [
-        ...loadedClassSubjects,
-        { id: `cs-${Date.now()}`, className: selectedClass, subjectsCount: newSubjects.length, totalMarks: total, subjectsList: newSubjects }
-      ];
+      // Create new ClassSubjects
+      for (const row of validRows) {
+        // Find or create subject
+        let subjectId = '';
+        try {
+          const subjectsRes = await api.get('/auth/academics/subjects/');
+          const subjects = Array.isArray(subjectsRes.data) ? subjectsRes.data : (subjectsRes.data as any)?.results || [];
+          const existingSubject = subjects.find((s: any) => s.name.toLowerCase() === row.name.toLowerCase());
+          if (existingSubject) {
+            subjectId = existingSubject.id;
+          } else {
+            // Create subject inline
+            const newSubject = await api.post('/auth/academics/subjects/', { name: row.name, code: row.name.substring(0, 3).toUpperCase() });
+            subjectId = newSubject.data.id;
+          }
+        } catch {
+          continue;
+        }
+
+        await academicService.classSubjects.create({
+          class_ref: selectedClassObj.id,
+          subject: subjectId,
+          marks: Number(row.marks) || 100
+        } as any);
+      }
+
+      toast.success('Subjects assigned to class successfully!');
+      
+      // Reload from API
+      const classSubjectsRes = await academicService.getClassSubjects();
+      const apiClassSubjects = Array.isArray(classSubjectsRes) ? classSubjectsRes : (classSubjectsRes as any)?.results || [];
+      const grouped: Record<string, { name: string; marks: number }[]> = {};
+      apiClassSubjects.forEach((cs: any) => {
+        const cn = cs.class_name || '';
+        if (!grouped[cn]) grouped[cn] = [];
+        grouped[cn].push({ name: cs.subject_name || cs.subject, marks: cs.marks || 100 });
+      });
+      const updatedSubjectsList = Object.entries(grouped).map(([cn, sl], i) => ({
+        id: `cs-${i + 1}`, className: cn, subjectsCount: sl.length,
+        totalMarks: sl.reduce((sum, s) => sum + s.marks, 0), subjectsList: sl
+      }));
+      setClassSubjects(updatedSubjectsList);
+      
+      setSelectedClass('');
+      setSubjectRows([{ id: '1', name: '', marks: '' }]);
+      navigate('/education/curriculum');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save subjects');
     }
-
-    localStorage.setItem('assigned_class_subjects', JSON.stringify(updatedSubjectsList));
-    
-    // Filter classSubjects so we only show subjects for classes that currently exist and are not deleted
-    const filteredClassSubjects = updatedSubjectsList.filter(cs => 
-      classes.some(c => c.name === cs.className)
-    );
-    setClassSubjects(filteredClassSubjects);
-
-    toast.success('Subjects assigned to class successfully!');
-    setSelectedClass('');
-    setSubjectRows([{ id: '1', name: '', marks: '' }]);
-    navigate('/education/curriculum');
   };
 
   // RENDER VIEW 1: ASSIGN SUBJECTS TO CLASS FORM

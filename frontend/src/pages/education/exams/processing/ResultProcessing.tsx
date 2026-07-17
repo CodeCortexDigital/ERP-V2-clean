@@ -21,7 +21,7 @@ export default function ResultProcessing() {
     try {
       const [examsRes, resultsRes] = await Promise.all([
         api.get('/auth/exams/'),
-        api.get('/exams-results/')
+        api.get('/auth/exams/results/')
       ])
 
       const rawExams = Array.isArray(examsRes.data) ? examsRes.data : examsRes.data?.results || []

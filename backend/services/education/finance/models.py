@@ -551,6 +551,160 @@ class FinanceSettings(models.Model):
 
     def __str__(self):
         return f"{self.school_name} Settings"
+
+
+class AccountHead(models.Model):
+    """Chart of accounts - income and expense heads"""
+    TYPE_CHOICES = [
+        ('income', 'Income'),
+        ('expense', 'Expense'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, unique=True, blank=True)
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_type_display()})"
+    
+    class Meta:
+        ordering = ['type', 'name']
+    
+    def save(self, *args, **kwargs):
+        if not self.code:
+            prefix = 'INC' if self.type == 'income' else 'EXP'
+            count = AccountHead.objects.filter(type=self.type).count()
+            self.code = f"{prefix}-{count + 1:04d}"
+        super().save(*args, **kwargs)
+
+
+class LedgerEntry(models.Model):
+    """General ledger entries for income and expense tracking"""
+    TYPE_CHOICES = [
+        ('income', 'Income'),
+        ('expense', 'Expense'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    date = models.DateField(db_index=True)
+    description = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    account_head = models.ForeignKey(AccountHead, on_delete=models.SET_NULL, null=True, blank=True, related_name='ledger_entries')
+    reference = models.CharField(max_length=100, blank=True, help_text="Optional reference number")
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey('core_accounts.User', on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.date} - {self.description} - {self.get_type_display()} - {self.amount}"
+    
+    class Meta:
+        ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['type', 'date']),
+            models.Index(fields=['account_head', 'date']),
+        ]
+
+
+class Payslip(models.Model):
+    """Monthly salary records for employees"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('partial', 'Partially Paid'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee = models.ForeignKey('education_academics.Teacher', on_delete=models.CASCADE, related_name='payslips')
+    month = models.DateField(help_text="First day of the month (e.g. 2026-07-01)")
+    basic_salary = models.DecimalField(max_digits=12, decimal_places=2)
+    allowances = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    deductions = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    net_salary = models.DecimalField(max_digits=12, decimal_places=2)
+    paid_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    payment_date = models.DateField(null=True, blank=True)
+    payment_method = models.CharField(max_length=20, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.employee.full_name} - {self.month.strftime('%B %Y')} - {self.get_status_display()}"
+    
+    class Meta:
+        ordering = ['-month', 'employee']
+        unique_together = ['employee', 'month']
+        indexes = [
+            models.Index(fields=['employee', 'month']),
+            models.Index(fields=['status']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        self.net_salary = self.basic_salary + self.allowances - self.deductions
+        if self.paid_amount >= self.net_salary and self.net_salary > 0:
+            self.status = 'paid'
+        elif self.paid_amount > 0:
+            self.status = 'partial'
+        super().save(*args, **kwargs)
+
+
+class EmployeeCredit(models.Model):
+    """Employee advance payments and credits"""
+    TYPE_CHOICES = [
+        ('advance', 'Advance Payment'),
+        ('bonus', 'Bonus'),
+        ('loan', 'Loan'),
+        ('deduction', 'Deduction'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    employee = models.ForeignKey('education_academics.Teacher', on_delete=models.CASCADE, related_name='credits')
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    date = models.DateField()
+    description = models.CharField(max_length=255, blank=True)
+    is_settled = models.BooleanField(default=False)
+    settled_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.employee.full_name} - {self.get_type_display()} - {self.amount}"
+    
+    class Meta:
+        ordering = ['-date']
+        indexes = [
+            models.Index(fields=['employee', 'type']),
+            models.Index(fields=['date']),
+        ]
+
+
+class WeekdayConfig(models.Model):
+    """School weekday configuration"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=20)
+    day_code = models.CharField(max_length=10, unique=True)
+    is_active = models.BooleanField(default=True)
+    is_half_day = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name} - {'Active' if self.is_active else 'Inactive'}"
+    
+    class Meta:
+        ordering = ['order']
+        verbose_name_plural = 'Weekday Configs'
     
 
 

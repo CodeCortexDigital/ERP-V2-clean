@@ -103,6 +103,7 @@ const examService = {
     academic_year?: string;
     is_published?: boolean;
     search?: string;
+    exam_type?: string;
   }) => {
     const response = await api.get('/auth/exams/', { params });
     if (response.data) {
@@ -176,7 +177,7 @@ const examService = {
     class_id?: string;
     grade?: string;
   }) => {
-    const response = await api.get('/exams-results/', { params });
+    const response = await api.get('/auth/exams/results/', { params });
     if (response.data) {
       const results = extractListData<ExamResult>(response.data);
       response.data = normalizeResultList(results);
@@ -185,7 +186,7 @@ const examService = {
   },
   
   getResultsByExam: async (examId: string) => {
-    const response = await api.get('/exams-results/', { params: { exam: examId } });
+    const response = await api.get('/auth/exams/results/', { params: { exam: examId } });
     if (response.data) {
       const results = extractListData<ExamResult>(response.data);
       response.data = normalizeResultList(results);
@@ -194,7 +195,7 @@ const examService = {
   },
   
   getResultsByStudent: async (studentId: string) => {
-    const response = await api.get('/exams-results/', { params: { student: studentId } });
+    const response = await api.get('/auth/exams/results/', { params: { student: studentId } });
     if (response.data) {
       const results = extractListData<ExamResult>(response.data);
       response.data = normalizeResultList(results);

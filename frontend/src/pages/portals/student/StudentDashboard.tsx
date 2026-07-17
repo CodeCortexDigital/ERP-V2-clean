@@ -5,6 +5,7 @@ import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
 import { Calendar, Clock, DollarSign, BookOpen, User, RefreshCw, UserCheck, AlertCircle, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
+import NotificationBell from '@/components/notifications/NotificationBell';
 
 interface FeeItem {
   amount: number;
@@ -319,12 +320,15 @@ export default function StudentDashboard() {
               <p className="text-[10px] text-blue-150 font-bold uppercase tracking-wider">Your targetline goes here</p>
             </div>
             
-            <div className="z-10 text-right md:text-right mt-4 md:mt-0 bg-white/10 p-3 rounded-xl border border-white/10">
-              <div className="flex items-center gap-1.5 text-amber-300 font-bold justify-end">
-                <Clock className="w-3.5 h-3.5" />
-                <span className="text-sm font-black">{currentTime}</span>
+            <div className="z-10 text-right md:text-right mt-4 md:mt-0 bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">
+              <NotificationBell />
+              <div>
+                <div className="flex items-center gap-1.5 text-amber-300 font-bold justify-end">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span className="text-sm font-black">{currentTime}</span>
+                </div>
+                <p className="text-[9px] text-blue-100 font-bold uppercase tracking-wider mt-0.5">{currentDateStr}</p>
               </div>
-              <p className="text-[9px] text-blue-100 font-bold uppercase tracking-wider mt-0.5">{currentDateStr}</p>
             </div>
 
             <div className="absolute right-0 bottom-0 top-0 w-1/3 bg-white/5 skew-x-12 transform origin-bottom-right"></div>

@@ -2,7 +2,7 @@ import re
 import uuid
 
 from rest_framework import serializers
-from .models import Student
+from .models import Student, Certificate
 
 
 def generate_unique_student_id(base=None):
@@ -114,3 +114,9 @@ class StudentSerializer(serializers.ModelSerializer):
         if qs.exists():
             return generate_unique_student_id()
         return value
+
+
+class CertificateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Certificate
+        fields = '__all__'

@@ -41,13 +41,7 @@ export default function TimetableViewPage() {
 
   const resolvedClassId = useMemo(() => {
     if (isStudent) {
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const matched = customStudents.find((s: any) => 
-        String(s.id) === String(user?.id) || 
-        String(s.student_id) === String(user?.id) ||
-        s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-      );
-      return matched?.class_name || (user as any)?.class_name || 'Grade 1-A';
+      return (user as any)?.class_name || 'Grade 1-A';
     }
     return classId;
   }, [isStudent, classId, user]);
@@ -57,20 +51,9 @@ export default function TimetableViewPage() {
   const [title, setTitle] = useState('Timetable View')
   const [subtitle, setSubtitle] = useState('')
   const [loading, setLoading] = useState(true)
-  const [activeDays, setActiveDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
+  const [activeDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'])
 
-  useEffect(() => {
-    const saved = localStorage.getItem('active_weekdays');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const active = parsed.filter((d: any) => d.is_active).map((d: any) => d.day_code);
-        if (active.length > 0) {
-          setActiveDays(active);
-        }
-      } catch (e) {}
-    }
-  }, []);
+  useEffect(() => {}, []);
 
   useEffect(() => {
     fetchTimetableData()

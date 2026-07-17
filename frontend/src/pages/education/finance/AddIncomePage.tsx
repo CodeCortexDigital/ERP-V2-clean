@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Wallet, PlusCircle } from 'lucide-react';
+import ledgerService from '@/services/ledger.service';
 
 export default function AddIncomePage() {
   const navigate = useNavigate();
@@ -12,21 +13,22 @@ export default function AddIncomePage() {
   const [incomeHeads, setIncomeHeads] = useState<any[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('account_heads');
-    if (saved) {
+    const fetchHeads = async () => {
       try {
-        const allHeads = JSON.parse(saved);
-        setIncomeHeads(allHeads.filter((h: any) => h.type === 'Income'));
-      } catch (e) {}
-    } else {
-      setIncomeHeads([
-        { id: 'h-1', name: 'Tuition Fee', type: 'Income' },
-        { id: 'h-3', name: 'Admission Fee', type: 'Income' }
-      ]);
-    }
+        const response = await ledgerService.getAccountHeads({ type: 'income' });
+        setIncomeHeads(response.data || []);
+      } catch (err) {
+        // Fallback to defaults if API fails
+        setIncomeHeads([
+          { id: 'h-1', name: 'Tuition Fee', type: 'Income' },
+          { id: 'h-3', name: 'Admission Fee', type: 'Income' }
+        ]);
+      }
+    };
+    fetchHeads();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date) {
       toast.error('Date is required');
@@ -43,19 +45,12 @@ export default function AddIncomePage() {
 
     setLoading(true);
     try {
-      const savedTransactions = localStorage.getItem('finance_transactions');
-      const transactions = savedTransactions ? JSON.parse(savedTransactions) : [];
-      
-      const newTransaction = {
-        id: `tx-${Date.now()}`,
+      await ledgerService.createLedgerEntry({
         date,
         description: description.trim(),
         amount: parseFloat(amount),
-        type: 'Income'
-      };
-
-      transactions.push(newTransaction);
-      localStorage.setItem('finance_transactions', JSON.stringify(transactions));
+        type: 'income',
+      });
       toast.success('Income transaction added successfully!');
       
       // Reset fields

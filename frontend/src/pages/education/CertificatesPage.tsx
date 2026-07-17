@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import { certificateService, Certificate as CertRecord } from '@/services/certificate.service';
 
 interface SavedCertificate {
   id: string;
@@ -292,7 +293,7 @@ export const getCertificateWording = (
 
     case 'Sports Certificate':
     default:
-      return `This is to certify that ${recipientName} has successfully participated in the school athletic matches on ${date} and achieved outstanding merit results. Certified on behalf of eSkooly Academy.`;
+      return `This is to certify that ${recipientName} has successfully participated in the school athletic matches on ${date} and achieved outstanding merit results. Certified on behalf of Code Cortex Software Academy.`;
   }
 };
 
@@ -337,15 +338,11 @@ export default function CertificatesPage() {
 
       // Student merging
       const rawStudents = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data as any)?.results || [];
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
       const defaultStudents = [
         { id: 'std-1', student_id: '001', full_name: 'Urwah', class_name: 'Grade 1-A', father_name: 'Ahmed', date_of_birth: '2019-04-12', admission_date: '2023-09-01' },
         { id: 'std-2', student_id: '002', full_name: 'Sundas Azhar', class_name: 'Grade 8-B', father_name: 'Azhar', date_of_birth: '2012-10-23', admission_date: '2020-06-29' }
       ];
-      const combinedStudents = [...(rawStudents.length > 0 ? rawStudents : defaultStudents), ...customStudents];
-      const deletedStudentIds = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const finalStudents = combinedStudents
-        .filter(s => !deletedStudentIds.includes(s.id))
+      const finalStudents = (rawStudents.length > 0 ? rawStudents : defaultStudents)
         .map(s => ({
           id: s.id || `s-${Math.random()}`,
           name: s.full_name || s.name || 'Student',
@@ -382,31 +379,22 @@ export default function CertificatesPage() {
     }
   };
 
-  const loadSavedCertificates = () => {
-    const defaultSavedList: SavedCertificate[] = [
-      {
-        id: '12934',
-        template: 'Bonafide Certificate',
-        recipientType: 'student',
-        recipientName: 'Sundas Azhar',
-        recipientDetails: {
-          regNo: '002',
-          className: 'Grade 8-B',
-          fatherName: 'Azhar',
-          dob: '2012-10-23',
-          admissionDate: '2020-06-29'
-        },
-        customText: 'Official Enrolment Verification',
-        date: '2026-07-06'
-      }
-    ];
-
-    const localList = localStorage.getItem('local_saved_certificates');
-    if (localList) {
-      setSavedCertificates(JSON.parse(localList));
-    } else {
-      localStorage.setItem('local_saved_certificates', JSON.stringify(defaultSavedList));
-      setSavedCertificates(defaultSavedList);
+  const loadSavedCertificates = async () => {
+    try {
+      const certs = await certificateService.getCertificates();
+      const mapped: SavedCertificate[] = certs.map(c => ({
+        id: c.id,
+        template: c.template,
+        recipientType: c.recipient_type as 'student' | 'employee',
+        recipientName: c.recipient_name,
+        recipientDetails: c.recipient_details,
+        customText: c.custom_text,
+        date: c.issue_date
+      }));
+      setSavedCertificates(mapped);
+    } catch (err) {
+      console.error(err);
+      setSavedCertificates([]);
     }
   };
 
@@ -419,7 +407,7 @@ export default function CertificatesPage() {
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     const list = recipientType === 'student' ? students : employees;
     const selected = list.find(r => r.id === selectedRecipientId);
     if (!selected) {
@@ -427,28 +415,33 @@ export default function CertificatesPage() {
       return;
     }
 
-    // Add to saved certificates
-    const newCert: SavedCertificate = {
-      id: String(Math.floor(10000 + Math.random() * 90000)),
-      template: selectedTemplate,
-      recipientType,
-      recipientName: selected.name,
-      recipientDetails: selected,
-      customText,
-      date: certificateDate
-    };
-
-    const updated = [newCert, ...savedCertificates];
-    localStorage.setItem('local_saved_certificates', JSON.stringify(updated));
-    setSavedCertificates(updated);
-    toast.success('Certificate logged and saved successfully!');
+    try {
+      await certificateService.createCertificate({
+        template: selectedTemplate,
+        recipient_type: recipientType,
+        recipient_name: selected.name,
+        recipient_id: selected.regNo || selected.id,
+        recipient_details: selected,
+        custom_text: customText,
+        issue_date: certificateDate
+      });
+      toast.success('Certificate saved successfully!');
+      loadSavedCertificates();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save certificate');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    const updated = savedCertificates.filter(c => c.id !== id);
-    localStorage.setItem('local_saved_certificates', JSON.stringify(updated));
-    setSavedCertificates(updated);
-    toast.success('Certificate deleted successfully!');
+  const handleDelete = async (id: string) => {
+    try {
+      await certificateService.deleteCertificate(id);
+      setSavedCertificates(prev => prev.filter(c => c.id !== id));
+      toast.success('Certificate deleted successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete certificate');
+    }
   };
 
   const triggerPrintPreview = (cert: any) => {
@@ -575,7 +568,7 @@ export default function CertificatesPage() {
             <div class="border-inner">
               <div class="sub-title">Certificate of Excellence</div>
               <div class="title">${cert.template}</div>
-              <div class="logo">eSkooly Academy</div>
+              <div class="logo">Code Cortex Software Academy</div>
               <div class="description">${textDesc}</div>
               <div class="footer-row">
                 <div class="seal-box">Official Seal</div>
@@ -862,7 +855,7 @@ export default function CertificatesPage() {
           ) : (
             <div className="space-y-4">
               <div className="border-4 double border-amber-600 rounded-xl p-6 bg-slate-50/50 text-center space-y-4 relative overflow-hidden">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">eSkooly Academy Certificate</p>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Code Cortex Software Academy Certificate</p>
                 <h4 className="text-xl font-black text-amber-700 uppercase tracking-wider">
                   {livePreview.template}
                 </h4>

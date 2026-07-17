@@ -11,6 +11,11 @@ from .models import (
     PaymentGatewayConfig,
     PaymentTransaction,
     FinanceSettings,
+    AccountHead,
+    LedgerEntry,
+    Payslip,
+    EmployeeCredit,
+    WeekdayConfig,
 )
 
 
@@ -210,4 +215,48 @@ class TransactionLogSerializer(serializers.ModelSerializer):
 class FinanceSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinanceSettings
+        fields = '__all__'
+
+
+class AccountHeadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccountHead
+        fields = '__all__'
+
+
+class LedgerEntrySerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    account_head_name = serializers.CharField(source='account_head.name', read_only=True)
+    
+    class Meta:
+        model = LedgerEntry
+        fields = '__all__'
+    
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.get_full_name() or obj.created_by.username
+        return None
+
+
+class PayslipSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_id = serializers.CharField(source='employee.employee_id', read_only=True)
+    
+    class Meta:
+        model = Payslip
+        fields = '__all__'
+
+
+class EmployeeCreditSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    employee_id = serializers.CharField(source='employee.employee_id', read_only=True)
+    
+    class Meta:
+        model = EmployeeCredit
+        fields = '__all__'
+
+
+class WeekdayConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WeekdayConfig
         fields = '__all__'

@@ -47,12 +47,198 @@
   --ring: 224.3 76.3% 48%;
 }
 
+:root {
+  /* Single source of truth for the project's base UI text size.
+     All rem-based Tailwind utilities scale from this, keeping body
+     text consistent everywhere (headings use their own scale below). */
+  --base-font-size: 15px;
+}
+
 * {
   border-color: hsl(var(--border));
+}
+
+html {
+  font-size: var(--base-font-size);
 }
 
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+  font-size: 0.933rem; /* ~14px body copy, uniform across the app */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Headings, brand & accent text use the display font (Museo Sans substitute),
+   bold with increased letter-spacing for a clean, professional hierarchy.
+   A single, consistent heading scale is used app-wide. */
+h1, h2, h3, h4, h5, h6,
+.font-display, .font-heading, .brand {
+  font-family: 'Mulish', 'Museo Sans', 'Roboto', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+
+h1 { font-size: 1.6rem; letter-spacing: 0.02em; }
+h2 { font-size: 1.333rem; letter-spacing: 0.018em; }
+h3 { font-size: 1.133rem; letter-spacing: 0.015em; }
+h4 { font-size: 1rem; }
+h5 { font-size: 0.933rem; }
+h6 { font-size: 0.866rem; }
+
+/* Buttons & prominent labels: track out slightly for a modern, airy feel */
+button, .btn, .tab-label, th {
+  font-family: 'Mulish', 'Museo Sans', 'Roboto', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* Sidebar navigation: keep the same display font, size and weight as the
+   rest of the UI so it doesn't look different from the top tab bar / buttons. */
+.sidebar-nav,
+.sidebar-nav a,
+.sidebar-nav button {
+  font-family: 'Mulish', 'Museo Sans', 'Roboto', sans-serif;
+  font-size: 0.866rem;       /* uniform with h6 / nav scale */
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+
+/* Student, Settings, Employees & module section theming: page headings pick up the active tab accent */
+.students-scope h1,
+.students-scope h2,
+.students-scope h3,
+.settings-scope h1,
+.settings-scope h2,
+.settings-scope h3,
+.employees-scope h1,
+.employees-scope h2,
+.employees-scope h3,
+.finance-scope h1,
+.finance-scope h2,
+.finance-scope h3,
+.salary-scope h1,
+.salary-scope h2,
+.salary-scope h3,
+.attendance-scope h1,
+.attendance-scope h2,
+.attendance-scope h3,
+.timetable-scope h1,
+.timetable-scope h2,
+.timetable-scope h3,
+.behaviour-scope h1,
+.behaviour-scope h2,
+.behaviour-scope h3,
+.exam-scope h1,
+.exam-scope h2,
+.exam-scope h3,
+.subjects-scope h1,
+.subjects-scope h2,
+.subjects-scope h3,
+.communication-scope h1,
+.communication-scope h2,
+.communication-scope h3,
+.certificates-scope h1,
+.certificates-scope h2,
+.certificates-scope h3,
+.reports-scope h1,
+.reports-scope h2,
+.reports-scope h3,
+.academic-setup-scope h1,
+.academic-setup-scope h2,
+.academic-setup-scope h3 {
+  color: rgb(var(--sa));
+  font-family: 'Mulish', 'Museo Sans', 'Roboto', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.018em;
+}
+
+/* Freeze list table headers so they stay visible while scrolling data.
+   Make the table wrapper a real vertical scroll container (max-height) so the
+   sticky thead actually sticks instead of being carried away by the page scroll. */
+table thead {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background-color: #f8fafc; /* slate-50 fallback so sticky header is opaque */
+}
+table thead th {
+  position: sticky;
+  top: 0;
+  background-color: inherit;
+}
+/* Ensure the scroll container establishes the sticky context */
+.overflow-x-auto,
+.overflow-y-auto,
+.overflow-auto {
+  position: relative;
+}
+
+/* Freeze a list page's summary / filter toolbar so it stays pinned above the table */
+.sticky-summary {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  background-color: #ffffff;
+}
+
+/* ---- Explicit frozen-header layout helpers (per spec) ---- */
+/* Scrollable table container */
+.table-wrapper {
+  max-height: calc(100vh - 320px); /* adjust based on header height */
+  overflow-y: auto;
+}
+/* Sticky table header */
+.table-wrapper table thead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.table-wrapper table thead th {
+  background: #f8f9fa;
+  position: sticky;
+  top: 0;
+}
+/* Pinned summary cards + toolbar */
+.top-section {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+  padding: 16px 24px;
+}
+
+/* ============================================================
+   GLOBAL THEME ACCENT
+   General Settings -> Theme accent applied to every page.
+   The chosen Active Color drives the app's purple brand
+   surfaces (CTAs, links, focus rings) via --app-accent.
+   ============================================================ */
+:root {
+  --app-accent: #4D51B4;
+  --app-accent-strong: #4D51B4;
+  --app-accent-rgb: 77 81 180;
+}
+
+/* Button surfaces keep a dark, legible background so white label text is always readable */
+.bg-purple-600 { background-color: var(--app-accent-strong) !important; }
+.bg-purple-700 { background-color: var(--app-accent-strong) !important; }
+.hover\:bg-purple-700:hover,
+.hover\:bg-purple-600:hover { background-color: var(--app-accent-strong) !important; }
+
+/* Text + borders use the legible (dark) variant so they read on white backgrounds */
+.text-purple-700,
+.text-purple-600,
+.text-purple-800 { color: var(--app-accent-strong) !important; }
+
+.border-purple-600,
+.border-purple-200 { border-color: var(--app-accent-strong) !important; }
+
+.ring-purple-200 { --tw-ring-color: var(--app-accent-strong) !important; }
+
+.focus\:ring-purple-500:focus,
+.focus\:ring-purple-400:focus { --tw-ring-color: rgb(var(--app-accent-rgb) / 0.5) !important; }

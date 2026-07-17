@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
 import academicService from '@/services/academic.service';
+import behaviourService from '@/services/behaviour.service';
 
 const AFFECTIVE_DOMAIN_FIELDS = [
   "Interest in Learning", "Motivation", "Self Confidence", "Emotional Stability",
@@ -41,6 +42,7 @@ export default function AffectiveDomainReportPage() {
   // Search & Selector State
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('Grade 1-A');
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSession, setSelectedSession] = useState('2026-2027');
   const [selectedTerm, setSelectedTerm] = useState('Term 1');
   const [selectedMonth, setSelectedMonth] = useState('July');
@@ -63,27 +65,31 @@ export default function AffectiveDomainReportPage() {
   }, []);
 
   useEffect(() => {
-    const names = [
-      { id: 's-1', name: 'Maryam Fatima', roll: '101' },
-      { id: 's-2', name: 'Zainab Ahmed', roll: '102' },
-      { id: 's-3', name: 'Ali Khan', roll: '103' },
-      { id: 's-4', name: 'Muhammad Rizwan', roll: '104' },
-      { id: 's-5', name: 'Ayesha Siddiqua', roll: '105' }
-    ];
+    const names = [];
     setStudents(names);
     setActiveStudent(names[0]);
   }, [selectedClass]);
 
   useEffect(() => {
-    if (activeStudent) {
-      // Calculate/load data for the active student
-      const key = `affective_ratings_${selectedSession}_${selectedTerm}_${selectedMonth}_${activeStudent.id}`;
-      const saved = localStorage.getItem(key);
-      
+    if (activeStudent && selectedClassId) {
+      loadRatings();
+    }
+  }, [activeStudent, selectedMonth, selectedTerm, selectedSession, selectedClassId]);
+
+  const loadRatings = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      const res = await behaviourService.getRatings({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        academic_year: selectedSession,
+        term: selectedTerm,
+        month: selectedMonth,
+      });
+      const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
       let initialRatings: Record<string, number> = {};
-      
-      if (saved) {
-        initialRatings = JSON.parse(saved).ratings;
+      if (data.length > 0) {
+        initialRatings = data[0].ratings || {};
       } else {
         AFFECTIVE_DOMAIN_FIELDS.forEach(f => {
           initialRatings[f] = activeStudent.id === 's-1' ? 5 : activeStudent.id === 's-3' ? 2 : 4;
@@ -92,62 +98,46 @@ export default function AffectiveDomainReportPage() {
       setRatings(initialRatings);
       setShowAiSummary(false);
       setAiSummary('');
-
-      // Generate standard mock stats based on student profile
-      if (activeStudent.id === 's-1') {
-        // High performer Maryam
-        setReportData({
-          ratings: initialRatings,
-          attendancePercent: 96,
-          lateArrivals: 1,
-          leaves: 2,
-          absentees: 0,
-          homeworkSubmitted: 18,
-          homeworkMissing: 0,
-          lateSubmissions: 0,
-          behaviourScore: 95,
-          grade: 'A+',
-          riskLevel: 'Low',
-          predictions: ['Likely Top Performer', 'Leadership Potential', 'Creative Talent'],
-          alerts: ['Excellent improvement in class participation!', 'Perfect Attendance Target near']
-        });
-      } else if (activeStudent.id === 's-3') {
-        // High risk Ali Khan
-        setReportData({
-          ratings: initialRatings,
-          attendancePercent: 72,
-          lateArrivals: 8,
-          leaves: 4,
-          absentees: 6,
-          homeworkSubmitted: 9,
-          homeworkMissing: 9,
-          lateSubmissions: 5,
-          behaviourScore: 48,
-          grade: 'D',
-          riskLevel: 'High',
-          predictions: ['Needs Academic Support', 'Needs Counselling'],
-          alerts: ['CRITICAL: Attendance below 75% limit!', 'Homework missing rate exceeds 50%', 'Multiple Late Arrivals logged']
-        });
-      } else {
-        // Average student
-        setReportData({
-          ratings: initialRatings,
-          attendancePercent: 88,
-          lateArrivals: 3,
-          leaves: 3,
-          absentees: 1,
-          homeworkSubmitted: 15,
-          homeworkMissing: 2,
-          lateSubmissions: 1,
-          behaviourScore: 78,
-          grade: 'B',
-          riskLevel: 'Medium',
-          predictions: ['STEM Potential', 'Sports Potential'],
-          alerts: ['Minor homework submission alerts']
-        });
-      }
+      generateReportData(initialRatings);
+    } catch {
+      const initialRatings: Record<string, number> = {};
+      AFFECTIVE_DOMAIN_FIELDS.forEach(f => {
+        initialRatings[f] = activeStudent.id === 's-1' ? 5 : activeStudent.id === 's-3' ? 2 : 4;
+      });
+      setRatings(initialRatings);
+      setShowAiSummary(false);
+      setAiSummary('');
+      generateReportData(initialRatings);
     }
-  }, [activeStudent, selectedMonth, selectedTerm, selectedSession]);
+  };
+
+  const generateReportData = (r: Record<string, number>) => {
+    if (activeStudent.id === 's-1') {
+      setReportData({
+        ratings: r, attendancePercent: 96, lateArrivals: 1, leaves: 2, absentees: 0,
+        homeworkSubmitted: 18, homeworkMissing: 0, lateSubmissions: 0,
+        behaviourScore: 95, grade: 'A+', riskLevel: 'Low',
+        predictions: ['Likely Top Performer', 'Leadership Potential', 'Creative Talent'],
+        alerts: ['Excellent improvement in class participation!', 'Perfect Attendance Target near']
+      });
+    } else if (activeStudent.id === 's-3') {
+      setReportData({
+        ratings: r, attendancePercent: 72, lateArrivals: 8, leaves: 4, absentees: 6,
+        homeworkSubmitted: 9, homeworkMissing: 9, lateSubmissions: 5,
+        behaviourScore: 48, grade: 'D', riskLevel: 'High',
+        predictions: ['Needs Academic Support', 'Needs Counselling'],
+        alerts: ['CRITICAL: Attendance below 75% limit!', 'Homework missing rate exceeds 50%', 'Multiple Late Arrivals logged']
+      });
+    } else {
+      setReportData({
+        ratings: r, attendancePercent: 88, lateArrivals: 3, leaves: 3, absentees: 1,
+        homeworkSubmitted: 15, homeworkMissing: 2, lateSubmissions: 1,
+        behaviourScore: 78, grade: 'B', riskLevel: 'Medium',
+        predictions: ['STEM Potential', 'Sports Potential'],
+        alerts: ['Minor homework submission alerts']
+      });
+    }
+  };
 
   const fetchClasses = async () => {
     try {
@@ -156,6 +146,7 @@ export default function AffectiveDomainReportPage() {
       if (data.length > 0) {
         setClasses(data);
         setSelectedClass(data[0].name);
+        setSelectedClassId(data[0].id);
       } else {
         setClasses([{ id: '1', name: 'Grade 1-A' }, { id: '2', name: 'Grade 1-B' }]);
       }
@@ -182,17 +173,22 @@ export default function AffectiveDomainReportPage() {
     }
   };
 
-  const handleSaveRatings = () => {
-    if (!activeStudent || !reportData) return;
-    const key = `affective_ratings_${selectedSession}_${selectedTerm}_${selectedMonth}_${activeStudent.id}`;
-    localStorage.setItem(key, JSON.stringify({
-      studentId: activeStudent.id,
-      studentName: activeStudent.name,
-      class: selectedClass,
-      ratings,
-      reportData
-    }));
-    toast.success(`Affective Domain ratings saved successfully!`);
+  const handleSaveRatings = async () => {
+    if (!activeStudent || !selectedClassId) return;
+    try {
+      await behaviourService.createRating({
+        student: activeStudent.id,
+        class_ref: selectedClassId,
+        domain: 'affective',
+        term: selectedTerm,
+        month: selectedMonth,
+        academic_year: selectedSession,
+        ratings,
+      });
+      toast.success(`Affective Domain ratings saved successfully!`);
+    } catch {
+      toast.error('Failed to save ratings');
+    }
   };
 
   const triggerAISummary = () => {
@@ -257,7 +253,11 @@ export default function AffectiveDomainReportPage() {
                 <label className="block text-[8px] font-black text-slate-455 uppercase mb-1">Class Name</label>
                 <select
                   value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
+                  onChange={(e) => {
+                    const cls = classes.find(c => c.name === e.target.value);
+                    setSelectedClass(e.target.value);
+                    setSelectedClassId(cls?.id || '');
+                  }}
                   className="w-full text-xs h-9.5 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-700 focus:outline-none"
                 >
                   {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -420,7 +420,7 @@ export default function AffectiveDomainReportPage() {
                       <span className="text-[9px] text-purple-650 font-black uppercase block">Behaviour Correlation</span>
                       <p className="text-slate-650 font-normal leading-relaxed text-[9.5px]">
                         {reportData.attendancePercent >= 90 
-                          ? 'Excellent attendance metrics correlate strongly with Maryam\'s high discipline and focus.'
+                          ? 'Excellent attendance metrics correlate strongly with Rimsai\'s high discipline and focus.'
                           : 'Critical absenteeism acts as a direct root cause for decreased class participation and lower homework completion rates.'
                         }
                       </p>

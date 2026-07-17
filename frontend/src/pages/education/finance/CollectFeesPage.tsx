@@ -617,10 +617,10 @@ export default function CollectFeesPage() {
                 🎓
               </div>
             )}
-            <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+            <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'Code Cortex'}</h2>
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
             <p className="text-[9px] font-bold text-slate-400">
-              {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+              {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.codecortex.com | info@codecortex.com'}
             </p>
             <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Family Fee Collection Summary</h3>
             <p className="text-[10px] text-slate-400 font-bold">Guardian: {selectedFamily}</p>
@@ -665,10 +665,10 @@ export default function CollectFeesPage() {
                 ) : (
                   <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
                 )}
-                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'Code Cortex'}</h2>
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
                 <p className="text-[9px] font-bold text-slate-400">
-                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.codecortex.com | info@codecortex.com'}
                 </p>
                 <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Fee Submission Slip</h3>
               </div>
@@ -812,10 +812,10 @@ export default function CollectFeesPage() {
                 ) : (
                   <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl mx-auto font-black shadow-sm">🎓</div>
                 )}
-                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'eSkooly'}</h2>
+                <h2 className="text-2xl font-black tracking-wide text-slate-800">{instituteInfo?.name || 'Code Cortex'}</h2>
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{instituteInfo?.motto ? `"${instituteInfo.motto}"` : '"YOUR SCHOOL SOFTWARE"'}</p>
                 <p className="text-[9px] font-bold text-slate-400">
-                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.eskooly.com | info@eskooly.com'}
+                  {[instituteInfo?.phone, instituteInfo?.website, instituteInfo?.email].filter(Boolean).join(' | ') || '+923460004443 | www.codecortex.com | info@codecortex.com'}
                 </p>
                 <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest pt-2">Fee Submission Slip</h3>
               </div>

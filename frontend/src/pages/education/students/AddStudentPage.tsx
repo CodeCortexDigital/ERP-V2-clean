@@ -193,17 +193,11 @@ export default function AddStudentPage() {
   React.useEffect(() => {
     teacherService.getAll().then((res) => {
       const list = res.data || [];
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-      const activeList = list.filter((t: any) => !deletedIds.includes(t.id));
-      if (activeList.length === 0) {
+      if (list.length === 0) {
         setShowAddTeacherModal(true);
       }
     }).catch(() => {
-      const savedExtras = localStorage.getItem('employees_extra_info');
-      const count = savedExtras ? Object.keys(JSON.parse(savedExtras)).length : 0;
-      if (count === 0) {
-        setShowAddTeacherModal(true);
-      }
+      setShowAddTeacherModal(true);
     });
   }, []);
 

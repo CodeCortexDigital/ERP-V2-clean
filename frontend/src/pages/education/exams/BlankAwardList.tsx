@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Download, Printer, Search } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/services/api';
 import { toast } from 'sonner';
 
 interface Exam {

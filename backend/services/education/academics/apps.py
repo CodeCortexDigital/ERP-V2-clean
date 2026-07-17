@@ -7,4 +7,4 @@ class EducationAcademicsConfig(AppConfig):
     verbose_name = 'Academics'
 
     def ready(self):
-        pass
+        import services.education.academics.signals  # noqa: F401

@@ -1,8 +1,13 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
 from services.education.academics.views import AllTimetableEntriesView
 
+router = DefaultRouter()
+router.register('live-meetings', views.LiveMeetingViewSet, basename='live-meeting')
+
 urlpatterns = [
+    path('', include(router.urls)),
     path('timetable-entries/all/', AllTimetableEntriesView.as_view(), name='timetable-entry-all'),
     # LEVEL 1: BASIC STRUCTURE
     path('academic-years/', views.AcademicYearListCreateView.as_view(), name='academic-year-list'),

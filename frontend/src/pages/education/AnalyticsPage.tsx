@@ -135,18 +135,15 @@ export default function AnalyticsPage() {
       setLoading(true);
       const [studentsRes, resultsRes] = await Promise.all([
         api.get('/auth/students/').catch(() => ({ data: [] })),
-        api.get('/exams-results/').catch(() => ({ data: [] }))
+        api.get('/auth/exams/results/').catch(() => ({ data: [] }))
       ]);
 
       const rawStudentsList = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data as any)?.results || [];
-      const customStudentsList = JSON.parse(localStorage.getItem('custom_students') || '[]');
       
       const defaultStudents = [
         ];
 
-      const combinedRaw = [...(rawStudentsList.length > 0 ? rawStudentsList : defaultStudents), ...customStudentsList];
-      
-      const mapped = combinedRaw.map((s: any) => ({
+      const mapped = (rawStudentsList.length > 0 ? rawStudentsList : defaultStudents).map((s: any) => ({
         id: s.id || `std-${Math.random()}`,
         student_id: s.student_id || s.roll_number || s.registration_no || '001',
         full_name: s.full_name || s.name || 'Student',
@@ -156,25 +153,22 @@ export default function AnalyticsPage() {
         admission_date: s.admission_date || '2020-06-29'
       }));
 
-      const deletedStudentIds = JSON.parse(localStorage.getItem('deleted_student_ids') || '[]');
-      const finalStudentsList = mapped.filter((s: any) => !deletedStudentIds.includes(s.id));
-
-      setStudentsList(finalStudentsList);
+      setStudentsList(mapped);
 
       // Auto-select student if student role or query student_id is set
       const queryStudentId = searchParams.get('student_id');
       let targetStudent = null;
       if (isStudent) {
-        targetStudent = finalStudentsList.find((s: any) => 
+        targetStudent = mapped.find((s: any) => 
           String(s.id) === String(user?.id) || 
           String(s.student_id) === String(user?.id) ||
           s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
         );
-        if (!targetStudent && finalStudentsList.length > 0) {
-          targetStudent = finalStudentsList[0];
+        if (!targetStudent && mapped.length > 0) {
+          targetStudent = mapped[0];
         }
       } else if (queryStudentId) {
-        targetStudent = finalStudentsList.find((s: any) => 
+        targetStudent = mapped.find((s: any) => 
           String(s.id) === String(queryStudentId) || 
           String(s.student_id) === String(queryStudentId)
         );
@@ -187,8 +181,7 @@ export default function AnalyticsPage() {
       const rawResults = Array.isArray(resultsRes.data) ? resultsRes.data : (resultsRes.data as any)?.results || [];
       setExamResults(rawResults);
 
-      const localTests = JSON.parse(localStorage.getItem('local_class_tests') || '[]');
-      setClassTests(localTests);
+      setClassTests([]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -267,36 +260,17 @@ export default function AnalyticsPage() {
       setTeacherPerformance(rawTeachers.length > 0 ? rawTeachers : defaultTeachers);
 
       // 5. AI At-Risk Students
-      let mappedRisks: AtRiskStudent[] = [];
-      try {
-        const risksRes = await api.get('/ai/student-predictions/');
-        if (Array.isArray(risksRes.data) && risksRes.data.length > 0) {
-          mappedRisks = risksRes.data.map((r: any, idx: number) => ({
-            id: r.student_id || idx,
-            name: r.student_name || `Student ${idx+1}`,
-            student_id: r.student_roll || `STU00${idx+1}`,
-            class: "Grade 8",
-            risk_level: r.risk_level || 'high',
-            reason: typeof r.factors === 'object' ? Object.values(r.factors).join(' | ') || 'Academic and attendance parameters' : 'Low attendance and fee pending',
-            fee_default_risk: Number(r.fee_default_risk) > 5 ? Number(r.fee_default_risk) : (75 - idx * 6),
-            dropout_risk: Number(r.dropout_risk) > 5 ? Number(r.dropout_risk) : (82 - idx * 7)
-          }));
-        }
-      } catch (e) {
-        console.error('Student predictions API fallback');
-      }
-
-      if (mappedRisks.length === 0) {
-        mappedRisks = [
-          { id: 1, name: 'Abdullah Chaudhry', student_id: 'STU001', class: 'Grade 10', risk_level: 'critical', reason: 'High fee default & low attendance in Math', fee_default_risk: 86.5, dropout_risk: 81.2 },
-          { id: 2, name: 'Muhammad Ali', student_id: 'STU002', class: 'Grade 9', risk_level: 'high', reason: 'Repeated absence in CS & Science', fee_default_risk: 68.4, dropout_risk: 74.8 },
-          { id: 3, name: 'Fatima Khan', student_id: 'STU003', class: 'Grade 8', risk_level: 'high', reason: 'Pending fee installation for 2 months', fee_default_risk: 79.0, dropout_risk: 42.1 },
-          { id: 4, name: 'Zainab Ahmed', student_id: 'STU004', class: 'Grade 7', risk_level: 'medium', reason: 'Declining academic performance', fee_default_risk: 54.2, dropout_risk: 63.5 },
-          { id: 5, name: 'Bilal Hussain', student_id: 'STU005', class: 'Grade 10', risk_level: 'medium', reason: 'Attendance below 70%', fee_default_risk: 38.0, dropout_risk: 59.0 },
-          { id: 6, name: 'Sana Malik', student_id: 'STU006', class: 'Grade 6', risk_level: 'low', reason: 'Satisfactory parameters', fee_default_risk: 28.5, dropout_risk: 31.0 },
-          { id: 7, name: 'Usman Raza', student_id: 'STU007', class: 'Grade 9', risk_level: 'low', reason: 'Good standing', fee_default_risk: 15.0, dropout_risk: 22.4 }
-        ];
-      }
+      // The backend does not yet expose /ai/student-predictions/, so we render
+      // realistic fallback data directly (no failed request / 404 flash).
+      const mappedRisks: AtRiskStudent[] = [
+        { id: 1, name: 'Abdullah Chaudhry', student_id: 'STU001', class: 'Grade 10', risk_level: 'critical', reason: 'High fee default & low attendance in Math', fee_default_risk: 86.5, dropout_risk: 81.2 },
+        { id: 2, name: 'Muhammad Ali', student_id: 'STU002', class: 'Grade 9', risk_level: 'high', reason: 'Repeated absence in CS & Science', fee_default_risk: 68.4, dropout_risk: 74.8 },
+        { id: 3, name: 'Fatima Khan', student_id: 'STU003', class: 'Grade 8', risk_level: 'high', reason: 'Pending fee installation for 2 months', fee_default_risk: 79.0, dropout_risk: 42.1 },
+        { id: 4, name: 'Zainab Ahmed', student_id: 'STU004', class: 'Grade 7', risk_level: 'medium', reason: 'Declining academic performance', fee_default_risk: 54.2, dropout_risk: 63.5 },
+        { id: 5, name: 'Bilal Hussain', student_id: 'STU005', class: 'Grade 10', risk_level: 'medium', reason: 'Attendance below 70%', fee_default_risk: 38.0, dropout_risk: 59.0 },
+        { id: 6, name: 'Sana Malik', student_id: 'STU006', class: 'Grade 6', risk_level: 'low', reason: 'Satisfactory parameters', fee_default_risk: 28.5, dropout_risk: 31.0 },
+        { id: 7, name: 'Usman Raza', student_id: 'STU007', class: 'Grade 9', risk_level: 'low', reason: 'Good standing', fee_default_risk: 15.0, dropout_risk: 22.4 }
+      ];
       setAtRiskStudents(mappedRisks);
 
     } catch (err) {
@@ -398,9 +372,7 @@ export default function AnalyticsPage() {
     }
 
     // A student is selected! Let's build their report card details.
-    const localResults = JSON.parse(localStorage.getItem('local_results') || '[]');
-    const combinedResults = [...examResults, ...localResults];
-    const sResults = combinedResults.filter(r => r.student === selectedStudent.id);
+    const sResults = examResults.filter(r => r.student === selectedStudent.id);
 
     // Mock results if none saved to look populated and stunning
     let displayExamResults = sResults.map((r, idx) => ({
@@ -485,9 +457,9 @@ export default function AnalyticsPage() {
             <div className="mx-auto w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-sm">
               eS
             </div>
-            <h3 className="text-base font-black text-slate-800 tracking-wide">eSkooly Software Academy</h3>
+            <h3 className="text-base font-black text-slate-800 tracking-wide">Code Cortex Software Academy</h3>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-              +923480204447 | www.eskooly.com | info@eskooly.com
+              +923480204447 | www.Code Cortex.com | info@Code Cortex.com
             </p>
             <span className="absolute right-0 top-0 text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase">
               Student Report Card
