@@ -44,7 +44,7 @@ import StaffLoginsPage from './pages/education/teachers/StaffLoginsPage'
 // Exams
 import ExamsPage from '@/pages/education/ExamsPage'
 import ExamsListPage from './pages/education/exams/ExamsListPage'
-import ExamDashboard from './pages/education/exams/dashboard/ExamDashboard'
+import ExamDashboard from './pages/education/exams/ExamDashboard'
 import ExamSchedules from './pages/education/exams/ExamSchedules'
 import ExamRegistrations from './pages/education/exams/registrations/ExamRegistrations'
 import ExamResultsEntry from './pages/education/exams/ExamResultsEntry'
@@ -212,7 +212,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="dashboard" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><DashboardPage /></RoleBasedRoute>} />
                 <Route path="admin/audit-logs" element={<RoleBasedRoute allowedRoles={['admin']}><AuditLogViewer /></RoleBasedRoute>} />
                 
                 {/* ============================================================

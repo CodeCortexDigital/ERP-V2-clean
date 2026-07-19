@@ -1,40 +1,16 @@
-// Global theme applier: reads General Settings theme and pushes the chosen
-// accent + chrome colors to :root so every page reflects the selection.
+// frontend/src/utils/theme.ts
+import { useAppStore } from '@/store/appStore';
 
-export const colorMap: Record<string, { hex: string; rgb: string }> = {
-  'Coral Red': { hex: '#E55B4C', rgb: '229 91 76' },
-  'Magenta': { hex: '#D81B60', rgb: '216 27 96' },
-  'Turquoise': { hex: '#00BFA5', rgb: '0 191 165' },
-  'Blue': { hex: '#2E73D2', rgb: '46 115 210' },
-  'Yellow': { hex: '#F59E0B', rgb: '245 158 11' },
-  'Red Orange': { hex: '#F97316', rgb: '249 115 22' },
-  'Soft Light Purple': { hex: '#ECECFE', rgb: '236 236 254' },
-  'Dark Slate Blue': { hex: '#4D51B4', rgb: '77 81 180' },
-  'Hot Pink': { hex: '#EC4899', rgb: '236 72 153' },
-  'Bright Orange': { hex: '#FF4F00', rgb: '255 79 0' },
-  'Green': { hex: '#008744', rgb: '0 135 68' },
-  'Dark Purple': { hex: '#730073', rgb: '115 0 115' },
-  'Brand Navy': { hex: '#001830', rgb: '0 24 48' },
-  'Brand Red': { hex: '#F01848', rgb: '240 24 72' },
-  'Brand Cyan': { hex: '#30F0D8', rgb: '48 240 216' },
-  'Professional Blue': { hex: '#2E66B7', rgb: '46 102 183' }
-};
-
-const resolveColor = (name?: string) => {
-  const c = colorMap[name || 'Soft Light Purple'] || colorMap['Dark Slate Blue'];
-  return c;
-};
-
-// Returns true if the hex color is too light to use as a background with white
-// text, or as text on a white background.
-const isLight = (hex: string) => {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  // Perceived luminance
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.6;
+export const accentMap: Record<string, { hsl: string; hex: string; rgb: string; strong: string }> = {
+  blue: { hsl: '221.2 83.2% 53.3%', hex: '#2563eb', rgb: '37 99 235', strong: '#1e40af' },
+  green: { hsl: '142.1 76.2% 36.3%', hex: '#16a34a', rgb: '22 163 74', strong: '#15803d' },
+  purple: { hsl: '262.1 83.3% 57.8%', hex: '#9333ea', rgb: '147 51 234', strong: '#6d28d9' },
+  orange: { hsl: '24.6 95% 53.1%', hex: '#ea580c', rgb: '234 88 12', strong: '#c2410c' },
+  red: { hsl: '346.8 77.2% 49.8%', hex: '#dc2626', rgb: '220 38 38', strong: '#be123c' },
+  coral: { hsl: '10 82% 56%', hex: '#e55b4c', rgb: '229 91 76', strong: '#c22f17' },
+  magenta: { hsl: '340 82% 52%', hex: '#d81b60', rgb: '216 27 96', strong: '#9f1239' },
+  turquoise: { hsl: '170 100% 38%', hex: '#00bfa5', rgb: '0 191 165', strong: '#0f766e' },
+  navy: { hsl: '210 100% 12%', hex: '#001830', rgb: '0 24 48', strong: '#0f172a' }
 };
 
 export const applyGlobalTheme = () => {
@@ -43,23 +19,62 @@ export const applyGlobalTheme = () => {
     const t = saved ? JSON.parse(saved) : {};
     const root = document.documentElement;
 
-    const accent = resolveColor(t.activeColor);
+    // 1. Resolve Theme Mode (Light / Dark)
+    const mode = t.themeMode || 'light';
+    const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
 
-    // Strong (always-legible, dark) variant used for text, borders and button
-    // backgrounds so white text / light backgrounds stay readable even when the
-    // chosen accent itself is very light (e.g. Soft Light Purple).
-    const strong = isLight(accent.hex) ? '#4D51B4' : accent.hex;
+    // 2. Resolve Accent Color
+    const colorKey = t.accentColor || 'blue';
+    const accent = accentMap[colorKey] || accentMap.blue;
 
+    // Set HSL variables for Tailwind
+    root.style.setProperty('--primary', accent.hsl);
+    root.style.setProperty('--ring', accent.hsl);
+
+    // Set legacy theme app variables
     root.style.setProperty('--app-accent', accent.hex);
-    root.style.setProperty('--app-accent-strong', strong);
+    root.style.setProperty('--app-accent-strong', accent.strong);
     root.style.setProperty('--app-accent-rgb', accent.rgb);
+    
+    // 3. Radius
+    const radius = t.radius || '0.5rem';
+    root.style.setProperty('--radius', radius);
 
-    // Keep Tailwind's primary/ring in sync for any component using bg-primary etc.
-    root.style.setProperty('--primary', accent.rgb);
-    root.style.setProperty('--ring', accent.rgb);
+    // 4. Font Family
+    const font = t.fontFamily || 'roboto';
+    let fontSans = "'Roboto', sans-serif";
+    let fontDisplay = "'Mulish', sans-serif";
+    if (font === 'outfit') {
+      fontSans = "'Outfit', sans-serif";
+      fontDisplay = "'Outfit', sans-serif";
+    } else if (font === 'inter') {
+      fontSans = "'Inter', sans-serif";
+      fontDisplay = "'Inter', sans-serif";
+    }
+    root.style.setProperty('--font-sans', fontSans);
+    root.style.setProperty('--font-display', fontDisplay);
 
-    root.dataset.sidebarBg = t.sidebarBg === 'Light' ? 'light' : 'dark';
+    // 5. Layout Direction
+    const placement = t.placement || 'LTR';
+    root.dir = placement.toLowerCase() === 'rtl' ? 'rtl' : 'ltr';
+
+    // 6. Datasets for Sidebar & Header Preview
+    root.dataset.sidebarBg = t.sidebarBg === 'Dark' ? 'dark' : 'light';
     root.dataset.headerBg = t.headerBg || 'Blue';
+    
+    // Sync zustand store to match (without double trigger loop)
+    const store = useAppStore.getState();
+    if (store.theme !== mode) {
+      useAppStore.setState({ theme: mode });
+    }
+    if (store.accentColor !== colorKey) {
+      useAppStore.setState({ accentColor: colorKey });
+    }
   } catch (e) {
     /* ignore */
   }

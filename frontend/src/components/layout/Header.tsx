@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Menu, Search, Maximize2, ShoppingBag, MessageSquare, Bell, 
-  ShoppingCart, Building, ChevronDown, GraduationCap, LogOut, User
+  Menu, Maximize2,
+  ChevronDown, GraduationCap, LogOut, User
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useUIStore } from '@/store/uiStore';
+import NotificationBell from '@/components/notifications/NotificationBell';
 
 interface HeaderProps {
   onMobileMenuToggle?: () => void;
@@ -13,6 +15,7 @@ interface HeaderProps {
 export default function Header({ onMobileMenuToggle }: HeaderProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [headerClass, setHeaderClass] = useState('bg-blue-600 text-white');
@@ -78,14 +81,11 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
 
         <div className="hidden md:flex items-center gap-3 text-white/90">
           <button 
-            onClick={onMobileMenuToggle} 
+            onClick={toggleSidebar} 
             className="hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors" 
             title="Toggle Sidebar"
           >
             <Menu className="w-4 h-4" />
-          </button>
-          <button className="hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="Search">
-            <Search className="w-4 h-4" />
           </button>
           <button onClick={toggleFullscreen} className="hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="Fullscreen">
             <Maximize2 className="w-4 h-4" />
@@ -95,39 +95,8 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3">
-        <div className="hidden xl:flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1 bg-sky-400 hover:bg-sky-300 text-white rounded-full text-[10px] font-bold shadow-xs transition-colors">
-            <span></span>
-            <div className="flex flex-col text-left leading-tight">
-              <span className="text-[8px] opacity-80 uppercase">Download on the</span>
-              <span>APP STORE</span>
-            </div>
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-full text-[10px] font-bold shadow-xs transition-colors">
-            <span>▶</span>
-            <div className="flex flex-col text-left leading-tight">
-              <span className="text-[8px] opacity-80 uppercase">Get it on</span>
-              <span>GOOGLE PLAY</span>
-            </div>
-          </button>
-        </div>
-
         <div className="flex items-center gap-2 text-white/90">
-          <button className="p-1.5 hover:bg-white/10 rounded-full transition-colors relative" title="Store Bag">
-            <ShoppingBag className="w-4 h-4" />
-          </button>
-          <button className="p-1.5 hover:bg-white/10 rounded-full transition-colors relative" title="Messages">
-            <MessageSquare className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-blue-600" />
-          </button>
-          <button className="p-1.5 hover:bg-white/10 rounded-full transition-colors relative" title="Notifications">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-blue-600" />
-          </button>
-          <button className="p-1.5 hover:bg-white/10 rounded-full transition-colors relative" title="Cart">
-            <ShoppingCart className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-blue-600" />
-          </button>
+          <NotificationBell />
 
           {/* User Avatar */}
           <div 

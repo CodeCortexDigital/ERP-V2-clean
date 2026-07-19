@@ -2,7 +2,7 @@
 
 A full-stack school/ERP management system: a **React + TypeScript (Vite/Tailwind)** frontend and a **Django REST (Python)** multi-tenant backend.
 
-- **Frontend:** `frontend/` — role-based portals (Admin, Teacher/Employee, Student, Parent).
+- **Frontend:** `frontend/` — role-based portals (Admin, Teacher/Employee, Student, Parent) with voice-enabled AI assistant.
 - **Backend:** `backend/` — versioned REST API (`/api/v1`, `/api/v2`), WebSockets, Celery, analytics/AI.
 
 ---
@@ -18,8 +18,11 @@ A full-stack school/ERP management system: a **React + TypeScript (Vite/Tailwind
 - Logout via Sidebar/Header
 
 ### 2. Admin Dashboard
-- KPI cards (students/employees/revenue/profit), income/expense line chart, per-class bar chart, today absent/present lists, new admissions, fee ring, mini calendar — `src/pages/dashboard/DashboardPage.tsx`
-- Real-time sync via WebSocket (`websocketService`)
+- Extracted reusable widget components (StatCard, RevenueChart, ClassBarChart, AbsentStudentsList, PresentEmployeesList, NewAdmissions, FeeDonut, MetricsPills, SmartInsights, DynamicCalendar, etc.) — `src/components/dashboard/*`
+- Single `executive-dashboard` API endpoint (primary) with 6-individual-API fallback — `src/services/analytics.service.ts`
+- Per-widget error boundaries (`WidgetErrorBoundary`) prevent one broken widget from crashing the entire page
+- 60-second auto-polling fallback when WebSocket is unavailable
+- Live Data badge only appears when WebSocket is confirmed connected
 
 ### 3. Student Management
 - Directory with search/filters, add/edit, full profile, history timeline, families, active/inactive toggle — `src/pages/education/students/*`
@@ -60,7 +63,6 @@ A full-stack school/ERP management system: a **React + TypeScript (Vite/Tailwind
 
 ### 13. Fees / Billing / Finance
 - Finance hub, chart of accounts, income/expense, account statement, fee invoices, collect fees, paid slip, defaulters, fees report — `src/pages/education/finance/*`
-- Online store (shop) — `src/pages/education/OnlineStorePage.tsx`
 
 ### 14. HR / Payroll / Salary
 - Generate salary, pay salary, salary paid slip, salary sheet, salary report — `src/pages/education/finance/*`
@@ -87,7 +89,7 @@ A full-stack school/ERP management system: a **React + TypeScript (Vite/Tailwind
 - Overview, institute profile, fee particulars/structure, discount type, fee challan details, rules & regulations, marks grading, theme & language, account settings — `src/pages/settings/*`
 
 ### 21. AI / ML Features
-- AI Chatbot assistant widget (calls `/ai/chat/`) — `src/components/ai/AIChatbot.tsx`
+- AI Chatbot assistant ("CodeCortex") — floating chat bubble with 4 role modes (admin/teacher/student/parent), role-scoped DB tools, voice input (Web Speech API STT), voice output (SpeechSynthesis TTS) — `src/components/AiAssistant.tsx`
 - AI affective-domain report summary — `src/pages/education/behaviour/AffectiveDomainReportPage.tsx`
 - AI quiz generator modal — `src/components/exams/QuizGeneratorModal.tsx`
 - AI personalized learning paths — `src/pages/education/personalized-learning/PersonalizedLearning.tsx`
@@ -197,6 +199,11 @@ A full-stack school/ERP management system: a **React + TypeScript (Vite/Tailwind
 - Redis caching layer (per-type TTLs), slow-query monitoring, health checks
 
 ---
+
+## Layout & Navigation
+- **Header** (`src/components/layout/Header.tsx`): Theme-aware, fullscreen toggle, sidebar collapse toggle, user avatar dropdown with logout, wired `NotificationBell` component.
+- **Sidebar** (`src/components/layout/Sidebar.tsx`): Collapsible (w-64 / w-20) with persisted state via Zustand + localStorage. Items ordered by frequency of use. Flyout sub-menus on hover when collapsed. Role-based filtering (admin sees all, other roles filtered by RBAC permissions). Dark/light theme support with configurable active colors.
+- **Breadcrumb** navigation auto-generated from route hierarchy.
 
 ## Architecture Summary
 - **Frontend:** React 18 + TypeScript + Vite 5, Tailwind CSS, TanStack Query, Zustand, React Router v6, Recharts, Framer Motion, lucide-react, Sonner.

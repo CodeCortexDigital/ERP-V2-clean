@@ -1,39 +1,60 @@
-Student Portal — Complete Build Plan
-A. Infrastructure & Security (P0)
-- Fix student data-fallback privacy bug — StudentDashboard.tsx:82-84 falls back to the first student record if match fails; replace with explicit "profile not found" (already partially handled) and match strictly on user.student.student_id / user.id.
-- Create student sub-route shell — add a StudentPortalLayout (or reuse pattern) with its own sub-nav so /student/* routes render distinct pages instead of all pointing to StudentDashboard (App.tsx:454-460).
-- Wire real attendance into dashboard — use attendance.service.getSummary(studentId) + getStudentAttendance/getStudentHistory for today/yesterday status, present/leave/absent counts, and the % ring (currently hardcoded 100% / "NOT MARKED").
-B. Student Sub-Pages (route each to a real component) (P0–P1)
-- Attendance page (/student/attendance) — reuse AttendanceAnalyticsDashboard/student history; show calendar + summary + at-risk.
-- Report Card (/student/results) — wire exam.service.generateReportCard(studentId) + AnalyticsPage?report=card.
-- Test Results (/student/results tab or /student/tests) — wire ClassTestsPage?tab=results filtered to the student.
-- Exam Results — wire ExamResultsPage/exam.service.getResultsByStudent for the student.
-- My Timetable (/student/timetable) — wire TimetableViewPage scoped to the student's class/section.
-- Fees / Paid Receipt (/student/fees) — already has financeService.getInvoices; build a proper fees page (currently only a widget on dashboard) + reuse /education/finance/fees-paid-slip.
-- Notifications (/student/notifications) — build a page using notification.service / useNotifications (currently placeholder).
-C. Sidebar & Navigation Fixes (P1)
-- Fix sidebar student links (Sidebar.tsx:329-399): "Home Assignments" → student assignments (not /education/academic-setup); "Messaging" → correct comms route; "Online Store" gating; ensure all hrefs resolve to real student pages.
-- Add Student Portal sub-tabs (Dashboard / Attendance / Results / Timetable / Fees / Notifications) so navigation is coherent.
-D. Dashboard Enhancements (P1–P2)
-- Real Class Tests & Exam widgets — replace static "No Record Found" with live data from exam.service.getResultsByStudent + class-test results.
-- Profile completeness — show real student photo (profile_picture), school name from settings (replace "Your Institute Name Here" placeholder), and remove emoji avatar fallback only when no photo.
-- Admission Letter — confirm /education/students/admission-letter works in student context (sidebar already links it).
-E. Verification (P2)
-- Login as a student test account; verify each sub-page loads real data and routes are distinct.
-- Run tsc --noEmit; confirm no console errors on the portal.
-- Restart backend; smoke-test attendance/results/timetable/fees/notifications end-to-end.
-This is a sizable but mostly wiring effort (backend endpoints + shared pages already exist). Want me to start executing top-down — beginning with A (privacy fix + sub-route shell + real attendance)?
-
-
-[•] Fix student data-fallback privacy bug (strict match, no first-record fallback)
-[ ] Create StudentPortalLayout shell with student sub-nav
-[ ] Route /student/* sub-paths to real pages (attendance, results, timetable, fees, notifications)
-[ ] Wire real attendance into dashboard (summary + today/yesterday + counts + ring)
-[ ] Build Student Attendance page (/student/attendance)
-[ ] Build Student Results page (report card + exam + test results)
-[ ] Build Student Timetable page (/student/timetable)
-[ ] Build Student Fees page (/student/fees)
-[ ] Build Student Notifications page (/student/notifications)
-[ ] Fix sidebar student links (Home Assignments, Messaging, Store) to real targets
-[ ] Dashboard: real class-tests/exam widgets + school name + photo
-[ ] Verify: login as student, tsc clean, backend restart, smoke test
+Admin Dashboard — Deep Audit
+1. Frontend Structure
+File: frontend/src/pages/dashboard/DashboardPage.tsx (689 lines, monolithic)
+All widgets are inline — no extracted components:
+Widget	Lines	Data Source	Status
+Live Data Badge (WS status)	319–339	WebSocket	✅ Working
+Total Students card	343–357	studentService.getAll()	✅ Working
+Total Employees card	359–373	teacherService.getAll()	✅ Working
+Revenue card	375–389	financeService.getSummary()	✅ Working
+Total Profit card	391–405	financeService.getSummary() + getTransactionLogs()	✅ Working
+Welcome Banner	409–425	Hardcoded	✅ Static
+Review & Earn Card	427–444	Hardcoded	✅ Static
+Income vs Expenses Line Chart	452–470	financeService.getMonthlyRevenueChart()	✅ Working
+Students per Class Bar Chart	473–490	academicService.getClasses() + students data	✅ Working
+Today Absent Students list	493–519	/attendance/dashboard-stats/	✅ Working
+Today Present Employees list	522–547	Derived from teachers array (not real attendance)	⚠️ Broken
+New Admissions grid	550–567	studentService.getAll() (recent)	✅ Working
+Estimated Fee donut chart	573–612	financeService.getSummary()	✅ Working
+SMS Gateway Promo	615–621	Hardcoded	✅ Static
+Daily Metrics Pills	624–641	Computed from API data	✅ Working
+Desktop Version Banner	644–653	Hardcoded	✅ Static
+Dynamic Calendar	656–684	Local date logic	✅ Working
+2. Backend API Endpoints
+Endpoint	URL	File	Used by Frontend?
+Executive Dashboard	/auth/analytics/executive-dashboard/	accounts/views.py:978	❌ Not used
+Executive Dashboard (dup)	/analytics/executive-dashboard/	analytics/views.py:122	❌ Not used
+Attendance Dashboard Stats	/attendance/dashboard-stats/	accounts/views.py:549	✅ Yes
+Finance Summary	/finance-summary/	finance/views.py:367	✅ Yes
+Monthly Revenue Chart	/analytics/monthly-revenue/	finance/views.py:1073	✅ Yes
+Transaction Logs	/transaction-logs/	finance/views.py	✅ Yes
+Attendance Trends	/auth/analytics/attendance-trends/	accounts/views.py:758	❌ Not used
+Fee Trends	/auth/analytics/fee-trends/	accounts/views.py:788	❌ Not used
+At-Risk Students	/auth/analytics/at-risk-students/	accounts/views.py:816	❌ Not used
+AI Insights	/auth/analytics/ai-insights/	accounts/views.py:848	❌ Not used
+Student Growth	/auth/analytics/student-growth/	accounts/views.py:898	❌ Not used
+Teacher Performance	/auth/analytics/teacher-performance/	accounts/views.py:933	❌ Not used
+3. 🟡 Issues Found
+Moderate:
+1. Executive dashboard APIs disconnected — analyticsService.getExecutiveDashboard() is defined in frontend/src/services/analytics.service.ts:40 but never called by any page. Two backend executive_dashboard views exist (one in accounts/views.py, another in analytics/views.py) — both provide rich 12-month trend data, ML risk assessment, and smart insights — but the frontend ignores them entirely and computes its own stats from individual raw API calls.
+2. Employee attendance is hardcoded to 0 — dashboard_attendance_stats at views.py:597-601 always returns { total: 0, present: 0, present_pct: 0 }. The employee attendance feature is not implemented on the backend.
+3. "Present Employees" widget is fake — DashboardPage.tsx:101-107 maps all teachers as present instead of querying actual attendance records. All employees always show as present.
+4. Monolithic component — No child widget components extracted. Impossible to test or reuse independently.
+ 5. No role guard on /dashboard — App.tsx:215 has no RoleBasedRoute. Any authenticated user (student/teacher/parent) can access it.
+ 6. Duplicate executive_dashboard views — Identical functionality in two separate files with slightly different response shapes.
+ 7. Duplicate bulk_attendance_working function — Two identical copies at views.py:1202 and views.py:1262.
+ 8. views_backup.py exists — Obsolete backup shadowing the active views file.
+ 9. Stub dashboards never used — CurriculumDashboard.tsx, AttendanceDashboard.tsx, AssignmentDashboard.tsx are all unreachable placeholders.
+10. ExamDashboard duplicates — Two competing versions at exams/ExamDashboard.tsx and exams/dashboard/ExamDashboard.tsx.
+4. 💡 Suggested Improvements
+High Priority:
+- Wire analyticsService.getExecutiveDashboard() into DashboardPage.tsx — replace the 7 individual API calls with a single endpoint that returns pre-computed trends, insights, and alerts
+- Implement employee attendance tracking or remove the fake widget
+- Add RoleBasedRoute guard to /dashboard
+Medium Priority:
+- Extract dashboard widgets into components/dashboard/ (StatCard, AttendanceList, RevenueChart, FeeDonut, Calendar, etc.)
+- Remove duplicate views and backup files
+- Clean up stub dashboards and unused routes
+Low Priority:
+- Connect attendance/fee trend analytics endpoints to frontend charts
+- Add proper error boundaries per widget (instead of per-page)

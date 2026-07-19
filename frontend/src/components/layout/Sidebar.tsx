@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, ShoppingCart, User, Star
+  DollarSign, User, Star
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -112,7 +112,6 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       [/\/education\/class-tests/, 'exams'],
       [/\/education\/analytics/, 'reports'],
       [/\/education\/attendance/, 'attendance'],
-      [/\/education\/store/, 'store'],
       [/\/education\/students/, 'students'],
       [/\/education\/teachers/, 'employees'],
       [/\/education\/accounts/, 'accounts'],
@@ -188,108 +187,22 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   // ADMIN MENU - Logout is INSIDE Settings subItems
   // ============================================================
   const adminMenuItems: MenuItem[] = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: <LayoutDashboard className="w-4 h-4" />,
-      href: '/dashboard'
-    },
-    {
-      id: 'settings',
-      label: 'General Settings',
-      icon: <Settings className="w-4 h-4" />,
-      href: '/settings'
-    },
-    {
-      id: 'academic-setup',
-      label: 'Academic Setup',
-      icon: <GraduationCap className="w-4 h-4" />,
-      href: '/education/academic-setup'
-    },
-    {
-      id: 'students',
-      label: 'Students',
-      icon: <Users className="w-4 h-4" />,
-      href: '/education/students'
-    },
-    {
-      id: 'employees',
-      label: 'Employees',
-      icon: <Users className="w-4 h-4" />,
-      href: '/education/teachers'
-    },
-    {
-      id: 'accounts',
-      label: 'Accounts',
-      icon: <Wallet className="w-4 h-4" />,
-      href: '/education/accounts/chart-of-accounts'
-    },
-    {
-      id: 'fees',
-      label: 'Fees',
-      icon: <Banknote className="w-4 h-4" />,
-      href: '/education/fees/invoices'
-    },
-    {
-      id: 'salary',
-      label: 'Salary',
-      icon: <DollarSign className="w-4 h-4" />,
-      href: '/education/salary/generate'
-    },
-    {
-      id: 'attendance',
-      label: 'Attendance',
-      icon: <Hand className="w-4 h-4" />,
-      href: '/education/attendance'
-    },
-    {
-      id: 'timetable',
-      label: 'Timetable',
-      icon: <Calendar className="w-4 h-4" />,
-      href: '/education/timetable'
-    },
-    {
-      id: 'behaviour',
-      label: 'Behaviour & Skills',
-      icon: <Eye className="w-4 h-4" />,
-      href: '/education/behaviour/rate'
-    },
-    {
-      id: 'communication',
-      label: 'Communication',
-      icon: <MessageSquare className="w-4 h-4" />,
-      href: '/education/communication'
-    },
-    {
-      id: 'examination',
-      label: 'Examination',
-      icon: <Edit className="w-4 h-4" />,
-      href: '/education/exams'
-    },
-    {
-      id: 'reports',
-      label: 'Reports',
-      icon: <Award className="w-4 h-4" />,
-      href: '/education/analytics'
-    },
-    {
-      id: 'certificates',
-      label: 'Certificates',
-      icon: <Award className="w-4 h-4" />,
-      href: '/education/certificates'
-    },
-    {
-      id: 'online-store',
-      label: 'Online Store',
-      icon: <ShoppingCart className="w-4 h-4" />,
-      href: '/education/store'
-    },
-    {
-      id: 'logout',
-      label: 'Log out',
-      icon: <LogOut className="w-4 h-4" />,
-      isLogout: true
-    }
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" />, href: '/dashboard' },
+    { id: 'attendance', label: 'Attendance', icon: <Hand className="w-4 h-4" />, href: '/education/attendance' },
+    { id: 'students', label: 'Students', icon: <Users className="w-4 h-4" />, href: '/education/students' },
+    { id: 'fees', label: 'Fees', icon: <Banknote className="w-4 h-4" />, href: '/education/fees/invoices' },
+    { id: 'employees', label: 'Employees', icon: <Users className="w-4 h-4" />, href: '/education/teachers' },
+    { id: 'timetable', label: 'Timetable', icon: <Calendar className="w-4 h-4" />, href: '/education/timetable' },
+    { id: 'examination', label: 'Examination', icon: <Edit className="w-4 h-4" />, href: '/education/exams' },
+    { id: 'behaviour', label: 'Behaviour & Skills', icon: <Eye className="w-4 h-4" />, href: '/education/behaviour/rate' },
+    { id: 'accounts', label: 'Accounts', icon: <Wallet className="w-4 h-4" />, href: '/education/accounts/chart-of-accounts' },
+    { id: 'communication', label: 'Communication', icon: <MessageSquare className="w-4 h-4" />, href: '/education/communication' },
+    { id: 'academic-setup', label: 'Academic Setup', icon: <GraduationCap className="w-4 h-4" />, href: '/education/academic-setup' },
+    { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
+    { id: 'salary', label: 'Salary', icon: <DollarSign className="w-4 h-4" />, href: '/education/salary/generate' },
+    { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
+    { id: 'settings', label: 'General Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
+    { id: 'logout', label: 'Log out', icon: <LogOut className="w-4 h-4" />, isLogout: true },
   ];
 
   // Teacher Menu - derived from the SAME permission-filtered quick
@@ -701,6 +614,25 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
             </div>
           );
         })}
+      </div>
+
+      {/* Collapse Toggle */}
+      <div className={`shrink-0 border-t ${isDarkSidebar ? 'border-slate-800' : 'border-slate-200'}`}>
+        <button
+          onClick={toggleSidebar}
+          className={`w-full flex items-center gap-3 px-3 py-3 text-xs font-semibold transition-all ${
+            isDarkSidebar
+              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+          } ${isCollapsed ? 'justify-center' : ''}`}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <><ChevronLeft className="w-4 h-4" /><span>Collapse</span></>
+          )}
+        </button>
       </div>
     </aside>
   );
