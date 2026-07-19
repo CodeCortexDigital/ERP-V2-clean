@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Q
 
 from api.versioning import VersionedViewMixin, get_serializer_class
 from api.v1.serializers import StudentSerializerV1
@@ -36,7 +37,7 @@ def current_user_view(request):
         return Response({
             'id': str(user.id),
             'email': user.email,
-            'full_name': user.get_full_name() or user.username,
+            'full_name': user.get_full_name() or user.email,
             'role': getattr(user, 'role', 'user'),
             'is_active': user.is_active,
         })
@@ -53,7 +54,7 @@ def current_user_view(request):
         return Response({
             'id': str(user.id),
             'email': user.email,
-            'full_name': user.get_full_name() or user.username,
+            'full_name': user.get_full_name() or user.email,
             'role': getattr(user, 'role', 'user'),
             'is_active': user.is_active,
         })
@@ -217,9 +218,8 @@ def get_student_by_id(request, student_id):
         student = Student.objects.select_related('current_class', 'current_section', 'tenant').get(student_id=student_id)
     except Student.DoesNotExist:
         return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
-    denied = ensure_student_access(request.user, student)
-    if denied:
-        return denied
+    if not ensure_student_access(request.user, student):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
     ser_cls = get_serializer_class('students', getattr(request, 'version', 'v1'))
     return Response(ser_cls(student).data)
 
@@ -264,10 +264,33 @@ def get_current_user(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_my_teacher_profile(request):
-    return Response({
-        'message': 'Teacher profile',
-        'user': {'id': str(request.user.id), 'full_name': request.user.get_full_name() or request.user.username}
-    })
+    """Return the logged-in teacher's profile from the Teacher record."""
+    from services.education.academics.models import Teacher
+    from services.education.academics.serializers import TeacherSerializer
+
+    user = request.user
+    full_name = user.get_full_name() or user.username
+    teacher = None
+    try:
+        teacher = Teacher.objects.filter(
+            Q(full_name__iexact=full_name) | Q(email__iexact=user.email)
+        ).first()
+    except Exception:
+        teacher = None
+
+    if teacher is None:
+        return Response({
+            'message': 'Teacher profile',
+            'id': '',
+            'employee_id': '',
+            'full_name': full_name,
+            'email': user.email,
+            'role': getattr(user, 'role', 'teacher'),
+        })
+
+    data = TeacherSerializer(teacher).data
+    data['message'] = 'Teacher profile'
+    return Response(data)
 
 
 @api_view(['GET'])

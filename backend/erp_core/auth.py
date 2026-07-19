@@ -14,7 +14,6 @@ class MockSafeJWTAuthentication(BaseAuthentication):
                 user, _ = User.objects.get_or_create(
                     email='admin@code.com',
                     defaults={
-                        'username': 'admin@code.com',
                         'full_name': 'Administrator',
                         'is_staff': True,
                         'is_superuser': True,

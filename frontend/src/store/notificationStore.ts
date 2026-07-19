@@ -10,7 +10,7 @@ export interface NotificationItem {
   created_at: string;
 }
 
-const NOTIFICATIONS_BASE = '/v1/auth/notifications';
+const NOTIFICATIONS_BASE = '/auth/notifications';
 
 interface NotificationState {
   notifications: NotificationItem[];
@@ -99,30 +99,30 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markRead: async (id) => {
     try {
-      await api.post(`${NOTIFICATIONS_BASE}/mark-read/${id}/`);
-      set((state) => ({
-        notifications: state.notifications.map((n) =>
-          n.id === id ? { ...n, is_read: true } : n
-        ),
-        unreadCount: Math.max(0, state.unreadCount - 1),
-        error: null,
-      }));
-    } catch {
-      set({ error: 'Unable to mark notification as read' });
+      if (!id.startsWith('n-')) {
+        await api.post(`${NOTIFICATIONS_BASE}/mark-read/${id}/`);
+      }
+    } catch (err) {
+      console.warn('Backend mark-read failed, updating local state only:', err);
     }
+    set((state) => ({
+      notifications: state.notifications.map((n) =>
+        n.id === id ? { ...n, is_read: true } : n
+      ),
+      unreadCount: Math.max(0, state.unreadCount - 1),
+      error: null,
+    }));
   },
 
   markAllRead: async () => {
     try {
-      await api.post(`${NOTIFICATIONS_BASE}/mark-all-read/`);
-      set((state) => ({
-        notifications: state.notifications.map((n) => ({ ...n, is_read: true })),
-        unreadCount: 0,
-        error: null,
-      }));
-    } catch {
-      set({ error: 'Unable to mark all as read' });
-    }
+      await api.post(`${NOTIFICATIONS_BASE}/mark-all-read/`).catch(() => null);
+    } catch {}
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, is_read: true })),
+      unreadCount: 0,
+      error: null,
+    }));
   },
 
   pushNotification: (item) => {

@@ -1,0 +1,39 @@
+Student Portal — Complete Build Plan
+A. Infrastructure & Security (P0)
+- Fix student data-fallback privacy bug — StudentDashboard.tsx:82-84 falls back to the first student record if match fails; replace with explicit "profile not found" (already partially handled) and match strictly on user.student.student_id / user.id.
+- Create student sub-route shell — add a StudentPortalLayout (or reuse pattern) with its own sub-nav so /student/* routes render distinct pages instead of all pointing to StudentDashboard (App.tsx:454-460).
+- Wire real attendance into dashboard — use attendance.service.getSummary(studentId) + getStudentAttendance/getStudentHistory for today/yesterday status, present/leave/absent counts, and the % ring (currently hardcoded 100% / "NOT MARKED").
+B. Student Sub-Pages (route each to a real component) (P0–P1)
+- Attendance page (/student/attendance) — reuse AttendanceAnalyticsDashboard/student history; show calendar + summary + at-risk.
+- Report Card (/student/results) — wire exam.service.generateReportCard(studentId) + AnalyticsPage?report=card.
+- Test Results (/student/results tab or /student/tests) — wire ClassTestsPage?tab=results filtered to the student.
+- Exam Results — wire ExamResultsPage/exam.service.getResultsByStudent for the student.
+- My Timetable (/student/timetable) — wire TimetableViewPage scoped to the student's class/section.
+- Fees / Paid Receipt (/student/fees) — already has financeService.getInvoices; build a proper fees page (currently only a widget on dashboard) + reuse /education/finance/fees-paid-slip.
+- Notifications (/student/notifications) — build a page using notification.service / useNotifications (currently placeholder).
+C. Sidebar & Navigation Fixes (P1)
+- Fix sidebar student links (Sidebar.tsx:329-399): "Home Assignments" → student assignments (not /education/academic-setup); "Messaging" → correct comms route; "Online Store" gating; ensure all hrefs resolve to real student pages.
+- Add Student Portal sub-tabs (Dashboard / Attendance / Results / Timetable / Fees / Notifications) so navigation is coherent.
+D. Dashboard Enhancements (P1–P2)
+- Real Class Tests & Exam widgets — replace static "No Record Found" with live data from exam.service.getResultsByStudent + class-test results.
+- Profile completeness — show real student photo (profile_picture), school name from settings (replace "Your Institute Name Here" placeholder), and remove emoji avatar fallback only when no photo.
+- Admission Letter — confirm /education/students/admission-letter works in student context (sidebar already links it).
+E. Verification (P2)
+- Login as a student test account; verify each sub-page loads real data and routes are distinct.
+- Run tsc --noEmit; confirm no console errors on the portal.
+- Restart backend; smoke-test attendance/results/timetable/fees/notifications end-to-end.
+This is a sizable but mostly wiring effort (backend endpoints + shared pages already exist). Want me to start executing top-down — beginning with A (privacy fix + sub-route shell + real attendance)?
+
+
+[•] Fix student data-fallback privacy bug (strict match, no first-record fallback)
+[ ] Create StudentPortalLayout shell with student sub-nav
+[ ] Route /student/* sub-paths to real pages (attendance, results, timetable, fees, notifications)
+[ ] Wire real attendance into dashboard (summary + today/yesterday + counts + ring)
+[ ] Build Student Attendance page (/student/attendance)
+[ ] Build Student Results page (report card + exam + test results)
+[ ] Build Student Timetable page (/student/timetable)
+[ ] Build Student Fees page (/student/fees)
+[ ] Build Student Notifications page (/student/notifications)
+[ ] Fix sidebar student links (Home Assignments, Messaging, Store) to real targets
+[ ] Dashboard: real class-tests/exam widgets + school name + photo
+[ ] Verify: login as student, tsc clean, backend restart, smoke test

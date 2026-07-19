@@ -221,14 +221,14 @@ export default function StaffLoginsPage() {
             </thead>
             <tbody>
               {currentItems.length > 0 ? (
-                currentItems.map((t) => {
+                currentItems.map((t, idx) => {
                   const extraRole = t.designation || t.specializations?.[0] || 'Teacher';
 
                   const cred = credentials[t.id] || { username: '', password: '' };
                   const isVisible = visiblePasswords[t.id] || false;
 
                   return (
-                    <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    <tr key={t.id || t.employee_id || `login-${idx}`} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                       <td className="py-3.5 px-4 font-bold text-slate-500">{t.employee_id || 'N/A'}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-800">{t.full_name}</td>
                       <td className="py-3.5 px-4 font-extrabold text-slate-600">{extraRole}</td>

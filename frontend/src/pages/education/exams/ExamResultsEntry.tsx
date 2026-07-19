@@ -1,22 +1,27 @@
 import { useState, useEffect } from 'react'
-import { Save, FileText, RefreshCw } from 'lucide-react'
+import { Save, FileText, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
-import api from '@/services/api'
+import { toast } from 'sonner'
+import examService from '@/services/exam.service'
+import studentService from '@/services/student.service'
+import { extractListData } from '@/services/api'
 
 export default function ExamResultsEntry() {
   const [exams, setExams] = useState<any[]>([])
   const [selectedExam, setSelectedExam] = useState('')
   const [registrations, setRegistrations] = useState<any[]>([])
   const [results, setResults] = useState<Record<string, number>>({})
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const fetchExams = async () => {
-      const res = await api.get('/auth/exams/')
-      setExams(res.data.results || [])
+      const res = await examService.getExams().catch(() => ({ data: [] }))
+      const list = extractListData<any>(res.data || [])
+      setExams(list)
     }
     fetchExams()
   }, [])
@@ -25,24 +30,46 @@ export default function ExamResultsEntry() {
     if (!selectedExam) return
     setLoading(true)
     try {
-      const res = await api.get(`/education/exams/registrations/?exam_id=${selectedExam}`)
-      setRegistrations(res.data.results || [])
-      const initialResults: Record<string, number> = {}
-      res.data.results?.forEach((reg: any) => { initialResults[reg.student_id] = 0 })
-      setResults(initialResults)
-    } catch (error) { console.error(error) }
-    finally { setLoading(false) }
+      const examRes = await examService.getExam(selectedExam).catch(() => null)
+      const exam = examRes?.data
+      const classId = exam?.class_ref || exam?.class_id || exam?.class
+      if (!classId) {
+        toast.error('This exam has no assigned class — cannot load students.')
+        setRegistrations([])
+        return
+      }
+      const res = await studentService.getByClass(classId).catch(() => ({ data: [] }))
+      const students = extractListData<any>(res.data || [])
+      setRegistrations(students)
+      const initial: Record<string, number> = {}
+      students.forEach((s: any) => {
+        initial[s.id] = Number(s.obtained_marks ?? s.last_marks ?? 0)
+      })
+      setResults(initial)
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to load students for this exam.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSave = async () => {
-    for (const [studentId, marks] of Object.entries(results)) {
-      await api.post('/education/exams/results/', {
-        exam_id: selectedExam,
-        student_id: studentId,
-        obtained_marks: marks
-      })
+    if (!selectedExam) return
+    setSaving(true)
+    try {
+      const payload = Object.entries(results).map(([studentId, obtained_marks]) => ({
+        student: studentId,
+        obtained_marks,
+      }))
+      await examService.bulkEnterResults(selectedExam, payload)
+      toast.success(`Results saved for ${payload.length} students!`)
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to save results.')
+    } finally {
+      setSaving(false)
     }
-    alert('Results saved successfully!')
   }
 
   return (
@@ -78,7 +105,7 @@ export default function ExamResultsEntry() {
         </CardContent>
       </Card>
 
-      {loading && <div className="text-center py-8">Loading registrations...</div>}
+      {loading && <div className="text-center py-8">Loading students...</div>}
 
       {registrations.length > 0 && (
         <Card>
@@ -89,13 +116,13 @@ export default function ExamResultsEntry() {
             <div className="space-y-4">
               {registrations.map((reg) => (
                 <div
-                  key={reg.student_id}
+                  key={reg.id}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded"
                 >
                   <div>
-                    <div className="font-medium">{reg.student_name || reg.student_id}</div>
+                    <div className="font-medium">{reg.full_name || reg.name || reg.id}</div>
                     <div className="text-sm text-gray-500">
-                      Roll No: {reg.roll_number || '-'}
+                      Roll No: {reg.student_id || reg.roll_number || '-'}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -103,27 +130,34 @@ export default function ExamResultsEntry() {
                       type="number"
                       className="w-24"
                       placeholder="Marks"
-                      value={results[reg.student_id] ?? ''}
+                      value={results[reg.id] ?? ''}
                       onChange={(e) =>
                         setResults({
                           ...results,
-                          [reg.student_id]: parseInt(e.target.value) || 0,
+                          [reg.id]: parseInt(e.target.value) || 0,
                         })
                       }
                     />
-                    <span>/ 100</span>
+                    <span>/ {reg.total_marks ?? 100}</span>
                   </div>
                 </div>
               ))}
               <div className="flex justify-end pt-4">
-                <Button onClick={handleSave}>
+                <Button onClick={handleSave} disabled={saving}>
                   <Save className="w-4 h-4 mr-2" />
-                  Save All Results
+                  {saving ? 'Saving...' : 'Save All Results'}
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {!loading && registrations.length === 0 && selectedExam && (
+        <div className="flex items-center gap-2 text-sm text-slate-500 bg-blue-50 border border-blue-100 rounded-lg p-4">
+          <CheckCircle2 className="w-4 h-4 text-blue-500" />
+          Select an exam and load students to begin entering marks.
+        </div>
       )}
     </div>
   )

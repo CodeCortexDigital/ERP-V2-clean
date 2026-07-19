@@ -685,27 +685,67 @@ def download_fee_receipt(request, invoice_id):
 # TEACHER PROFILE
 # ============================================================
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH', 'PUT'])
 @permission_classes([IsAuthenticated])
 def get_my_teacher_profile(request):
     from django.apps import apps
     from django.db.models import Q
     Teacher = apps.get_model('education_academics', 'Teacher')
+    from services.education.academics.serializers import TeacherSerializer
 
     user = request.user
     full_name = getattr(user, 'full_name', '') or (getattr(user, 'get_full_name', lambda: '')() or '')
-    teacher = Teacher.objects.filter(
-        Q(email__iexact=user.email) | Q(full_name__iexact=full_name)
-    ).first()
+    email = getattr(user, 'email', '') or ''
+
+    # Allow the front-end to pass the known employee_id (e.g. from a demo
+    # login that stores the teacher identity in localStorage). Accept it
+    # either as a query param (no CORS preflight) or a custom header.
+    employee_id = (
+        request.GET.get('employee_id', '') or
+        request.META.get('HTTP_X_EMPLOYEE_ID', '')
+    ).strip()
+
+    q = Q()
+    if email:
+        q |= Q(email__iexact=email)
+    if full_name:
+        q |= Q(full_name__iexact=full_name)
+    if employee_id:
+        q |= Q(employee_id__iexact=employee_id)
+
+    teacher = Teacher.objects.filter(q).first() if q else None
+
+    if request.method in ('PATCH', 'PUT'):
+        if not teacher:
+            return Response(
+                {'error': 'No teacher profile linked to this account.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        # Teacher may only edit their own non-sensitive contact fields.
+        editable = {
+            'phone', 'home_address', 'education', 'father_husband_name',
+            'religion', 'blood_group', 'national_id', 'profile_picture',
+        }
+        update_data = {k: v for k, v in request.data.items() if k in editable}
+        for field, value in update_data.items():
+            setattr(teacher, field, value)
+        teacher.save(update_fields=list(update_data.keys()))
+        return Response(TeacherSerializer(teacher).data)
 
     if teacher:
-        return Response({
-            'id': str(teacher.id),
-            'full_name': teacher.full_name,
-            'email': teacher.email,
-            'employee_id': teacher.employee_id
-        })
-    return Response({'error': 'Teacher profile not found'}, status=404)
+        data = TeacherSerializer(teacher).data
+        data['message'] = 'Teacher profile'
+        return Response(data)
+
+    # No Teacher record linked to this account yet — return the base
+    # user info (200, not 404) so the front-end can fall back.
+    return Response({
+        'id': '',
+        'full_name': full_name,
+        'email': email,
+        'employee_id': employee_id,
+        'role': getattr(user, 'role', 'teacher'),
+    })
 
 
 # ============================================================

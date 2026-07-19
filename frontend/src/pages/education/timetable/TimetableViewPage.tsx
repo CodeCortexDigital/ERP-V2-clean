@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { toast } from 'sonner'
 import api from '@/services/api'
 import academicService from '@/services/academic.service'
+import studentService from '@/services/student.service'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface Period {
@@ -39,12 +40,24 @@ export default function TimetableViewPage() {
   const classId = searchParams.get('class_id')
   const teacherId = searchParams.get('teacher_id')
 
+  const [studentClassId, setStudentClassId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isStudent && user) {
+      studentService.resolveMe(user).then((me) => {
+        if (me) {
+          setStudentClassId(me.current_class || me.current_class_id || me.current_class_name || me.class_name || null);
+        }
+      }).catch(err => console.error('Failed to resolve student class', err));
+    }
+  }, [isStudent, user]);
+
   const resolvedClassId = useMemo(() => {
     if (isStudent) {
-      return (user as any)?.class_name || 'Grade 1-A';
+      return studentClassId || (user as any)?.student?.current_class || (user as any)?.student?.current_class_name || (user as any)?.class_name || 'Grade 1-A';
     }
     return classId;
-  }, [isStudent, classId, user]);
+  }, [isStudent, classId, user, studentClassId]);
 
   const [periods, setPeriods] = useState<Period[]>([])
   const [entries, setEntries] = useState<TimetableEntry[]>([])

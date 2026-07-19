@@ -198,15 +198,16 @@ const attendanceService = {
 
   // Get attendance for a specific student with date range
   getStudentAttendance: async (studentId: string, startDate: string, endDate: string) => {
-    const response = await api.get('/auth/attendance/', { 
-      params: { 
-        student: studentId, 
-        start_date: startDate, 
-        end_date: endDate 
-      } 
+    const response = await api.get(`/auth/attendance/student/${studentId}/`, {
+      params: {
+        start_date: startDate,
+        end_date: endDate,
+      }
     });
     if (response.data) {
-      const records = extractListData<AttendanceRecord>(response.data);
+      const records = Array.isArray(response.data)
+        ? response.data
+        : (response.data.results || extractListData<AttendanceRecord>(response.data));
       response.data = normalizeAttendanceList(records);
     }
     return response;

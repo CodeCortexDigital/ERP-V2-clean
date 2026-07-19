@@ -14,6 +14,7 @@ class SchoolSerializer(serializers.ModelSerializer):
             'subdomain',
             'email_domain',
             'is_active',
+            'settings_json',
             'created_at',
         ]
         read_only_fields = ['id', 'school_id', 'created_at']

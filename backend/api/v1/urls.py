@@ -45,15 +45,14 @@ urlpatterns = [
     # AUTH & IDENTITY
     # ============================================================
     path('auth/', include('services.core.accounts.urls')),
-    path('auth/', include('services.core.audit_api.urls')),
-    path('', include('services.core.audit_api.urls')),
-    
+    path('auth/', include('services.core.employee.urls')),
+
     # ============================================================
     # STUDENTS
     # ============================================================
     path('students/', include('api.v1.student_urls')),
     path('auth/students/', include('api.v1.student_urls')),
-    
+
     # ============================================================
     # TEACHERS - ✅ USING ACADEMICS VIEWS (they support GET and POST)
     # ============================================================
@@ -61,7 +60,8 @@ urlpatterns = [
     path('teachers/<str:id>/', TeacherDetailView.as_view(), name='teacher-detail'),
     path('auth/teachers/', TeacherListCreateView.as_view(), name='auth-teacher-list'),
     path('auth/teachers/<str:id>/', TeacherDetailView.as_view(), name='auth-teacher-detail'),
-    
+    path('auth/my-teacher-profile/', views.get_my_teacher_profile, name='auth-my-teacher-profile'),
+
     # ============================================================
     # INVOICES
     # ============================================================
@@ -69,13 +69,19 @@ urlpatterns = [
     path('invoices/<str:id>/', views.invoice_detail_view, name='invoice-detail'),
     path('auth/invoices/', views.invoices_list_view, name='auth-invoices-list'),
     path('auth/invoices/<str:id>/', views.invoice_detail_view, name='auth-invoice-detail'),
-    
+
     # ============================================================
     # PAYMENTS & ATTENDANCE
     # ============================================================
     path('payments/', PaymentListCreateView.as_view(), name='payments-list'),
     path('payments/<str:id>/', PaymentDetailView.as_view(), name='payment-detail'),
     path('attendance/dashboard-stats/', views.get_attendance_dashboard_stats, name='attendance-dashboard-stats'),
+
+    # ============================================================
+    # AUDIT API (admin-only data/debug endpoints). Mounted LAST so
+    # the secure, role-aware routes above always take precedence.
+    # ============================================================
+    path('auth/', include('services.core.audit_api.urls')),
     
     # ============================================================
     # FINANCE ENDPOINTS

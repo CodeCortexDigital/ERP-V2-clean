@@ -74,8 +74,8 @@ export default function StaffIdCardsPage() {
               }}
               className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
             >
-              {teachers.map(t => (
-                <option key={t.id} value={t.id}>{t.full_name} ({t.employee_id})</option>
+              {teachers.map((t, idx) => (
+                <option key={t.id || t.employee_id || `t-${idx}`} value={t.id}>{t.full_name} ({t.employee_id})</option>
               ))}
             </select>
 

@@ -69,3 +69,48 @@ class AnonymizeUserView(APIView):
         )
 
         return Response({'status': 'anonymized'})
+
+
+class AuditLogListView(APIView):
+    """List audit log entries (admin only). Supports filtering by
+    resource_type and action, and basic search by actor email/name."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from .models import AuditLog
+        from django.db.models import Q
+
+        qs = AuditLog.objects.select_related('user').all()
+
+        resource_type = request.query_params.get('resource_type')
+        if resource_type:
+            qs = qs.filter(resource_type=resource_type)
+
+        action = request.query_params.get('action')
+        if action:
+            qs = qs.filter(action=action)
+
+        q = request.query_params.get('q')
+        if q:
+            qs = qs.filter(
+                Q(user__email__icontains=q) | Q(user__username__icontains=q)
+            )
+
+        qs = qs.order_by('-timestamp')[:500]
+
+        data = [
+            {
+                'id': str(a.id),
+                'user': a.user.get_username() if a.user else None,
+                'user_id': str(a.user_id) if a.user_id else None,
+                'action': a.action,
+                'resource_type': a.resource_type,
+                'resource_id': str(a.resource_id) if a.resource_id else None,
+                'old_data': a.old_data,
+                'new_data': a.new_data,
+                'changes': a.changes,
+                'timestamp': a.timestamp,
+            }
+            for a in qs
+        ]
+        return Response({'results': data, 'count': len(data)})

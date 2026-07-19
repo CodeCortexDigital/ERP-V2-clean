@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, Settings, BookOpen, GraduationCap, Users, 
-  Wallet, Banknote, CreditCard, Hand, Calendar, FileText, 
-  Eye, MessageSquare, Video, FileQuestion, 
+import {
+  LayoutDashboard, Settings, BookOpen, GraduationCap, Users,
+  Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
+  Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, ShoppingCart
+  DollarSign, ShoppingCart, User, Star
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import { teacherQuickActions } from '@/config/teacherQuickActions';
 
 interface SubMenuItem {
   label: string;
@@ -93,6 +95,53 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   const isParent = role === 'parent';
   const isTeacher = role === 'teacher';
   const isStudent = role === 'student';
+  const { canView, canAccess } = usePermissions();
+
+  // Admin always sees the full menu; other roles are filtered by permissions.
+  const isAdmin = role === 'admin';
+
+  // Map a sub-item href to the permission module it belongs to (best-effort).
+  const moduleForHref = (href: string): string | null => {
+    const map: Array<[RegExp, string]> = [
+      [/\/education\/academic-setup/, 'academic-setup'],
+      [/\/education\/timetable/, 'timetable'],
+      [/\/education\/behaviour/, 'behaviour'],
+      [/\/education\/skills/, 'behaviour'],
+      [/\/education\/communication/, 'communication'],
+      [/\/education\/exams/, 'exams'],
+      [/\/education\/class-tests/, 'exams'],
+      [/\/education\/analytics/, 'reports'],
+      [/\/education\/attendance/, 'attendance'],
+      [/\/education\/store/, 'store'],
+      [/\/education\/students/, 'students'],
+      [/\/education\/teachers/, 'employees'],
+      [/\/education\/accounts/, 'accounts'],
+      [/\/education\/fees/, 'fees'],
+      [/\/education\/salary/, 'salary'],
+      [/\/education\/certificates/, 'certificates'],
+      [/\/settings/, 'settings'],
+    ];
+    for (const [re, mod] of map) {
+      if (re.test(href)) return mod;
+    }
+    return null;
+  };
+
+  // Filter a set of menu items by the current role's view permissions.
+  const filterByPermissions = (items: MenuItem[]): MenuItem[] => {
+    if (isAdmin) return items;
+    return items
+      .filter((item) => canView((item as any).module || item.id))
+      .map((item) => {
+        if (!item.subItems) return item;
+        const subItems = item.subItems.filter((sub) => {
+          if (sub.isLogout || sub.isDivider) return true;
+          const mod = moduleForHref(sub.href);
+          return mod ? canView(mod) : true;
+        });
+        return { ...item, subItems };
+      });
+  };
 
   const handleLogout = () => {
     logout();
@@ -243,82 +292,26 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     }
   ];
 
-  // Teacher Menu - with Logout inside Settings
+  // Teacher Menu - derived from the SAME permission-filtered quick
+  // actions as the dashboard, so the sidebar and portal stay in sync.
+  // Only "Dashboard" is kept as a fixed item; everything else comes
+  // from the RBAC-driven quick-action list (filtered by `canView`).
   const teacherMenuItems: MenuItem[] = [
     {
       id: 'dashboard',
       label: 'Dashboard',
       icon: <LayoutDashboard className="w-4 h-4" />,
-      href: '/teacher'
+      href: '/teacher',
     },
-    {
-      id: 'attendance',
-      label: 'Attendance',
-      icon: <Calendar className="w-4 h-4" />,
-      subItems: [
-        { label: 'Student Attendance', href: '/education/attendance' },
-        { label: 'Attendance Sheet', href: '/education/attendance/sheet' }
-      ]
-    },
-    {
-      id: 'academic-setup',
-      label: 'Academic Setup',
-      icon: <GraduationCap className="w-4 h-4" />,
-      href: '/education/academic-setup'
-    },
-    {
-      id: 'timetable',
-      label: 'My Timetable',
-      icon: <Calendar className="w-4 h-4" />,
-      subItems: [
-        { label: 'View Timetable', href: '/education/timetable/view' },
-        { label: 'My Leave', href: '/education/timetable/my-leave' }
-      ]
-    },
-    {
-      id: 'behaviour',
-      label: 'Behaviour & Skills',
-      icon: <Eye className="w-4 h-4" />,
-      subItems: [
-        { label: 'Rate Behaviours', href: '/education/behaviour/rate' },
-        { label: 'Rate Skills', href: '/education/skills/rate' },
-        { label: 'Observations', href: '/education/behaviour/observations' }
-      ]
-    },
-    {
-      id: 'messaging',
-      label: 'Messaging',
-      icon: <MessageSquare className="w-4 h-4" />,
-      href: '/education/communication'
-    },
-    {
-      id: 'exams',
-      label: 'Exams',
-      icon: <Edit className="w-4 h-4" />,
-      subItems: [
-        { label: 'Add / update Exam Marks', href: '/education/exams?tab=marks' },
-        { label: 'Result Card', href: '/education/exams?tab=results' },
-        { label: 'Result Sheet', href: '/education/exams/sheet' }
-      ]
-    },
-    {
-      id: 'classtests',
-      label: 'Class Tests',
-      icon: <FileText className="w-4 h-4" />,
-      subItems: [
-        { label: 'Manage Test Marks', href: '/education/class-tests' },
-        { label: 'Test Result', href: '/education/class-tests?tab=results' }
-      ]
-    },
-    {
-      id: 'reports',
-      label: 'Reports',
-      icon: <Award className="w-4 h-4" />,
-      subItems: [
-        { label: 'Students report Card', href: '/education/analytics?report=card' },
-        { label: 'Students info report', href: '/education/analytics?report=students-info' }
-      ]
-    },
+    ...teacherQuickActions
+      .filter((q) => canView(q.module))
+      .map((q) => ({
+        id: q.id,
+        module: q.module,
+        label: q.label,
+        icon: <q.icon className="w-4 h-4" />,
+        href: q.href,
+      })),
     {
       id: 'settings',
       label: 'Account Settings',
@@ -326,10 +319,11 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       subItems: [
         { label: 'Account Settings', href: '/settings/account' },
         { label: '──────────', href: '#', isDivider: true },
-        { label: 'Log out', href: '#logout', isLogout: true }
-      ]
-    }
+        { label: 'Log out', href: '#logout', isLogout: true },
+      ],
+    },
   ];
+
 
   // Student Menu - with Logout inside Settings
   const studentMenuItems: MenuItem[] = [
@@ -340,16 +334,28 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       href: '/student'
     },
     {
-      id: 'admission_letter',
-      label: 'Admission Letter',
-      icon: <FileText className="w-4 h-4" />,
-      href: '/education/students/admission-letter'
+      id: 'profile',
+      label: 'My Profile',
+      icon: <User className="w-4 h-4" />,
+      href: '/student/profile'
     },
     {
-      id: 'paid_fee_receipt',
-      label: 'Paid Fee Receipt',
-      icon: <CreditCard className="w-4 h-4" />,
-      href: '/education/finance/fees-paid-slip'
+      id: 'attendance',
+      label: 'Attendance',
+      icon: <Calendar className="w-4 h-4" />,
+      href: '/student/attendance'
+    },
+    {
+      id: 'results',
+      label: 'Results',
+      icon: <Award className="w-4 h-4" />,
+      href: '/student/results'
+    },
+    {
+      id: 'homework',
+      label: 'Homework',
+      icon: <BookOpen className="w-4 h-4" />,
+      href: '/student/homework'
     },
     {
       id: 'timetable',
@@ -358,40 +364,28 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       href: '/student/timetable'
     },
     {
-      id: 'report_card',
-      label: 'My Report Card',
+      id: 'behaviour',
+      label: 'Behaviour & Skills',
+      icon: <Star className="w-4 h-4" />,
+      href: '/student/behaviour'
+    },
+    {
+      id: 'fees',
+      label: 'Fees',
+      icon: <Wallet className="w-4 h-4" />,
+      href: '/student/fees'
+    },
+    {
+      id: 'certificates',
+      label: 'Certificates',
       icon: <Award className="w-4 h-4" />,
-      href: '/education/analytics?report=card'
+      href: '/student/certificates'
     },
     {
-      id: 'test_results',
-      label: 'Test Results',
-      icon: <Edit className="w-4 h-4" />,
-      href: '/education/class-tests?tab=results'
-    },
-    {
-      id: 'exam_result',
-      label: 'Exam Result',
-      icon: <Award className="w-4 h-4" />,
-      href: '/education/exams?tab=results'
-    },
-    {
-      id: 'home_assignments',
-      label: 'Home Assignments',
-      icon: <FileText className="w-4 h-4" />,
-      href: '/education/academic-setup'
-    },
-    {
-      id: 'online_store',
-      label: 'Online Store',
-      icon: <ShoppingCart className="w-4 h-4" />,
-      href: '/education/store'
-    },
-    {
-      id: 'messaging',
-      label: 'Messaging',
+      id: 'notifications',
+      label: 'Notifications',
       icon: <MessageSquare className="w-4 h-4" />,
-      href: '/education/communication'
+      href: '/student/notifications'
     },
     {
       id: 'settings',
@@ -406,6 +400,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   ];
 
   let menuItems = isTeacher ? teacherMenuItems : isStudent ? studentMenuItems : adminMenuItems;
+  menuItems = filterByPermissions(menuItems);
 
   // Auto-expand settings when on settings page
   useEffect(() => {

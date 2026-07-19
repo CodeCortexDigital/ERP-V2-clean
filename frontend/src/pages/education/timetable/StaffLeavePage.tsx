@@ -7,9 +7,19 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import teacherService from '@/services/teacher.service';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function StaffLeavePage() {
   const navigate = useNavigate();
+  const { user, role } = useAuth();
+  const canApprove = ['admin', 'manager', 'hr', 'staff', 'superuser'].includes(
+    String(role || '').toLowerCase()
+  );
+  // A leave owner may never approve/reject their own request.
+  const isOwner = (l: any) =>
+    !!user &&
+    ((l.applicant_email && l.applicant_email.toLowerCase() === user.email?.toLowerCase()) ||
+      (l.teacher && l.teacher.email && l.teacher.email.toLowerCase() === user.email?.toLowerCase()));
   const [leaves, setLeaves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -136,12 +146,12 @@ export default function StaffLeavePage() {
           <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => toggleSubs(l.id)}>
             {expanded === l.id ? 'Hide' : 'Substitutions'}
           </Button>
-          {l.status === 'pending' && (
+          {l.status === 'pending' && canApprove && !isOwner(l) && (
             <Button variant="success" className="h-8 px-3 text-xs" onClick={() => approveLeave(l.id)} disabled={busyId === l.id}>
               {busyId === l.id ? 'Approving...' : 'Approve'}
             </Button>
           )}
-          {(l.status === 'approved' || l.status === 'pending') && (
+          {(l.status === 'approved' || l.status === 'pending') && (isOwner(l) || canApprove) && (
             <Button variant="destructive" className="h-8 px-3 text-xs" onClick={() => cancelLeave(l.id)} disabled={busyId === l.id}>
               {busyId === l.id ? 'Cancelling...' : 'Cancel'}
             </Button>
@@ -180,12 +190,13 @@ export default function StaffLeavePage() {
               <Input
                 type="number"
                 min={0}
-                defaultValue={balances[l.id].annual_entitlement}
-                key={`ent-${l.id}-${balances[l.id].annual_entitlement}`}
+                defaultValue={balances[l.id].annual_type_entitlement ?? balances[l.id].annual_entitlement ?? 0}
+                key={`ent-${l.id}-${balances[l.id].annual_type_entitlement ?? balances[l.id].annual_entitlement ?? 0}`}
                 onBlur={(e) => {
                   const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && val !== balances[l.id].annual_entitlement && balances[l.id].id) {
-                    teacherService.leaveBalances.update(balances[l.id].id, { annual_entitlement: val })
+                  const current = balances[l.id].annual_type_entitlement ?? 0;
+                  if (!isNaN(val) && val !== current && balances[l.id].id) {
+                    teacherService.leaveBalances.update(balances[l.id].id, { annual_type_entitlement: val })
                       .then(() => loadBalances(leaves))
                       .catch(() => {});
                   }

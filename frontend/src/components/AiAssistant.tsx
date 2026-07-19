@@ -1,23 +1,63 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Sparkles, Bot } from 'lucide-react';
+import { MessageSquare, X, Send, Sparkles, Bot, AlertCircle } from 'lucide-react';
 import { sendAiMessage, ChatMessage } from '@/services/ai.service';
 
-const SUGGESTIONS = [
-  'How many fee defaulters do we have?',
-  'Show finance summary',
-  'Find student Abdullah',
-  'Attendance % of Grade 10',
-  'List upcoming exams',
-];
+export type ChatMode = 'student' | 'teacher' | 'parent' | 'admin';
 
-export default function AiAssistant() {
+const SUGGESTIONS: Record<ChatMode, string[]> = {
+  admin: [
+    'Show finance summary',
+    'How many fee defaulters do we have?',
+    'Find student Abdullah',
+    'Attendance % of Grade 10',
+    'List upcoming exams',
+    'Homework across the school',
+    'Behaviour ratings for Grade 8',
+    'Recent certificates issued',
+  ],
+  teacher: [
+    'My class attendance today?',
+    'Homework for my class',
+    'My timetable',
+    'Behaviour of my students',
+    'Upcoming exams for my class',
+  ],
+  parent: [
+    'My child attendance?',
+    'Outstanding fees for my child?',
+    'My child recent exams',
+    'My child homework',
+    'My child certificates',
+  ],
+  student: [
+    'What is my attendance percentage?',
+    'How much fee do I owe?',
+    'When is my next exam?',
+    'Show my homework',
+    'What is my timetable?',
+    'Show my certificates',
+  ],
+};
+
+const WELCOME: Record<ChatMode, string> = {
+  admin:
+    "Hi, I'm CodeCortex — your ERP assistant. Ask me about students, fees, attendance, exams, homework, behaviour or certificates and I'll pull the live data for you.",
+  teacher:
+    "Hi! I'm CodeCortex. Ask about your class attendance, homework, timetable, behaviour or exams.",
+  parent:
+    "Hi! I'm CodeCortex. Ask about your child's attendance, fees, exams, homework or certificates.",
+  student:
+    "Hi! I'm CodeCortex. Ask me about your attendance, fees, exams, homework, timetable, behaviour or certificates.",
+};
+
+export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [offline, setOffline] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content:
-        "Hi, I'm CodeCortex — your ERP assistant. Ask me about students, fees, attendance or exams and I'll pull the live data for you.",
+      content: WELCOME[mode],
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -36,6 +76,7 @@ export default function AiAssistant() {
     setLoading(true);
     try {
       const res = await sendAiMessage(next.filter((m) => m.role !== 'system'));
+      setOffline(!!res.offline);
       setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }]);
     } catch (e) {
       setMessages((prev) => [
@@ -74,6 +115,13 @@ export default function AiAssistant() {
             </button>
           </div>
 
+          {offline && (
+            <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-700">
+              <AlertCircle size={13} />
+              Offline mode — connect an OpenAI key for live answers.
+            </div>
+          )}
+
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
             {messages.map((m, i) => (
@@ -100,7 +148,7 @@ export default function AiAssistant() {
             {/* Suggestions (only before first user message) */}
             {messages.length === 1 && !loading && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {SUGGESTIONS.map((s) => (
+                {SUGGESTIONS[mode].map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}

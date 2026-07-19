@@ -79,17 +79,8 @@ export default function ClassTestsPage() {
         id: c.id,
         name: c.name || 'Class'
       }));
-      // Fallback classes matching mockup
-      if (formattedClasses.length === 0) {
-        formattedClasses.push(
-          { id: 'c-1', name: 'Grade 1-A' },
-          { id: 'c-2', name: 'Grade 1-B' },
-          { id: 'c-3', name: 'Grade 2-A' },
-          { id: 'c-4', name: 'Grade 8-B' }
-        );
-      }
       setClasses(formattedClasses);
-      setSelectedClassId(formattedClasses[0].id);
+      setSelectedClassId(formattedClasses[0]?.id || '');
 
       // Parse Subjects
       const subjectsData = Array.isArray(subjectsRes.data) ? subjectsRes.data : (subjectsRes.data as any)?.results || [];
@@ -97,16 +88,8 @@ export default function ClassTestsPage() {
         id: s.id,
         name: s.name || 'Subject'
       }));
-      // Fallback subjects
-      if (formattedSubjects.length === 0) {
-        formattedSubjects.push(
-          { id: 's-1', name: 'English' },
-          { id: 's-2', name: 'Mathematics' },
-          { id: 's-3', name: 'Urdu' }
-        );
-      }
       setSubjects(formattedSubjects);
-      setSelectedSubjectId(formattedSubjects[0].id);
+      setSelectedSubjectId(formattedSubjects[0]?.id || '');
 
       // Parse Students
       const parsedStudents = (Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data as any)?.results || []).map((s: any) => ({
@@ -116,21 +99,13 @@ export default function ClassTestsPage() {
         class_name: s.class_name || 'Grade 1-A',
         class_id: s.class_ref || ''
       }));
-      
-      // Fallback students to match the mockup
-      if (parsedStudents.length <= 1) {
-        parsedStudents.push(
-          { id: 'st-1', student_id: '015', full_name: 'Bilal Hassan', class_name: 'Grade 1-A', class_id: formattedClasses[0].id },
-          { id: 'st-2', student_id: '016', full_name: 'Hina Aslam', class_name: 'Grade 1-A', class_id: formattedClasses[0].id },
-          { id: 'st-3', student_id: '051', full_name: 'Fatima Ahmed', class_name: 'Grade 1-A', class_id: formattedClasses[0].id },
-          { id: 'st-4', student_id: '093', full_name: 'Iman Ali', class_name: 'Grade 1-A', class_id: formattedClasses[0].id },
-          { id: 'st-5', student_id: '012', full_name: 'Ahmed Khan', class_name: 'Grade 1-A', class_id: formattedClasses[0].id }
-        );
-      }
+
       setStudents(parsedStudents);
 
       // Check if test exists for default selections
-      loadSavedTest(formattedClasses[0].id, formattedSubjects[0].id, '2026-06-30', parsedStudents);
+      if (formattedClasses[0]?.id && formattedSubjects[0]?.id) {
+        loadSavedTest(formattedClasses[0].id, formattedSubjects[0].id, '2026-06-30', parsedStudents);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -826,34 +801,15 @@ export default function ClassTestsPage() {
                 <tbody className="divide-y divide-slate-50 font-semibold text-slate-700">
                   {(() => {
                     if (studentTestsList.length === 0) {
-                      // Fallback mock test records for Sundas to look populated and stunning
-                      const mockTests = [
-                        { subject_name: 'English', date: '2026-06-30', total_marks: 50, score: 40 },
-                        { subject_name: 'Mathematics', date: '2026-06-28', total_marks: 50, score: 46 },
-                        { subject_name: 'Urdu', date: '2026-06-25', total_marks: 50, score: 38 },
-                        { subject_name: 'Islamiyat', date: '2026-06-20', total_marks: 50, score: 45 }
-                      ];
-                      return mockTests.map((t, idx) => {
-                        const pct = Math.round((t.score / t.total_marks) * 100);
-                        const isPass = pct >= 40;
-                        return (
-                          <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-4 py-3.5 font-bold">{t.subject_name}</td>
-                            <td className="px-4 py-3.5 text-slate-500">{formatDateDisplay(t.date)}</td>
-                            <td className="px-4 py-3.5 text-center font-bold text-slate-850">{t.score} / {t.total_marks}</td>
-                            <td className="px-4 py-3.5 text-center font-bold">{pct}%</td>
-                            <td className="px-4 py-3.5 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                isPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                              }`}>
-                                {isPass ? 'Pass' : 'Fail'}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      });
+                      return (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-400 font-semibold">
+                            No test records found for this student yet.
+                          </td>
+                        </tr>
+                      );
                     }
-                    
+
                     return studentTestsList.map((t, idx) => {
                       const studentKey = user?.id || 'st-1';
                       const score = t.marks[studentKey] !== undefined ? t.marks[studentKey] : (t.marks['st-1'] ?? 40);

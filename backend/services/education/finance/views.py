@@ -1814,15 +1814,42 @@ class LedgerEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
 # PAYSLIPS (Salary Records)
 # ============================================================
 
+def _resolve_current_teacher(user):
+    """Map the authenticated user to their Teacher record (by name/email)."""
+    from services.education.academics.models import Teacher
+    from django.db.models import Q
+
+    full_name = (getattr(user, 'get_full_name', lambda: '')() or '').strip()
+    email = getattr(user, 'email', '') or ''
+    if not full_name and not email:
+        return None
+    try:
+        return Teacher.objects.filter(
+            Q(full_name__iexact=full_name) | Q(email__iexact=email)
+        ).first()
+    except Exception:
+        return None
+
+
 class PayslipListCreateView(generics.ListCreateAPIView):
     """List all payslips or create a new one"""
     permission_classes = [permissions.IsAuthenticated]
-    
     def get_queryset(self):
         queryset = Payslip.objects.select_related('employee').all()
         employee_id = self.request.query_params.get('employee_id')
         if employee_id:
             queryset = queryset.filter(employee_id=employee_id)
+        else:
+            # Default-scope to the current employee unless an admin/staff is
+            # explicitly requesting all payslips. This prevents leaking every
+            # staff member's salary to a normal employee.
+            user = self.request.user
+            if not (user.is_staff or user.is_superuser):
+                teacher = _resolve_current_teacher(user)
+                if teacher is not None:
+                    queryset = queryset.filter(employee_id=teacher.id)
+                else:
+                    queryset = queryset.none()
         month = self.request.query_params.get('month')
         if month:
             queryset = queryset.filter(month__startswith=month)

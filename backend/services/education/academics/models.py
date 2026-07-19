@@ -482,7 +482,7 @@ class TeacherLeave(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     reason = models.TextField(blank=True, default='')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='approved')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     substitute_assigned = models.BooleanField(default=False)
     created_by = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -526,17 +526,29 @@ class TimetableSubstitution(models.Model):
 
 
 class LeaveBalance(models.Model):
-    """Annual leave entitlement for a teacher or non-teaching staff member.
+    """Per-leave-type annual entitlement for a teacher or non-teaching staff
+    member.
 
-    The remaining balance is derived (entitlement minus approved leave days),
-    so no field needs updating when leaves are approved/cancelled.
+    The remaining balance is derived (entitlement minus approved leave days of
+    the matching type), so no field needs updating when leaves are
+    approved/cancelled.
     """
+    LEAVE_TYPE_FIELDS = ['sick', 'casual', 'annual', 'maternity', 'emergency', 'other']
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     teacher = models.ForeignKey(
         Teacher, on_delete=models.CASCADE, related_name='leave_balance', null=True, blank=True
     )
     applicant_email = models.CharField(max_length=255, blank=True, default='')
-    annual_entitlement = models.IntegerField(default=0, help_text="Total leave days allowed per year")
+    annual_entitlement = models.IntegerField(
+        default=0, help_text="Total leave days allowed per year (legacy combined field)"
+    )
+    sick_entitlement = models.IntegerField(default=0, help_text="Sick leave days allowed per year")
+    casual_entitlement = models.IntegerField(default=0, help_text="Casual leave days allowed per year")
+    annual_type_entitlement = models.IntegerField(default=0, help_text="Annual leave days allowed per year")
+    maternity_entitlement = models.IntegerField(default=0, help_text="Maternity leave days allowed per year")
+    emergency_entitlement = models.IntegerField(default=0, help_text="Emergency leave days allowed per year")
+    other_entitlement = models.IntegerField(default=0, help_text="Other leave days allowed per year")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -556,26 +568,38 @@ class LeaveBalance(models.Model):
 
     def __str__(self):
         who = self.teacher.full_name if self.teacher else self.applicant_email
-        return f"Leave balance for {who}: {self.annual_entitlement} days"
+        return f"Leave balance for {who}"
 
-    def _approved_days(self):
+    def entitlement_for(self, leave_type: str) -> int:
+        if leave_type == 'annual':
+            return self.annual_type_entitlement
+        return getattr(self, f"{leave_type}_entitlement", 0)
+
+    def _approved_days_for(self, leave_type: str):
         from django.db.models import Q
         leaves = TeacherLeave.objects.filter(
             Q(teacher=self.teacher) if self.teacher else Q(applicant_email=self.applicant_email),
             status='approved',
+            leave_type=leave_type,
         )
         total = 0
         for lv in leaves:
             total += (lv.end_date - lv.start_date).days + 1
         return total
 
+    def used_for(self, leave_type: str) -> int:
+        return self._approved_days_for(leave_type)
+
+    def balance_for(self, leave_type: str) -> int:
+        return max(self.entitlement_for(leave_type) - self.used_for(leave_type), 0)
+
     @property
     def used_days(self):
-        return self._approved_days()
+        return sum(self._approved_days_for(lt) for lt in self.LEAVE_TYPE_FIELDS)
 
     @property
     def balance_days(self):
-        return max(self.annual_entitlement - self.used_days, 0)
+        return sum(self.balance_for(lt) for lt in self.LEAVE_TYPE_FIELDS)
 
 
 class Homework(models.Model):
@@ -599,6 +623,7 @@ class Homework(models.Model):
     due_date = models.DateField(null=True, blank=True)
     attachment_name = models.CharField(max_length=255, blank=True, default='')
     attachment_data = models.TextField(blank=True, default='')  # base64 data URL
+    max_marks = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='assigned')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -608,6 +633,46 @@ class Homework(models.Model):
 
     def __str__(self):
         return f"{self.class_name} - {self.subject_name}: {self.title}"
+
+
+class HomeworkSubmission(models.Model):
+    """Per-student submission / grade for a homework assignment."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    homework = models.ForeignKey(
+        Homework, on_delete=models.CASCADE, related_name='submissions'
+    )
+    student = models.ForeignKey(
+        'education_students.Student',
+        on_delete=models.CASCADE,
+        related_name='homework_submissions',
+        null=True,
+        blank=True,
+    )
+    student_name = models.CharField(max_length=255, blank=True, default='')
+    obtained_marks = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True
+    )
+    remarks = models.TextField(blank=True, default='')
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('submitted', 'Submitted'),
+            ('graded', 'Graded'),
+        ],
+        default='pending',
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    graded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['homework', 'student']
+
+    def __str__(self):
+        return f"{self.student_name or self.student} - {self.homework}"
 
 
 class LessonPlan(models.Model):

@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     
     # Core apps
     'services.core.accounts',
+    'services.core.employee',
     'services.core.user_notifications',
     'services.rbac_models',
     'services.core.audit',
@@ -356,6 +357,7 @@ AUTH_USER_MODEL = 'core_accounts.User'
 # CORS Settings
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = ['Content-Type', 'Authorization', 'X-Employee-Id', 'X-CSRFToken', 'Cache-Control', 'Pragma']
 
 # REST Framework Settings
 REST_FRAMEWORK = {

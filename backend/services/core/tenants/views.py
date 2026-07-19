@@ -13,6 +13,11 @@ from .utils import set_session_tenant, user_can_access_tenant
 def current_tenant(request):
     tenant = getattr(request, 'tenant', None)
     if not tenant:
+        # Fall back to the first active school so callers (e.g. the teacher
+        # dashboard) still receive institute name/tagline even when the
+        # session tenant isn't resolved for this request.
+        tenant = School.objects.filter(is_active=True).first()
+    if not tenant:
         return Response({'tenant': None})
     return Response({'tenant': SchoolSerializer(tenant).data})
 

@@ -6,9 +6,11 @@ import ModuleTabsLayout from './components/layout/ModuleTabsLayout';
 import { accountsTabs, feesTabs, salaryTabs, attendanceTabs, timetableTabs, behaviourTabs, examTabs, subjectsTabs, communicationTabs, certificatesTabs, reportsTabs, academicSetupTabs } from './components/layout/moduleTabs';
 import ProtectedRoute from './components/ProtectedRoute'
 import { RoleBasedRoute } from './components/auth/RoleBasedRoute'
+import { CanAccess } from './components/auth/CanAccess'
 import LoginPage from './pages/auth/LoginPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
+import AuditLogViewer from './pages/admin/AuditLogViewer'
 
 // ============================================================
 // EDUCATION MODULE IMPORTS
@@ -83,6 +85,7 @@ import ResourceManagementPage from './pages/education/curriculum/ResourceManagem
 
 // Homework & Store
 import HomeworkManagementPage from './pages/education/assignments/HomeworkManagementPage'
+import AssignmentGradingPage from './pages/education/homework/AssignmentGradingPage'
 import OnlineStorePage from './pages/education/OnlineStorePage'
 
 // Timetable
@@ -94,8 +97,10 @@ import WeekdayManagementPage from './pages/education/timetable/WeekdayManagement
 import ClassroomManagementPage from './pages/education/timetable/ClassroomManagementPage'
 import ClassTimetableListPage from './pages/education/timetable/ClassTimetableListPage'
 import TeacherTimetableListPage from './pages/education/timetable/TeacherTimetableListPage'
+import TeacherMyTimetablePage from './pages/education/timetable/TeacherMyTimetablePage'
 import StaffLeavePage from './pages/education/timetable/StaffLeavePage'
 import TeacherLeaveApplyPage from './pages/education/timetable/TeacherLeaveApplyPage'
+import LeaveLimitsPage from './pages/education/timetable/LeaveLimitsPage'
 
 // Progress
 import ProgressTrackingPage from './pages/education/progress/ProgressTrackingPage'
@@ -157,6 +162,17 @@ import RulesRegulations from './pages/settings/RulesRegulations'
 import ParentDashboard from './pages/portals/parent/ParentDashboard'
 import TeacherDashboard from './pages/portals/teacher/TeacherDashboard'
 import StudentDashboard from './pages/portals/student/StudentDashboard'
+import StudentPortalLayout from './pages/portals/student/StudentPortalLayout'
+import StudentAttendancePage from './pages/portals/student/StudentAttendancePage'
+import StudentResultsPage from './pages/portals/student/StudentResultsPage'
+import StudentTimetablePage from './pages/portals/student/StudentTimetablePage'
+import StudentFeesPage from './pages/portals/student/StudentFeesPage'
+import StudentNotificationsPage from './pages/portals/student/StudentNotificationsPage'
+import StudentHomeworkPage from './pages/portals/student/StudentHomeworkPage'
+import StudentBehaviourPage from './pages/portals/student/StudentBehaviourPage'
+import StudentCertificatesPage from './pages/portals/student/StudentCertificatesPage'
+import PortalStudentProfilePage from './pages/portals/student/StudentProfilePage'
+import EmployeePortalPage from './pages/portals/employee/EmployeePortalPage'
 
 // ============================================================
 // AUTH AND ERROR HANDLING
@@ -197,6 +213,7 @@ function App() {
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="admin/audit-logs" element={<RoleBasedRoute allowedRoles={['admin']}><AuditLogViewer /></RoleBasedRoute>} />
                 
                 {/* ============================================================
                     EDUCATION ROUTES
@@ -239,7 +256,7 @@ function App() {
                 
 
                 {/* Examination (Question Papers + Exams + Class Tests) */}
-                <Route path="education/exams" element={<ModuleTabsLayout tabs={examTabs} scopeClass="exam-scope" />}>
+                <Route path="education/exams" element={<CanAccess module="exams" redirect><ModuleTabsLayout tabs={examTabs} scopeClass="exam-scope" /></CanAccess>}>
                   <Route index element={<ExamsPage />} />
                   <Route path="list" element={<ExamsListPage />} />
                   <Route path="dashboard" element={<ExamDashboard />} />
@@ -258,7 +275,7 @@ function App() {
                 <Route path="education/exams/sheet" element={<MarkSheetGeneration />} />
                 
                 {/* Class Tests & Attendance */}
-                <Route path="education/class-tests" element={<ModuleTabsLayout tabs={examTabs} scopeClass="exam-scope" />}>
+                <Route path="education/class-tests" element={<CanAccess module="exams" redirect><ModuleTabsLayout tabs={examTabs} scopeClass="exam-scope" /></CanAccess>}>
                   <Route index element={<ClassTestsPage />} />
                 </Route>
 
@@ -269,7 +286,7 @@ function App() {
                 <Route path="education/attendance" element={<ModuleTabsLayout tabs={attendanceTabs} scopeClass="attendance-scope" />}>
                   <Route index element={<AttendancePage />} />
                 </Route>
-                <Route path="education/attendance/mark" element={<TeacherMarkAttendance />} />
+                <Route path="education/attendance/mark" element={<CanAccess module="attendance" action="mark" redirect><TeacherMarkAttendance /></CanAccess>} />
                 
                 {/* Academics */}
                 <Route path="education/academics" element={<AcademicsPage />} />
@@ -282,9 +299,10 @@ function App() {
                 <Route path="education/subjects" element={<SubjectsPage />} />
                 <Route path="education/subjects/assign" element={<AssignSubjectsPage />} />
                 <Route path="education/homework" element={<HomeworkManagementPage />} />
+                <Route path="education/homework/grade/:id" element={<AssignmentGradingPage />} />
 
                 {/* Academic Setup — Classes + Subjects + Homework merged into one tab bar */}
-                <Route path="education/academic-setup" element={<ModuleTabsLayout tabs={academicSetupTabs} scopeClass="academic-setup-scope" />}>
+                <Route path="education/academic-setup" element={<CanAccess module="academic-setup" redirect><ModuleTabsLayout tabs={academicSetupTabs} scopeClass="academic-setup-scope" /></CanAccess>}>
                   <Route index element={<Navigate to="/education/academic-setup/classes" replace />} />
                   <Route path="classes" element={<AllClassesPage />} />
                   <Route path="classes/add" element={<AddClassPage />} />
@@ -303,10 +321,11 @@ function App() {
                 
                 {/* Homework & Store */}
                 <Route path="education/homework" element={<HomeworkManagementPage />} />
-                <Route path="education/store" element={<OnlineStorePage />} />
+                <Route path="education/homework/grade/:id" element={<AssignmentGradingPage />} />
+                <Route path="education/store" element={<CanAccess module="store" redirect><OnlineStorePage /></CanAccess>} />
                 
                 {/* Timetable */}
-                <Route path="education/timetable" element={<ModuleTabsLayout tabs={timetableTabs} scopeClass="timetable-scope" />}>
+                <Route path="education/timetable" element={<CanAccess module="timetable" redirect><ModuleTabsLayout tabs={timetableTabs} scopeClass="timetable-scope" /></CanAccess>}>
                   <Route index element={<TimetableManagement />} />
                   <Route path="view" element={<TimetableViewPage />} />
                   <Route path="periods" element={<PeriodManagementPage />} />
@@ -315,8 +334,10 @@ function App() {
                   <Route path="rooms" element={<ClassroomManagementPage />} />
                   <Route path="class" element={<ClassTimetableListPage />} />
                   <Route path="teacher" element={<TeacherTimetableListPage />} />
+                  <Route path="my" element={<TeacherMyTimetablePage />} />
                   <Route path="leave" element={<StaffLeavePage />} />
                   <Route path="my-leave" element={<TeacherLeaveApplyPage />} />
+                  <Route path="leave-limits" element={<RoleBasedRoute allowedRoles={['admin']}><LeaveLimitsPage /></RoleBasedRoute>} />
                 </Route>
                 
                 {/* Progress */}
@@ -330,13 +351,13 @@ function App() {
                 <Route path="education/admissions/new" element={<NewApplicationPage />} />
                 
                 {/* Behaviour & Skills */}
-                <Route path="education/behaviour" element={<ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" />}>
+                <Route path="education/behaviour" element={<CanAccess module="behaviour" redirect><ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" /></CanAccess>}>
                   <Route path="rate" element={<RateBehavioursPage />} />
                   <Route path="observations" element={<ObservationsPage />} />
                   <Route path="affective-report" element={<AffectiveDomainReportPage />} />
                   <Route path="psycomotor-report" element={<PsycomotorDomainReportPage />} />
                 </Route>
-                <Route path="education/skills" element={<ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" />}>
+                <Route path="education/skills" element={<CanAccess module="behaviour" redirect><ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" /></CanAccess>}>
                   <Route path="rate" element={<RateSkillsPage />} />
                 </Route>
                 
@@ -389,15 +410,15 @@ function App() {
                 </Route>
 
                 {/* Communication & Analytics */}
-                <Route path="education/communication" element={<ModuleTabsLayout tabs={communicationTabs} scopeClass="communication-scope" />}>
+                <Route path="education/communication" element={<CanAccess module="communication" redirect><ModuleTabsLayout tabs={communicationTabs} scopeClass="communication-scope" /></CanAccess>}>
                   <Route index element={<CommunicationPage />} />
                 </Route>
                 {/* Legacy/alias communication routes (Sidebar & deep links) */}
-                <Route path="communication/whatsapp" element={<CommunicationPage />} />
-                <Route path="communication/sms-gateway" element={<CommunicationPage />} />
-                <Route path="communication/branded-sms" element={<CommunicationPage />} />
-                <Route path="communication/sms-templates" element={<CommunicationPage />} />
-                <Route path="education/analytics" element={<ModuleTabsLayout tabs={reportsTabs} scopeClass="reports-scope" />}>
+                <Route path="communication/whatsapp" element={<CanAccess module="communication" redirect><CommunicationPage /></CanAccess>} />
+                <Route path="communication/sms-gateway" element={<CanAccess module="communication" redirect><CommunicationPage /></CanAccess>} />
+                <Route path="communication/branded-sms" element={<CanAccess module="communication" redirect><CommunicationPage /></CanAccess>} />
+                <Route path="communication/sms-templates" element={<CanAccess module="communication" redirect><CommunicationPage /></CanAccess>} />
+                <Route path="education/analytics" element={<CanAccess module="reports" redirect><ModuleTabsLayout tabs={reportsTabs} scopeClass="reports-scope" /></CanAccess>}>
                   <Route index element={<AnalyticsPage />} />
                   <Route path="attendance-student" element={<AnalyticsPage />} />
                   <Route path="attendance-staff" element={<AnalyticsPage />} />
@@ -440,14 +461,26 @@ function App() {
                 <Route path="teacher" element={<TeacherDashboard />} />
                 <Route path="teacher/students" element={<StudentsListPage />} />
                 
-                <Route path="student" element={<StudentDashboard />} />
-                <Route path="student/profile" element={<StudentDashboard />} />
-                <Route path="student/attendance" element={<StudentDashboard />} />
-                <Route path="student/results" element={<StudentDashboard />} />
-                <Route path="student/fees" element={<StudentDashboard />} />
-                <Route path="student/timetable" element={<StudentDashboard />} />
-                <Route path="student/notifications" element={<StudentDashboard />} />
+                <Route path="student" element={<StudentPortalLayout />}>
+                  <Route index element={<StudentDashboard />} />
+                  <Route path="attendance" element={<StudentAttendancePage />} />
+                  <Route path="results" element={<StudentResultsPage />} />
+                  <Route path="timetable" element={<StudentTimetablePage />} />
+                  <Route path="fees" element={<StudentFeesPage />} />
+                  <Route path="homework" element={<StudentHomeworkPage />} />
+                  <Route path="behaviour" element={<StudentBehaviourPage />} />
+                  <Route path="certificates" element={<StudentCertificatesPage />} />
+                  <Route path="profile" element={<PortalStudentProfilePage />} />
+                  <Route path="notifications" element={<StudentNotificationsPage />} />
+                </Route>
+
+                {/* Employee Portal is a self-contained portal (own sidebar +
+                    header) and must NOT be nested inside <Layout/>, which already
+                    renders a global sidebar — otherwise two sidebars stack. */}
               </Route>
+
+              {/* Employee Portal — standalone, outside the global Layout */}
+              <Route path="/employee" element={<ProtectedRoute><EmployeePortalPage /></ProtectedRoute>} />
             </Routes>
           </BrowserRouter>
           <AppToaster />

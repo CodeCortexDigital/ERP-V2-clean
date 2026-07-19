@@ -494,6 +494,13 @@ export default function HomeworkManagementPage() {
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                          <button
+                            onClick={() => navigate(`/education/homework/grade/${hw.id}`)}
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors border border-emerald-100"
+                            title="Grade Submissions"
+                          >
+                            <GraduationCap className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       )}
                     </div>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import teacherService from '@/services/teacher.service';
 import { certificateService, Certificate as CertRecord } from '@/services/certificate.service';
 
 interface SavedCertificate {
@@ -333,7 +334,7 @@ export default function CertificatesPage() {
       setLoading(true);
       const [studentsRes, staffRes] = await Promise.all([
         api.get('/auth/students/').catch(() => ({ data: [] })),
-        api.get('/auth/teachers/').catch(() => ({ data: [] }))
+        teacherService.getAll({ page_size: 200 }).catch(() => ({ data: [] }))
       ]);
 
       // Student merging
@@ -587,6 +588,8 @@ export default function CertificatesPage() {
       </html>
     `);
     printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   };
 
   const activeList = recipientType === 'student' ? students : employees;

@@ -1318,6 +1318,9 @@ export default function AttendancePage() {
                     <span className="flex items-center gap-1.5 text-amber-500">
                       <span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/> On Leave
                     </span>
+                    <span className="flex items-center gap-1.5 text-purple-600">
+                      <span className="w-2 h-2 rounded-full bg-purple-600 inline-block"/> Holiday
+                    </span>
                     <span className="flex items-center gap-1.5 text-rose-500">
                       <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"/> Absent
                     </span>
@@ -1391,6 +1394,17 @@ export default function AttendancePage() {
                                   : 'bg-white border-slate-200 text-slate-400 hover:border-amber-300 hover:text-amber-500'
                               }`}
                             >L</button>
+
+                            {/* Holiday */}
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(student.id, 'holiday')}
+                              className={`w-8 h-8 rounded-full text-[11px] font-black transition-all border-2 ${
+                                student.status === 'holiday'
+                                  ? 'bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-200'
+                                  : 'bg-white border-slate-200 text-slate-400 hover:border-purple-300 hover:text-purple-600'
+                              }`}
+                            >H</button>
 
                             {/* Absent */}
                             <button

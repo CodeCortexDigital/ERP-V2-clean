@@ -1,7 +1,8 @@
 from django.utils.decorators import method_decorator
+from django.db.models import Q
 from django.views.decorators.cache import cache_page
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import generics, status, viewsets
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -317,6 +318,22 @@ class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
                 )
 
 
+def _resolve_current_teacher(user):
+    """Map the authenticated user to their Teacher record (by name/email)."""
+    from django.db.models import Q
+
+    full_name = (getattr(user, 'get_full_name', lambda: '')() or '').strip()
+    email = getattr(user, 'email', '') or ''
+    if not full_name and not email:
+        return None
+    try:
+        return Teacher.objects.filter(
+            Q(full_name__iexact=full_name) | Q(email__iexact=email)
+        ).first()
+    except Exception:
+        return None
+
+
 class TeacherLeaveListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TeacherLeaveSerializer
@@ -326,9 +343,23 @@ class TeacherLeaveListCreateView(generics.ListCreateAPIView):
         teacher_id = self.request.query_params.get('teacher_id')
         if teacher_id:
             queryset = queryset.filter(teacher_id=teacher_id)
+            return queryset
         applicant_email = self.request.query_params.get('applicant_email')
         if applicant_email:
             queryset = queryset.filter(applicant_email=applicant_email)
+            return queryset
+
+        # Default-scope to the current employee unless an admin/staff is
+        # explicitly requesting all leaves. Prevents leaking everyone's leave.
+        user = self.request.user
+        if not (user.is_staff or user.is_superuser):
+            teacher = _resolve_current_teacher(user)
+            if teacher is not None:
+                queryset = queryset.filter(
+                    Q(teacher_id=teacher.id) | Q(applicant_email__iexact=user.email)
+                )
+            else:
+                queryset = queryset.filter(applicant_email__iexact=user.email)
         return queryset
 
     def perform_create(self, serializer):
@@ -336,7 +367,22 @@ class TeacherLeaveListCreateView(generics.ListCreateAPIView):
         user = getattr(self.request, 'user', None)
         if user and getattr(user, 'is_authenticated', False):
             created_by = getattr(user, 'email', '') or getattr(user, 'username', '') or ''
-        serializer.save(created_by=created_by)
+        # Prefer an explicitly supplied teacher (e.g. admin applying on behalf
+        # of a teacher); otherwise resolve the current user's Teacher record.
+        teacher = serializer.validated_data.get('teacher') or (
+            _resolve_current_teacher(user) if user else None
+        )
+        # Keep applicant name/email in sync with the linked teacher so the
+        # leave always displays the correct staff member (not the requester).
+        if teacher is not None:
+            serializer.save(
+                created_by=created_by,
+                teacher=teacher,
+                applicant_name=teacher.full_name,
+                applicant_email=teacher.email or '',
+            )
+        else:
+            serializer.save(created_by=created_by)
 
 
 class TeacherLeaveDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -344,6 +390,29 @@ class TeacherLeaveDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = TeacherLeave.objects.all()
     serializer_class = TeacherLeaveSerializer
     lookup_field = 'id'
+
+    def get_queryset(self):
+        queryset = TeacherLeave.objects.all()
+        user = self.request.user
+        
+        is_authorized = False
+        if user and user.is_authenticated:
+            if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                is_authorized = True
+            else:
+                user_role = getattr(user, 'role', None)
+                if user_role in ('admin', 'manager', 'hr'):
+                    is_authorized = True
+                    
+        if not is_authorized:
+            teacher = _resolve_current_teacher(user)
+            if teacher is not None:
+                queryset = queryset.filter(
+                    Q(teacher_id=teacher.id) | Q(applicant_email__iexact=user.email)
+                )
+            else:
+                queryset = queryset.filter(applicant_email__iexact=user.email)
+        return queryset
 
     def perform_destroy(self, instance):
         from .substitution import revert_substitutions_for_leave
@@ -376,7 +445,7 @@ class TimetableSubstitutionListView(generics.ListAPIView):
 
 
 class LeaveBalanceListView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     serializer_class = LeaveBalanceSerializer
 
     def get_queryset(self):
@@ -401,6 +470,50 @@ class LeaveBalanceListView(generics.ListCreateAPIView):
                 obj, _ = LeaveBalance.objects.get_or_create(applicant_email=applicant_email)
             return Response(self.get_serializer(obj).data)
         return super().list(request, *args, **kwargs)
+
+
+class LeaveBalanceDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = LeaveBalanceSerializer
+    queryset = LeaveBalance.objects.all().select_related('teacher')
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def leave_balance_set_defaults(request):
+    """Admin bulk action: ensure every teacher has a balance row and apply
+    the default entitlements (annual=15, casual=10, others=0). Existing
+    per-teacher overrides are NOT overwritten when `overwrite` is false."""
+    from .models import Teacher
+    overwrite = bool(request.data.get('overwrite', False))
+    defaults = {
+        'sick_entitlement': int(request.data.get('sick', 0)),
+        'casual_entitlement': int(request.data.get('casual', 10)),
+        'annual_type_entitlement': int(request.data.get('annual', 15)),
+        'maternity_entitlement': int(request.data.get('maternity', 0)),
+        'emergency_entitlement': int(request.data.get('emergency', 0)),
+        'other_entitlement': int(request.data.get('other', 0)),
+    }
+    created, updated = 0, 0
+    for teacher in Teacher.objects.all():
+        obj, was_created = LeaveBalance.objects.get_or_create(
+            teacher=teacher,
+            defaults=defaults,
+        )
+        if was_created:
+            created += 1
+        elif overwrite:
+            for field, value in defaults.items():
+                setattr(obj, field, value)
+            obj.save(update_fields=list(defaults.keys()))
+            updated += 1
+    return Response({
+        'created': created,
+        'updated': updated,
+        'defaults': defaults,
+    })
 
 
 class TeacherSubjectAssignmentListCreateView(generics.ListCreateAPIView):
@@ -831,6 +944,42 @@ class HomeworkDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Homework.objects.all()
     serializer_class = HomeworkSerializer
     lookup_field = 'id'
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def grade_homework(request, homework_id):
+    """Bulk grade a homework assignment.
+
+    Body: { "submissions": [ { "student": <id>, "student_name": "...",
+            "obtained_marks": 0-100, "remarks": "...", "status": "graded" } ] }
+    """
+    from .serializers import HomeworkSubmissionSerializer
+    try:
+        homework = Homework.objects.get(id=homework_id)
+    except Homework.DoesNotExist:
+        return Response({'error': 'Homework not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    submissions_data = request.data.get('submissions', [])
+    created = []
+    for sub in submissions_data:
+        student_id = sub.get('student')
+        student_name = sub.get('student_name') or ''
+        obj, _ = HomeworkSubmission.objects.update_or_create(
+            homework=homework,
+            student_id=student_id,
+            defaults={
+                'student_name': student_name,
+                'obtained_marks': sub.get('obtained_marks'),
+                'remarks': sub.get('remarks', ''),
+                'status': sub.get('status', 'graded'),
+                'graded_at': timezone.now(),
+            },
+        )
+        created.append(HomeworkSubmissionSerializer(obj).data)
+    homework.status = 'evaluated'
+    homework.save(update_fields=['status', 'updated_at'])
+    return Response({'submissions': created}, status=status.HTTP_200_OK)
 
 
 class LiveMeetingViewSet(viewsets.ModelViewSet):

@@ -54,13 +54,24 @@ function getEndpointUrl(endpoint: string, token: string): string | null {
   return `${base}${sep}token=${encodeURIComponent(token)}`;
 }
 
-/** Build from VITE_API_URL if the specific WS URL is not set */
+/** Build from VITE_API_URL if the specific WS URL is not set.
+ *  Falls back to the current browser hostname so the WS follows the page
+ *  when the dev server's IP changes (DHCP) instead of a stale hardcoded host. */
 function buildFallbackUrl(path: string): string | undefined {
-  const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) || 'http://127.0.0.1:8000';
-  const normalizedApiUrl = apiUrl.replace(/\/+$/, '');
-  const rootBase = normalizedApiUrl
-    .replace(/\/api\/v\d+$/i, '')
-    .replace(/\/api$/i, '');
+  let rootBase: string;
+  const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) || '';
+  if (apiUrl) {
+    const normalizedApiUrl = apiUrl.replace(/\/+$/, '');
+    rootBase = normalizedApiUrl
+      .replace(/\/api\/v\d+$/i, '')
+      .replace(/\/api$/i, '');
+  } else {
+    // Derive from the backend host. The app may be served by the Vite dev
+    // server (port 5173), but the WebSocket/API backend lives on :8000, so
+    // use the page hostname with the backend port (mirrors api.ts fallback).
+    const host = window.location.hostname || '127.0.0.1';
+    rootBase = `http://${host}:8000`;
+  }
   const wsBase = rootBase.replace(/^http/, 'ws');
   return `${wsBase}/${path.replace(/^\/+/, '')}`;
 }
@@ -96,6 +107,11 @@ function scheduleReconnect(key: string) {
 }
 
 function openSocket(key: string, endpoint: string, token: string, isReconnect = false) {
+  // No real backend WebSocket in demo mode (mock token) — skip to avoid
+  // endless reconnect noise.
+  if (!token || token === 'mock-access-token') {
+    return;
+  }
   const url = getEndpointUrl(endpoint, token);
   if (!url) {
     console.warn(`[WS:${key}] No URL configured — skipping connection.`);

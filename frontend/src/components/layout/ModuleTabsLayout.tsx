@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface ModuleTab {
   id: string;
@@ -9,6 +10,7 @@ export interface ModuleTab {
   dark: string;
   light: string;
   rgb: string;
+  roles?: string[]; // when set, tab is only shown to these roles
 }
 
 interface Props {
@@ -35,8 +37,10 @@ const isActive = (t: ModuleTab, pathname: string, search: string) => {
 export default function ModuleTabsLayout({ tabs, scopeClass, children }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { role } = useAuth();
 
-  const activeTab = tabs.find((t) => isActive(t, location.pathname, location.search)) || tabs[0];
+  const visibleTabs = tabs.filter((t) => !t.roles || (role && t.roles.includes(role)));
+  const activeTab = visibleTabs.find((t) => isActive(t, location.pathname, location.search)) || visibleTabs[0] || tabs[0];
   const accent = `rgb(${activeTab.rgb})`;
   const accentSoft = `rgb(${activeTab.rgb} / 0.12)`;
 
@@ -45,7 +49,7 @@ export default function ModuleTabsLayout({ tabs, scopeClass, children }: Props) 
       {/* Top Tab Bar */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-10">
         <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => {
+          {visibleTabs.map((t) => {
             const Icon = t.icon;
             const active = isActive(t, location.pathname, location.search);
 

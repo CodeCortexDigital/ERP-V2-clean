@@ -1,4 +1,5 @@
 import StudentDashboard from '../student/StudentDashboard';
+import AiAssistant from '@/components/AiAssistant';
 import { Users, ShieldCheck } from 'lucide-react';
 
 export default function ParentDashboard() {
@@ -18,6 +19,7 @@ export default function ParentDashboard() {
       </div>
 
       <StudentDashboard />
+      <AiAssistant mode="parent" />
     </div>
   );
 }

@@ -6,6 +6,7 @@ from .models import (
     Syllabus, SyllabusUnit, SyllabusTopic, SyllabusSubTopic,
     LearningResource, Teacher, TeacherSubjectAssignment, TeacherAvailability, TeacherDailyAvailability,
     Period, Classroom, TimetableEntry, TeacherLeave, TimetableSubstitution, LeaveBalance, Homework,
+    HomeworkSubmission,
     LessonPlan, TopicCoverage, StudentTopicProgress, TeacherFeedback, LiveMeeting
 )
 
@@ -327,10 +328,14 @@ class TeacherLeaveSerializer(serializers.ModelSerializer):
         ).data
 
     def validate(self, data):
+        from django.utils import timezone
         start = data.get('start_date')
         end = data.get('end_date')
         if start and end and end < start:
             raise serializers.ValidationError("End date cannot be before start date.")
+        # Reject past start dates (skip on partial updates that omit it).
+        if start and start < timezone.localdate():
+            raise serializers.ValidationError("Start date cannot be earlier than today.")
         # On partial updates (e.g. approving) only some fields are sent, so
         # fall back to the existing instance to satisfy the requirement.
         instance = self.instance
@@ -343,6 +348,72 @@ class TeacherLeaveSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Either a teacher or applicant details must be provided."
             )
+        # Block overlapping / duplicate leave for the same applicant.
+        if start and end and (has_teacher or has_applicant):
+            from django.db.models import Q
+            overlapping = TeacherLeave.objects.filter(
+                Q(start_date__lte=end) & Q(end_date__gte=start),
+                status__in=['pending', 'approved'],
+            )
+            if has_teacher:
+                overlapping = overlapping.filter(teacher=data.get('teacher') or instance.teacher)
+            else:
+                email = data.get('applicant_email') or (instance and instance.applicant_email)
+                overlapping = overlapping.filter(applicant_email=email)
+            if instance:
+                overlapping = overlapping.exclude(pk=instance.pk)
+            if overlapping.exists():
+                raise serializers.ValidationError(
+                    "A leave application already overlaps these dates."
+                )
+        
+        # Check leave approval permissions during update
+        if instance and 'status' in data:
+            new_status = data['status']
+            old_status = instance.status
+            if new_status != old_status and new_status in ('approved', 'rejected'):
+                request = self.context.get('request')
+                user = request.user if request else None
+                is_authorized = False
+                if user and user.is_authenticated:
+                    if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                        is_authorized = True
+                    else:
+                        user_role = getattr(user, 'role', None)
+                        if user_role in ('admin', 'manager', 'hr'):
+                            is_authorized = True
+                
+                if not is_authorized:
+                    raise serializers.ValidationError(
+                        "Only administrators, HR, or managers can approve or reject leave requests."
+                    )
+                
+                # Prevent self-approval or self-rejection
+                curr_teacher = None
+                if user and user.is_authenticated:
+                    from django.apps import apps
+                    try:
+                        TeacherModel = apps.get_model('education_academics', 'Teacher')
+                    except LookupError:
+                        TeacherModel = apps.get_model('education_teachers', 'Teacher')
+                    try:
+                        curr_teacher = TeacherModel.objects.filter(
+                            Q(full_name__iexact=user.full_name) | Q(email__iexact=user.email)
+                        ).first()
+                    except Exception:
+                        pass
+                
+                is_self = False
+                if instance.teacher and curr_teacher and instance.teacher.id == curr_teacher.id:
+                    is_self = True
+                elif instance.applicant_email and user and instance.applicant_email.lower() == user.email.lower():
+                    is_self = True
+                
+                if is_self:
+                    raise serializers.ValidationError(
+                        f"You cannot {new_status} your own leave request."
+                    )
+                    
         return data
 
     def create(self, validated_data):
@@ -353,6 +424,12 @@ class TeacherLeaveSerializer(serializers.ModelSerializer):
                 validated_data['applicant_name'] = getattr(user, 'full_name', '') or (getattr(user, 'get_full_name', lambda: '')() or user.email)
             if not validated_data.get('applicant_email'):
                 validated_data['applicant_email'] = user.email
+        # Non-admin applicants may only SUBMIT leaves; they cannot self-approve.
+        # Admins/staff may create already-approved leaves on behalf of staff.
+        if request and request.user.is_authenticated:
+            user = request.user
+            if not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+                validated_data['status'] = 'pending'
         leave = super().create(validated_data)
         # Only restructure the timetable immediately when the leave is created
         # already approved (e.g. by an admin). Pending applications wait for
@@ -410,25 +487,56 @@ class TimetableSubstitutionSerializer(serializers.ModelSerializer):
 class LeaveBalanceSerializer(serializers.ModelSerializer):
     used_days = serializers.IntegerField(read_only=True)
     balance_days = serializers.IntegerField(read_only=True)
+    used_by_type = serializers.SerializerMethodField(read_only=True)
+    balance_by_type = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LeaveBalance
         fields = [
-            'id', 'teacher', 'applicant_email', 'annual_entitlement',
-            'used_days', 'balance_days', 'created_at', 'updated_at',
+            'id', 'teacher', 'applicant_email',
+            'annual_entitlement',
+            'sick_entitlement', 'casual_entitlement', 'annual_type_entitlement',
+            'maternity_entitlement', 'emergency_entitlement', 'other_entitlement',
+            'used_days', 'balance_days', 'used_by_type', 'balance_by_type',
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'used_days', 'balance_days']
+        read_only_fields = [
+            'id', 'created_at', 'updated_at', 'used_days', 'balance_days',
+            'used_by_type', 'balance_by_type',
+        ]
+
+    def get_used_by_type(self, obj):
+        return {lt: obj.used_for(lt) for lt in LeaveBalance.LEAVE_TYPE_FIELDS}
+
+    def get_balance_by_type(self, obj):
+        return {lt: obj.balance_for(lt) for lt in LeaveBalance.LEAVE_TYPE_FIELDS}
 
 
 class HomeworkSerializer(serializers.ModelSerializer):
+    submissions = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Homework
         fields = [
             'id', 'academic_year', 'class_ref', 'teacher',
             'class_name', 'teacher_name', 'subject_name', 'title',
             'description', 'homework_date', 'due_date',
-            'attachment_name', 'attachment_data', 'status',
-            'created_at', 'updated_at',
+            'attachment_name', 'attachment_data', 'max_marks', 'status',
+            'submissions', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'submissions']
+
+    def get_submissions(self, obj):
+        return HomeworkSubmissionSerializer(obj.submissions.all(), many=True).data
+
+
+class HomeworkSubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HomeworkSubmission
+        fields = [
+            'id', 'homework', 'student', 'student_name',
+            'obtained_marks', 'remarks', 'status',
+            'submitted_at', 'graded_at', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 

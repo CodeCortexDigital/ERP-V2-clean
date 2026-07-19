@@ -18,6 +18,7 @@ from rest_framework.filters import OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.apps import apps
 from django.db.models import Count, Q, Prefetch
+import uuid
 from datetime import datetime, date
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -137,6 +138,53 @@ def bulk_attendance(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def class_attendance_statistics(request, class_id):
+    """Per-class attendance statistics for a given month (defaults to current month)."""
+    from django.utils.dateparse import parse_date
+    from datetime import timedelta
+    import calendar
+
+    today = timezone.localtime().date()
+    month_param = request.query_params.get('month')
+    year_param = request.query_params.get('year')
+
+    if month_param and year_param:
+        try:
+            y, m = int(year_param), int(month_param)
+            start = date(y, m, 1)
+            last_day = calendar.monthrange(y, m)[1]
+            end = date(y, m, last_day)
+        except (ValueError, TypeError):
+            start, end = today.replace(day=1), today
+    else:
+        start, end = today.replace(day=1), today
+
+    try:
+        # Students currently in this class
+        student_ids = list(
+            Student.objects.filter(current_class_id=class_id, is_active=True)
+            .values_list('id', flat=True)
+        )
+        if not student_ids:
+            return Response({'total': 0, 'present': 0, 'absent': 0, 'percentage': 0})
+
+        records = Attendance.objects.filter(
+            student_id__in=student_ids,
+            date__gte=start,
+            date__lte=end,
+        ).exclude(status='holiday')
+
+        total = records.count()
+        present = records.filter(status='present').count()
+        absent = records.filter(status='absent').count()
+        percentage = round((present / total) * 100) if total > 0 else 0
+        return Response({'total': total, 'present': present, 'absent': absent, 'percentage': percentage})
+    except Exception as e:
+        return Response({'total': 0, 'present': 0, 'absent': 0, 'percentage': 0, 'error': str(e)})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def attendance_summary(request):
     """Get attendance summary for dashboard"""
     try:
@@ -157,5 +205,87 @@ def attendance_summary(request):
         })
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_attendance_history(request, student_id):
+    """Attendance history for a single student (date range optional)."""
+    try:
+        is_uuid = False
+        try:
+            uuid.UUID(str(student_id))
+            is_uuid = True
+        except (ValueError, TypeError):
+            is_uuid = False
+
+        base = Attendance.objects.select_related('student')
+        if is_uuid:
+            base = base.filter(Q(student_id=student_id) | Q(student__student_id=student_id))
+        else:
+            base = base.filter(student__student_id=student_id)
+
+        base = filter_attendance_for_user(request.user, base)
+
+        date_from = parse_date_param(request.query_params.get('start_date') or request.query_params.get('date_from'))
+        date_to = parse_date_param(request.query_params.get('end_date') or request.query_params.get('date_to'))
+        if date_from:
+            base = base.filter(date__gte=date_from)
+        if date_to:
+            base = base.filter(date__lte=date_to)
+
+        limit = request.query_params.get('limit')
+        qs = base.exclude(status='holiday').order_by('-date')
+        if limit and limit.isdigit():
+            qs = qs[:int(limit)]
+
+        serializer = AttendanceRecordSerializer(qs, many=True)
+        return Response({'results': serializer.data, 'count': qs.count()})
+    except Exception as e:
+        return Response({'results': [], 'count': 0, 'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_attendance_summary(request, student_id):
+    """Per-student attendance summary (counts + percentage)."""
+    try:
+        is_uuid = False
+        try:
+            uuid.UUID(str(student_id))
+            is_uuid = True
+        except (ValueError, TypeError):
+            is_uuid = False
+
+        base = Attendance.objects.all()
+        if is_uuid:
+            base = base.filter(Q(student_id=student_id) | Q(student__student_id=student_id))
+        else:
+            base = base.filter(student__student_id=student_id)
+
+        base = filter_attendance_for_user(request.user, base).exclude(status='holiday')
+
+        total = base.count()
+        present = base.filter(status='present').count()
+        absent = base.filter(status='absent').count()
+        late = base.filter(status='late').count()
+        leave = base.filter(status='leave').count()
+
+        percent = round(((present + late + leave) / total) * 100, 1) if total > 0 else 0
+
+        return Response({
+            'total': total,
+            'present': present,
+            'absent': absent,
+            'late': late,
+            'leave': leave,
+            'percent': percent,
+            'attendance_rate': percent,
+        })
+    except Exception as e:
+        return Response(
+            {'total': 0, 'present': 0, 'absent': 0, 'late': 0, 'leave': 0, 'percent': 0, 'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 

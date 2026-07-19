@@ -402,6 +402,10 @@ const academicService = {
     },
     delete: async (id: string) => {
       await api.delete(`/auth/academics/homework/${id}/`);
+    },
+    grade: async (id: string, submissions: any[]) => {
+      const response = await api.post(`/auth/academics/homework/${id}/grade/`, { submissions });
+      return response.data;
     }
   }
 };

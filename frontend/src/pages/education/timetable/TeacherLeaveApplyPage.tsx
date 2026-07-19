@@ -27,6 +27,8 @@ export default function TeacherLeaveApplyPage() {
   const [subsByLeave, setSubsByLeave] = useState<Record<string, any[]>>({});
   const [balance, setBalance] = useState<any | null>(null);
 
+  const todayStr = () => new Date().toISOString().slice(0, 10);
+
   const resolveTeacherId = async (): Promise<string | null> => {
     // 1. Teachers: resolve via their own profile endpoint.
     if (role === 'teacher') {
@@ -92,6 +94,24 @@ export default function TeacherLeaveApplyPage() {
   const submitApplication = async () => {
     if (!form.start_date || !form.end_date) {
       setError('Start and end dates are required.');
+      return;
+    }
+    const today = todayStr();
+    if (form.start_date < today) {
+      setError('Start date cannot be earlier than today.');
+      return;
+    }
+    if (form.end_date < form.start_date) {
+      setError('End date cannot be before the start date.');
+      return;
+    }
+    // Prevent duplicate / overlapping leave for the same teacher.
+    const conflict = leaves.find((l) => {
+      if (l.status === 'cancelled' || l.status === 'rejected') return false;
+      return form.start_date <= l.end_date && form.end_date >= l.start_date;
+    });
+    if (conflict) {
+      setError('You already have a leave application overlapping these dates.');
       return;
     }
     setApplying(true);
@@ -311,27 +331,34 @@ export default function TeacherLeaveApplyPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Start Date</Label>
-              <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+              <Input type="date" min={todayStr()} value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
             </div>
             <div>
               <Label className="text-xs">End Date</Label>
-              <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+              <Input type="date" min={form.start_date || todayStr()} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
             </div>
           </div>
           <div>
             <Label className="text-xs">Reason</Label>
             <Textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Optional" />
           </div>
-          {balance && form.start_date && form.end_date && (() => {
+          {form.start_date && form.end_date && (() => {
             const days = Math.max(
               Math.round((new Date(form.end_date).getTime() - new Date(form.start_date).getTime()) / 86400000) + 1,
               0
             );
-            const remaining = balance.balance_days - days;
+            const remaining = balance ? balance.balance_days - days : null;
             return (
-              <div className={`text-xs font-semibold rounded-lg p-2.5 ${remaining < 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
-                Requesting <b>{days}</b> day(s). Remaining after this leave: <b>{remaining}</b> day(s)
-                {remaining < 0 && ' — exceeds your available balance.'}
+              <div className={`text-xs font-semibold rounded-lg p-2.5 ${remaining !== null && remaining < 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
+                Requesting <b>{days}</b> day(s)
+                {balance ? (
+                  <>
+                    . Remaining after this leave: <b>{remaining}</b> day(s)
+                    {remaining !== null && remaining < 0 && ' — exceeds your available balance.'}
+                  </>
+                ) : (
+                  ' — set your leave limits in admin to see remaining balance.'
+                )}
               </div>
             );
           })()}

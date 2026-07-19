@@ -21,6 +21,7 @@ class AuditLog(models.Model):
     resource_id = models.UUIDField(null=True, blank=True)
     old_data = models.JSONField(null=True, blank=True)
     new_data = models.JSONField(null=True, blank=True)
+    changes = models.JSONField(null=True, blank=True, help_text="Field-level diff: {field: {old, new}}")
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=512, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)

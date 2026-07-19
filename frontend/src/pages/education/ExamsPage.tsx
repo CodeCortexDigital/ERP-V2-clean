@@ -117,17 +117,8 @@ export default function ExamsPage() {
         roll_number: s.roll_number || ''
       }));
       
-      // Fallback student if database is empty to match mockup
-      if (parsedStudents.length === 0) {
-        parsedStudents.push({
-          id: 's-fallback-1',
-          student_id: '001',
-          full_name: 'Sundas Azhar',
-          class_name: 'Grade 8-B'
-        });
-      }
       setStudents(parsedStudents);
-      setCardStudentId(parsedStudents[0].id);
+      setCardStudentId(parsedStudents[0]?.id || '');
 
       // Derive classes from students if the classes API returned nothing,
       // so the class dropdown always has real, selectable options.
@@ -169,20 +160,8 @@ export default function ExamsPage() {
         };
       });
 
-      // Fallback exam if empty
-      if (mappedExams.length === 0) {
-        mappedExams.push({
-          id: 'exam-fallback-1',
-          exam_code: 'EXM-2026-0001',
-          name: 'mids',
-          start_date: '2026-07-04',
-          end_date: '2026-07-10',
-          is_published: false
-        });
-      }
-
       setExams(mappedExams);
-      setSelectedExamId(mappedExams[0].id);
+      setSelectedExamId(mappedExams[0]?.id || '');
 
       // Auto-select student if student role
       const queryStudentId = searchParams.get('student_id');

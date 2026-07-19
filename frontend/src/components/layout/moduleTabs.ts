@@ -4,7 +4,7 @@ import {
   ClipboardList, CalendarClock, Clock, DoorOpen, Plus, Grid, UserCog, Plane,
   Star, Award, Eye, BookOpen, Library, FilePlus, Edit, ClipboardEdit, Calendar,
   GraduationCap, MessageSquare, FileSignature, BarChart2, ListChecks, FileBarChart, Users2, Video,
-  Tag, Landmark
+  Tag, Landmark, SlidersHorizontal
 } from 'lucide-react';
 import type { ModuleTab } from './ModuleTabsLayout';
 
@@ -59,6 +59,7 @@ export const timetableTabs: ModuleTab[] = [
   { id: 'teacher', path: '/education/timetable/teacher', label: 'Generate For Teacher', icon: UserCog, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
   { id: 'my-leave', path: '/education/timetable/my-leave', label: 'My Leave', icon: Plane, dark: 'bg-rose-700', light: 'bg-rose-100', rgb: '190 24 93' },
   { id: 'leave', path: '/education/timetable/leave', label: 'Staff Leave', icon: CalendarClock, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
+  { id: 'leave-limits', path: '/education/timetable/leave-limits', label: 'Leave Limits', icon: SlidersHorizontal, dark: 'bg-fuchsia-700', light: 'bg-fuchsia-100', rgb: '162 28 175', roles: ['admin'] },
 ];
 
 // ============================ BEHAVIOUR & SKILLS ============================

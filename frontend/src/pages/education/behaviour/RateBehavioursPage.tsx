@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Plus, Search, Calendar, GraduationCap, Users, 
+import {
+  ArrowLeft, Plus, Search, Calendar, GraduationCap, Users,
   BookOpen, Edit3, Trash2, X, Clipboard, Star, Award, ShieldAlert,
-  Sparkles, CheckCircle2, ChevronRight, Save, User 
+  Sparkles, CheckCircle2, ChevronRight, Save, User
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
+import { CanAccess } from '@/components/auth/CanAccess';
 import academicService from '@/services/academic.service';
 import behaviourService from '@/services/behaviour.service';
+import studentService from '@/services/student.service';
 
 const BEHAVIOUR_CATEGORIES = [
   "Discipline", "Respect", "Attendance Behaviour", "Punctuality", "Responsibility",
@@ -44,6 +46,7 @@ export default function RateBehavioursPage() {
   // Student State
   const [students, setStudents] = useState<any[]>([]);
   const [activeStudent, setActiveStudent] = useState<any | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Ratings State
   const [ratings, setRatings] = useState<Record<string, number>>({}); 
@@ -63,11 +66,32 @@ export default function RateBehavioursPage() {
   }, []);
 
   useEffect(() => {
-    // Generate dummy students for the selected class
-    const names = [];
-    setStudents(names);
-    setActiveStudent(names[0]);
-  }, [selectedClass]);
+    const fetchStudents = async () => {
+      if (!selectedClassId) {
+        setStudents([]);
+        setActiveStudent(null);
+        return;
+      }
+      try {
+        const res = await studentService.getByClass(selectedClassId).catch(() => ({ data: [] }));
+        const data = Array.isArray(res.data) ? res.data : (res.data as any)?.results || [];
+        const mapped = data
+          .filter((s: any) => !s.current_class_id || String(s.current_class_id) === String(selectedClassId))
+          .map((s: any) => ({
+            id: s.id,
+            name: s.full_name || s.name || 'Unknown',
+            roll: s.roll_number || s.roll_no || s.admission_number || s.student_id || '—',
+            classId: s.current_class_id,
+          }));
+        setStudents(mapped);
+        setActiveStudent(mapped[0] || null);
+      } catch {
+        setStudents([]);
+        setActiveStudent(null);
+      }
+    };
+    fetchStudents();
+  }, [selectedClassId]);
 
   useEffect(() => {
     if (activeStudent) {
@@ -216,6 +240,15 @@ export default function RateBehavioursPage() {
     }
   };
 
+  const filteredStudents = students.filter((st) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      (st.name || '').toLowerCase().includes(q) ||
+      (st.roll || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-4 text-slate-800 pb-12">
       {/* Top Header */}
@@ -297,29 +330,45 @@ export default function RateBehavioursPage() {
           <Card className="border border-slate-150 shadow-3xs bg-white rounded-2xl overflow-hidden">
             <CardHeader className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-row items-center justify-between">
               <CardTitle className="text-xs font-black text-slate-800">Select Student</CardTitle>
-              <Badge className="bg-purple-100 text-purple-700 text-[8px] font-black">{students.length} Pupils</Badge>
+              <Badge className="bg-purple-100 text-purple-700 text-[8px] font-black">{filteredStudents.length} Pupils</Badge>
             </CardHeader>
-            <CardContent className="p-2 divide-y divide-slate-50">
-              {students.map((st) => (
-                <button
-                  key={st.id}
-                  onClick={() => setActiveStudent(st)}
-                  className={`w-full flex items-center justify-between p-3 text-left rounded-xl transition-all ${
-                    activeStudent?.id === st.id 
-                      ? 'bg-purple-50 text-purple-700 font-extrabold' 
-                      : 'hover:bg-slate-50 text-slate-655 font-semibold'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 text-xs">
-                    <User className={`w-4 h-4 ${activeStudent?.id === st.id ? 'text-purple-600' : 'text-slate-400'}`} />
-                    <div>
-                      <span className="block">{st.name}</span>
-                      <span className="text-[9px] text-slate-400 font-bold block mt-0.5">Roll No: {st.roll}</span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              ))}
+            <CardContent className="p-3 space-y-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name or roll no..."
+                  className="w-full text-xs h-9 rounded-xl border border-slate-200 bg-white pl-8 pr-3 font-semibold focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+              </div>
+              <div className="divide-y divide-slate-50 max-h-[360px] overflow-y-auto">
+                {filteredStudents.length === 0 ? (
+                  <p className="text-[10px] text-slate-400 font-semibold p-3 text-center">No students found.</p>
+                ) : (
+                  filteredStudents.map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => setActiveStudent(st)}
+                      className={`w-full flex items-center justify-between p-3 text-left rounded-xl transition-all ${
+                        activeStudent?.id === st.id 
+                          ? 'bg-purple-50 text-purple-700 font-extrabold' 
+                          : 'hover:bg-slate-50 text-slate-655 font-semibold'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-xs">
+                        <User className={`w-4 h-4 ${activeStudent?.id === st.id ? 'text-purple-600' : 'text-slate-400'}`} />
+                        <div>
+                          <span className="block">{st.name}</span>
+                          <span className="text-[9px] text-slate-400 font-bold block mt-0.5">Roll No: {st.roll}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -335,12 +384,14 @@ export default function RateBehavioursPage() {
                     <span className="text-[9px] text-purple-600 font-black uppercase tracking-wider block">Currently Assessing</span>
                     <CardTitle className="text-sm font-black text-slate-800 mt-1">{activeStudent.name} (Roll: {activeStudent.roll})</CardTitle>
                   </div>
-                  <Button
-                    onClick={handleSave}
-                    className="bg-[#6f42c1] hover:bg-[#5a32a3] text-white text-xs font-bold h-9 rounded-xl flex items-center gap-1.5 px-4 shadow-sm"
-                  >
-                    <Save className="w-4 h-4" /> Save Ratings
-                  </Button>
+                  <CanAccess module="behaviour" action="add">
+                    <Button
+                      onClick={handleSave}
+                      className="bg-[#6f42c1] hover:bg-[#5a32a3] text-white text-xs font-bold h-9 rounded-xl flex items-center gap-1.5 px-4 shadow-sm"
+                    >
+                      <Save className="w-4 h-4" /> Save Ratings
+                    </Button>
+                  </CanAccess>
                 </CardHeader>
                 <CardContent className="p-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
@@ -365,25 +416,27 @@ export default function RateBehavioursPage() {
 
                           <div className="flex items-center gap-3">
                             {/* Stars */}
-                            <div className="flex items-center gap-0.5">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                  key={star}
-                                  type="button"
-                                  onClick={() => handleRatingChange(cat, star)}
-                                  disabled={notObserved[cat]}
-                                  className={`p-0.5 transition-transform ${notObserved[cat] ? 'opacity-30 cursor-not-allowed' : 'hover:scale-115 active:scale-95'}`}
-                                >
-                                  <Star 
-                                    className={`w-4 h-4 ${
-                                      !notObserved[cat] && star <= val 
-                                        ? 'fill-amber-400 text-amber-400' 
-                                        : 'text-slate-200'
-                                    }`} 
-                                  />
-                                </button>
-                              ))}
-                            </div>
+                            <CanAccess module="behaviour" action="add">
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => handleRatingChange(cat, star)}
+                                    disabled={notObserved[cat]}
+                                    className={`p-0.5 transition-transform ${notObserved[cat] ? 'opacity-30 cursor-not-allowed' : 'hover:scale-115 active:scale-95'}`}
+                                  >
+                                    <Star 
+                                      className={`w-4 h-4 ${
+                                        !notObserved[cat] && star <= val 
+                                          ? 'fill-amber-400 text-amber-400' 
+                                          : 'text-slate-200'
+                                      }`} 
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            </CanAccess>
 
                             {/* Not Observed Checkbox */}
                             <label className="flex items-center gap-1 text-[9px] font-black text-slate-400 select-none cursor-pointer">

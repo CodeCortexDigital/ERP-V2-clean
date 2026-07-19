@@ -1,5 +1,5 @@
 // frontend/src/services/teacher.service.ts
-import api, { extractListData } from './api';
+import api, { extractListData, mediaUrl } from './api';
 
 export interface Teacher {
   id: string;
@@ -46,7 +46,7 @@ const normalizeTeacher = (teacher: any): Teacher => ({
                   teacher.qualifications ? [teacher.qualifications] : [],
   specializations: Array.isArray(teacher.specializations) ? teacher.specializations : 
                    teacher.specializations ? [teacher.specializations] : [],
-  profile_picture: teacher.profile_picture || teacher.avatar || null,
+  profile_picture: mediaUrl(teacher.profile_picture || teacher.avatar || null),
 });
 
 // Helper to normalize array of teachers
@@ -57,7 +57,26 @@ const normalizeTeachers = (teachers: any[]): Teacher[] => {
 const teacherService = {
   // Get current teacher's profile (for logged-in teacher)
   getMyProfile: async () => {
-    const response = await api.get('/auth/my-teacher-profile/');
+    const savedEmp = JSON.parse(localStorage.getItem('current_employee_data') || '{}');
+    const employeeId = savedEmp?.regNo || savedEmp?.employee_id || '';
+    const url = employeeId
+      ? `/auth/my-teacher-profile/?employee_id=${encodeURIComponent(String(employeeId))}`
+      : '/auth/my-teacher-profile/';
+    const response = await api.get(url);
+    if (response.data) {
+      response.data = normalizeTeacher(response.data);
+    }
+    return response;
+  },
+
+  // Self-edit: teacher updates their own contact fields.
+  updateMyProfile: async (data: Record<string, unknown>) => {
+    const savedEmp = JSON.parse(localStorage.getItem('current_employee_data') || '{}');
+    const employeeId = savedEmp?.regNo || savedEmp?.employee_id || '';
+    const url = employeeId
+      ? `/auth/my-teacher-profile/?employee_id=${encodeURIComponent(String(employeeId))}`
+      : '/auth/my-teacher-profile/';
+    const response = await api.patch(url, data);
     if (response.data) {
       response.data = normalizeTeacher(response.data);
     }
@@ -298,6 +317,10 @@ const teacherService = {
     },
     update: async (id: string, data: any) => {
       const response = await api.patch(`/auth/academics/leave-balances/${id}/`, data);
+      return response.data;
+    },
+    setDefaults: async (data: any) => {
+      const response = await api.post(`/auth/academics/leave-balances/set-defaults/`, data);
       return response.data;
     }
   }

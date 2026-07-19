@@ -37,6 +37,12 @@ export function useNotifications(pollIntervalMs = POLL_MS) {
       return;
     }
 
+    // Demo mode has no real WebSocket backend — skip connecting entirely.
+    if (accessToken === 'mock-access-token') {
+      setWsConnected(false);
+      return;
+    }
+
     let cancelled = false;
 
     const connect = async () => {

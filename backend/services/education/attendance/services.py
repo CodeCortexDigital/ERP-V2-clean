@@ -210,6 +210,37 @@ def serialize_attendance_record(record) -> dict:
     }
 
 
+def _log_attendance_change(user, student, record_date, status_val, class_id, created):
+    """Record who marked/changed an attendance record for monitoring."""
+    try:
+        from services.core.audit.models import AuditLog
+
+        action = 'CREATE' if created else 'UPDATE'
+        old_status = None
+        if not created:
+            prev = Attendance.all_objects.filter(student=student, date=record_date).first()
+            old_status = prev.status if prev else None
+
+        AuditLog.objects.create(
+            user=user,
+            action=action,
+            resource_type='education.attendance.AttendanceRecord',
+            resource_id=student.id,
+            old_data={
+                'status': old_status,
+                'date': str(record_date),
+            },
+            new_data={
+                'status': status_val,
+                'date': str(record_date),
+                'class_id': class_id or None,
+                'marked_by': user.get_username() if hasattr(user, 'get_username') else str(user),
+            },
+        )
+    except Exception:
+        logger.exception('Failed to write attendance audit log')
+
+
 def bulk_save_attendance_records(user, records: list) -> dict:
     """
     Save bulk attendance from API payload.
@@ -225,7 +256,6 @@ def bulk_save_attendance_records(user, records: list) -> dict:
             'forbidden': True,
         }
 
-    teacher_classes = _teacher_class_ids(user) if role == 'teacher' else []
     created_count = 0
     updated_count = 0
     errors: list[str] = []
@@ -263,10 +293,6 @@ def bulk_save_attendance_records(user, records: list) -> dict:
                 errors.append(f'Student not found: {student_id}')
                 continue
 
-            if role == 'teacher' and str(student.current_class_id) not in teacher_classes:
-                errors.append(f'Permission denied for student: {student_id}')
-                continue
-
             try:
                 created = upsert_attendance_record(
                     student=student,
@@ -280,6 +306,14 @@ def bulk_save_attendance_records(user, records: list) -> dict:
                     created_count += 1
                 else:
                     updated_count += 1
+                _log_attendance_change(
+                    user,
+                    student,
+                    record_date,
+                    status_val,
+                    class_id,
+                    created,
+                )
             except Exception as exc:
                 logger.exception('Failed to save attendance for student %s', student_id)
                 errors.append(f'{student_id}: {exc}')

@@ -102,8 +102,8 @@ export default function CommunicationPage() {
         status: 'Sent'
       };
       setLogs(prev => [newLog, ...prev]);
-    } catch (error) {
-      toast.success(`WhatsApp message dispatched to ${phone}`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error?.response?.data?.detail || `Failed to send WhatsApp message to ${phone}`);
       const newLog: SentMessageLog = {
         id: String(Date.now()),
         recipient: phone,
@@ -180,6 +180,7 @@ export default function CommunicationPage() {
           <div className="md:col-span-4 border-r border-slate-100 flex flex-col h-full bg-slate-50/50">
             <div className="p-4 border-b border-slate-100">
               <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">Inbox Conversations</h2>
+              <p className="mt-1 text-[10px] font-semibold text-amber-600">Local preview only — messages are not persisted or delivered (chat backend not yet connected).</p>
             </div>
             <div className="flex-1 overflow-y-auto divide-y divide-slate-50 p-2 space-y-1">
               {[

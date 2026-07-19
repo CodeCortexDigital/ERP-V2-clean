@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
+import attendanceService from '@/services/attendance.service';
 import { Calendar, Clock, DollarSign, BookOpen, User, RefreshCw, UserCheck, AlertCircle, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import NotificationBell from '@/components/notifications/NotificationBell';
@@ -20,6 +21,11 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState<any | null>(null);
   const [feeItems, setFeeItems] = useState<FeeItem[]>([]);
+  const [attendance, setAttendance] = useState<{
+    present: number; leave: number; absent: number;
+    total: number; percent: number;
+    today: string; yesterday: string;
+  }>({ present: 0, leave: 0, absent: 0, total: 0, percent: 0, today: '', yesterday: '' });
 
   // Clock state
   const [currentTime, setCurrentTime] = useState('');
@@ -65,23 +71,8 @@ export default function StudentDashboard() {
     try {
       setLoading(true);
 
-      // Load all students and match the logged-in one (same logic as Admission Letter)
-      const sRes = await studentService.getAll().catch(() => ({ data: [] }));
-      const list: any[] = Array.isArray(sRes?.data) ? sRes.data : [];
-
-      const summaryId = user?.student?.student_id;
-      let data: any = list.find(
-        (s: any) =>
-          (summaryId && String(s.student_id) === String(summaryId)) ||
-          String(s.id) === String(user?.id) ||
-          String(s.student_id) === String(user?.id) ||
-          s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-      ) || null;
-
-      // Fallback to first record so the dashboard still renders
-      if (!data && list.length > 0) {
-        data = list[0];
-      }
+      // Strict resolution — never fall back to an arbitrary record (privacy).
+      const data = await studentService.resolveMe(user).catch(() => null);
 
       if (!data) {
         setStudent(null);
@@ -113,6 +104,41 @@ export default function StudentDashboard() {
       };
 
       setStudent(fullStudent);
+
+      // Load REAL attendance for this student (summary + recent records).
+      try {
+        const sid = String(data.id || data.student_id);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const yEst = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+        const [summaryRes, rangeRes] = await Promise.all([
+          attendanceService.getSummary(sid).catch(() => null),
+          attendanceService.getStudentAttendance(sid, yEst, todayStr).catch(() => null),
+        ]);
+
+        const sum = summaryRes?.data || {};
+        const records: any[] = Array.isArray(rangeRes?.data)
+          ? rangeRes.data
+          : (rangeRes?.data?.results || []);
+
+        const byDate: Record<string, string> = {};
+        records.forEach((r: any) => { if (r.date) byDate[r.date] = (r.status || '').toLowerCase(); });
+
+        const present = Number(sum.present ?? sum.present_days ?? 0);
+        const absent = Number(sum.absent ?? sum.absent_days ?? 0);
+        const leave = Number(sum.leave ?? sum.leave_days ?? 0);
+        const total = Number(sum.total ?? sum.total_days ?? (present + absent + leave)) || 0;
+        const percent = total > 0 ? Math.round(((present + leave) / total) * 100) : 0;
+
+        setAttendance({
+          present, leave, absent, total,
+          percent,
+          today: byDate[todayStr] || '',
+          yesterday: byDate[yEst] || '',
+        });
+      } catch (err) {
+        console.error('Failed to load attendance', err);
+      }
 
       // Load real invoices for this student
       try {
@@ -353,12 +379,12 @@ export default function StudentDashboard() {
                   <div className="relative w-28 h-28 flex items-center justify-center">
                     <svg className="w-full h-full transform -rotate-90">
                       <circle cx="56" cy="56" r="46" stroke="#f1f5f9" strokeWidth="10" fill="transparent" />
-                      <circle cx="56" cy="56" r="46" stroke="#3b82f6" strokeWidth="10" fill="transparent" 
-                              strokeDasharray={2 * Math.PI * 46} 
-                              strokeDashoffset={0} />
+                      <circle cx="56" cy="56" r="46" stroke="#3b82f6" strokeWidth="10" fill="transparent"
+                              strokeDasharray={2 * Math.PI * 46}
+                              strokeDashoffset={2 * Math.PI * 46 * (1 - attendance.percent / 100)} />
                     </svg>
                     <div className="absolute text-center">
-                      <span className="block text-lg font-black text-blue-650 leading-none">100%</span>
+                      <span className="block text-lg font-black text-blue-650 leading-none">{attendance.percent}%</span>
                       <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Overall</span>
                     </div>
                   </div>
@@ -371,31 +397,37 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-150 text-center">
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Today</span>
-                    <span className="inline-block px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[8px] font-black uppercase">
-                      NOT MARKED
-                    </span>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-150 text-center">
-                    <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Yesterday</span>
-                    <span className="inline-block px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[8px] font-black uppercase">
-                      NOT MARKED
-                    </span>
-                  </div>
+                  {[['Today', attendance.today], ['Yesterday', attendance.yesterday]].map(([label, status]) => {
+                    const s = String(status || '').toLowerCase();
+                    const cls = s.includes('present')
+                      ? 'bg-blue-100 text-blue-700'
+                      : s.includes('leave')
+                      ? 'bg-purple-100 text-purple-700'
+                      : s.includes('absent')
+                      ? 'bg-rose-100 text-rose-700'
+                      : 'bg-slate-200 text-slate-600';
+                    return (
+                      <div key={label} className="p-2 bg-slate-50 rounded-lg border border-slate-150 text-center">
+                        <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">{label}</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${cls}`}>
+                          {s ? s : 'NOT MARKED'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100 text-center">
-                    <span className="block text-base font-black text-blue-600">1</span>
+                    <span className="block text-base font-black text-blue-600">{attendance.present}</span>
                     <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Presents</span>
                   </div>
                   <div className="p-2 bg-purple-50/50 rounded-lg border border-purple-100 text-center">
-                    <span className="block text-base font-black text-purple-600">0</span>
+                    <span className="block text-base font-black text-purple-600">{attendance.leave}</span>
                     <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Leaves</span>
                   </div>
                   <div className="p-2 bg-rose-50/50 rounded-lg border border-rose-100 text-center">
-                    <span className="block text-base font-black text-rose-600">0</span>
+                    <span className="block text-base font-black text-rose-600">{attendance.absent}</span>
                     <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider">Absents</span>
                   </div>
                 </div>

@@ -13,7 +13,9 @@ import api, { extractListData } from '@/services/api';
 import attendanceService from '@/services/attendance.service';
 import studentService from '@/services/student.service';
 import classService, { SchoolClass } from '@/services/class.service';
+import teacherService from '@/services/teacher.service';
 import { useAuth } from '@/contexts/AuthContext';
+import { CanAccess } from '@/components/auth/CanAccess';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'holiday' | 'excused';
 
@@ -136,18 +138,14 @@ export default function TeacherMarkAttendance() {
       setLoadingClasses(true);
       const response = await classService.getAll().catch(() => ({ data: [] }));
       const rawClasses = extractListData<SchoolClass>(response.data || []);
+      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
       const seenClasses = new Set();
-      let classList: SchoolClass[] = rawClasses.filter((c: any) => {
+      let classList: SchoolClass[] = [...rawClasses, ...customClasses].filter((c: any) => {
         const cid = String(c.id || c.name);
         if (seenClasses.has(cid)) return false;
         seenClasses.add(cid);
         return true;
       });
-
-      // Find current teacher's employee_id
-      const empIdMatch = user?.full_name?.match(/EMP[_-]?(\d+)/i);
-      const empIdFromUser = empIdMatch ? empIdMatch[0] : '';
-      const empIdDigits = empIdMatch ? empIdMatch[1] : '';
 
       // Check if user is a Principal/Head who should see all classes
       const userRole = (role || '').toLowerCase();
@@ -158,16 +156,65 @@ export default function TeacherMarkAttendance() {
       if (isPrincipalOrHead) {
         myAssignedClasses = classList.filter(c => c.is_active !== false);
       } else {
-        const teacherName = (user?.full_name || user?.email || '').toLowerCase();
-        myAssignedClasses = classList.filter((c: SchoolClass) => {
-          if (empIdFromUser && c.teacher_id === empIdFromUser) return true;
-          if (empIdDigits && c.teacher_id?.includes(empIdDigits)) return true;
-          if (c.teacher_name && teacherName && (
-            c.teacher_name.toLowerCase().includes(teacherName) || 
-            teacherName.includes(c.teacher_name.toLowerCase())
-          )) return true;
-          return false;
-        });
+        // For teachers: assigned classes are listed first (preferred), but per
+        // policy a teacher may mark attendance for ANY class. So we resolve the
+        // teacher's assigned classes (best-effort) and then append all other
+        // active classes so the full class list is selectable. Every change is
+        // recorded by the backend attendance audit log.
+        const assignedIds = new Set<string>();
+        try {
+          const teacherProfileResponse = await teacherService.getMyProfile().catch(() => ({ data: null }));
+          let teacherId: string | null = null;
+
+          if (teacherProfileResponse?.data?.id) {
+            const teacherByIdResponse = await teacherService.getById(teacherProfileResponse.data.id).catch(() => ({ data: null }));
+            if (teacherByIdResponse?.data?.employee_id) {
+              teacherId = teacherByIdResponse.data.employee_id;
+            }
+          } else if (user?.id) {
+            const allTeachersResponse = await teacherService.getAll().catch(() => ({ data: [] }));
+            const allTeachers = extractListData<any>(allTeachersResponse.data || []);
+            for (const teacher of allTeachers) {
+              if (String(teacher.id) === String(user.id)) {
+                teacherId = teacher.employee_id;
+                break;
+              }
+              if (teacher.email === user.email) {
+                teacherId = teacher.employee_id;
+                break;
+              }
+              if (user.full_name && teacher.full_name === user.full_name) {
+                teacherId = teacher.employee_id;
+                break;
+              }
+            }
+          }
+
+          const matchesAssigned = (c: SchoolClass): boolean => {
+            if (teacherId) {
+              return Boolean(
+                c.teacher_id &&
+                (c.teacher_id === teacherId || c.teacher_id.includes(teacherId.replace(/^EMP[_-]?/, '')))
+              );
+            }
+            const savedEmp = JSON.parse(localStorage.getItem('current_employee_data') || '{}');
+            const teacherName = (
+              savedEmp.name || savedEmp.full_name || user?.full_name || user?.email || ''
+            ).toLowerCase();
+            return Boolean(
+              c.teacher_name && teacherName &&
+              (c.teacher_name.toLowerCase().includes(teacherName) || teacherName.includes(c.teacher_name.toLowerCase()))
+            );
+          };
+
+          const assigned = classList.filter(c => matchesAssigned(c) && c.is_active !== false);
+          const rest = classList.filter(c => !assigned.includes(c) && c.is_active !== false);
+          assigned.forEach(c => assignedIds.add(String(c.id)));
+          myAssignedClasses = [...assigned, ...rest];
+        } catch (error) {
+          console.error('Error resolving teacher classes, defaulting to all classes:', error);
+          myAssignedClasses = classList.filter(c => c.is_active !== false);
+        }
       }
 
       setMyClasses(myAssignedClasses);
@@ -561,25 +608,27 @@ export default function TeacherMarkAttendance() {
             </div>
 
             {/* Quick Actions */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              <Button 
-                variant="outline" 
-                className="text-xs gap-1" 
-                onClick={markAllPresent} 
-                disabled={nonSchoolDay || saving}
-              >
-                <CheckCircle className="w-3.5 h-3.5" /> All Present
-              </Button>
-              <Button variant="outline" className="text-xs gap-1" onClick={markAllAbsent} disabled={saving}>
-                <XCircle className="w-3.5 h-3.5" /> All Absent
-              </Button>
-              <Button variant="outline" className="text-xs gap-1" onClick={markAllHoliday} disabled={saving}>
-                <Calendar className="w-3.5 h-3.5" /> All Holiday
-              </Button>
-              <Button variant="outline" className="text-xs gap-1" onClick={markAllExcused} disabled={saving}>
-                <AlertCircle className="w-3.5 h-3.5" /> All Excused
-              </Button>
-            </div>
+            <CanAccess module="attendance" action="mark">
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button 
+                  variant="outline" 
+                  className="text-xs gap-1" 
+                  onClick={markAllPresent} 
+                  disabled={nonSchoolDay || saving}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> All Present
+                </Button>
+                <Button variant="outline" className="text-xs gap-1" onClick={markAllAbsent} disabled={saving}>
+                  <XCircle className="w-3.5 h-3.5" /> All Absent
+                </Button>
+                <Button variant="outline" className="text-xs gap-1" onClick={markAllHoliday} disabled={saving}>
+                  <Calendar className="w-3.5 h-3.5" /> All Holiday
+                </Button>
+                <Button variant="outline" className="text-xs gap-1" onClick={markAllExcused} disabled={saving}>
+                  <AlertCircle className="w-3.5 h-3.5" /> All Excused
+                </Button>
+              </div>
+            </CanAccess>
 
             {/* Search */}
             <div className="mb-4">
@@ -630,38 +679,40 @@ export default function TeacherMarkAttendance() {
                           </td>
                           <td className="px-4 py-3 text-slate-600 font-mono text-xs">{student.student_id}</td>
                           <td className="px-4 py-3">
-                            <div className="flex gap-1 justify-center">
-                              <button
-                                onClick={() => handleStatusChange(student.id, 'present')}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'present')}`}
-                                disabled={saving}
-                                title="Present"
-                              >P</button>
-                              <button
-                                onClick={() => handleStatusChange(student.id, 'absent')}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'absent')}`}
-                                disabled={saving}
-                                title="Absent"
-                              >A</button>
-                              <button
-                                onClick={() => handleStatusChange(student.id, 'late')}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'late')}`}
-                                disabled={saving}
-                                title="Late"
-                              >L</button>
-                              <button
-                                onClick={() => handleStatusChange(student.id, 'holiday')}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'holiday')}`}
-                                disabled={saving}
-                                title="Holiday"
-                              >H</button>
-                              <button
-                                onClick={() => handleStatusChange(student.id, 'excused')}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'excused')}`}
-                                disabled={saving}
-                                title="Excused/Leave"
-                              >E</button>
-                            </div>
+                            <CanAccess module="attendance" action="mark">
+                              <div className="flex gap-1 justify-center">
+                                <button
+                                  onClick={() => handleStatusChange(student.id, 'present')}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'present')}`}
+                                  disabled={saving}
+                                  title="Present"
+                                >P</button>
+                                <button
+                                  onClick={() => handleStatusChange(student.id, 'absent')}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'absent')}`}
+                                  disabled={saving}
+                                  title="Absent"
+                                >A</button>
+                                <button
+                                  onClick={() => handleStatusChange(student.id, 'late')}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'late')}`}
+                                  disabled={saving}
+                                  title="Late"
+                                >L</button>
+                                <button
+                                  onClick={() => handleStatusChange(student.id, 'holiday')}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'holiday')}`}
+                                  disabled={saving}
+                                  title="Holiday"
+                                >H</button>
+                                <button
+                                  onClick={() => handleStatusChange(student.id, 'excused')}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${getStatusButtonClass(student.status, 'excused')}`}
+                                  disabled={saving}
+                                  title="Excused/Leave"
+                                >E</button>
+                              </div>
+                            </CanAccess>
                           </td>
                           <td className="px-4 py-3 text-slate-500 text-xs">{student.guardian_name}</td>
                           <td className="px-4 py-3 text-center">
@@ -685,25 +736,27 @@ export default function TeacherMarkAttendance() {
             </div>
 
             {/* Save Button */}
-            <div className="flex justify-end mt-6 pt-4 border-t border-slate-100">
-              <Button 
-                onClick={saveAttendance} 
-                disabled={saving}
-                className="gap-2 px-6 py-2.5 text-sm font-bold"
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Save Attendance
-                  </>
-                )}
-              </Button>
-            </div>
+            <CanAccess module="attendance" action="mark">
+              <div className="flex justify-end mt-6 pt-4 border-t border-slate-100">
+                <Button 
+                  onClick={saveAttendance} 
+                  disabled={saving}
+                  className="gap-2 px-6 py-2.5 text-sm font-bold"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save Attendance
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CanAccess>
           </>
         )}
 

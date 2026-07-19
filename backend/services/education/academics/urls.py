@@ -75,8 +75,11 @@ urlpatterns = [
     path('teacher-leaves/<str:id>/', views.TeacherLeaveDetailView.as_view(), name='teacher-leave-detail'),
     path('timetable-substitutions/', views.TimetableSubstitutionListView.as_view(), name='timetable-substitution-list'),
     path('leave-balances/', views.LeaveBalanceListView.as_view(), name='leave-balance-list'),
+    path('leave-balances/set-defaults/', views.leave_balance_set_defaults, name='leave-balance-set-defaults'),
+    path('leave-balances/<str:id>/', views.LeaveBalanceDetailView.as_view(), name='leave-balance-detail'),
     path('homework/', views.HomeworkListCreateView.as_view(), name='homework-list'),
     path('homework/<str:id>/', views.HomeworkDetailView.as_view(), name='homework-detail'),
+    path('homework/<str:homework_id>/grade/', views.grade_homework, name='homework-grade'),
 ]
 
 
