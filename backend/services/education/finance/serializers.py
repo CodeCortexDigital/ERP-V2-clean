@@ -246,6 +246,37 @@ class PayslipSerializer(serializers.ModelSerializer):
         model = Payslip
         fields = '__all__'
 
+    def to_internal_value(self, data):
+        data = data.copy()
+        month_val = data.get('month')
+        if month_val and isinstance(month_val, str):
+            import datetime
+            parsed_date = None
+            for fmt in ("%Y-%m-%d", "%Y-%m", "%B %Y", "%b %Y"):
+                try:
+                    dt = datetime.datetime.strptime(month_val.strip(), fmt)
+                    parsed_date = datetime.date(dt.year, dt.month, 1)
+                    break
+                except ValueError:
+                    pass
+            if parsed_date:
+                data['month'] = parsed_date.strftime('%Y-%m-%d')
+        return super().to_internal_value(data)
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if instance.month:
+            try:
+                import datetime
+                if isinstance(instance.month, (datetime.date, datetime.datetime)):
+                    ret['month'] = instance.month.strftime('%B %Y')
+                elif isinstance(instance.month, str):
+                    dt = datetime.datetime.strptime(instance.month, '%Y-%m-%d')
+                    ret['month'] = dt.strftime('%B %Y')
+            except Exception:
+                pass
+        return ret
+
 
 class EmployeeCreditSerializer(serializers.ModelSerializer):
     employee_name = serializers.CharField(source='employee.full_name', read_only=True)

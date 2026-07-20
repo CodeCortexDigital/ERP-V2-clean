@@ -137,6 +137,7 @@ import DiscountType from './pages/settings/DiscountType'
 import FeeChallanDetails from './pages/settings/FeeChallanDetails'
 
 // Salary
+import PayslipsListPage from './pages/education/finance/PayslipsListPage'
 import GenerateSalaryPage from './pages/education/finance/GenerateSalaryPage'
 import PaySalaryPage from './pages/education/finance/PaySalaryPage'
 import SalaryPaidSlipPage from './pages/education/finance/SalaryPaidSlipPage'
@@ -402,6 +403,8 @@ function App() {
 
                 {/* Salary */}
                 <Route path="education/salary" element={<ModuleTabsLayout tabs={salaryTabs} scopeClass="salary-scope" />}>
+                  <Route index element={<Navigate to="/education/salary/list" replace />} />
+                  <Route path="list" element={<PayslipsListPage />} />
                   <Route path="generate" element={<GenerateSalaryPage />} />
                   <Route path="pay" element={<PaySalaryPage />} />
                   <Route path="slips" element={<SalaryPaidSlipPage />} />

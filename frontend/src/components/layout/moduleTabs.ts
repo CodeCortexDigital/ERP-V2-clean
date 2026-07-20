@@ -32,6 +32,7 @@ export const feesTabs: ModuleTab[] = [
 
 // ============================ SALARY ============================
 export const salaryTabs: ModuleTab[] = [
+  { id: 'payslips-list', path: '/education/salary/list', label: 'Salary List', icon: FileText, dark: 'bg-purple-700', light: 'bg-purple-100', rgb: '126 34 206' },
   { id: 'generate', path: '/education/salary/generate', label: 'Generate Salary', icon: DollarSign, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
   { id: 'pay', path: '/education/salary/pay', label: 'Disburse Salary', icon: Wallet, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'slips', path: '/education/salary/slips', label: 'Salary Slips', icon: Receipt, dark: 'bg-purple-700', light: 'bg-purple-100', rgb: '126 34 206' },

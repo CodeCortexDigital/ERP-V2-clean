@@ -109,8 +109,8 @@ const ledgerService = {
   },
 
   // ==================== Payslips ====================
-  getPayslips: async (params?: { employee_id?: string; month?: string; status?: string }) => {
-    const response = await api.get(`${LEDGER_API}/payslips/`, { params });
+  getPayslips: async (params?: { employee_id?: string; month?: string; status?: string; page_size?: number }) => {
+    const response = await api.get(`${LEDGER_API}/payslips/`, { params: { page_size: 1000, ...params } });
     return { ...response, data: extractListData<Payslip>(response.data) };
   },
 
