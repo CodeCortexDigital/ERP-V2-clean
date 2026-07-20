@@ -118,8 +118,8 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
 
         # Status filter
         status = self.request.query_params.get("status")
-        if status:
-            if status == "overdue":
+        if status and status.lower() != "all":
+            if status.lower() == "overdue":
                 queryset = queryset.filter(
                     due_date__lt=timezone.now().date(),
                     status__in=["issued", "partial", "overdue"]
