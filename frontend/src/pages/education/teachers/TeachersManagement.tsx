@@ -193,42 +193,85 @@ export default function TeachersManagement() {
         </div>
       </div>
 
-      {/* Stats Section */}
+      {/* Stats Section - Clickable Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        {/* Card 1: Total Employees */}
+        <button
+          onClick={() => {
+            setStatusFilter('all');
+            setSelectedRole('');
+          }}
+          className={`text-left bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5 ${
+            statusFilter === 'all' && !selectedRole
+              ? 'border-purple-300 ring-2 ring-purple-600 shadow-md bg-purple-50/20 scale-[1.02]'
+              : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              statusFilter === 'all' && !selectedRole ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'
+            }`}>
               <Users className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">{totalEmployees}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Employees</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Employees</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        </button>
+
+        {/* Card 2: Active */}
+        <button
+          onClick={() => setStatusFilter('active')}
+          className={`text-left bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5 ${
+            statusFilter === 'active'
+              ? 'border-emerald-300 ring-2 ring-emerald-600 shadow-md bg-emerald-50/20 scale-[1.02]'
+              : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              statusFilter === 'active' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700'
+            }`}>
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">{activeEmployees}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Active</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        </button>
+
+        {/* Card 3: Inactive */}
+        <button
+          onClick={() => setStatusFilter('inactive')}
+          className={`text-left bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5 ${
+            statusFilter === 'inactive'
+              ? 'border-rose-300 ring-2 ring-rose-600 shadow-md bg-rose-50/20 scale-[1.02]'
+              : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center text-rose-700">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              statusFilter === 'inactive' ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-700'
+            }`}>
               <UserX className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">{inactiveEmployees}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Inactive</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Inactive</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        </button>
+
+        {/* Card 4: Total Experience */}
+        <button
+          onClick={() => {
+            setStatusFilter('all');
+            setSelectedRole('');
+          }}
+          className="text-left bg-white p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:shadow-md transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5"
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700">
               <Award className="w-5 h-5" />
@@ -237,10 +280,10 @@ export default function TeachersManagement() {
               <p className="text-2xl font-black text-slate-800">
                 {teachers.reduce((sum, t) => sum + (t.experience_years || 0), 0)}
               </p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Experience</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Experience</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Search and Filters */}

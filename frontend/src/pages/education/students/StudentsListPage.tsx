@@ -66,6 +66,7 @@ export default function StudentsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState(classFromQuery);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [classCapacity, setClassCapacity] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -267,6 +268,10 @@ export default function StudentsListPage() {
   // Filter and sort students
   const filteredAndSortedStudents = students
     .filter(s => {
+      const isAct = (s as any).is_active === true;
+      if (statusFilter === 'active' && !isAct) return false;
+      if (statusFilter === 'inactive' && isAct) return false;
+
       const matchesSearch = (s.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (s.student_id || '').includes(searchTerm);
       const matchesClass = !selectedClass ||
@@ -305,62 +310,108 @@ export default function StudentsListPage() {
         </div>
 
         <div className="flex gap-2">
-          <button onClick={fetchStudentsAndClasses} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors">
+          <button onClick={fetchStudentsAndClasses} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer">
             <RefreshCw className="w-3.5 h-3.5" /> Reload
           </button>
         </div>
       </div>
 
-      {/* Stats Section */}
+      {/* Stats Section - Clickable Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        {/* Card 1: Total Students */}
+        <button
+          onClick={() => setStatusFilter('all')}
+          className={`text-left bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5 ${
+            statusFilter === 'all'
+              ? 'border-purple-300 ring-2 ring-purple-600 shadow-md bg-purple-50/20 scale-[1.02]'
+              : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              statusFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'
+            }`}>
               <Users className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">{students.length}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Students</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Students</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        </button>
+
+        {/* Card 2: Active */}
+        <button
+          onClick={() => setStatusFilter('active')}
+          className={`text-left bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5 ${
+            statusFilter === 'active'
+              ? 'border-emerald-300 ring-2 ring-emerald-600 shadow-md bg-emerald-50/20 scale-[1.02]'
+              : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              statusFilter === 'active' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-700'
+            }`}>
               <UserCheck className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">
                 {students.filter(s => (s as any).is_active === true).length}
               </p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Active</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        </button>
+
+        {/* Card 3: Inactive */}
+        <button
+          onClick={() => setStatusFilter('inactive')}
+          className={`text-left bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5 ${
+            statusFilter === 'inactive'
+              ? 'border-rose-300 ring-2 ring-rose-600 shadow-md bg-rose-50/20 scale-[1.02]'
+              : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center text-rose-700">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              statusFilter === 'inactive' ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-700'
+            }`}>
               <UserX className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">
                 {students.filter(s => (s as any).is_active !== true).length}
               </p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Inactive</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Inactive</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+        </button>
+
+        {/* Card 4: Total Classes */}
+        <button
+          onClick={() => {
+            setSelectedClass('');
+            setStatusFilter('all');
+          }}
+          className={`text-left bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs hover:-translate-y-0.5 ${
+            selectedClass
+              ? 'border-blue-300 ring-2 ring-blue-600 shadow-md bg-blue-50/20 scale-[1.02]'
+              : 'border-slate-100 hover:border-slate-200 hover:shadow-md'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              selectedClass ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+            }`}>
               <GraduationCap className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">{classes.length}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Total Classes</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Classes</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Selected Class Info Banner */}
