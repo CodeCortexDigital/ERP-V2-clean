@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Wallet, Plus, Trash2, Edit3, Save, ArrowLeft } from 'lucide-react';
 import ledgerService from '@/services/ledger.service';
+import financeService from '@/services/finance.service';
 
 interface AccountHead {
   id: string;
@@ -16,6 +17,7 @@ interface Transaction {
   description: string;
   amount: number;
   type: 'Income' | 'Expense';
+  headName?: string;
 }
 
 export default function ChartOfAccountsPage() {
@@ -35,26 +37,58 @@ export default function ChartOfAccountsPage() {
 
   const fetchTransactions = async () => {
     try {
-      const response = await ledgerService.getLedgerEntries();
-      const entries = response.data || [];
-      const txs: Transaction[] = entries.map((e: any) => ({
+      const [ledgerRes, invoicesRes] = await Promise.all([
+        ledgerService.getLedgerEntries().catch(() => ({ data: [] })),
+        financeService.getInvoices({ status: 'all' }).catch(() => ({ data: [] }))
+      ]);
+
+      const ledgerEntries = ledgerRes.data || [];
+      const invoiceEntries = Array.isArray(invoicesRes.data) ? invoicesRes.data : (invoicesRes.data as any)?.results || [];
+
+      // Map manual ledger entries
+      const txs: Transaction[] = ledgerEntries.map((e: any) => ({
         id: e.id,
-        date: e.date,
-        description: e.description,
-        amount: Math.abs(e.amount),
-        type: e.type === 'income' ? 'Income' : 'Expense'
+        date: e.date ? String(e.date).substring(0, 10) : new Date().toISOString().substring(0, 10),
+        description: e.description || e.account_head_name || 'Ledger Entry',
+        amount: Math.abs(Number(e.amount || 0)),
+        type: e.type === 'income' ? 'Income' : 'Expense',
+        headName: e.account_head_name || 'General Income'
       }));
+
+      // Map collected fee invoices as Income transactions
+      invoiceEntries.forEach((inv: any) => {
+        const paidAmt = Number(inv.paid_amount ?? (inv.status === 'paid' ? inv.total_amount : 0));
+        if (paidAmt > 0) {
+          const studentName = inv.student_name || inv.student?.full_name || 'Student';
+          const monthStr = inv.month || 'Fee Collection';
+          txs.push({
+            id: `inv-${inv.id}`,
+            date: inv.issue_date ? String(inv.issue_date).substring(0, 10) : (inv.created_at ? String(inv.created_at).substring(0, 10) : new Date().toISOString().substring(0, 10)),
+            description: `Fee Collection - ${studentName} (${monthStr})`,
+            amount: paidAmt,
+            type: 'Income',
+            headName: 'Student Fee Collection'
+          });
+        }
+      });
+
       setTransactions(txs);
     } catch (err) {
-      console.log('Error fetching ledger entries');
+      console.log('Error fetching finance transactions', err);
     }
   };
 
-  // Total collected/spent per account head (matched by name + type)
-  const headTotal = (h: AccountHead) =>
-    transactions
-      .filter(t => t.type === h.type && t.description.trim().toLowerCase() === h.name.trim().toLowerCase())
+  // Total collected/spent per account head
+  const headTotal = (h: AccountHead) => {
+    if (h.name === 'Student Fee Collection') {
+      return transactions
+        .filter(t => t.type === 'Income' && (t.headName === 'Student Fee Collection' || t.description.includes('Fee Collection')))
+        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+    }
+    return transactions
+      .filter(t => t.type === h.type && (t.headName?.toLowerCase() === h.name.toLowerCase() || t.description.toLowerCase().includes(h.name.toLowerCase())))
       .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+  };
 
   const totalIncome = transactions
     .filter(t => t.type === 'Income')
@@ -66,12 +100,28 @@ export default function ChartOfAccountsPage() {
 
   const fetchHeads = async () => {
     try {
-      const response = await ledgerService.getAccountHeads();
-      const apiHeads: AccountHead[] = (response.data || []).map((h: any) => ({
+      const response = await ledgerService.getAccountHeads().catch(() => ({ data: [] }));
+      let apiHeads: AccountHead[] = (response.data || []).map((h: any) => ({
         id: h.id,
         name: h.name,
         type: h.type === 'income' ? 'Income' : 'Expense'
       }));
+
+      // Ensure standard default account heads exist so table and totals work seamlessly
+      const defaultHeads: AccountHead[] = [
+        { id: 'def-1', name: 'Student Fee Collection', type: 'Income' },
+        { id: 'def-2', name: 'Admission Fees', type: 'Income' },
+        { id: 'def-3', name: 'Other School Income', type: 'Income' },
+        { id: 'def-4', name: 'Staff Salary Expense', type: 'Expense' },
+        { id: 'def-5', name: 'Utility & Maintenance', type: 'Expense' }
+      ];
+
+      defaultHeads.forEach(dh => {
+        if (!apiHeads.some(h => h.name.toLowerCase() === dh.name.toLowerCase())) {
+          apiHeads.push(dh);
+        }
+      });
+
       setHeads(apiHeads);
     } catch (err) {
       console.log('Error fetching account heads');

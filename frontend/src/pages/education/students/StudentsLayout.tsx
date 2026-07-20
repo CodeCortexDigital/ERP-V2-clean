@@ -6,16 +6,16 @@ import {
 } from 'lucide-react';
 
 const tabs = [
-  { id: 'list', path: '/education/students', label: 'Students', icon: Users, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
-  { id: 'add', path: '/education/students/add', label: 'Add', icon: UserPlus, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
-  { id: 'families', path: '/education/students/families', label: 'Families', icon: Users2, dark: 'bg-purple-700', light: 'bg-purple-100', rgb: '126 34 206' },
-  { id: 'status', path: '/education/students/status', label: 'Status', icon: ToggleLeft, dark: 'bg-amber-700', light: 'bg-amber-100', rgb: '180 83 9' },
-  { id: 'admission', path: '/education/students/admission-letter', label: 'Admission', icon: FileText, dark: 'bg-teal-700', light: 'bg-teal-100', rgb: '15 118 110' },
+  { id: 'list', path: '/education/students', label: 'All Students', icon: Users, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
+  { id: 'add', path: '/education/students/add', label: 'New Student', icon: UserPlus, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'admission', path: '/education/students/admission-letter', label: 'Admission Letter', icon: FileText, dark: 'bg-teal-700', light: 'bg-teal-100', rgb: '15 118 110' },
+  { id: 'families', path: '/education/students/families', label: 'Family Directory', icon: Users2, dark: 'bg-purple-700', light: 'bg-purple-100', rgb: '126 34 206' },
+  { id: 'status', path: '/education/students/status', label: 'Active Status', icon: ToggleLeft, dark: 'bg-amber-700', light: 'bg-amber-100', rgb: '180 83 9' },
   { id: 'idcards', path: '/education/students/id-cards', label: 'ID Cards', icon: IdCard, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
-  { id: 'print', path: '/education/students/print-list', label: 'Print', icon: Printer, dark: 'bg-slate-700', light: 'bg-slate-200', rgb: '51 65 85' },
-  { id: 'logins', path: '/education/students/logins', label: 'Logins', icon: KeyRound, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
-  { id: 'promote', path: '/education/students/promote', label: 'Promote', icon: ArrowUpDown, dark: 'bg-rose-700', light: 'bg-rose-100', rgb: '190 24 93' },
-  { id: 'rules', path: '/education/students/rules', label: 'Rules', icon: BookOpenCheck, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
+  { id: 'logins', path: '/education/students/logins', label: 'Portal Logins', icon: KeyRound, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
+  { id: 'print', path: '/education/students/print-list', label: 'Print List', icon: Printer, dark: 'bg-slate-700', light: 'bg-slate-200', rgb: '51 65 85' },
+  { id: 'promote', path: '/education/students/promote', label: 'Class Promotion', icon: ArrowUpDown, dark: 'bg-rose-700', light: 'bg-rose-100', rgb: '190 24 93' },
+  { id: 'rules', path: '/education/students/rules', label: 'Student Rules', icon: BookOpenCheck, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
 ];
 
 const isTabActive = (t: typeof tabs[number], pathname: string) =>
@@ -44,13 +44,13 @@ export default function StudentsLayout() {
               <button
                 key={t.id}
                 onClick={() => navigate(t.path)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white transition-all ${t.dark} ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs transition-all ${
                   isActive
-                    ? 'ring-2 ring-offset-1 ring-black/20 shadow-md scale-105'
-                    : 'opacity-90 hover:opacity-100 hover:shadow-sm'
+                    ? `${t.dark} text-white shadow-md ring-2 ring-black/10 scale-102 font-extrabold`
+                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 font-semibold border border-slate-200/60 dark:border-slate-700/60 hover:shadow-xs'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} style={!isActive ? { color: `rgb(${t.rgb})` } : undefined} />
                 {t.label}
               </button>
             );

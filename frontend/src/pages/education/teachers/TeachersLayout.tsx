@@ -5,12 +5,12 @@ import {
 } from 'lucide-react';
 
 const tabs = [
-  { id: 'list', path: '/education/teachers', label: 'Employees', icon: Users, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
-  { id: 'add', path: '/education/teachers/add', label: 'Add', icon: UserPlus, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
-  { id: 'idcards', path: '/education/teachers/id-cards', label: 'ID Cards', icon: IdCard, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
+  { id: 'list', path: '/education/teachers', label: 'All Employees', icon: Users, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
+  { id: 'add', path: '/education/teachers/add', label: 'New Employee', icon: UserPlus, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'job', path: '/education/teachers/job-letter', label: 'Job Letter', icon: FileText, dark: 'bg-teal-700', light: 'bg-teal-100', rgb: '15 118 110' },
-  { id: 'logins', path: '/education/teachers/logins', label: 'Logins', icon: KeyRound, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
-  { id: 'rules', path: '/education/teachers/rules', label: 'Rules', icon: BookOpenCheck, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
+  { id: 'idcards', path: '/education/teachers/id-cards', label: 'ID Cards', icon: IdCard, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
+  { id: 'logins', path: '/education/teachers/logins', label: 'Portal Logins', icon: KeyRound, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
+  { id: 'rules', path: '/education/teachers/rules', label: 'Staff Rules', icon: BookOpenCheck, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
 ];
 
 const isTabActive = (t: typeof tabs[number], pathname: string) =>
@@ -39,13 +39,13 @@ export default function TeachersLayout() {
               <button
                 key={t.id}
                 onClick={() => navigate(t.path)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white transition-all ${t.dark} ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs transition-all ${
                   isActive
-                    ? 'ring-2 ring-offset-1 ring-black/20 shadow-md scale-105'
-                    : 'opacity-90 hover:opacity-100 hover:shadow-sm'
+                    ? `${t.dark} text-white shadow-md ring-2 ring-black/10 scale-102 font-extrabold`
+                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 font-semibold border border-slate-200/60 dark:border-slate-700/60 hover:shadow-xs'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} style={!isActive ? { color: `rgb(${t.rgb})` } : undefined} />
                 {t.label}
               </button>
             );

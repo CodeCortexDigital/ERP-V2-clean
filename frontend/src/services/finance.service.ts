@@ -197,8 +197,13 @@ const financeService = {
     start_date?: string;
     end_date?: string;
     page?: number;
+    page_size?: number;
   }) => {
-    const response = await api.get('/invoices/', { params });
+    const cleanParams: any = { page_size: 1000, ...params };
+    if (cleanParams?.status === 'all') {
+      delete cleanParams.status;
+    }
+    const response = await api.get('/invoices/', { params: cleanParams });
     if (response.data) {
       const invoices = extractListData<Invoice>(response.data);
       response.data = normalizeInvoiceList(invoices);

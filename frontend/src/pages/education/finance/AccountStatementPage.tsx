@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Wallet, Printer, ChevronDown, RotateCcw, Trash2 } from 'lucide-react';
 import ledgerService from '@/services/ledger.service';
+import financeService from '@/services/finance.service';
 
 interface Transaction {
   id: string;
@@ -25,15 +26,37 @@ export default function AccountStatementPage() {
 
   const fetchTransactions = async () => {
     try {
-      const response = await ledgerService.getLedgerEntries();
-      const entries = response.data || [];
-      const txs: Transaction[] = entries.map((e: any) => ({
+      const [ledgerRes, invoicesRes] = await Promise.all([
+        ledgerService.getLedgerEntries().catch(() => ({ data: [] })),
+        financeService.getInvoices({ status: 'all' }).catch(() => ({ data: [] }))
+      ]);
+
+      const ledgerEntries = ledgerRes.data || [];
+      const invoiceEntries = Array.isArray(invoicesRes.data) ? invoicesRes.data : (invoicesRes.data as any)?.results || [];
+
+      const txs: Transaction[] = ledgerEntries.map((e: any) => ({
         id: e.id,
-        date: e.date,
-        description: e.description,
-        amount: Math.abs(e.amount),
+        date: e.date ? String(e.date).substring(0, 10) : new Date().toISOString().substring(0, 10),
+        description: e.description || e.account_head_name || 'Ledger Entry',
+        amount: Math.abs(Number(e.amount || 0)),
         type: e.type === 'income' ? 'Income' : 'Expense'
       }));
+
+      invoiceEntries.forEach((inv: any) => {
+        const paidAmt = Number(inv.paid_amount ?? (inv.status === 'paid' ? inv.total_amount : 0));
+        if (paidAmt > 0) {
+          const studentName = inv.student_name || inv.student?.full_name || 'Student';
+          const monthStr = inv.month || 'Fee Collection';
+          txs.push({
+            id: `inv-${inv.id}`,
+            date: inv.issue_date ? String(inv.issue_date).substring(0, 10) : (inv.created_at ? String(inv.created_at).substring(0, 10) : new Date().toISOString().substring(0, 10)),
+            description: `Fee Collection - ${studentName} (${monthStr})`,
+            amount: paidAmt,
+            type: 'Income'
+          });
+        }
+      });
+
       setTransactions(txs);
     } catch (err) {
       console.log('Error fetching ledger entries');

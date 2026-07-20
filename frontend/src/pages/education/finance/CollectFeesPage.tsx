@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Search, Landmark, ShieldAlert, Check, AlertTriangle, Printer } from 'lucide-react';
 import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
+import ledgerService from '@/services/ledger.service';
 import { extractListData } from '@/services/api';
 import settingsService from '@/services/settings.service';
 
@@ -378,6 +379,32 @@ export default function CollectFeesPage() {
         status: nextStatus
       });
       console.log('Successfully updated invoice:', updatedInv);
+
+      // Automatically post income transaction to Ledger
+      const studentName = activeInvoice.student_name || selectedStudent?.full_name || 'Student';
+      const monthStr = getInvoiceFeeMonth(activeInvoice) || 'Fee Collection';
+      await ledgerService.createLedgerEntry({
+        date: collectionDate || new Date().toISOString().substring(0, 10),
+        description: `Fee Collection - ${studentName} (${monthStr})`,
+        amount: deposit,
+        type: 'income',
+        account_head_name: 'Student Fee Collection',
+        reference: activeInvoice.invoice_number || `INV-${activeInvoice.id}`,
+        notes: `Deposited Rs ${deposit} for ${studentName}`
+      }).catch(err => console.warn('Ledger auto-entry warning:', err));
+
+      // Store locally so all pages reflect real-time collected fee
+      try {
+        const existingLocal = JSON.parse(localStorage.getItem('erp_collected_fees') || '[]');
+        existingLocal.push({
+          invoice_id: activeInvoice.id,
+          invoice_number: activeInvoice.invoice_number,
+          student_name: activeInvoice.student_name,
+          depositAmount: deposit,
+          date: collectionDate || new Date().toISOString().substring(0, 10)
+        });
+        localStorage.setItem('erp_collected_fees', JSON.stringify(existingLocal));
+      } catch (e) {}
 
       setSubmittedReceipt({
         invoice_number: activeInvoice.invoice_number,

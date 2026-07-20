@@ -11,7 +11,8 @@ import {
   X, 
   GraduationCap, 
   Users, 
-  Clock 
+  Clock,
+  PieChart
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +20,7 @@ import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import financeService, { Invoice } from '@/services/finance.service';
 import academicService from '@/services/academic.service';
+import ledgerService from '@/services/ledger.service';
 
 export default function InvoicesPage() {
   const navigate = useNavigate();
@@ -33,11 +35,18 @@ export default function InvoicesPage() {
   const [cancellationRemarks, setCancellationRemarks] = useState('');
   const [submittingCancellation, setSubmittingCancellation] = useState(false);
 
+  // Quick Receive Payment state
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [receivingInvoice, setReceivingInvoice] = useState<Invoice | null>(null);
+  const [receiveDeposit, setReceiveDeposit] = useState('');
+  const [receiveMethod, setReceiveMethod] = useState('cash');
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+
   // Filters state
   const [searchStudent, setSearchStudent] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [searchParent, setSearchParent] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // all, paid, pending, defaulters
+  const [statusFilter, setStatusFilter] = useState('all'); // all, paid, partial, pending, defaulters
 
   useEffect(() => {
     fetchData();
@@ -46,9 +55,10 @@ export default function InvoicesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [invRes, studentsRes, classesRes] = await Promise.allSettled([
-        financeService.getInvoices({ status: 'all' }),
-        api.get(API_ENDPOINTS.STUDENTS),
+      const [invRes, paymentsRes, studentsRes, classesRes] = await Promise.allSettled([
+        financeService.getInvoices({ status: 'all', page_size: 1000 }),
+        financeService.getPayments({ page_size: 1000 } as any).catch(() => ({ data: [] })),
+        api.get(API_ENDPOINTS.STUDENTS, { params: { page_size: 1000 } }),
         academicService.classes.getAll()
       ]);
 
@@ -56,26 +66,109 @@ export default function InvoicesPage() {
       if (invRes.status === 'fulfilled' && invRes.value && invRes.value.data) {
         const data = invRes.value.data;
         loadedInvoices = Array.isArray(data) ? data : (data.results || data.data || []);
-        setInvoices(loadedInvoices);
-        console.log('InvoicesPage: Loaded invoices count:', loadedInvoices.length, loadedInvoices);
       } else {
         console.error('InvoicesPage: Failed to load invoices:', invRes);
       }
+
+      let loadedPayments: any[] = [];
+      if (paymentsRes.status === 'fulfilled' && paymentsRes.value && (paymentsRes.value as any).data) {
+        const pData = (paymentsRes.value as any).data;
+        loadedPayments = Array.isArray(pData) ? pData : (pData.results || pData.data || []);
+      }
+
+      // Check local storage payments recorded during session
+      try {
+        const localFeeReceipts = JSON.parse(localStorage.getItem('erp_collected_fees') || '[]');
+        if (Array.isArray(localFeeReceipts)) {
+          localFeeReceipts.forEach((rcpt: any) => {
+            if (rcpt.invoice_number || rcpt.invoice_id) {
+              loadedPayments.push({
+                invoice: rcpt.invoice_id,
+                invoice_number: rcpt.invoice_number,
+                amount: Number(rcpt.depositAmount || rcpt.amount || 0)
+              });
+            }
+          });
+        }
+      } catch (e) {}
+
+      // Map payments by invoice key safely handling strings and nested objects
+      const paymentsByInvoice: Record<string, number> = {};
+      loadedPayments.forEach(p => {
+        if (!p) return;
+        const amt = Number(p.amount || p.depositAmount || 0);
+        
+        let invId = '';
+        if (typeof p.invoice === 'string' || typeof p.invoice === 'number') {
+          invId = String(p.invoice);
+        } else if (p.invoice && typeof p.invoice === 'object') {
+          invId = String(p.invoice.id || p.invoice.invoice_number || '');
+        } else if (p.invoice_id) {
+          invId = String(p.invoice_id);
+        }
+
+        let invNum = '';
+        if (typeof p.invoice_number === 'string') {
+          invNum = p.invoice_number;
+        } else if (p.invoice && typeof p.invoice === 'object' && p.invoice.invoice_number) {
+          invNum = String(p.invoice.invoice_number);
+        }
+
+        if (invId) paymentsByInvoice[invId] = (paymentsByInvoice[invId] || 0) + amt;
+        if (invNum) paymentsByInvoice[invNum] = (paymentsByInvoice[invNum] || 0) + amt;
+      });
+
+      // Merge effective paid amounts onto invoices
+      const mergedInvoices = loadedInvoices.map(inv => {
+        const extraPaid = (paymentsByInvoice[String(inv.id)] || paymentsByInvoice[String(inv.invoice_number)] || 0);
+        const currentPaid = Number(inv.paid_amount || 0);
+        let effectivePaid = Math.max(currentPaid, extraPaid);
+        const totalAmt = Number(inv.total_amount ?? (Number(inv.amount || 0) + Number(inv.late_fee_amount || 0) - Number(inv.discount_amount || 0)));
+        
+        let effectiveStatus = String(inv.status || '').toLowerCase();
+        
+        // If status is paid but paid_amount was not populated in DB, set effectivePaid to totalAmt
+        if ((effectiveStatus === 'paid' || effectiveStatus === 'completed') && effectivePaid === 0 && totalAmt > 0) {
+          effectivePaid = totalAmt;
+        }
+
+        // Calculate balance
+        const effectiveBalance = Math.max(0, totalAmt - effectivePaid);
+
+        // Determine status based on payments
+        if (effectiveStatus === 'cancelled') {
+          // Keep as cancelled
+        } else if (totalAmt > 0 && effectivePaid >= totalAmt) {
+          effectiveStatus = 'paid';
+        } else if (effectivePaid > 0 && effectiveBalance > 0) {
+          effectiveStatus = 'partial';
+        } else if (effectivePaid === 0 && totalAmt > 0) {
+          effectiveStatus = 'pending';
+        }
+
+        return {
+          ...inv,
+          paid_amount: effectivePaid,
+          balance_due: effectiveBalance,
+          status: effectiveStatus as any
+        };
+      });
+
+      setInvoices(mergedInvoices);
+      console.log('InvoicesPage: Merged invoices count:', mergedInvoices.length);
+      console.log('InvoicesPage: Paid invoices:', mergedInvoices.filter(inv => 
+        String(inv.status || '').toLowerCase() === 'paid' || 
+        (Number(inv.paid_amount || 0) >= Number(inv.total_amount || 0) && Number(inv.total_amount || 0) > 0)
+      ).length);
       
       if (studentsRes.status === 'fulfilled' && studentsRes.value) {
         const rawStudents = extractListData<any>(studentsRes.value.data);
         setStudents(rawStudents);
-        console.log('InvoicesPage: Loaded students count:', rawStudents.length);
-      } else {
-        console.error('InvoicesPage: Failed to load students:', studentsRes);
       }
       
       if (classesRes.status === 'fulfilled' && classesRes.value) {
         const rawClasses = Array.isArray(classesRes.value) ? classesRes.value : [];
         setClasses(rawClasses);
-        console.log('InvoicesPage: Loaded classes count:', rawClasses.length);
-      } else {
-        console.error('InvoicesPage: Failed to load classes:', classesRes);
       }
     } catch (err) {
       console.error('InvoicesPage: Exception in fetchData:', err);
@@ -123,10 +216,17 @@ export default function InvoicesPage() {
   const isDefaulter = (inv: Invoice) => {
     try {
       if (!inv) return false;
-      if (inv.status === 'paid' || inv.status === 'carried_forward' || inv.status === 'cancelled') {
+      const st = String(inv.status || '').toLowerCase();
+      if (st === 'paid' || st === 'carried_forward' || st === 'cancelled') {
         return false;
       }
-      const balance = inv.balance_due !== undefined ? inv.balance_due : (Number(inv.amount || 0) - Number(inv.paid_amount || 0));
+      const totalAmt = inv.total_amount !== undefined && inv.total_amount !== null
+        ? Number(inv.total_amount)
+        : (Number(inv.amount || 0) + Number(inv.late_fee_amount || 0) - Number(inv.discount_amount || 0));
+      const paidAmt = Number(inv.paid_amount || 0);
+      const balance = inv.balance_due !== undefined && inv.balance_due !== null
+        ? Number(inv.balance_due)
+        : Math.max(0, totalAmt - paidAmt);
       if (balance <= 0) return false;
       
       if (inv.due_date) {
@@ -142,7 +242,37 @@ export default function InvoicesPage() {
     return false;
   };
 
-  // Filtered invoices
+  // Helper to get invoice status safely
+  const getInvoiceStatus = (inv: Invoice) => {
+    if (!inv) return 'unknown';
+    
+    const st = String(inv.status || '').toLowerCase();
+    const totalAmt = Number(inv.total_amount || 0);
+    const paidAmt = Number(inv.paid_amount || 0);
+    const balance = Number(inv.balance_due || 0);
+    
+    // Check if cancelled
+    if (st === 'cancelled') return 'cancelled';
+    
+    // Check if paid - use multiple conditions
+    if (st === 'paid' || st === 'completed' || (totalAmt > 0 && paidAmt >= totalAmt) || (balance <= 0 && totalAmt > 0)) {
+      return 'paid';
+    }
+    
+    // Check if partial
+    if (st === 'partial' || st === 'partially_paid' || (paidAmt > 0 && balance > 0)) {
+      return 'partial';
+    }
+    
+    // Check if pending
+    if (paidAmt === 0 && totalAmt > 0) {
+      return 'pending';
+    }
+    
+    return st || 'unknown';
+  };
+
+  // Filtered invoices - COMPLETELY FIXED
   const filteredInvoices = useMemo(() => {
     const list = Array.isArray(invoices) ? invoices : [];
     return list.filter(inv => {
@@ -166,7 +296,6 @@ export default function InvoicesPage() {
 
       // Match Class filter
       if (selectedClass) {
-        // Match class either by ID or name
         const classObj = Array.isArray(classes) 
           ? classes.find(c => c && String(c.id) === String(selectedClass))
           : null;
@@ -187,58 +316,81 @@ export default function InvoicesPage() {
         if (!parentName.toLowerCase().includes(pQuery)) return false;
       }
 
-      // Match Status filter (all, paid, pending, defaulters)
-      const balance = inv.balance_due !== undefined ? inv.balance_due : (Number(inv.amount || 0) - Number(inv.paid_amount || 0));
+      // Get invoice status using the helper function
+      const invoiceStatus = getInvoiceStatus(inv);
       const isDef = isDefaulter(inv);
+      const totalAmt = Number(inv.total_amount || 0);
+      const paidAmt = Number(inv.paid_amount || 0);
+      const balance = Number(inv.balance_due || 0);
 
+      // Apply status filter - FIXED
       if (statusFilter === 'paid') {
-        if (inv.status !== 'paid' && balance > 0) return false;
-      } else if (statusFilter === 'pending') {
-        // Pending = unpaid or partially paid and not yet a defaulter (or all pending)
-        if (balance <= 0 || inv.status === 'paid') return false;
-      } else if (statusFilter === 'defaulters') {
-        if (!isDef) return false;
+        // Only show fully paid invoices
+        const isFullyPaid = invoiceStatus === 'paid' || 
+                           (totalAmt > 0 && paidAmt >= totalAmt) || 
+                           (balance <= 0 && totalAmt > 0);
+        if (!isFullyPaid) return false;
+      } 
+      else if (statusFilter === 'partial') {
+        // Only show partially paid invoices
+        const isPartial = invoiceStatus === 'partial' || 
+                         (paidAmt > 0 && balance > 0);
+        if (!isPartial) return false;
+      } 
+      else if (statusFilter === 'pending') {
+        // Only show pending invoices (no payments made)
+        const isPending = invoiceStatus === 'pending' || 
+                         (paidAmt === 0 && totalAmt > 0 && !isDef);
+        if (!isPending || isDef) return false;
+      } 
+      else if (statusFilter === 'defaulters') {
+        // Only show defaulters
+        if (!isDef || invoiceStatus === 'paid' || invoiceStatus === 'cancelled') return false;
       }
 
       return true;
     });
   }, [invoices, students, classes, searchStudent, selectedClass, searchParent, statusFilter]);
 
-  // Calculate summary stats dynamically based on filteredInvoices
+  // Calculate global summary stats across all loaded invoices for summary cards
   const stats = useMemo(() => {
     let totalInvoices = 0;
     let totalInvoicedAmount = 0;
     let totalPaid = 0;
     let totalPendingAmount = 0;
+    let totalPartialAmount = 0;
     let totalDefaulterAmount = 0;
     let paidCount = 0;
+    let partialCount = 0;
     let pendingCount = 0;
     let defaulterCount = 0;
 
-    filteredInvoices.forEach(inv => {
+    const list = Array.isArray(invoices) ? invoices : [];
+    list.forEach(inv => {
       if (!inv) return;
       totalInvoices += 1;
       
-      const totalAmt = inv.total_amount !== undefined && inv.total_amount !== null
-        ? Number(inv.total_amount)
-        : (Number(inv.amount || 0) + Number(inv.late_fee_amount || 0) - Number(inv.discount_amount || 0));
-        
+      const totalAmt = Number(inv.total_amount || 0);
       const paidAmt = Number(inv.paid_amount || 0);
-      const balance = inv.balance_due !== undefined && inv.balance_due !== null
-        ? Number(inv.balance_due)
-        : (totalAmt - paidAmt);
+      const balance = Number(inv.balance_due || 0);
+      
+      const invoiceStatus = getInvoiceStatus(inv);
+      const isDef = isDefaulter(inv);
 
       totalInvoicedAmount += totalAmt;
       totalPaid += paidAmt;
 
-      if (inv.status === 'paid' || balance <= 0) {
+      if (invoiceStatus === 'paid') {
         paidCount += 1;
-      } else if (isDefaulter(inv)) {
-        defaulterCount += 1;
-        totalDefaulterAmount += balance;
-      } else {
+      } else if (invoiceStatus === 'partial') {
+        partialCount += 1;
+        totalPartialAmount += paidAmt;
+      } else if (invoiceStatus === 'pending') {
         pendingCount += 1;
         totalPendingAmount += balance;
+      } else if (isDef) {
+        defaulterCount += 1;
+        totalDefaulterAmount += balance;
       }
     });
 
@@ -247,12 +399,14 @@ export default function InvoicesPage() {
       totalInvoicedAmount,
       totalPaid,
       totalPendingAmount,
+      totalPartialAmount,
       totalDefaulterAmount,
       paidCount,
+      partialCount,
       pendingCount,
       defaulterCount
     };
-  }, [filteredInvoices]);
+  }, [invoices]);
 
   const handleResetFilters = () => {
     setSearchStudent('');
@@ -293,6 +447,142 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleInitiateReceive = (invoice: Invoice) => {
+    setReceivingInvoice(invoice);
+    const totalAmt = Number(invoice.total_amount || 0);
+    const paidAmt = Number(invoice.paid_amount || 0);
+    const balance = Number(invoice.balance_due || 0);
+    const remainingBalance = balance > 0 ? balance : Math.max(0, totalAmt - paidAmt);
+
+    setReceiveDeposit(String(remainingBalance > 0 ? remainingBalance : totalAmt));
+    setReceiveMethod('cash');
+    setShowReceiveModal(true);
+  };
+
+  const handleConfirmReceive = async () => {
+    if (!receivingInvoice) return;
+    const deposit = parseFloat(receiveDeposit);
+    if (isNaN(deposit) || deposit <= 0) {
+      toast.error('Please enter a valid deposit amount.');
+      return;
+    }
+
+    setSubmittingPayment(true);
+    try {
+      const totalAmt = Number(receivingInvoice.total_amount || 0);
+      const prevPaid = Number(receivingInvoice.paid_amount || 0);
+      const newPaid = prevPaid + deposit;
+      const newBalance = Math.max(0, totalAmt - newPaid);
+      const nextStatus = newBalance <= 0 ? 'paid' : 'partial';
+
+      // 1. Post payment via API
+      await financeService.createPayment({
+        invoice: receivingInvoice.id,
+        amount: deposit,
+        payment_method: receiveMethod,
+        date: new Date().toISOString().substring(0, 10)
+      }).catch(e => console.warn('Payment API notice:', e));
+
+      // 2. Patch invoice via API
+      await financeService.updateInvoice(receivingInvoice.id, {
+        paid_amount: newPaid,
+        balance_due: newBalance,
+        status: nextStatus
+      }).catch(e => console.warn('Invoice API notice:', e));
+
+      // 3. Post income transaction to Ledger
+      const studentName = receivingInvoice.student_name || 'Student';
+      try {
+        await ledgerService.createLedgerEntry({
+          date: new Date().toISOString().substring(0, 10),
+          description: `Fee Payment Received - ${studentName} (${receivingInvoice.invoice_number})`,
+          amount: deposit,
+          type: 'income',
+          account_head_name: 'Student Fee Collection',
+          reference: receivingInvoice.invoice_number || `INV-${receivingInvoice.id}`,
+          notes: `Received Rs ${deposit} via ${receiveMethod}`
+        });
+      } catch (e) {
+        console.warn('Ledger notice:', e);
+      }
+
+      // 4. Save local receipt for instant UI sync
+      try {
+        const localFeeReceipts = JSON.parse(localStorage.getItem('erp_collected_fees') || '[]');
+        localFeeReceipts.push({
+          invoice_id: receivingInvoice.id,
+          invoice_number: receivingInvoice.invoice_number,
+          student_name: receivingInvoice.student_name,
+          depositAmount: deposit,
+          date: new Date().toISOString().substring(0, 10)
+        });
+        localStorage.setItem('erp_collected_fees', JSON.stringify(localFeeReceipts));
+      } catch (e) {}
+
+      toast.success(`Payment of Rs ${deposit.toLocaleString()} received for ${receivingInvoice.invoice_number}!`);
+      setShowReceiveModal(false);
+      setReceivingInvoice(null);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to record payment. Please try again.');
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
+
+  // Get status badge component
+  const getStatusBadge = (inv: Invoice) => {
+    const invoiceStatus = getInvoiceStatus(inv);
+    const isDef = isDefaulter(inv);
+
+    if (invoiceStatus === 'cancelled') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-400">
+          <X className="w-3 h-3" /> Cancelled
+        </span>
+      );
+    }
+
+    if (isDef && invoiceStatus !== 'paid') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-50 border border-rose-100 text-rose-600">
+          <Clock className="w-3 h-3" /> Defaulter
+        </span>
+      );
+    }
+
+    if (invoiceStatus === 'paid') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 border border-emerald-100 text-emerald-600">
+          <CheckCircle2 className="w-3 h-3" /> Paid
+        </span>
+      );
+    }
+
+    if (invoiceStatus === 'partial') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 border border-amber-100 text-amber-600">
+          <AlertTriangle className="w-3 h-3" /> Partial
+        </span>
+      );
+    }
+
+    if (invoiceStatus === 'pending') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-500">
+          <Clock className="w-3 h-3" /> Pending
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-500">
+        Unknown
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-6 text-slate-800 pb-12">
       {/* Page Header */}
@@ -302,61 +592,112 @@ export default function InvoicesPage() {
             <Receipt className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight">Invoice List (clist)</h1>
+            <h1 className="text-xl font-black text-slate-800 tracking-tight">Invoice List</h1>
             <p className="text-xs font-semibold text-slate-400">View, search, and filter student fee invoices and payment status</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchData}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+          >
+            <Receipt className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Invoices */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-3xs flex items-center gap-4 hover:shadow-2xs transition-shadow">
-          <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
+      {/* Interactive Clickable Summary Cards (5 Cards Grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Total Invoices Card */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('all')}
+          className={`bg-white p-3.5 rounded-2xl border text-left shadow-3xs flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'all' ? 'border-purple-600 ring-2 ring-purple-600/20 bg-purple-50/20' : 'border-slate-150'
+          }`}
+        >
+          <div className="p-2.5 bg-purple-50 rounded-xl text-purple-600 shrink-0">
             <Receipt className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Invoices</p>
-            <h3 className="text-lg font-black text-slate-850 mt-0.5">{stats.totalInvoices}</h3>
-            <p className="text-xs font-bold text-slate-500">Rs {formatCurrency(stats.totalInvoicedAmount)}</p>
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Total Invoices</p>
+            <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.totalInvoices}</h3>
+            <p className="text-[11px] font-bold text-slate-500">Rs {formatCurrency(stats.totalInvoicedAmount)}</p>
           </div>
-        </div>
+        </button>
 
-        {/* Paid Invoices */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-3xs flex items-center gap-4 hover:shadow-2xs transition-shadow">
-          <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+        {/* Paid Invoices Card */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('paid')}
+          className={`bg-white p-3.5 rounded-2xl border text-left shadow-3xs flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'paid' ? 'border-emerald-600 ring-2 ring-emerald-600/20 bg-emerald-50/20' : 'border-slate-150'
+          }`}
+        >
+          <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">Paid Invoices</p>
-            <h3 className="text-lg font-black text-slate-850 mt-0.5">{stats.paidCount}</h3>
-            <p className="text-xs font-bold text-emerald-600">Rs {formatCurrency(stats.totalPaid)}</p>
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600">Paid Invoices</p>
+            <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.paidCount}</h3>
+            <p className="text-[11px] font-bold text-emerald-600">Rs {formatCurrency(stats.totalPaid)}</p>
           </div>
-        </div>
+        </button>
 
-        {/* Pending Invoices */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-3xs flex items-center gap-4 hover:shadow-2xs transition-shadow">
-          <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
+        {/* Partial Paid Card */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('partial')}
+          className={`bg-white p-3.5 rounded-2xl border text-left shadow-3xs flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'partial' ? 'border-blue-600 ring-2 ring-blue-600/20 bg-blue-50/20' : 'border-slate-150'
+          }`}
+        >
+          <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600 shrink-0">
+            <PieChart className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-blue-600">Partial Paid</p>
+            <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.partialCount}</h3>
+            <p className="text-[11px] font-bold text-blue-600">Rs {formatCurrency(stats.totalPartialAmount)}</p>
+          </div>
+        </button>
+
+        {/* Pending Invoices Card */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('pending')}
+          className={`bg-white p-3.5 rounded-2xl border text-left shadow-3xs flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'pending' ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/20' : 'border-slate-150'
+          }`}
+        >
+          <div className="p-2.5 bg-amber-50 rounded-xl text-amber-600 shrink-0">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600">Pending Invoices</p>
-            <h3 className="text-lg font-black text-slate-850 mt-0.5">{stats.pendingCount}</h3>
-            <p className="text-xs font-bold text-amber-600">Rs {formatCurrency(stats.totalPendingAmount)}</p>
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-amber-600">Pending Invoices</p>
+            <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.pendingCount}</h3>
+            <p className="text-[11px] font-bold text-amber-600">Rs {formatCurrency(stats.totalPendingAmount)}</p>
           </div>
-        </div>
+        </button>
 
-        {/* Defaulters */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-150 shadow-3xs flex items-center gap-4 hover:shadow-2xs transition-shadow">
-          <div className="p-3 bg-red-50 rounded-xl text-red-600">
+        {/* Defaulters Card */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter('defaulters')}
+          className={`bg-white p-3.5 rounded-2xl border text-left shadow-3xs flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer ${
+            statusFilter === 'defaulters' ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20' : 'border-slate-150'
+          }`}
+        >
+          <div className="p-2.5 bg-red-50 rounded-xl text-red-600 shrink-0">
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-red-600">Defaulters</p>
-            <h3 className="text-lg font-black text-slate-850 mt-0.5">{stats.defaulterCount}</h3>
-            <p className="text-xs font-bold text-red-600">Rs {formatCurrency(stats.totalDefaulterAmount)}</p>
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-red-600">Defaulters</p>
+            <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.defaulterCount}</h3>
+            <p className="text-[11px] font-bold text-red-600">Rs {formatCurrency(stats.totalDefaulterAmount)}</p>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Filter panel */}
@@ -422,6 +763,7 @@ export default function InvoicesPage() {
             >
               <option value="all">All Invoices</option>
               <option value="paid">Paid Invoices</option>
+              <option value="partial">Partially Paid Invoices</option>
               <option value="pending">Pending Invoices</option>
               <option value="defaulters">Defaulters (Overdue)</option>
             </select>
@@ -457,7 +799,7 @@ export default function InvoicesPage() {
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/70 border-b border-slate-150 text-[10px] font-black text-slate-455 uppercase tracking-wider">
-                  <th className="py-3 px-4 w-12 text-center">Sr.</th>
+                  <th className="py-3 px-4 w-12 text-center">#</th>
                   <th className="py-3 px-4">Student Name & ID</th>
                   <th className="py-3 px-4">Class</th>
                   <th className="py-3 px-4">Month</th>
@@ -477,9 +819,12 @@ export default function InvoicesPage() {
                   const studentIdCode = studentObj?.student_id || 'N/A';
                   const className = studentObj?.current_class?.name || inv.class_name || 'N/A';
                   
+                  const totalAmt = Number(inv.total_amount || 0);
+                  const paidAmt = Number(inv.paid_amount || 0);
+                  const balance = Number(inv.balance_due || 0);
+                  const invoiceStatus = getInvoiceStatus(inv);
                   const isDef = isDefaulter(inv);
-                  const totalAmt = inv.total_amount !== undefined ? inv.total_amount : (Number(inv.amount || 0) + Number(inv.late_fee_amount || 0) - Number(inv.discount_amount || 0));
-                  const balance = inv.balance_due !== undefined ? inv.balance_due : (totalAmt - inv.paid_amount);
+                  const isPaid = invoiceStatus === 'paid' || (totalAmt > 0 && paidAmt >= totalAmt) || (balance <= 0 && totalAmt > 0);
 
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/30 transition-colors">
@@ -510,7 +855,7 @@ export default function InvoicesPage() {
 
                       {/* Paid Amount */}
                       <td className="py-3.5 px-4 text-right font-bold text-emerald-600">
-                        Rs {formatCurrency(inv.paid_amount)}
+                        Rs {formatCurrency(paidAmt)}
                       </td>
 
                       {/* Pending Balance */}
@@ -523,27 +868,7 @@ export default function InvoicesPage() {
 
                       {/* Status Badge */}
                       <td className="py-3.5 px-4 text-center">
-                        {isDef ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-50 border border-rose-100 text-rose-600">
-                            <Clock className="w-3 h-3" /> Defaulter
-                          </span>
-                        ) : inv.status === 'cancelled' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-400" title={`Cancellation Remarks: ${inv.cancellation_remarks || 'None'}`}>
-                            <X className="w-3 h-3" /> Cancelled
-                          </span>
-                        ) : inv.status === 'paid' || balance <= 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 border border-emerald-100 text-emerald-600">
-                            <CheckCircle2 className="w-3 h-3" /> Paid
-                          </span>
-                        ) : inv.status === 'partial' || (inv.paid_amount > 0 && balance > 0) ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 border border-amber-100 text-amber-600">
-                            <AlertTriangle className="w-3 h-3" /> Partial
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 border border-slate-200 text-slate-500">
-                            Unpaid
-                          </span>
-                        )}
+                        {getStatusBadge(inv)}
                       </td>
 
                       {/* Actions */}
@@ -556,20 +881,20 @@ export default function InvoicesPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {balance > 0 && inv.status !== 'cancelled' && (
+                          {!isPaid && inv.status !== 'cancelled' && balance > 0 && (
                             <button
-                              onClick={() => navigate(`/education/finance/collect-fees?student_id=${inv.student}`)}
-                              title="Collect Due Payment"
-                              className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all"
+                              onClick={() => handleInitiateReceive(inv)}
+                              title="Receive Fee Payment Now"
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all shadow-3xs cursor-pointer flex items-center gap-1"
                             >
-                              Collect
+                              <CheckCircle2 className="w-3 h-3" /> Receive Now
                             </button>
                           )}
                           {inv.status !== 'cancelled' && (
                             <button
                               onClick={() => handleInitiateCancel(inv)}
                               title="Cancel Invoice"
-                              className="p-1.5 bg-rose-50 text-rose-655 hover:bg-rose-100 rounded-lg text-rose-600 transition-all flex items-center justify-center"
+                              className="p-1.5 bg-rose-50 text-rose-655 hover:bg-rose-100 rounded-lg text-rose-600 transition-all flex items-center justify-center cursor-pointer"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -607,7 +932,7 @@ export default function InvoicesPage() {
                 <p><span className="font-bold text-slate-400">INVOICE NO:</span> <span className="font-mono font-bold text-slate-800 uppercase tracking-tight">{cancellingInvoice.invoice_number}</span></p>
                 <p><span className="font-bold text-slate-400">STUDENT:</span> <span className="font-bold text-slate-800">{cancellingInvoice.student_name || 'N/A'}</span></p>
                 <p><span className="font-bold text-slate-400">MONTH:</span> <span className="font-bold text-slate-800">{getInvoiceFeeMonth(cancellingInvoice)}</span></p>
-                <p><span className="font-bold text-slate-400">TOTAL AMOUNT:</span> <span className="font-bold text-rose-600">Rs {formatCurrency(cancellingInvoice.total_amount !== undefined ? cancellingInvoice.total_amount : cancellingInvoice.amount)}</span></p>
+                <p><span className="font-bold text-slate-400">TOTAL AMOUNT:</span> <span className="font-bold text-rose-600">Rs {formatCurrency(cancellingInvoice.total_amount || cancellingInvoice.amount)}</span></p>
               </div>
               
               <div className="space-y-1.5">
@@ -635,6 +960,75 @@ export default function InvoicesPage() {
                 className="px-5 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all flex items-center gap-1.5"
               >
                 {submittingCancellation ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Receive Payment Modal */}
+      {showReceiveModal && receivingInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl border border-slate-150 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
+              <div className="flex items-center gap-2 text-emerald-700">
+                <CheckCircle2 className="w-5 h-5" />
+                <h4 className="font-extrabold text-sm uppercase tracking-wider">Receive Fee Payment</h4>
+              </div>
+              <button 
+                onClick={() => { setShowReceiveModal(false); setReceivingInvoice(null); }}
+                className="p-1 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <div className="text-xs space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-150">
+                <p><span className="font-bold text-slate-400">INVOICE NO:</span> <span className="font-mono font-bold text-slate-800 uppercase tracking-tight">{receivingInvoice.invoice_number}</span></p>
+                <p><span className="font-bold text-slate-400">STUDENT:</span> <span className="font-bold text-slate-800">{receivingInvoice.student_name || 'N/A'}</span></p>
+                <p><span className="font-bold text-slate-400">TOTAL DUE:</span> <span className="font-bold text-emerald-600">Rs {formatCurrency(receivingInvoice.balance_due || receivingInvoice.amount)}</span></p>
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Payment Method</label>
+                <select
+                  value={receiveMethod}
+                  onChange={(e) => setReceiveMethod(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-3xs cursor-pointer"
+                >
+                  <option value="cash">Cash Payment</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="online">Online Payment</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Deposit / Payment Amount (Rs) *</label>
+                <input
+                  type="number"
+                  placeholder="Enter amount paid..."
+                  value={receiveDeposit}
+                  onChange={(e) => setReceiveDeposit(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-3xs"
+                />
+              </div>
+            </div>
+            
+            <div className="p-5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+              <button 
+                onClick={() => { setShowReceiveModal(false); setReceivingInvoice(null); }}
+                className="px-4 py-2 border border-slate-200 hover:bg-white text-slate-500 font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleConfirmReceive}
+                disabled={submittingPayment || !receiveDeposit || parseFloat(receiveDeposit) <= 0}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                {submittingPayment ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> : 'Confirm Payment'}
               </button>
             </div>
           </div>

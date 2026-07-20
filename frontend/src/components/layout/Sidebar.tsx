@@ -188,20 +188,20 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   // ============================================================
   const adminMenuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" />, href: '/dashboard' },
-    { id: 'attendance', label: 'Attendance', icon: <Hand className="w-4 h-4" />, href: '/education/attendance' },
     { id: 'students', label: 'Students', icon: <Users className="w-4 h-4" />, href: '/education/students' },
+    { id: 'attendance', label: 'Attendance', icon: <Hand className="w-4 h-4" />, href: '/education/attendance' },
     { id: 'fees', label: 'Fees', icon: <Banknote className="w-4 h-4" />, href: '/education/fees/invoices' },
     { id: 'employees', label: 'Employees', icon: <Users className="w-4 h-4" />, href: '/education/teachers' },
+    { id: 'salary', label: 'Salary', icon: <DollarSign className="w-4 h-4" />, href: '/education/salary/generate' },
     { id: 'timetable', label: 'Timetable', icon: <Calendar className="w-4 h-4" />, href: '/education/timetable' },
     { id: 'examination', label: 'Examination', icon: <Edit className="w-4 h-4" />, href: '/education/exams' },
     { id: 'behaviour', label: 'Behaviour & Skills', icon: <Eye className="w-4 h-4" />, href: '/education/behaviour/rate' },
-    { id: 'accounts', label: 'Accounts', icon: <Wallet className="w-4 h-4" />, href: '/education/accounts/chart-of-accounts' },
+    { id: 'accounts', label: 'Finance', icon: <Wallet className="w-4 h-4" />, href: '/education/accounts/chart-of-accounts' },
     { id: 'communication', label: 'Communication', icon: <MessageSquare className="w-4 h-4" />, href: '/education/communication' },
     { id: 'academic-setup', label: 'Academic Setup', icon: <GraduationCap className="w-4 h-4" />, href: '/education/academic-setup' },
     { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
-    { id: 'salary', label: 'Salary', icon: <DollarSign className="w-4 h-4" />, href: '/education/salary/generate' },
     { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
-    { id: 'settings', label: 'General Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
+    { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
     { id: 'logout', label: 'Log out', icon: <LogOut className="w-4 h-4" />, isLogout: true },
   ];
 

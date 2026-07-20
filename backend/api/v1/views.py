@@ -819,7 +819,7 @@ def invoices_list_view(request):
                 if status_filter != 'all':
                     queryset = queryset.filter(status=status_filter)
             else:
-                queryset = queryset.filter(status__in=['unpaid', 'pending', 'draft', 'issued', 'partial', 'overdue'])
+                queryset = queryset.filter(status__in=['unpaid', 'pending', 'draft', 'issued', 'partial', 'overdue', 'paid'])
         queryset = queryset.order_by('-created_at')
         serializer = InvoiceSerializer(queryset, many=True)
         return Response({'count': len(serializer.data), 'results': serializer.data})
