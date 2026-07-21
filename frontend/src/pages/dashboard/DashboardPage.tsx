@@ -10,6 +10,7 @@ import analyticsService from '@/services/analytics.service';
 import type { ExecutiveDashboardResponse } from '@/services/analytics.service';
 import { extractListData } from '@/services/api';
 import { websocketService } from '@/services/websocket.service';
+import { getCurrencySymbol } from '@/utils/currency';
 import {
   LiveDataBadge,
   StatCard,
@@ -67,14 +68,7 @@ export default function DashboardPage() {
   const [execData, setExecData] = useState<ExecutiveDashboardResponse | null>(null);
 
   // ── Currency symbol ─────────────────────────────────────────
-  const savedAccountSettings = localStorage.getItem('account_settings');
-  let symbol = 'Rs';
-  if (savedAccountSettings) {
-    try {
-      const a = JSON.parse(savedAccountSettings);
-      if (a.symbol) symbol = a.symbol;
-    } catch (_) {}
-  }
+  const symbol = getCurrencySymbol();
 
   useEffect(() => {
     mountedRef.current = true;

@@ -1,10 +1,12 @@
+import { getCurrencySymbol } from '@/utils/currency';
+
 interface FeeDonutProps {
   collections: number;
   remainings: number;
   currency?: string;
 }
 
-export default function FeeDonut({ collections, remainings, currency = 'Rs' }: FeeDonutProps) {
+export default function FeeDonut({ collections, remainings, currency = getCurrencySymbol() }: FeeDonutProps) {
   const total = collections + remainings || 1;
   const pct = Math.round((collections / total) * 100);
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getCurrencySymbol } from '@/utils/currency';
 import { 
   Receipt, 
   Search, 
@@ -205,11 +206,12 @@ export default function InvoicesPage() {
     }
   };
 
+  const sym = getCurrencySymbol();
   const formatCurrency = (val: any) => {
     if (val === undefined || val === null) return '0';
     const num = Number(val);
     if (isNaN(num)) return String(val);
-    return num.toLocaleString();
+    return `${sym} ${num.toLocaleString()}`;
   };
 
   // Helper to determine if an invoice is in defaulter state
@@ -623,7 +625,7 @@ export default function InvoicesPage() {
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">Total Invoices</p>
             <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.totalInvoices}</h3>
-            <p className="text-[11px] font-bold text-slate-500">Rs {formatCurrency(stats.totalInvoicedAmount)}</p>
+            <p className="text-[11px] font-bold text-slate-500">{formatCurrency(stats.totalInvoicedAmount)}</p>
           </div>
         </button>
 
@@ -641,7 +643,7 @@ export default function InvoicesPage() {
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600">Paid Invoices</p>
             <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.paidCount}</h3>
-            <p className="text-[11px] font-bold text-emerald-600">Rs {formatCurrency(stats.totalPaid)}</p>
+            <p className="text-[11px] font-bold text-emerald-600">{formatCurrency(stats.totalPaid)}</p>
           </div>
         </button>
 
@@ -659,7 +661,7 @@ export default function InvoicesPage() {
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-blue-600">Partial Paid</p>
             <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.partialCount}</h3>
-            <p className="text-[11px] font-bold text-blue-600">Rs {formatCurrency(stats.totalPartialAmount)}</p>
+            <p className="text-[11px] font-bold text-blue-600">{formatCurrency(stats.totalPartialAmount)}</p>
           </div>
         </button>
 
@@ -677,7 +679,7 @@ export default function InvoicesPage() {
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-amber-600">Pending Invoices</p>
             <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.pendingCount}</h3>
-            <p className="text-[11px] font-bold text-amber-600">Rs {formatCurrency(stats.totalPendingAmount)}</p>
+            <p className="text-[11px] font-bold text-amber-600">{formatCurrency(stats.totalPendingAmount)}</p>
           </div>
         </button>
 
@@ -695,7 +697,7 @@ export default function InvoicesPage() {
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-red-600">Defaulters</p>
             <h3 className="text-base font-black text-slate-850 mt-0.5">{stats.defaulterCount}</h3>
-            <p className="text-[11px] font-bold text-red-600">Rs {formatCurrency(stats.totalDefaulterAmount)}</p>
+            <p className="text-[11px] font-bold text-red-600">{formatCurrency(stats.totalDefaulterAmount)}</p>
           </div>
         </button>
       </div>
@@ -850,17 +852,17 @@ export default function InvoicesPage() {
 
                       {/* Total Amount */}
                       <td className="py-3.5 px-4 text-right font-bold text-slate-800">
-                        Rs {formatCurrency(totalAmt)}
+                        {formatCurrency(totalAmt)}
                       </td>
 
                       {/* Paid Amount */}
                       <td className="py-3.5 px-4 text-right font-bold text-emerald-600">
-                        Rs {formatCurrency(paidAmt)}
+                        {formatCurrency(paidAmt)}
                       </td>
 
                       {/* Pending Balance */}
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                        Rs {formatCurrency(balance)}
+                        {formatCurrency(balance)}
                       </td>
 
                       {/* Due Date */}
@@ -932,7 +934,7 @@ export default function InvoicesPage() {
                 <p><span className="font-bold text-slate-400">INVOICE NO:</span> <span className="font-mono font-bold text-slate-800 uppercase tracking-tight">{cancellingInvoice.invoice_number}</span></p>
                 <p><span className="font-bold text-slate-400">STUDENT:</span> <span className="font-bold text-slate-800">{cancellingInvoice.student_name || 'N/A'}</span></p>
                 <p><span className="font-bold text-slate-400">MONTH:</span> <span className="font-bold text-slate-800">{getInvoiceFeeMonth(cancellingInvoice)}</span></p>
-                <p><span className="font-bold text-slate-400">TOTAL AMOUNT:</span> <span className="font-bold text-rose-600">Rs {formatCurrency(cancellingInvoice.total_amount || cancellingInvoice.amount)}</span></p>
+                <p><span className="font-bold text-slate-400">TOTAL AMOUNT:</span> <span className="font-bold text-rose-600">{formatCurrency(cancellingInvoice.total_amount || cancellingInvoice.amount)}</span></p>
               </div>
               
               <div className="space-y-1.5">
@@ -987,7 +989,7 @@ export default function InvoicesPage() {
               <div className="text-xs space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-150">
                 <p><span className="font-bold text-slate-400">INVOICE NO:</span> <span className="font-mono font-bold text-slate-800 uppercase tracking-tight">{receivingInvoice.invoice_number}</span></p>
                 <p><span className="font-bold text-slate-400">STUDENT:</span> <span className="font-bold text-slate-800">{receivingInvoice.student_name || 'N/A'}</span></p>
-                <p><span className="font-bold text-slate-400">TOTAL DUE:</span> <span className="font-bold text-emerald-600">Rs {formatCurrency(receivingInvoice.balance_due || receivingInvoice.amount)}</span></p>
+                <p><span className="font-bold text-slate-400">TOTAL DUE:</span> <span className="font-bold text-emerald-600">{formatCurrency(receivingInvoice.balance_due || receivingInvoice.amount)}</span></p>
               </div>
               
               <div className="space-y-1.5">

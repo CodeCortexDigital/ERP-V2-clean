@@ -9,10 +9,12 @@ import api from '@/services/api';
 import ledgerService, { Payslip } from '@/services/ledger.service';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
+import { getCurrencySymbol } from '@/utils/currency';
 
+const sym = getCurrencySymbol();
 const formatCurrency = (val: number | string | undefined | null): string => {
   const num = Number(val || 0);
-  return num.toLocaleString('en-PK');
+  return `${sym} ${num.toLocaleString('en-PK')}`;
 };
 
 const formatDate = (dateStr: string | undefined | null): string => {
@@ -356,7 +358,7 @@ export default function PayslipsListPage() {
           </div>
           <div className="space-y-0.5">
             <div className="text-2xl font-black text-slate-800">{stats.totalCount}</div>
-            <div className="text-xs font-bold text-slate-500">Rs {formatCurrency(stats.totalSalaryAmount)}</div>
+            <div className="text-xs font-bold text-slate-500">{formatCurrency(stats.totalSalaryAmount)}</div>
           </div>
         </button>
 
@@ -377,7 +379,7 @@ export default function PayslipsListPage() {
           </div>
           <div className="space-y-0.5">
             <div className="text-2xl font-black text-slate-800">{stats.paidCount}</div>
-            <div className="text-xs font-bold text-emerald-600">Rs {formatCurrency(stats.totalPaidAmount)}</div>
+            <div className="text-xs font-bold text-emerald-600">{formatCurrency(stats.totalPaidAmount)}</div>
           </div>
         </button>
 
@@ -398,7 +400,7 @@ export default function PayslipsListPage() {
           </div>
           <div className="space-y-0.5">
             <div className="text-2xl font-black text-slate-800">{stats.partialCount}</div>
-            <div className="text-xs font-bold text-blue-600">Rs {formatCurrency(stats.totalPartialAmount)}</div>
+            <div className="text-xs font-bold text-blue-600">{formatCurrency(stats.totalPartialAmount)}</div>
           </div>
         </button>
 
@@ -419,7 +421,7 @@ export default function PayslipsListPage() {
           </div>
           <div className="space-y-0.5">
             <div className="text-2xl font-black text-slate-800">{stats.pendingCount}</div>
-            <div className="text-xs font-bold text-amber-600">Rs {formatCurrency(stats.totalPendingAmount)}</div>
+            <div className="text-xs font-bold text-amber-600">{formatCurrency(stats.totalPendingAmount)}</div>
           </div>
         </button>
 
@@ -440,7 +442,7 @@ export default function PayslipsListPage() {
           </div>
           <div className="space-y-0.5">
             <div className="text-2xl font-black text-slate-800">{stats.unpaidCount}</div>
-            <div className="text-xs font-bold text-rose-600">Rs {formatCurrency(stats.totalUnpaidAmount)}</div>
+            <div className="text-xs font-bold text-rose-600">{formatCurrency(stats.totalUnpaidAmount)}</div>
           </div>
         </button>
       </div>
@@ -591,17 +593,17 @@ export default function PayslipsListPage() {
 
                       {/* Net Salary */}
                       <td className="py-3.5 px-4 text-right font-bold text-slate-800">
-                        Rs {formatCurrency(slip.net_salary)}
+                        {formatCurrency(slip.net_salary)}
                       </td>
 
                       {/* Paid Amount */}
                       <td className="py-3.5 px-4 text-right font-bold text-emerald-600">
-                        Rs {formatCurrency(slip.paid_amount)}
+                        {formatCurrency(slip.paid_amount)}
                       </td>
 
                       {/* Pending Balance */}
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                        Rs {formatCurrency(slip.pending_balance)}
+                        {formatCurrency(slip.pending_balance)}
                       </td>
 
                       {/* Pay Date */}
@@ -679,7 +681,7 @@ export default function PayslipsListPage() {
               <div className="text-xs space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-150">
                 <p><span className="font-bold text-slate-400">EMPLOYEE:</span> <span className="font-bold text-slate-800">{payingSlip.employee_name}</span></p>
                 <p><span className="font-bold text-slate-400">PAY MONTH:</span> <span className="font-bold text-slate-800">{payingSlip.month}</span></p>
-                <p><span className="font-bold text-slate-400">TOTAL DUE:</span> <span className="font-bold text-emerald-600">Rs {formatCurrency(payingSlip.pending_balance)}</span></p>
+                <p><span className="font-bold text-slate-400">TOTAL DUE:</span> <span className="font-bold text-emerald-600">{formatCurrency(payingSlip.pending_balance)}</span></p>
               </div>
               
               <div className="space-y-1.5">

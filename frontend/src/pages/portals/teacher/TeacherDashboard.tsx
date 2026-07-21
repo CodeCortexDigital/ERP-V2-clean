@@ -319,30 +319,31 @@ export default function TeacherDashboard() {
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-4 text-slate-800 pb-12">
       {/* Top Breadcrumb Bar */}
-      <div className="flex items-center justify-between text-xs font-bold text-slate-400 bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between text-xs font-bold bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2.5">
           <span
-            className="text-slate-800 font-extrabold text-sm border-r border-slate-200 pr-3.5 mr-1 hover:underline cursor-pointer"
+            className="text-indigo-700 font-black text-sm tracking-tight cursor-pointer hover:text-indigo-900 transition-colors"
             onClick={() => navigate('/teacher')}
           >
             Teacher Portal
           </span>
-          <span>Dashboard</span>
+          <span className="text-slate-300 text-lg font-light">/</span>
+          <span className="text-slate-500">Dashboard</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => { fetchProfileData(); fetchMyClasses(); fetchNotices(); }}
-            className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors"
+            className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all"
             title="Refresh Dashboard"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleLogout}
-            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 transition-colors"
+            className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-400 hover:text-rose-600 transition-all"
             title="Log out"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -351,116 +352,93 @@ export default function TeacherDashboard() {
 
         {/* Left Column: Employee Profile Card */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-3xs p-6 flex flex-col items-center">
-            <div className="w-28 h-28 rounded-full border-4 border-slate-100 overflow-hidden shadow-2xs mb-4 relative bg-slate-50 flex items-center justify-center">
-              {employee?.profilePicture ? (
-                <img src={mediaUrl(employee.profilePicture)} alt={employee.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-4xl">👩‍🏫</span>
-              )}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {/* Gradient header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 h-20 relative">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1)_0%,transparent_60%)]"></div>
             </div>
+            <div className="px-5 pb-5">
+              <div className="flex flex-col items-center -mt-14">
+                <div className="w-28 h-28 rounded-full border-4 border-white shadow-md overflow-hidden bg-indigo-50 flex items-center justify-center">
+                  {employee?.profilePicture ? (
+                    <img src={mediaUrl(employee.profilePicture)} alt={employee.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-4xl">👩‍🏫</span>
+                  )}
+                </div>
+                <h3 className="mt-2 text-lg font-black text-slate-800 text-center">
+                  {employee?.name}
+                </h3>
+                <span className="mt-0.5 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+                  {employee?.role}
+                </span>
+                <button
+                  onClick={() => {
+                    setProfileForm({
+                      phone: employee?.phone || '',
+                      home_address: employee?.address || employee?.home_address || '',
+                      education: employee?.education || '',
+                      father_husband_name: employee?.fatherName || employee?.father_husband_name || '',
+                      religion: employee?.religion || '',
+                      blood_group: employee?.bloodGroup || employee?.blood_group || '',
+                      national_id: employee?.cnic || employee?.national_id || '',
+                    });
+                    setShowProfileModal(true);
+                  }}
+                  className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 text-[11px] font-bold hover:bg-indigo-100 transition-colors"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  My Profile
+                </button>
+              </div>
 
-            <h3 className="text-lg font-black text-[#5C53CD] uppercase tracking-wide text-center">
-              {employee?.name}
-            </h3>
-            <span className="mt-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold uppercase tracking-wider">
-              {employee?.role}
-            </span>
-
-            <button
-              onClick={() => {
-                setProfileForm({
-                  phone: employee?.phone || '',
-                  home_address: employee?.address || employee?.home_address || '',
-                  education: employee?.education || '',
-                  father_husband_name: employee?.fatherName || employee?.father_husband_name || '',
-                  religion: employee?.religion || '',
-                  blood_group: employee?.bloodGroup || employee?.blood_group || '',
-                  national_id: employee?.cnic || employee?.national_id || '',
-                });
-                setShowProfileModal(true);
-              }}
-              className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-bold hover:bg-slate-50 transition-colors"
-            >
-              <User className="w-3.5 h-3.5" />
-              My Profile
-            </button>
-
-            <div className="w-full mt-6 space-y-3.5 text-[11px] font-bold text-slate-500 border-t border-slate-100 pt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Registration No</span>
-                <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg font-mono font-bold">{employee?.regNo}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Monthly Salary</span>
-                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg font-bold">{employee?.monthlySalary}</span>
-              </div>
-              <div className="border-t border-dashed border-slate-100 my-2"></div>
-              <div className="flex justify-between items-start gap-2">
-                <span className="text-slate-400 flex-shrink-0">Father / Husband</span>
-                <span className="text-slate-700 text-right">{employee?.fatherName}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Mobile No</span>
-                <span className="text-slate-700">{employee?.phone}</span>
-              </div>
-              <div className="flex justify-between items-start gap-2">
-                <span className="text-slate-400 flex-shrink-0">Email Address</span>
-                <span className="text-slate-700 text-right break-all">{employee?.email}</span>
-              </div>
-              <div className="flex justify-between items-start gap-2">
-                <span className="text-slate-400 flex-shrink-0">Home Address</span>
-                <span className="text-slate-700 text-right">{employee?.address}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">National ID</span>
-                <span className="text-slate-700 font-mono">{employee?.cnic}</span>
-              </div>
-              <div className="flex justify-between items-start gap-2">
-                <span className="text-slate-400 flex-shrink-0">Education</span>
-                <span className="text-slate-700 text-right">{employee?.education}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Gender</span>
-                <span className="text-slate-700">{employee?.gender}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Religion</span>
-                <span className="text-slate-700">{employee?.religion}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Blood Group</span>
-                <span className="text-slate-700">{employee?.bloodGroup}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Date of Birth</span>
-                <span className="text-slate-700 font-mono">{employee?.dob}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Date of Joining</span>
-                <span className="text-slate-700 font-mono">{employee?.joiningDate}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Experience</span>
-                <span className="text-slate-700">{employee?.experience}</span>
+              <div className="mt-5 space-y-2.5 text-[11px] font-medium text-slate-500">
+                <div className="flex justify-between items-center bg-blue-50/50 -mx-2 px-2 py-1.5 rounded-lg">
+                  <span className="text-slate-400 font-semibold">Registration No</span>
+                  <span className="text-blue-600 bg-blue-100/60 px-2 py-0.5 rounded-md font-mono font-bold">{employee?.regNo}</span>
+                </div>
+                <div className="flex justify-between items-center bg-emerald-50/50 -mx-2 px-2 py-1.5 rounded-lg">
+                  <span className="text-slate-400 font-semibold">Monthly Salary</span>
+                  <span className="text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md font-bold">{employee?.monthlySalary}</span>
+                </div>
+                <div className="border-t border-dashed border-slate-100 my-1.5"></div>
+                {[
+                  ['Father / Husband', employee?.fatherName],
+                  ['Mobile No', employee?.phone],
+                  ['Email Address', employee?.email],
+                  ['Home Address', employee?.address],
+                  ['National ID', employee?.cnic],
+                  ['Education', employee?.education],
+                  ['Gender', employee?.gender],
+                  ['Religion', employee?.religion],
+                  ['Blood Group', employee?.bloodGroup],
+                  ['Date of Birth', employee?.dob],
+                  ['Date of Joining', employee?.joiningDate],
+                  ['Experience', employee?.experience],
+                ].map(([label, val]) => (
+                  <div key={String(label)} className="flex justify-between items-start gap-2">
+                    <span className="text-slate-400 font-semibold flex-shrink-0">{label}</span>
+                    <span className={`text-slate-700 text-right ${label === 'National ID' || label === 'Date of Birth' || label === 'Date of Joining' ? 'font-mono' : ''} ${label === 'Email Address' ? 'break-all' : ''}`}>{String(val || '--')}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
           {/* Salary card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-3xs p-5 space-y-3">
-            <div className="flex items-center gap-2 text-slate-800">
-              <DollarSign className="w-4 h-4 text-emerald-600" />
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
+            <div className="flex items-center gap-2 text-slate-800 border-b border-slate-50 pb-2.5">
+              <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></span>
               <h3 className="text-xs font-black uppercase tracking-wider">Salary Snapshot</h3>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-center">
+              <div className="p-3 bg-gradient-to-br from-emerald-50 to-emerald-100/60 rounded-xl border border-emerald-200 text-center shadow-sm">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Current Salary</span>
-                <span className="text-xs font-black text-emerald-700">{employee?.monthlySalary}</span>
+                <span className="text-sm font-black text-emerald-700">{employee?.monthlySalary}</span>
               </div>
-              <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-100 text-center">
+              <div className="p-3 bg-gradient-to-br from-rose-50 to-rose-100/60 rounded-xl border border-rose-200 text-center shadow-sm">
                 <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">This Month</span>
-                <span className="inline-block px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[8px] font-black uppercase tracking-wider">
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-gradient-to-r from-rose-500 to-rose-600 text-white text-[8px] font-black uppercase tracking-wider shadow-xs">
                   Not Received
                 </span>
               </div>
@@ -472,45 +450,48 @@ export default function TeacherDashboard() {
         <div className="lg:col-span-8 space-y-6">
 
           {/* Welcome Banner */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-700 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden">
+            {/* decorative circles */}
+            <div className="absolute -top-6 -left-6 w-32 h-32 rounded-full bg-white/5"></div>
+            <div className="absolute -bottom-8 -right-4 w-40 h-40 rounded-full bg-white/[0.04]"></div>
+            <div className="absolute top-2 right-20 w-16 h-16 rounded-full bg-white/[0.03]"></div>
             <div className="space-y-1.5 z-10">
-              <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-[9px] font-black uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-white/15 text-[9px] font-black uppercase tracking-wider backdrop-blur-xs">
                 👋 Welcome {employee?.name} at Teacher Portal.
               </span>
-              <h2 className="text-xl font-black">{instituteName}</h2>
-              <p className="text-[10px] text-blue-150 font-bold uppercase tracking-wider">{instituteTagline}</p>
+              <h2 className="text-xl font-black tracking-tight">{instituteName}</h2>
+              {instituteTagline && <p className="text-[10px] text-indigo-200 font-bold uppercase tracking-wider">{instituteTagline}</p>}
             </div>
-            <div className="z-10 text-right mt-4 md:mt-0 bg-white/10 p-3 rounded-xl border border-white/10">
+            <div className="z-10 text-right mt-4 md:mt-0 bg-white/10 backdrop-blur-sm p-3 rounded-xl border border-white/10 shadow-sm">
               <div className="flex items-center gap-1.5 text-amber-300 font-bold justify-end">
                 <Clock className="w-3.5 h-3.5" />
                 <span className="text-sm font-black">{currentTime}</span>
               </div>
-              <p className="text-[9px] text-blue-100 font-bold uppercase tracking-wider mt-0.5">{currentDateStr}</p>
+              <p className="text-[9px] text-indigo-200 font-bold uppercase tracking-wider mt-0.5">{currentDateStr}</p>
             </div>
-            <div className="absolute right-0 bottom-0 top-0 w-1/3 bg-white/5 skew-x-12 transform origin-bottom-right"></div>
           </div>
 
           {/* KPI Stat Cards — only shown if the role can view the related module */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {canView('students') && (
-              <StatCard icon={GraduationCap} label="My Classes" value={String(myClasses.length)} color="bg-blue-50 text-blue-600" />
+              <StatCard icon={GraduationCap} label="My Classes" value={String(myClasses.length)} gradient="from-blue-500 to-blue-600" />
             )}
             {canView('students') && (
-              <StatCard icon={Users} label="My Students" value={totalStudents ? String(totalStudents) : '—'} color="bg-emerald-50 text-emerald-600" />
+              <StatCard icon={Users} label="My Students" value={totalStudents ? String(totalStudents) : '—'} gradient="from-emerald-500 to-emerald-600" />
             )}
             {canView('attendance') && (
-              <StatCard icon={CheckSquare} label="Marked Today" value={markedToday ? String(markedToday) : '0'} color="bg-indigo-50 text-indigo-600" />
+              <StatCard icon={CheckSquare} label="Marked Today" value={markedToday ? String(markedToday) : '0'} gradient="from-indigo-500 to-indigo-600" />
             )}
             {canView('attendance') && (
-              <StatCard icon={TrendingUp} label="Avg Attendance" value={`${avgAttendance}%`} color="bg-amber-50 text-amber-600" />
+              <StatCard icon={TrendingUp} label="Avg Attendance" value={`${avgAttendance}%`} gradient="from-amber-500 to-orange-500" />
             )}
           </div>
 
           {/* Quick Actions */}
           {quickActions.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-3xs p-5 space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-50 pb-2">
-                <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">★</span>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-50 pb-2.5">
+                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 text-white flex items-center justify-center font-bold text-[10px] shadow-xs">★</span>
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Quick Actions</h3>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -518,12 +499,12 @@ export default function TeacherDashboard() {
                   <button
                     key={action.id}
                     onClick={() => navigate(action.href)}
-                    className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 hover:border-transparent hover:shadow-md transition-all"
+                    className="group flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                   >
-                    <span className={`w-10 h-10 rounded-xl ${action.color} text-white flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                    <span className={`w-10 h-10 rounded-xl ${action.color} text-white flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:shadow-md transition-all duration-200`}>
                       <action.icon className="w-5 h-5" />
                     </span>
-                    <span className="text-[10px] font-bold text-slate-600 text-center leading-tight">{action.label}</span>
+                    <span className="text-[10px] font-bold text-slate-600 text-center leading-tight group-hover:text-slate-800 transition-colors">{action.label}</span>
                   </button>
                 ))}
               </div>
@@ -532,16 +513,16 @@ export default function TeacherDashboard() {
 
           {/* Assigned Classes — only if the role can view students/academic-setup */}
           {canView('students') && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-3xs p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">1</span>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-xs">1</span>
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">My Assigned Classes</h3>
               </div>
               {canAccess('attendance', 'mark') && (
                 <button
                   onClick={() => navigate('/education/attendance/mark')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
                 >
                   <CheckSquare className="w-3.5 h-3.5" />
                   Mark Attendance
@@ -551,26 +532,35 @@ export default function TeacherDashboard() {
 
             {loadingClasses ? (
               <div className="flex justify-center items-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
               </div>
             ) : myClasses.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <Users className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                <p className="font-medium">No classes assigned</p>
-                <p className="text-sm mt-1">You are not assigned as class teacher to any class yet.</p>
+                <p className="font-semibold">No classes assigned</p>
+                <p className="text-xs mt-1">You are not assigned as class teacher to any class yet.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myClasses.map((cls) => {
+                {myClasses.map((cls, idx) => {
                   const stat = classStats[cls.id];
+                  const accentColors = [
+                    { border: 'border-l-indigo-400', badge: 'bg-indigo-100 text-indigo-700' },
+                    { border: 'border-l-emerald-400', badge: 'bg-emerald-100 text-emerald-700' },
+                    { border: 'border-l-amber-400', badge: 'bg-amber-100 text-amber-700' },
+                    { border: 'border-l-rose-400', badge: 'bg-rose-100 text-rose-700' },
+                    { border: 'border-l-cyan-400', badge: 'bg-cyan-100 text-cyan-700' },
+                    { border: 'border-l-violet-400', badge: 'bg-violet-100 text-violet-700' },
+                  ];
+                  const ac = accentColors[idx % accentColors.length];
                   return (
-                    <div key={cls.id} className="bg-slate-50 rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
+                    <div key={cls.id} className={`bg-white rounded-xl border border-slate-200 border-l-4 ${ac.border} p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}>
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h4 className="font-bold text-slate-800 text-sm">{cls.name}</h4>
-                          <p className="text-xs text-slate-500">Code: {cls.code}</p>
+                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">Code: {cls.code}</p>
                         </div>
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                        <span className={`px-2 py-0.5 text-[9px] rounded-full font-bold ${ac.badge}`}>
                           {cls.sections_count || 1} Section{cls.sections_count > 1 ? 's' : ''}
                         </span>
                       </div>
@@ -581,31 +571,37 @@ export default function TeacherDashboard() {
                             <span>Attendance</span>
                             <span className="text-slate-700">{stat.percentage}%</span>
                           </div>
-                          <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
-                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${stat.percentage}%` }}></div>
+                          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${stat.percentage}%`,
+                                background: `linear-gradient(90deg, ${stat.percentage >= 90 ? '#10b981' : stat.percentage >= 75 ? '#f59e0b' : '#ef4444'}, ${stat.percentage >= 90 ? '#34d399' : stat.percentage >= 75 ? '#fbbf24' : '#f87171'})`
+                              }}
+                            ></div>
                           </div>
-                          <p className="text-[9px] text-slate-400 mt-1">
+                          <p className="text-[9px] text-slate-400 mt-1 font-medium">
                             {stat.present} present · {stat.absent} absent · {stat.total} total
                           </p>
                         </div>
                       )}
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mt-3">
                         {canAccess('attendance', 'mark') && (
                           <button
                             onClick={() => navigate(`/education/attendance/mark?class=${cls.id}&date=${new Date().toISOString().split('T')[0]}`)}
-                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition-all shadow-xs hover:shadow-sm"
                           >
-                            <CheckSquare className="w-3.5 h-3.5" />
+                            <CheckSquare className="w-3 h-3" />
                             Mark
                           </button>
                         )}
                         {canView('attendance') && (
                           <button
                             onClick={() => navigate(`/education/attendance?class=${cls.id}`)}
-                            className="flex-1 bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                            className="flex-1 bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition-all shadow-xs hover:shadow-sm"
                           >
-                            <FileText className="w-3.5 h-3.5" />
+                            <FileText className="w-3 h-3" />
                             Report
                           </button>
                         )}
@@ -619,14 +615,17 @@ export default function TeacherDashboard() {
           )}
 
           {/* Notices / Activity */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-3xs p-6 space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-50 pb-2">
-              <span className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">2</span>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div className="flex items-center gap-2.5 border-b border-slate-50 pb-3">
+              <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold text-[10px] shadow-xs">2</span>
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Institute Notices</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {notices.length === 0 ? (
-                <p className="text-xs text-slate-400 py-2">No notices yet.</p>
+                <div className="text-center py-6 text-slate-400">
+                  <Bell className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  <p className="text-xs font-semibold">No notices yet.</p>
+                </div>
               ) : (
                 notices.map((n) => (
                   <div
@@ -634,17 +633,24 @@ export default function TeacherDashboard() {
                     onClick={() => {
                       if (!n.is_read) notificationApi.markRead(n.id).then(fetchNotices).catch(() => {});
                     }}
-                    className={`flex items-start gap-3 p-3 rounded-xl border ${
-                      n.is_read ? 'bg-slate-50 border-slate-100' : 'bg-blue-50 border-blue-100'
+                    className={`flex items-start gap-3 p-3 rounded-xl border-l-4 transition-all cursor-pointer hover:shadow-sm ${
+                      n.is_read
+                        ? 'bg-white border-slate-200 border-l-slate-300'
+                        : 'bg-gradient-to-r from-indigo-50/80 to-white border-indigo-200 border-l-indigo-500'
                     }`}
                   >
-                    <Bell className={`w-4 h-4 mt-0.5 flex-shrink-0 ${n.is_read ? 'text-slate-400' : 'text-blue-500'}`} />
-                    <div className="flex-1">
-                      <p className="text-xs font-semibold text-slate-700">{n.title}</p>
-                      {n.body && <p className="text-[10px] text-slate-500 mt-0.5">{n.body}</p>}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${n.is_read ? 'bg-slate-100' : 'bg-indigo-100'}`}>
+                      <Bell className={`w-4 h-4 ${n.is_read ? 'text-slate-400' : 'text-indigo-600'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-xs font-semibold truncate ${n.is_read ? 'text-slate-600' : 'text-slate-800'}`}>{n.title}</p>
+                        {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></span>}
+                      </div>
+                      {n.body && <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>}
                       <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{n.time}</p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 mt-1 flex-shrink-0" />
                   </div>
                 ))
               )}
@@ -696,15 +702,16 @@ export default function TeacherDashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
+function StatCard({ icon: Icon, label, value, gradient }: { icon: any; label: string; value: string; gradient: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-3xs p-4 flex items-center gap-3">
-      <span className={`w-11 h-11 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon className="w-5 h-5" />
+    <div className="group bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default">
+      <span className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-200 relative overflow-hidden`}>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.25)_0%,transparent_60%)]"></div>
+        <Icon className="w-5 h-5 relative" />
       </span>
       <div>
         <div className="text-lg font-black text-slate-800 leading-none">{value}</div>
-        <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">{label}</div>
+        <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">{label}</div>
       </div>
     </div>
   );

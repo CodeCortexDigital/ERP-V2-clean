@@ -87,11 +87,62 @@ export default function AccountSettings() {
     setEditOpen(true);
   };
 
+  const CURRENCY_SYMBOLS: Record<string, string> = {
+    'Dollars (USD)': '$',
+    'Rupees (PKR)': 'Rs',
+    'Rupees (INR)': '₹',
+    'Euro (EUR)': '€',
+    'Pound Sterling (GBP)': '£',
+    'Japanese Yen (JPY)': '¥',
+    'Chinese Yuan (CNY)': '¥',
+    'Australian Dollar (AUD)': 'A$',
+    'Canadian Dollar (CAD)': 'C$',
+    'Mexican Peso (MXN)': 'Mex$',
+    'Brazilian Real (BRL)': 'R$',
+    'Argentine Peso (ARS)': 'ARS$',
+    'Chilean Peso (CLP)': 'CLP$',
+    'Colombian Peso (COP)': 'COP$',
+    'Peruvian Sol (PEN)': 'S/',
+    'Swiss Franc (CHF)': 'Fr',
+    'Swedish Krona (SEK)': 'kr',
+    'Norwegian Krone (NOK)': 'kr',
+    'Danish Krone (DKK)': 'kr',
+    'Polish Zloty (PLN)': 'zł',
+    'Czech Koruna (CZK)': 'Kč',
+    'Hungarian Forint (HUF)': 'Ft',
+    'Turkish Lira (TRY)': '₺',
+    'Russian Ruble (RUB)': '₽',
+    'Ukrainian Hryvnia (UAH)': '₴',
+    'UAE Dirham (AED)': 'د.إ',
+    'Saudi Riyal (SAR)': '﷼',
+    'Qatari Riyal (QAR)': '﷼',
+    'Kuwaiti Dinar (KWD)': 'د.ك',
+    'Egyptian Pound (EGP)': 'E£',
+    'South African Rand (ZAR)': 'R',
+    'Nigerian Naira (NGN)': '₦',
+    'Kenyan Shilling (KES)': 'KSh',
+    'Bangladeshi Taka (BDT)': '৳',
+    'Sri Lankan Rupee (LKR)': 'Rs',
+    'Nepalese Rupee (NPR)': 'Rs',
+    'Indonesian Rupiah (IDR)': 'Rp',
+    'Thai Baht (THB)': '฿',
+    'Vietnamese Dong (VND)': '₫',
+    'Malaysian Ringgit (MYR)': 'RM',
+    'Philippine Peso (PHP)': '₱',
+    'Singapore Dollar (SGD)': 'S$',
+    'Hong Kong Dollar (HKD)': 'HK$',
+    'Taiwan Dollar (TWD)': 'NT$',
+    'South Korean Won (KRW)': '₩',
+    'Afghan Afghani (AFN)': '؋',
+    'New Zealand Dollar (NZD)': 'NZ$',
+    'Fijian Dollar (FJD)': 'FJ$',
+  };
+
   const handleCurrencyChange = (val: string) => {
     setDraft(prev => ({
       ...prev,
       currency: val,
-      symbol: val === 'Dollars (USD)' ? '$' : 'Rs'
+      symbol: CURRENCY_SYMBOLS[val] || '$'
     }));
   };
 
@@ -194,17 +245,156 @@ export default function AccountSettings() {
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">TIME ZONE *</label>
                 <select value={draft.timezone} onChange={(e) => setDraft({ ...draft, timezone: e.target.value })} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-700 font-semibold">
-                  <option value="Asia/Karachi">Asia/Karachi</option>
-                  <option value="UTC">UTC</option>
-                  <option value="America/New_York">America/New_York</option>
-                  <option value="Europe/London">Europe/London</option>
+                  <optgroup label="Americas">
+                    <option value="America/New_York">America/New_York (EST)</option>
+                    <option value="America/Chicago">America/Chicago (CST)</option>
+                    <option value="America/Denver">America/Denver (MST)</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+                    <option value="America/Anchorage">America/Anchorage (AKST)</option>
+                    <option value="Pacific/Honolulu">Pacific/Honolulu (HST)</option>
+                    <option value="America/Toronto">America/Toronto</option>
+                    <option value="America/Vancouver">America/Vancouver</option>
+                    <option value="America/Mexico_City">America/Mexico_City</option>
+                    <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+                    <option value="America/Argentina/Buenos_Aires">America/Buenos_Aires</option>
+                    <option value="America/Santiago">America/Santiago</option>
+                    <option value="America/Bogota">America/Bogota</option>
+                    <option value="America/Lima">America/Lima</option>
+                    <option value="America/Caracas">America/Caracas</option>
+                  </optgroup>
+                  <optgroup label="Europe">
+                    <option value="Europe/London">Europe/London (GMT/BST)</option>
+                    <option value="Europe/Paris">Europe/Paris (CET)</option>
+                    <option value="Europe/Berlin">Europe/Berlin</option>
+                    <option value="Europe/Madrid">Europe/Madrid</option>
+                    <option value="Europe/Rome">Europe/Rome</option>
+                    <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                    <option value="Europe/Brussels">Europe/Brussels</option>
+                    <option value="Europe/Stockholm">Europe/Stockholm</option>
+                    <option value="Europe/Oslo">Europe/Oslo</option>
+                    <option value="Europe/Copenhagen">Europe/Copenhagen</option>
+                    <option value="Europe/Zurich">Europe/Zurich</option>
+                    <option value="Europe/Vienna">Europe/Vienna</option>
+                    <option value="Europe/Warsaw">Europe/Warsaw</option>
+                    <option value="Europe/Prague">Europe/Prague</option>
+                    <option value="Europe/Budapest">Europe/Budapest</option>
+                    <option value="Europe/Athens">Europe/Athens</option>
+                    <option value="Europe/Helsinki">Europe/Helsinki</option>
+                    <option value="Europe/Moscow">Europe/Moscow</option>
+                    <option value="Europe/Istanbul">Europe/Istanbul</option>
+                    <option value="Europe/Kyiv">Europe/Kyiv</option>
+                  </optgroup>
+                  <optgroup label="Asia">
+                    <option value="Asia/Karachi">Asia/Karachi (PKT)</option>
+                    <option value="Asia/Dubai">Asia/Dubai</option>
+                    <option value="Asia/Riyadh">Asia/Riyadh</option>
+                    <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                    <option value="Asia/Dhaka">Asia/Dhaka</option>
+                    <option value="Asia/Kathmandu">Asia/Kathmandu</option>
+                    <option value="Asia/Colombo">Asia/Colombo</option>
+                    <option value="Asia/Bangkok">Asia/Bangkok</option>
+                    <option value="Asia/Singapore">Asia/Singapore</option>
+                    <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur</option>
+                    <option value="Asia/Manila">Asia/Manila</option>
+                    <option value="Asia/Jakarta">Asia/Jakarta</option>
+                    <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh</option>
+                    <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+                    <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
+                    <option value="Asia/Taipei">Asia/Taipei</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                    <option value="Asia/Seoul">Asia/Seoul (KST)</option>
+                    <option value="Asia/Kabul">Asia/Kabul</option>
+                    <option value="Asia/Tehran">Asia/Tehran</option>
+                    <option value="Asia/Baghdad">Asia/Baghdad</option>
+                    <option value="Asia/Yangon">Asia/Yangon</option>
+                  </optgroup>
+                  <optgroup label="Africa">
+                    <option value="Africa/Cairo">Africa/Cairo</option>
+                    <option value="Africa/Casablanca">Africa/Casablanca</option>
+                    <option value="Africa/Johannesburg">Africa/Johannesburg</option>
+                    <option value="Africa/Lagos">Africa/Lagos</option>
+                    <option value="Africa/Nairobi">Africa/Nairobi</option>
+                    <option value="Africa/Tunis">Africa/Tunis</option>
+                    <option value="Africa/Addis_Ababa">Africa/Addis_Ababa</option>
+                  </optgroup>
+                  <optgroup label="Oceania">
+                    <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
+                    <option value="Australia/Melbourne">Australia/Melbourne</option>
+                    <option value="Australia/Perth">Australia/Perth (AWST)</option>
+                    <option value="Australia/Brisbane">Australia/Brisbane</option>
+                    <option value="Australia/Adelaide">Australia/Adelaide</option>
+                    <option value="Pacific/Auckland">Pacific/Auckland (NZST)</option>
+                    <option value="Pacific/Fiji">Pacific/Fiji</option>
+                    <option value="Pacific/Port_Moresby">Pacific/Port_Moresby</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="UTC">UTC</option>
+                  </optgroup>
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CURRENCY *</label>
                 <select value={draft.currency} onChange={(e) => handleCurrencyChange(e.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-700 font-semibold">
-                  <option value="Rupees (PKR)">Rupees (PKR)</option>
-                  <option value="Dollars (USD)">Dollars (USD)</option>
+                  <optgroup label="—— Popular ——">
+                    <option value="Dollars (USD)">Dollars (USD) $</option>
+                    <option value="Rupees (PKR)">Rupees (PKR) Rs</option>
+                    <option value="Rupees (INR)">Rupees (INR) ₹</option>
+                    <option value="Euro (EUR)">Euro (EUR) €</option>
+                    <option value="Pound Sterling (GBP)">Pound Sterling (GBP) £</option>
+                    <option value="Japanese Yen (JPY)">Japanese Yen (JPY) ¥</option>
+                    <option value="Chinese Yuan (CNY)">Chinese Yuan (CNY) ¥</option>
+                    <option value="Australian Dollar (AUD)">Australian Dollar (AUD) A$</option>
+                    <option value="Canadian Dollar (CAD)">Canadian Dollar (CAD) C$</option>
+                  </optgroup>
+                  <optgroup label="—— Americas ——">
+                    <option value="Mexican Peso (MXN)">Mexican Peso (MXN) Mex$</option>
+                    <option value="Brazilian Real (BRL)">Brazilian Real (BRL) R$</option>
+                    <option value="Argentine Peso (ARS)">Argentine Peso (ARS) ARS$</option>
+                    <option value="Chilean Peso (CLP)">Chilean Peso (CLP) CLP$</option>
+                    <option value="Colombian Peso (COP)">Colombian Peso (COP) COP$</option>
+                    <option value="Peruvian Sol (PEN)">Peruvian Sol (PEN) S/</option>
+                  </optgroup>
+                  <optgroup label="—— Europe ——">
+                    <option value="Swiss Franc (CHF)">Swiss Franc (CHF) Fr</option>
+                    <option value="Swedish Krona (SEK)">Swedish Krona (SEK) kr</option>
+                    <option value="Norwegian Krone (NOK)">Norwegian Krone (NOK) kr</option>
+                    <option value="Danish Krone (DKK)">Danish Krone (DKK) kr</option>
+                    <option value="Polish Zloty (PLN)">Polish Zloty (PLN) zł</option>
+                    <option value="Czech Koruna (CZK)">Czech Koruna (CZK) Kč</option>
+                    <option value="Hungarian Forint (HUF)">Hungarian Forint (HUF) Ft</option>
+                    <option value="Turkish Lira (TRY)">Turkish Lira (TRY) ₺</option>
+                    <option value="Russian Ruble (RUB)">Russian Ruble (RUB) ₽</option>
+                    <option value="Ukrainian Hryvnia (UAH)">Ukrainian Hryvnia (UAH) ₴</option>
+                  </optgroup>
+                  <optgroup label="—— Middle East / Africa ——">
+                    <option value="UAE Dirham (AED)">UAE Dirham (AED) د.إ</option>
+                    <option value="Saudi Riyal (SAR)">Saudi Riyal (SAR) ﷼</option>
+                    <option value="Qatari Riyal (QAR)">Qatari Riyal (QAR) ﷼</option>
+                    <option value="Kuwaiti Dinar (KWD)">Kuwaiti Dinar (KWD) د.ك</option>
+                    <option value="Egyptian Pound (EGP)">Egyptian Pound (EGP) E£</option>
+                    <option value="South African Rand (ZAR)">South African Rand (ZAR) R</option>
+                    <option value="Nigerian Naira (NGN)">Nigerian Naira (NGN) ₦</option>
+                    <option value="Kenyan Shilling (KES)">Kenyan Shilling (KES) KSh</option>
+                  </optgroup>
+                  <optgroup label="—— Asia ——">
+                    <option value="Bangladeshi Taka (BDT)">Bangladeshi Taka (BDT) ৳</option>
+                    <option value="Sri Lankan Rupee (LKR)">Sri Lankan Rupee (LKR) Rs</option>
+                    <option value="Nepalese Rupee (NPR)">Nepalese Rupee (NPR) Rs</option>
+                    <option value="Indonesian Rupiah (IDR)">Indonesian Rupiah (IDR) Rp</option>
+                    <option value="Thai Baht (THB)">Thai Baht (THB) ฿</option>
+                    <option value="Vietnamese Dong (VND)">Vietnamese Dong (VND) ₫</option>
+                    <option value="Malaysian Ringgit (MYR)">Malaysian Ringgit (MYR) RM</option>
+                    <option value="Philippine Peso (PHP)">Philippine Peso (PHP) ₱</option>
+                    <option value="Singapore Dollar (SGD)">Singapore Dollar (SGD) S$</option>
+                    <option value="Hong Kong Dollar (HKD)">Hong Kong Dollar (HKD) HK$</option>
+                    <option value="Taiwan Dollar (TWD)">Taiwan Dollar (TWD) NT$</option>
+                    <option value="South Korean Won (KRW)">South Korean Won (KRW) ₩</option>
+                    <option value="Afghan Afghani (AFN)">Afghan Afghani (AFN) ؋</option>
+                  </optgroup>
+                  <optgroup label="—— Oceania ——">
+                    <option value="New Zealand Dollar (NZD)">New Zealand Dollar (NZD) NZ$</option>
+                    <option value="Fijian Dollar (FJD)">Fijian Dollar (FJD) FJ$</option>
+                  </optgroup>
                 </select>
               </div>
               <div>
