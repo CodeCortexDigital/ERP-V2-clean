@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const MONTH_NAMES = [
-  'JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
-  'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December'
 ];
-const DAY_NAMES_SHORT = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const DAY_NAMES_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 export default function DynamicCalendar() {
   const today = new Date();
@@ -37,51 +37,51 @@ export default function DynamicCalendar() {
     calMonth === today.getMonth() &&
     calYear === today.getFullYear();
 
-  const todayLabel = `${DAY_NAMES_SHORT[today.getDay()]} ${MONTH_NAMES[today.getMonth()].slice(0, 3)} ${String(today.getDate()).padStart(2, '0')} ${today.getFullYear()}`;
+  const todayLabel = `${DAY_NAMES_SHORT[today.getDay()]}, ${MONTH_NAMES[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
   const prevMonth = () => setCalendarDate(new Date(calYear, calMonth - 1, 1));
   const nextMonth = () => setCalendarDate(new Date(calYear, calMonth + 1, 1));
 
   return (
-    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
         <button
           onClick={prevMonth}
-          className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+          className="p-1 text-slate-400 hover:text-slate-600 transition-colors rounded hover:bg-slate-50"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="text-center">
-          <p className="text-purple-700 font-black text-xs">
-            {MONTH_NAMES[calMonth]} , {calYear}
+          <p className="text-sm font-semibold text-slate-800">
+            {MONTH_NAMES[calMonth]} {calYear}
           </p>
-          <p className="text-[9px] text-rose-500 font-bold tracking-wider">{todayLabel}</p>
+          <p className="text-[10px] text-slate-400 font-medium">{todayLabel}</p>
         </div>
         <button
           onClick={nextMonth}
-          className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+          className="p-1 text-slate-400 hover:text-slate-600 transition-colors rounded hover:bg-slate-50"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-0.5 text-[9px] font-bold text-slate-400 border-t border-slate-100 pt-2">
+      <div className="grid grid-cols-7 gap-px bg-slate-100">
         {DAY_NAMES_SHORT.map((d) => (
-          <span key={d} className="text-center">{d}</span>
+          <div key={d} className="bg-white px-2 py-2 text-center">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{d}</span>
+          </div>
         ))}
-      </div>
-      <div className="grid grid-cols-7 gap-0.5">
         {calCells.map((cell, idx) => (
-          <span
+          <div
             key={idx}
-            className={`text-center text-xs font-semibold py-1 rounded-md transition-colors ${
+            className={`bg-white px-2 py-2 text-center text-sm transition-colors ${
               !cell.currentMonth
                 ? 'text-slate-300'
                 : isToday(cell.day, cell.currentMonth)
-                ? 'font-black text-rose-500 border-2 border-rose-400'
+                ? 'bg-indigo-50 text-indigo-700 font-semibold'
                 : 'text-slate-700 hover:bg-slate-50'
             }`}
           >
             {cell.day}
-          </span>
+          </div>
         ))}
       </div>
     </div>

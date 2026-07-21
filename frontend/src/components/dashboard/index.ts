@@ -6,7 +6,7 @@ export { default as RevenueChart } from './RevenueChart';
 export { default as ClassBarChart } from './ClassBarChart';
 export { default as AbsentStudentsList } from './AbsentStudentsList';
 export { default as PresentEmployeesList } from './PresentEmployeesList';
-export { default as NewAdmissions } from './NewAdmissions';
+export { default as MotivationalWidget } from './MotivationalWidget';
 export { default as FeeDonut } from './FeeDonut';
 export { default as MetricsPills } from './MetricsPills';
 export { default as SmsGatewayCard } from './SmsGatewayCard';

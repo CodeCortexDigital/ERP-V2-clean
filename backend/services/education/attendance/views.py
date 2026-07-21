@@ -269,7 +269,7 @@ def student_attendance_summary(request, student_id):
         present = base.filter(status='present').count()
         absent = base.filter(status='absent').count()
         late = base.filter(status='late').count()
-        leave = base.filter(status='leave').count()
+        leave = base.filter(Q(status='leave') | Q(status='excused')).count()
 
         percent = round(((present + late + leave) / total) * 100, 1) if total > 0 else 0
 

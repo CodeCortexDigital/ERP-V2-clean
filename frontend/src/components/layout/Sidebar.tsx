@@ -616,24 +616,23 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
         })}
       </div>
 
-      {/* Collapse Toggle */}
+      {/* Logout */}
       <div className={`shrink-0 border-t ${isDarkSidebar ? 'border-slate-800' : 'border-slate-200'}`}>
         <button
-          onClick={toggleSidebar}
+          onClick={() => { logout(); navigate('/'); }}
           className={`w-full flex items-center gap-3 px-3 py-3 text-xs font-semibold transition-all ${
             isDarkSidebar
-              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+              ? 'text-rose-300 hover:text-rose-200 hover:bg-rose-900/40'
+              : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
           } ${isCollapsed ? 'justify-center' : ''}`}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title="Logout"
         >
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <><ChevronLeft className="w-4 h-4" /><span>Collapse</span></>
-          )}
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!isCollapsed && <span>Logout</span>}
         </button>
       </div>
+
+
     </aside>
   );
 }

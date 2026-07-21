@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from api.versioning import VersionedViewMixin, get_serializer_class
 from api.v1.serializers import StudentSerializerV1
@@ -356,9 +356,13 @@ def get_attendance_dashboard_stats(request):
         Teacher = apps.get_model('education_academics', 'Teacher')
         total_e = Teacher.objects.filter(is_active=True).count()
         present_e = TeacherAttendance.objects.filter(date=today, status='present').count()
+        absent_e = TeacherAttendance.objects.filter(date=today, status='absent').count()
+        leave_e = TeacherAttendance.objects.filter(date=today, status='leave').count()
     except LookupError:
         total_e = 0
         present_e = 0
+        absent_e = 0
+        leave_e = 0
     employee_pct = round((present_e / total_e * 100)) if total_e > 0 else 0
 
     # Class-wise breakdown for today
@@ -406,7 +410,7 @@ def get_attendance_dashboard_stats(request):
             'absent_list': absent_list,
             'class_breakdown': class_breakdown,
         },
-        'employees': {'total': total_e, 'present': present_e, 'present_pct': employee_pct},
+        'employees': {'total': total_e, 'present': present_e, 'absent': absent_e, 'leave': leave_e, 'present_pct': employee_pct},
     })
 
 
