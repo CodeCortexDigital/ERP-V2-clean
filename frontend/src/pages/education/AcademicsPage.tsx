@@ -182,7 +182,7 @@ export default function AcademicsPage() {
     try {
       const data = await academicService.academicYears.getAll();
       console.log('📚 Academic Years fetched:', data);
-      const years = Array.isArray(data) ? data : data?.results || [];
+      const years = Array.isArray(data) ? data : (data as any)?.results || [];
       setAcademicYears(years);
       setRefreshKey(prev => prev + 1);
     } catch (error) {

@@ -6,48 +6,49 @@ export type ChatMode = 'student' | 'teacher' | 'parent' | 'admin';
 
 const SUGGESTIONS: Record<ChatMode, string[]> = {
   admin: [
-    'Show finance summary',
-    'How many fee defaulters do we have?',
-    'Find student Abdullah',
-    'Attendance % of Grade 10',
-    'List upcoming exams',
-    'Homework across the school',
-    'Behaviour ratings for Grade 8',
-    'Recent certificates issued',
+    'Student strength in each class',
+    'Fee defaulters & finance summary',
+    'Attendance stats for a class or student',
+    'Staff & payroll overview',
+    'Exams, homework, behaviour, certificates',
+    'Student profile & outstanding balance',
   ],
   teacher: [
-    'My class attendance today?',
-    'Homework for my class',
-    'My timetable',
-    'Behaviour of my students',
-    'Upcoming exams for my class',
+    'My attendance',
+    'My class timetable',
+    'My homework',
+    'Student strength in each class',
+    'Search / find students',
+    'Student profile & outstanding balance',
   ],
   parent: [
-    'My child attendance?',
-    'Outstanding fees for my child?',
-    'My child recent exams',
-    'My child homework',
-    'My child certificates',
+    'My attendance',
+    'My fees & dues',
+    'My exam results',
+    'My certificates',
+    'My timetable',
+    'My notifications',
   ],
   student: [
-    'What is my attendance percentage?',
-    'How much fee do I owe?',
-    'When is my next exam?',
-    'Show my homework',
-    'What is my timetable?',
-    'Show my certificates',
+    'My attendance',
+    'My fees & dues',
+    'My exam results',
+    'My homework',
+    'My timetable',
+    'My certificates',
+    'My notifications',
   ],
 };
 
 const WELCOME: Record<ChatMode, string> = {
   admin:
-    "Hi, I'm CodeCortex — your ERP assistant. Ask me about students, fees, attendance, exams, homework, behaviour or certificates and I'll pull the live data for you.",
+    "Hi, I'm CodeCortex — your ERP AI assistant. Ask me about:\n• Student strength & attendance\n• Fee defaulters & finance overview\n• Staff & payroll\n• Exams, homework, behaviour, certificates",
   teacher:
-    "Hi! I'm CodeCortex. Ask about your class attendance, homework, timetable, behaviour or exams.",
+    "Hi! I'm CodeCortex. Ask me about your class:\n• My attendance\n• My timetable\n• My homework\n• Student search & profiles",
   parent:
-    "Hi! I'm CodeCortex. Ask about your child's attendance, fees, exams, homework or certificates.",
+    "Hi! I'm CodeCortex. Ask me about your child:\n• My attendance\n• My fees & dues\n• My exam results\n• My certificates",
   student:
-    "Hi! I'm CodeCortex. Ask me about your attendance, fees, exams, homework, timetable, behaviour or certificates.",
+    "Hi! I'm CodeCortex. Ask me about your data:\n• My attendance\n• My fees & dues\n• My exam results\n• My timetable",
 };
 
 function SpeakingDots() {
@@ -116,7 +117,7 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
     setInput('');
     setLoading(true);
     try {
-      const res = await sendAiMessage(next.filter((m) => m.role !== 'system'));
+      const res = await sendAiMessage(next.filter((m) => m.role !== 'system'), mode);
       setOffline(!!res.offline);
       const replyMsg: ChatMessage = { role: 'assistant', content: res.reply };
       setMessages((prev) => [...prev, replyMsg]);

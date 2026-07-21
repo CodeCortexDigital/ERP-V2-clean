@@ -72,10 +72,10 @@ export default function EditClassPage() {
       if (Array.isArray(teachersRes)) {
         teachersArray = teachersRes;
       } else if (teachersRes && typeof teachersRes === 'object') {
-        if (Array.isArray(teachersRes.data)) {
-          teachersArray = teachersRes.data;
-        } else if (Array.isArray(teachersRes.results)) {
-          teachersArray = teachersRes.results;
+        if (Array.isArray((teachersRes as any).data)) {
+          teachersArray = (teachersRes as any).data;
+        } else if (Array.isArray((teachersRes as any).results)) {
+          teachersArray = (teachersRes as any).results;
         } else {
           teachersArray = Object.values(teachersRes).filter(Array.isArray).flat() || [];
         }

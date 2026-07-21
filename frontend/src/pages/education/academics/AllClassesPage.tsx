@@ -57,7 +57,7 @@ export default function AllClassesPage() {
 
       // Fetch classrooms to resolve room IDs to readable names
       const classroomsRes = await academicService.classrooms.getAll().catch(() => []);
-      const classrooms = Array.isArray(classroomsRes) ? classroomsRes : (classroomsRes?.results || classroomsRes?.data || []);
+      const classrooms = Array.isArray(classroomsRes) ? classroomsRes : ((classroomsRes as any)?.results || (classroomsRes as any)?.data || []);
       const classroomMap = new Map<string, string>();
       const classroomCapacityMap = new Map<string, number>();
       classrooms.forEach((c: any) => {
@@ -68,19 +68,20 @@ export default function AllClassesPage() {
       
       // Get the results array directly
       let rawClasses = [];
-      if (response && typeof response === 'object') {
-        if (response.results && Array.isArray(response.results)) {
-          rawClasses = response.results;
-        } else if (Array.isArray(response)) {
-          rawClasses = response;
-        } else if (response.data && Array.isArray(response.data)) {
-          rawClasses = response.data;
-        } else if (response.data && response.data.results && Array.isArray(response.data.results)) {
-          rawClasses = response.data.results;
+      const resp = response as any;
+      if (resp && typeof resp === 'object') {
+        if (resp.results && Array.isArray(resp.results)) {
+          rawClasses = resp.results;
+        } else if (Array.isArray(resp)) {
+          rawClasses = resp;
+        } else if (resp.data && Array.isArray(resp.data)) {
+          rawClasses = resp.data;
+        } else if (resp.data && resp.data.results && Array.isArray(resp.data.results)) {
+          rawClasses = resp.data.results;
         } else {
           for (const key of ['items', 'list', 'classes']) {
-            if (response[key] && Array.isArray(response[key])) {
-              rawClasses = response[key];
+            if (resp[key] && Array.isArray(resp[key])) {
+              rawClasses = resp[key];
               break;
             }
           }

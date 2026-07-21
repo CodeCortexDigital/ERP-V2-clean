@@ -350,6 +350,51 @@ def get_attendance_dashboard_stats(request):
             'student_id': str(rec.student_id),
         })
 
+    # Employee / Teacher attendance
+    try:
+        TeacherAttendance = apps.get_model('education_academics', 'TeacherAttendance')
+        Teacher = apps.get_model('education_academics', 'Teacher')
+        total_e = Teacher.objects.filter(is_active=True).count()
+        present_e = TeacherAttendance.objects.filter(date=today, status='present').count()
+    except LookupError:
+        total_e = 0
+        present_e = 0
+    employee_pct = round((present_e / total_e * 100)) if total_e > 0 else 0
+
+    # Class-wise breakdown for today
+    class_breakdown = []
+    class_data = (
+        Attendance.objects
+        .filter(date=today)
+        .exclude(status='holiday')
+        .exclude(student__isnull=True)
+        .values('student__current_class__name')
+        .annotate(
+            total=Count('id'),
+            present=Count('id', filter=Q(status='present')),
+            late=Count('id', filter=Q(status='late')),
+            absent=Count('id', filter=Q(status='absent')),
+        )
+        .order_by('student__current_class__name')
+    )
+    for cd in class_data:
+        cn = cd['student__current_class__name']
+        if cn is None:
+            continue
+        total = cd['total']
+        present = cd['present']
+        late = cd['late']
+        absent = cd['absent']
+        rate = round(((present + late) / total * 100)) if total > 0 else 0
+        class_breakdown.append({
+            'class_name': cn,
+            'total': total,
+            'present': present,
+            'late': late,
+            'absent': absent,
+            'rate': rate,
+        })
+
     return Response({
         'date': str(today),
         'students': {
@@ -359,8 +404,9 @@ def get_attendance_dashboard_stats(request):
             'absent': absent_s,
             'present_pct': present_pct,
             'absent_list': absent_list,
+            'class_breakdown': class_breakdown,
         },
-        'employees': {'total': 0, 'present': 0, 'present_pct': 0},
+        'employees': {'total': total_e, 'present': present_e, 'present_pct': employee_pct},
     })
 
 
@@ -749,7 +795,6 @@ def teachers_list_view(request):
     try:
         from services.education.academics.models import Teacher
         from services.education.academics.serializers import TeacherSerializer
-        from django.db.models import Q
     except ImportError:
         return Response({'error': 'Academics module not available'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     if request.method == 'GET':

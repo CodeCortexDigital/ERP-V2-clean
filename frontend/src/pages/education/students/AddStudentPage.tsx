@@ -72,6 +72,7 @@ export default function AddStudentPage() {
     osc: '',
     religion: '',
     select_family: '',
+    family_type: '',
     total_siblings: '',
     father_name: '',
     father_national_id: '',
@@ -111,12 +112,13 @@ export default function AddStudentPage() {
       try {
         const res = await academicService.getClasses();
         let rawClasses = [];
-        if (Array.isArray(res)) {
-          rawClasses = res;
-        } else if (res?.data) {
-          rawClasses = Array.isArray(res.data) ? res.data : res.data?.results || [];
-        } else if (res?.results) {
-          rawClasses = res.results;
+        const rr = res as any;
+        if (Array.isArray(rr)) {
+          rawClasses = rr;
+        } else if (rr?.data) {
+          rawClasses = Array.isArray(rr.data) ? rr.data : rr.data?.results || [];
+        } else if (rr?.results) {
+          rawClasses = rr.results;
         }
         
         const sorted = rawClasses.slice().sort((a, b) => 
@@ -227,6 +229,7 @@ export default function AddStudentPage() {
     setFormData({
         student_name: '', registration_no: '', class_name: 'Grade 1-A', date_of_admission: today, discount_in_fee: '', mobile_sms: '', status: 'Active',
         date_of_birth: '', gender: '', identification_mark: '', blood_group: '', disease: '', address: '', birth_form_id: '', cast: '', previous_school: '', previous_id: '', additional_note: '', orphan_student: '', osc: '', religion: '', select_family: '', total_siblings: '',
+        family_type: '',
         father_name: '', father_national_id: '', father_occupation: '', father_education: '', father_mobile: '', father_profession: '', father_income: '',
         mother_name: '', mother_national_id: '', mother_occupation: '', mother_education: '', mother_mobile: '', mother_profession: '', mother_income: ''
     });

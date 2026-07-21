@@ -49,7 +49,7 @@ export default function StudentHistoryPage() {
 
       // Fetch student history
       const historyRes = await studentService.getHistory(id).catch(() => ({ data: { results: [] } }));
-      const historyData = extractListData(historyRes?.data?.results || historyRes?.data || []);
+      const historyData = extractListData((historyRes as any)?.data?.results || (historyRes as any)?.data || []) as HistoryItem[];
       setHistory(historyData);
 
       // Fetch history summary

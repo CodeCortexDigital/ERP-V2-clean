@@ -68,10 +68,10 @@ export default function AddClassPage() {
           teachersArray = teachersRes;
         } else if (teachersRes && typeof teachersRes === 'object') {
           // Check for data property (from api response)
-          if (Array.isArray(teachersRes.data)) {
-            teachersArray = teachersRes.data;
-          } else if (Array.isArray(teachersRes.results)) {
-            teachersArray = teachersRes.results;
+          if (Array.isArray((teachersRes as any).data)) {
+            teachersArray = (teachersRes as any).data;
+          } else if (Array.isArray((teachersRes as any).results)) {
+            teachersArray = (teachersRes as any).results;
           } else {
             // If it's an array-like object, try to convert
             teachersArray = Object.values(teachersRes).filter(Array.isArray).flat() || [];

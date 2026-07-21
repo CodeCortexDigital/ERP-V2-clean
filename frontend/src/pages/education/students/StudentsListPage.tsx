@@ -126,15 +126,16 @@ export default function StudentsListPage() {
         const classesRes = await academicService.getClasses();
         console.log('📚 Classes API Response (getClasses):', classesRes);
         
-        if (classesRes) {
-          if (Array.isArray(classesRes)) {
-            rawClasses = classesRes;
-          } else if (classesRes.data && Array.isArray(classesRes.data)) {
-            rawClasses = classesRes.data;
-          } else if (classesRes.results && Array.isArray(classesRes.results)) {
-            rawClasses = classesRes.results;
-          } else if (classesRes.data?.results && Array.isArray(classesRes.data.results)) {
-            rawClasses = classesRes.data.results;
+        const cr = classesRes as any;
+        if (cr) {
+          if (Array.isArray(cr)) {
+            rawClasses = cr;
+          } else if (cr.data && Array.isArray(cr.data)) {
+            rawClasses = cr.data;
+          } else if (cr.results && Array.isArray(cr.results)) {
+            rawClasses = cr.results;
+          } else if (cr.data?.results && Array.isArray(cr.data.results)) {
+            rawClasses = cr.data.results;
           }
         }
       } catch (err) {
@@ -147,13 +148,14 @@ export default function StudentsListPage() {
           const classesRes2 = await academicService.classes?.getAll?.();
           console.log('📚 Classes API Response (classes.getAll):', classesRes2);
           
-          if (classesRes2) {
-            if (Array.isArray(classesRes2)) {
-              rawClasses = classesRes2;
-            } else if (classesRes2.data && Array.isArray(classesRes2.data)) {
-              rawClasses = classesRes2.data;
-            } else if (classesRes2.results && Array.isArray(classesRes2.results)) {
-              rawClasses = classesRes2.results;
+          const cr2 = classesRes2 as any;
+          if (cr2) {
+            if (Array.isArray(cr2)) {
+              rawClasses = cr2;
+            } else if (cr2.data && Array.isArray(cr2.data)) {
+              rawClasses = cr2.data;
+            } else if (cr2.results && Array.isArray(cr2.results)) {
+              rawClasses = cr2.results;
             }
           }
         } catch (err) {
@@ -207,7 +209,7 @@ export default function StudentsListPage() {
       const selectedName = (searchParams.get('class') || '').toLowerCase();
       if (selectedName) {
         const classroomsRes = await academicService.classrooms.getAll().catch(() => [] as any[]);
-        const classrooms = Array.isArray(classroomsRes) ? classroomsRes : (classroomsRes?.results || classroomsRes?.data || []);
+        const classrooms = Array.isArray(classroomsRes) ? classroomsRes : ((classroomsRes as any)?.results || (classroomsRes as any)?.data || []);
         const matched = classrooms.find((c: any) => (c.name || '').toLowerCase() === selectedName);
         const cap = matched ? Number(matched.capacity) : 0;
         setClassCapacity(isNaN(cap) ? null : cap);

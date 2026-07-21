@@ -109,12 +109,13 @@ export default function EditStudentPage() {
     try {
       const cRes = await academicService.getClasses().catch(() => ([]));
       let rawClasses = [];
-      if (Array.isArray(cRes)) {
-        rawClasses = cRes;
-      } else if (cRes?.data) {
-        rawClasses = Array.isArray(cRes.data) ? cRes.data : cRes.data?.results || [];
-      } else if (cRes?.results) {
-        rawClasses = cRes.results;
+      const cr = cRes as any;
+      if (Array.isArray(cr)) {
+        rawClasses = cr;
+      } else if (cr?.data) {
+        rawClasses = Array.isArray(cr.data) ? cr.data : cr.data?.results || [];
+      } else if (cr?.results) {
+        rawClasses = cr.results;
       } else {
         rawClasses = [];
       }

@@ -6,6 +6,24 @@ export default {
   ],
   theme: {
     extend: {
+      keyframes: {
+        flip: {
+          '0%': { transform: 'rotateY(0deg)', zIndex: '10' },
+          '20%': { transform: 'rotateY(-180deg)', zIndex: '10' },
+          '50%': { zIndex: '0' },
+          '100%': { transform: 'rotateY(-180deg)', zIndex: '0' },
+        },
+        bookCover: {
+          '0%': { transform: 'rotateY(0deg)' },
+          '40%': { transform: 'rotateY(0deg)' },
+          '60%': { transform: 'rotateY(-180deg)' },
+          '100%': { transform: 'rotateY(-180deg)' },
+        },
+      },
+      animation: {
+        flip: 'flip 2s ease-in-out infinite',
+        bookCover: 'bookCover 2s ease-in-out infinite',
+      },
       fontFamily: {
         sans: ['Roboto', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         display: ['Mulish', '"Museo Sans"', 'Roboto', 'sans-serif'],

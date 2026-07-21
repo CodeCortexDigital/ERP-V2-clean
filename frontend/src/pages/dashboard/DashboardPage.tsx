@@ -19,6 +19,7 @@ import {
   AbsentStudentsList,
   PresentEmployeesList,
   NewAdmissions,
+  StudentAttendanceSummary,
   FeeDonut,
   MetricsPills,
   SmsGatewayCard,
@@ -46,7 +47,7 @@ export default function DashboardPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const mountedRef = useRef(true);
 
-  const [studentAttendance, setStudentAttendance] = useState<{ present: number; total: number } | null>(null);
+  const [studentAttendance, setStudentAttendance] = useState<{ present: number; total: number; late: number; absent: number; class_breakdown?: any[] } | null>(null);
   const [employeeAttendance, setEmployeeAttendance] = useState<{ present: number; total: number } | null>(null);
   const [absentStudents, setAbsentStudents] = useState<any[]>([]);
   const [presentEmployees, setPresentEmployees] = useState<any[]>([]);
@@ -102,15 +103,16 @@ export default function DashboardPage() {
         setClasses(extractListData<any>([]));
 
         if (ed.fee_recovery_trends) {
+          const classData = ed.fee_recovery_trends.class_recovery || [];
+          const totalPaidFromClasses = classData.reduce((s, c) => s + c.total_paid, 0);
+          const totalAmountFromClasses = classData.reduce((s, c) => s + c.total_amount, 0);
+
           setFinanceSummary({
-            total_paid: ed.fee_recovery_trends.total_collected ?? 0,
-            balance_due: ed.fee_recovery_trends.total_pending ?? 0,
-            collection_rate: ed.fee_recovery_trends.class_recovery?.length
-              ? Math.round(
-                  (ed.fee_recovery_trends.class_recovery.reduce((s, c) => s + c.total_paid, 0) /
-                    (ed.fee_recovery_trends.class_recovery.reduce((s, c) => s + c.total_amount, 0) || 1)) *
-                    100
-                )
+            total_paid: ed.fee_recovery_trends.total_collected ?? totalPaidFromClasses,
+            total_expenses: ed.total_expenses ?? 0,
+            balance_due: ed.fee_recovery_trends.total_pending ?? (totalAmountFromClasses - totalPaidFromClasses),
+            collection_rate: classData.length
+              ? Math.round((totalPaidFromClasses / (totalAmountFromClasses || 1)) * 100)
               : 0,
           });
         }
@@ -155,7 +157,7 @@ export default function DashboardPage() {
         m.default.get('/attendance/dashboard-stats/')
       );
       const payload = res.data as {
-        students?: { total: number; present: number; late: number; absent: number; present_pct: number; absent_list: any[] };
+        students?: { total: number; present: number; late: number; absent: number; present_pct: number; absent_list: any[]; class_breakdown?: any[] };
         employees?: { total: number; present: number; present_pct: number };
       };
 
@@ -163,7 +165,7 @@ export default function DashboardPage() {
         const s = payload.students;
         const e = payload.employees;
 
-        setStudentAttendance(s ? { present: s.present + (s.late || 0), total: s.total } : null);
+        setStudentAttendance(s ? { present: s.present, total: s.total, late: s.late ?? 0, absent: s.absent ?? 0, class_breakdown: s.class_breakdown } : null);
         setAbsentStudents(s?.absent_list ?? []);
 
         if (e) {
@@ -238,30 +240,21 @@ export default function DashboardPage() {
     const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const year = new Date().getFullYear();
     const incomeByMonth = new Array(12).fill(0);
-    const expenseByMonth = new Array(12).fill(0);
 
     (revenueChart || []).forEach((r: any) => {
       const [y, m] = (r.month || '').split('-');
       if (Number(y) === year && m) incomeByMonth[Number(m) - 1] += Number(r.revenue) || 0;
     });
 
-    (transactionLogs || []).forEach((t: any) => {
-      if (t.type !== 'expense') return;
-      const d = new Date(t.date);
-      if (d.getFullYear() === year) expenseByMonth[d.getMonth()] += Number(t.amount) || 0;
-    });
-
     return monthLabels.map((name, idx) => ({
       name,
-      Expenses: expenseByMonth[idx],
+      Expenses: 0,
       Income: incomeByMonth[idx],
     }));
   };
 
   const totalIncome = Number(financeSummary?.total_paid) || 0;
-  const totalExpense = (transactionLogs || []).reduce(
-    (s, t: any) => (t.type === 'expense' ? s + (Number(t.amount) || 0) : s), 0
-  );
+  const totalExpense = Number(financeSummary?.total_expenses) || 0;
 
   const now = new Date();
   const thisMonthIncome = (revenueChart || []).reduce((s, r: any) => {
@@ -270,11 +263,7 @@ export default function DashboardPage() {
       ? s + (Number(r.revenue) || 0) : s;
   }, 0);
 
-  const thisMonthExpense = (transactionLogs || []).reduce((s, t: any) => {
-    const d = new Date(t.date);
-    return t.type === 'expense' && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-      ? s + (Number(t.amount) || 0) : s;
-  }, 0);
+  const thisMonthExpense = 0;
 
   const getBarChartData = () => {
     const counts: Record<string, number> = {};
@@ -294,8 +283,14 @@ export default function DashboardPage() {
   const feePct =
     financeSummary?.collection_rate != null ? `${financeSummary.collection_rate}%` : '0%';
 
-  const pct = (n: number, t: number) => (t > 0 ? Math.round((n / t) * 100) : null);
-  const studentPct = studentAttendance ? pct(studentAttendance.present, studentAttendance.total) : null;
+  const pct = (n: number, t: number) => (t > 0 ? Math.round((n / t) * 100) : 0);
+
+  const todayStudentTotal = studentAttendance?.total ?? 0;
+  const todayStudentPresent = studentAttendance?.present ?? 0;
+  const todayStudentLate = studentAttendance?.late ?? 0;
+  const studentPct = todayStudentTotal > 0
+    ? pct(todayStudentPresent + todayStudentLate, todayStudentTotal)
+    : (execData?.attendance_trends?.this_week_rate != null ? Math.round(execData.attendance_trends.this_week_rate) : 0);
   const employeePct = employeeAttendance ? pct(employeeAttendance.present, employeeAttendance.total) : null;
 
   if (loading) {
@@ -357,11 +352,16 @@ export default function DashboardPage() {
           <WidgetErrorBoundary title="Class Chart">
             <ClassBarChart data={getBarChartData()} />
           </WidgetErrorBoundary>
-          <WidgetErrorBoundary title="Absent Students">
-            <AbsentStudentsList
-              absentStudents={absentStudents}
-              attendanceTotal={studentAttendance?.total ?? null}
+          <WidgetErrorBoundary title="Attendance Summary">
+            <StudentAttendanceSummary
+              total={studentAttendance?.total ?? 0}
+              present={studentAttendance?.present ?? 0}
+              late={studentAttendance?.late ?? 0}
+              absent={studentAttendance?.absent ?? 0}
+              classBreakdown={studentAttendance?.class_breakdown}
               loading={attendanceLoading}
+              overallRate={execData?.attendance_trends?.this_week_rate ?? null}
+              overallLabel="This Week"
             />
           </WidgetErrorBoundary>
           <WidgetErrorBoundary title="Present Employees">

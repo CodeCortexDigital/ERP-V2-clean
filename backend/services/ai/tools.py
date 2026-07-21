@@ -39,6 +39,22 @@ def _student_summary(s: Student) -> dict:
     }
 
 
+def student_strength_by_class() -> dict:
+    """Get active student count grouped by class (strength per class)."""
+    qs = (
+        Student.objects.filter(is_active=True)
+        .values("current_class__name")
+        .annotate(count=Count("id"))
+        .order_by("current_class__name")
+    )
+    rows = [
+        {"class": item["current_class__name"] or "Unassigned", "count": item["count"]}
+        for item in qs
+    ]
+    total = sum(r["count"] for r in rows)
+    return {"strength": rows, "total_students": total}
+
+
 def search_students(query: str = "", class_name: str = "", limit: int = 20) -> dict:
     """Search students by name, student id, or guardian. Optionally filter by class name."""
     qs = Student.objects.filter(is_active=True)
@@ -86,9 +102,15 @@ def student_detail(student_id: str) -> dict:
 
 
 def fee_defaulters(class_name: str = "", limit: int = 20) -> dict:
-    """List students with unpaid/overdue/partial invoices (fee defaulters)."""
+    """List students with past-due balances (fee defaulters).
+    Only invoices past their due date with pending balance are counted."""
+    from django.utils import timezone
+    today = timezone.localdate()
     qs = (
-        Invoice.objects.exclude(status__in=["paid", "cancelled", "draft"])
+        Invoice.objects.filter(
+            due_date__lt=today,
+            status__in=["issued", "overdue", "partial"],
+        )
         .select_related("student", "student__current_class", "student__current_section")
         .order_by("due_date")
     )
@@ -97,7 +119,7 @@ def fee_defaulters(class_name: str = "", limit: int = 20) -> dict:
     qs = qs[: max(1, min(limit, 50))]
     out = []
     for i in qs:
-        due = float(i.amount) - float(i.paid_amount or 0)
+        due = float(i.amount) + float(i.opening_balance or 0) - float(i.discount_amount or 0) + float(i.late_fee_amount or 0) - float(i.paid_amount or 0)
         if due <= 0:
             continue
         out.append(
@@ -134,9 +156,28 @@ def finance_summary() -> dict:
     }
 
 
-def attendance_stats(class_name: str = "", student_id: str = "") -> dict:
-    """Attendance percentage for a class or a single student."""
+def attendance_stats(class_name: str = "", student_id: str = "", date_mode: str = "today") -> dict:
+    """Attendance percentage for today, a specific class, or a single student."""
+    from django.utils import timezone
+    today = timezone.localdate()
+    
     qs = AttendanceRecord.objects.exclude(status="holiday")
+    date_label = f"Today ({today.strftime('%d %b %Y')})"
+    
+    # Filter by date mode
+    if date_mode == "today" or not date_mode:
+        today_qs = qs.filter(date=today)
+        if today_qs.exists():
+            qs = today_qs
+        else:
+            # Fall back to latest date if today hasn't been marked yet
+            latest_date = qs.order_by("-date").values_list("date", flat=True).first()
+            if latest_date:
+                qs = qs.filter(date=latest_date)
+                date_label = f"Latest Marked Date ({latest_date.strftime('%d %b %Y')})"
+            else:
+                date_label = "All Time"
+
     label = None
     if student_id:
         stu = Student.objects.filter(
@@ -145,20 +186,31 @@ def attendance_stats(class_name: str = "", student_id: str = "") -> dict:
         if not stu:
             return {"found": False}
         qs = qs.filter(student=stu)
-        label = stu.full_name
+        label = f"{stu.full_name} ({date_label})"
     elif class_name:
         qs = qs.filter(student__current_class__name__icontains=class_name)
-        label = class_name
+        label = f"Class {class_name} ({date_label})"
+    else:
+        label = date_label
+
     total = qs.count()
     present = qs.filter(status__in=["present", "late"]).count()
     absent = qs.filter(status="absent").count()
+    late = qs.filter(status="late").count()
     pct = round((present / total) * 100, 1) if total else 0.0
+
+    absent_names = list(qs.filter(status="absent").select_related("student").values_list("student__full_name", flat=True)[:15])
+
     return {
+        "found": True,
         "scope": label,
+        "date_label": date_label,
         "total_records": total,
         "present": present,
         "absent": absent,
+        "late": late,
         "attendance_percentage": pct,
+        "absent_students": absent_names,
     }
 
 
@@ -452,8 +504,11 @@ def my_certificates(user):
         ids = _self_student_ids(user)
         if not ids:
             return {"found": False, "reason": "No linked student."}
+        names = list(
+            Student.objects.filter(id__in=ids).values_list("full_name", flat=True)
+        )
         qs = Certificate.objects.filter(
-            recipient_id__in=[str(i) for i in ids]
+            recipient_name__in=names
         ).order_by("-issue_date")[:20]
     else:
         return {"found": False, "reason": "Not applicable for this role."}
@@ -462,7 +517,7 @@ def my_certificates(user):
         "count": qs.count(),
         "certificates": [
             {
-                "title": c.title,
+                "title": c.template,
                 "type": c.recipient_type,
                 "recipient": c.recipient_name,
                 "issued_on": str(c.issue_date) if c.issue_date else None,
@@ -501,22 +556,20 @@ def my_notifications(user, limit: int = 15):
 
 def admin_homework(class_name: str = "", subject: str = "", limit: int = 20):
     """List homework across the school, optionally filtered by class or subject."""
-    qs = Homework.objects.filter(class_ref__isnull=False).select_related(
-        "class_ref"
-    ).order_by("-created_at")
+    qs = Homework.objects.all().select_related("class_ref").order_by("-created_at")
     if class_name:
         qs = qs.filter(class_ref__name__icontains=class_name)
     if subject:
-        qs = qs.filter(subject__name__icontains=subject)
+        qs = qs.filter(Q(subject_name__icontains=subject) | Q(title__icontains=subject))
     qs = qs[: max(1, min(limit, 50))]
     return {
         "count": qs.count(),
         "homework": [
             {
                 "title": h.title,
-                "class": h.class_ref.name if h.class_ref_id else None,
-                "subject": h.subject.name if h.subject_id else None,
-                "due_date": str(h.due_date) if h.due_date else None,
+                "class": h.class_ref.name if getattr(h, 'class_ref_id', None) else None,
+                "subject": getattr(h, 'subject_name', 'General'),
+                "due_date": str(h.due_date) if getattr(h, 'due_date', None) else None,
             }
             for h in qs
         ],
@@ -551,16 +604,16 @@ def admin_certificates(recipient_type: str = "", limit: int = 20):
     """List issued certificates, optionally filtered by recipient type."""
     qs = Certificate.objects.all().order_by("-issue_date")
     if recipient_type:
-        qs = qs.filter(recipient_type__iexact=recipient_type)
+        qs = qs.filter(Q(recipient_type__iexact=recipient_type) | Q(certificate_type__icontains=recipient_type))
     qs = qs[: max(1, min(limit, 50))]
     return {
         "count": qs.count(),
         "certificates": [
             {
-                "title": c.title,
-                "type": c.recipient_type,
-                "recipient": c.recipient_name,
-                "issued_on": str(c.issue_date) if c.issue_date else None,
+                "title": getattr(c, 'certificate_type', None) or getattr(c, 'title', 'Certificate'),
+                "type": getattr(c, 'recipient_type', 'Student'),
+                "recipient": getattr(c, 'recipient_name', None) or getattr(c, 'recipient_id', 'Recipient'),
+                "issued_on": str(c.issue_date) if getattr(c, 'issue_date', None) else None,
             }
             for c in qs
         ],
@@ -568,6 +621,14 @@ def admin_certificates(recipient_type: str = "", limit: int = 20):
 
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "student_strength_by_class",
+            "description": "Get student count grouped by class (strength per class).",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -784,7 +845,7 @@ SELF_TOOLS = {
 ADMIN_TOOLS = {
     "search_students", "student_detail", "fee_defaulters", "finance_summary",
     "attendance_stats", "list_exams", "admin_homework", "admin_behaviour",
-    "admin_certificates",
+    "admin_certificates", "student_strength_by_class",
 }
 
 
@@ -808,6 +869,7 @@ def call_tool(name: str, arguments: dict, user=None) -> Any:
         return {"error": "Authentication required for this tool."}
     func = {
         # admin / staff-wide
+        "student_strength_by_class": student_strength_by_class,
         "search_students": search_students,
         "student_detail": student_detail,
         "fee_defaulters": fee_defaulters,

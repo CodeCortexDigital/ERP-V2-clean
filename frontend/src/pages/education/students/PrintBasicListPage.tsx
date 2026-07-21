@@ -78,15 +78,16 @@ export default function PrintBasicListPage() {
       
       // ✅ FIX: Handle classes response properly
       let rawClasses: any[] = [];
-      if (Array.isArray(cRes)) {
-        rawClasses = cRes;
-      } else if (cRes && typeof cRes === 'object') {
-        if (Array.isArray(cRes.data)) {
-          rawClasses = cRes.data;
-        } else if (Array.isArray(cRes.results)) {
-          rawClasses = cRes.results;
+      const cr = cRes as any;
+      if (Array.isArray(cr)) {
+        rawClasses = cr;
+      } else if (cr && typeof cr === 'object') {
+        if (Array.isArray(cr.data)) {
+          rawClasses = cr.data;
+        } else if (Array.isArray(cr.results)) {
+          rawClasses = cr.results;
         } else {
-          rawClasses = Object.values(cRes).filter(Array.isArray).flat() || [];
+          rawClasses = Object.values(cr).filter(Array.isArray).flat() || [];
         }
       }
 

@@ -11,7 +11,9 @@ export interface AiChatResponse {
   offline?: boolean;
 }
 
-export const sendAiMessage = async (messages: ChatMessage[]): Promise<AiChatResponse> => {
-  const res = await api.post<AiChatResponse>(API_ENDPOINTS.AI_CHAT, { messages });
+export const sendAiMessage = async (messages: ChatMessage[], role?: string): Promise<AiChatResponse> => {
+  const body: Record<string, any> = { messages };
+  if (role && role !== 'admin') body.role = role;
+  const res = await api.post<AiChatResponse>(API_ENDPOINTS.AI_CHAT, body);
   return res.data;
 };

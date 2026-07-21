@@ -377,11 +377,15 @@ def finance_summary(request):
     # Calculate total_amount as total_paid + balance_due to keep all cards aligned
     total_amount = total_paid + balance_due
     collection_rate = round((float(total_paid) / float(total_amount) * 100), 1) if total_amount > 0 else 0
-    
+
+    # Total expenses from LedgerEntry
+    total_expenses = LedgerEntry.objects.filter(type='expense').aggregate(total=Sum('amount'))['total'] or 0
+
     return Response({
         'total_invoices': total_invoices,
         'total_amount': float(total_amount),
         'total_paid': float(total_paid),
+        'total_expenses': float(total_expenses),
         'balance_due': float(balance_due),
         'collection_rate': collection_rate,
     })

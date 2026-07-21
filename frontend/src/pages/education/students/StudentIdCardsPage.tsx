@@ -56,7 +56,7 @@ export default function StudentIdCardsPage() {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const sRes = await studentService.getAll({ page_size: 1000 }).catch(() => ({ data: [] }));
+      const sRes = await studentService.getAll({ page_size: 1000 } as any).catch(() => ({ data: [] }));
       const fetched = extractListData<any>(sRes.data);
 
       console.log('Raw students from API:', fetched);

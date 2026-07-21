@@ -377,6 +377,65 @@ const academicService = {
   deleteTimetableEntry: async (id: string) => academicService.timetable.delete(id),
 
   // ============================================================
+  // PROGRESS / SYLLABUS
+  // ============================================================
+  getSyllabusTopics: async (params?: any) => {
+    try {
+      const response = await api.get(`/auth/academics/syllabus-topics/`, { params });
+      return { data: extractListData<any>(response.data) };
+    } catch {
+      return { data: [] as any[] };
+    }
+  },
+  getTopicCoverages: async (params?: any) => {
+    try {
+      const response = await api.get(`/auth/academics/topic-coverages/`, { params });
+      return { data: extractListData<any>(response.data) };
+    } catch {
+      return { data: [] as any[] };
+    }
+  },
+  getLessonPlans: async (params?: any) => {
+    try {
+      const response = await api.get(`/auth/academics/lesson-plans/`, { params });
+      return { data: extractListData<any>(response.data) };
+    } catch {
+      return { data: [] as any[] };
+    }
+  },
+  createLessonPlan: async (data: any) => {
+    const response = await api.post(`/auth/academics/lesson-plans/`, data);
+    return response.data;
+  },
+  updateLessonPlan: async (id: string, data: any) => {
+    const response = await api.patch(`/auth/academics/lesson-plans/${id}/`, data);
+    return response.data;
+  },
+  deleteLessonPlan: async (id: string) => {
+    await api.delete(`/auth/academics/lesson-plans/${id}/`);
+  },
+  getStudentTopicProgress: async (params?: any) => {
+    try {
+      const response = await api.get(`/auth/academics/student-topic-progress/`, { params });
+      return { data: extractListData<any>(response.data) };
+    } catch {
+      return { data: [] as any[] };
+    }
+  },
+  getTeacherFeedbacks: async (params?: any) => {
+    try {
+      const response = await api.get(`/auth/academics/teacher-feedbacks/`, { params });
+      return { data: extractListData<any>(response.data) };
+    } catch {
+      return { data: [] as any[] };
+    }
+  },
+  createTeacherFeedback: async (data: any) => {
+    const response = await api.post(`/auth/academics/teacher-feedbacks/`, data);
+    return response.data;
+  },
+
+  // ============================================================
   // HOMEWORK
   // ============================================================
   homework: {

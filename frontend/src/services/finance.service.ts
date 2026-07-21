@@ -21,15 +21,35 @@ export interface Invoice {
   invoice_number: string;
   student: string;
   student_name?: string;
+  student_id_code?: string;
+  student_id_num?: string;
   class_id?: string;
   class_name?: string;
   amount: number;
   paid_amount: number;
   balance_due: number;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'partially_paid';
+  total_amount?: number;
+  opening_balance?: number;
+  previous_balance?: number;
+  late_fee_amount?: number;
+  discount_amount?: number;
+  fine_after_due_date?: number;
+  fee_month?: string;
+  invoice_month?: string;
+  bank_name?: string;
+  description?: string;
+  carried_forward?: boolean;
+  carried_forward_to?: string;
+  carried_forward_date?: string;
+  cancellation_remarks?: string;
+  breakdown?: any;
+  invoice_type?: string;
+  registration_alias?: string;
+  payment_history?: any[];
+  status: string;
   due_date: string;
   issue_date: string;
-  items: Array<{
+  items?: Array<{
     description: string;
     amount: number;
     quantity: number;

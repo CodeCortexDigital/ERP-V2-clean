@@ -800,9 +800,9 @@ export default function CollectFeesPage() {
                   <tbody className="divide-y divide-slate-150 text-slate-700 font-medium">
                     {studentHistory.map((h, i) => {
                       const totalH = h.particulars_payments 
-                        ? (Object.values(h.particulars_payments).reduce((a: any, b: any) => Number(a) + Number(b), 0) - Number(h.particulars_payments.discountFee)) 
+                        ? ((Object.values(h.particulars_payments as any) as number[]).reduce((a: number, b: number) => a + b, 0) - Number(h.particulars_payments.discountFee)) 
                         : (h.breakdown && Object.keys(h.breakdown).length > 0
-                            ? (Object.values(h.breakdown).reduce((a: any, b: any) => Number(a) + Number(b), 0) - Number(h.discount_amount || 0))
+                            ? ((Object.values(h.breakdown as any) as number[]).reduce((a: number, b: number) => a + b, 0) - Number(h.discount_amount || 0))
                             : (h.total_amount || h.amount));
                       const depositH = h.paid_amount ?? (h.status === 'paid' ? h.total_amount || h.amount : 0);
                       const dueH = h.balance_due ?? h.remaining_balance ?? (h.status === 'unpaid' ? h.total_amount || h.amount : 0);

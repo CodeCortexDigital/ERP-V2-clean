@@ -6,7 +6,7 @@ export interface ModuleTab {
   id: string;
   path: string; // full path used for navigation AND active matching (may include ?query)
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   dark: string;
   light: string;
   rgb: string;

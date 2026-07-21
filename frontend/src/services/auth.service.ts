@@ -90,6 +90,12 @@ const authService = {
     return response;
   },
 
+  // ✅ Reset password (admin forgot password flow)
+  resetPassword: async (data: { identifier: string; new_password: string; reset_key?: string; current_password?: string }) => {
+    const response = await api.post('/auth/reset-password/', data);
+    return response;
+  },
+
   // ✅ Refresh token
   refreshToken: async (refresh: string) => {
     const response = await api.post<{ access: string }>('/auth/token/refresh/', { refresh });

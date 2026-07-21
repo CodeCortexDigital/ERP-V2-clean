@@ -299,9 +299,10 @@ export default function AdmissionLetterPage() {
 
   const filteredStudents = students.filter(s => {
     const query = searchQuery.toLowerCase();
+    const student = s as any;
     return (
-      (s.full_name || s.name || '').toLowerCase().includes(query) ||
-      (s.student_id || '').toLowerCase().includes(query)
+      (student.full_name || student.name || '').toLowerCase().includes(query) ||
+      (student.student_id || '').toLowerCase().includes(query)
     );
   });
 
@@ -371,16 +372,19 @@ export default function AdmissionLetterPage() {
               ) : filteredStudents.length === 0 ? (
                 <p className="text-xs text-slate-400 py-4 font-semibold">No matching records found.</p>
               ) : (
-                filteredStudents.map(s => (
-                  <button
-                    key={s.id || s.student_id}
-                    onClick={() => handleSelectStudent(s)}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-white hover:shadow-2xs transition border border-transparent hover:border-slate-150 flex items-center justify-between text-xs font-bold text-slate-700"
-                  >
-                    <span>{s.full_name || s.name}</span>
-                    <span className="text-[10px] text-purple-600 font-mono bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100/50">{s.student_id || 'Student'}</span>
-                  </button>
-                ))
+                filteredStudents.map(s => {
+                  const student = s as any;
+                  return (
+                    <button
+                      key={student.id || student.student_id}
+                      onClick={() => handleSelectStudent(s)}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-white hover:shadow-2xs transition border border-transparent hover:border-slate-150 flex items-center justify-between text-xs font-bold text-slate-700"
+                    >
+                      <span>{student.full_name || student.name}</span>
+                      <span className="text-[10px] text-purple-600 font-mono bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100/50">{student.student_id || 'Student'}</span>
+                    </button>
+                  );
+                })
               )}
             </div>
 

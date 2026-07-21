@@ -11,7 +11,8 @@ import settingsService from '@/services/settings.service';
 interface Invoice {
   id: string;
   invoice_number: string;
-  student: string;
+  student: any;
+  student_id?: any;
   student_name: string;
   student_id_code: string;
   student_id_num?: string;
@@ -26,6 +27,7 @@ interface Invoice {
   discount_amount?: number;
   total_amount?: number;
   balance_due?: number;
+  previous_balance?: number;
   bank_name: string;
   status: string;
   description: string;
@@ -34,6 +36,8 @@ interface Invoice {
   remaining_balance?: number;
   invoice_type?: string;
   breakdown?: any;
+  payment_history?: any[];
+  cancellation_remarks?: string;
   particulars_payments?: {
     monthlyFee: number;
     admissionFee: number;
@@ -325,7 +329,7 @@ export default function FeesPaidSlipPage() {
       : (activeReceipt.particulars_payments 
         ? (Object.values(activeReceipt.particulars_payments).reduce((a: any, b: any) => Number(a) + Number(b), 0) - Number(activeReceipt.particulars_payments.discountFee)) 
         : (activeReceipt.breakdown && Object.keys(activeReceipt.breakdown).length > 0
-          ? (Object.values(activeReceipt.breakdown).reduce((a: any, b: any) => Number(a) + Number(b), 0) + Number(activeReceipt.late_fee_amount || activeReceipt.fine_after_due_date || 0) - Number(activeReceipt.discount_amount || 0) + Number(activeReceipt.opening_balance || 0))
+          ? ((Object.values(activeReceipt.breakdown as any) as number[]).reduce((a: number, b: number) => a + b, 0) + Number(activeReceipt.late_fee_amount || activeReceipt.fine_after_due_date || 0) - Number(activeReceipt.discount_amount || 0) + Number(activeReceipt.opening_balance || 0))
           : Number(activeReceipt.amount))))
     : 0;
 

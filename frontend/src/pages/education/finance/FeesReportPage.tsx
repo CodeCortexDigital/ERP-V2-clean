@@ -14,13 +14,18 @@ interface Invoice {
   student_id_code: string;
   class_name: string;
   fee_month: string;
+  invoice_month?: string;
   due_date: string;
   amount: number;
   previous_balance?: number;
   total_amount?: number;
+  balance_due?: number;
+  opening_balance?: number;
+  late_fee_amount?: number;
+  discount_amount?: number;
   fine_after_due_date: number;
   bank_name: string;
-  status: 'unpaid' | 'paid';
+  status: string;
   description: string;
   created_at: string;
   paid_amount?: number;
@@ -91,13 +96,13 @@ export default function FeesReportPage() {
     const balance = inv.balance_due !== undefined ? inv.balance_due : (totalAmt - (inv.paid_amount || 0));
 
     if (filterStatus === 'Paid') {
-      return (inv.status === 'paid' || balance <= 0) && inv.status !== 'cancelled';
+      return (inv.status === 'paid' || balance <= 0) && String(inv.status) !== 'cancelled';
     }
     if (filterStatus === 'Unpaid') {
-      return inv.status === 'unpaid' && balance > 0 && inv.status !== 'cancelled';
+      return inv.status === 'unpaid' && balance > 0;
     }
     if (filterStatus === 'Partial') {
-      return inv.status === 'partial' || (inv.paid_amount > 0 && balance > 0 && inv.status !== 'cancelled');
+      return inv.status === 'partial' || (inv.paid_amount > 0 && balance > 0 && String(inv.status) !== 'cancelled');
     }
     if (filterStatus === 'Cancelled') {
       return inv.status === 'cancelled';

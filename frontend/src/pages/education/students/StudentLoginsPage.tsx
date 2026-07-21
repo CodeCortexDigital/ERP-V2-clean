@@ -77,12 +77,13 @@ export default function StudentLoginsPage() {
       const rawStudents = extractListData<any>(sRes.data || []);
       
       let rawClasses: any[] = [];
-      if (Array.isArray(cRes)) {
-        rawClasses = cRes;
-      } else if (cRes?.data) {
-        rawClasses = Array.isArray(cRes.data) ? cRes.data : cRes.data?.results || [];
-      } else if (cRes?.results) {
-        rawClasses = cRes.results;
+      const cr = cRes as any;
+      if (Array.isArray(cr)) {
+        rawClasses = cr;
+      } else if (cr?.data) {
+        rawClasses = Array.isArray(cr.data) ? cr.data : cr.data?.results || [];
+      } else if (cr?.results) {
+        rawClasses = cr.results;
       }
 
       console.log('Raw students from API:', rawStudents);

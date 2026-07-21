@@ -1,9 +1,10 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from .models import Payment, TransactionLog
+from .models import Payment, TransactionLog, LedgerEntry
 from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
 from services.core.events.dispatcher import dispatch_event
+from services.core.utils.cache import invalidate_dashboard_cache
 
 
 def log_transaction(user, action, model_name, object_id, object_name, old_value=None, new_value=None):
@@ -26,7 +27,8 @@ def log_transaction(user, action, model_name, object_id, object_name, old_value=
 
 @receiver(post_save, sender=Payment)
 def log_payment_audit(sender, instance, created, **kwargs):
-    """Log payment creation/update"""
+    """Log payment creation/update and invalidate dashboard cache"""
+    invalidate_dashboard_cache()
     action = 'create' if created else 'update'
     log_transaction(
         user=getattr(instance, '_user', None),
@@ -44,7 +46,8 @@ def log_payment_audit(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='education_finance.Invoice')
 def log_invoice_audit(sender, instance, created, **kwargs):
-    """Log invoice creation/update"""
+    """Log invoice creation/update and invalidate dashboard cache"""
+    invalidate_dashboard_cache()
     try:
         from services.core.user_notifications.utils import create_user_notification
 
@@ -103,7 +106,8 @@ def log_fee_structure_audit(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Payment)
 def log_payment_deletion(sender, instance, **kwargs):
-    """Log payment deletion and update invoice"""
+    """Log payment deletion, update invoice, and invalidate dashboard cache"""
+    invalidate_dashboard_cache()
     if instance.invoice:
         from django.db.models import Sum
         invoice = instance.invoice
@@ -138,7 +142,8 @@ def log_payment_deletion(sender, instance, **kwargs):
 
 @receiver(post_delete, sender='education_finance.Invoice')
 def log_invoice_deletion(sender, instance, **kwargs):
-    """Log invoice deletion"""
+    """Log invoice deletion and invalidate dashboard cache"""
+    invalidate_dashboard_cache()
     log_transaction(
         user=getattr(instance, '_user', None),
         action='delete',
@@ -150,3 +155,9 @@ def log_invoice_deletion(sender, instance, **kwargs):
             'student': instance.student.full_name
         }
     )
+
+
+@receiver([post_save, post_delete], sender=LedgerEntry)
+def invalidate_cache_on_ledger_change(sender, **kwargs):
+    """Invalidate dashboard cache when ledger entries change"""
+    invalidate_dashboard_cache()

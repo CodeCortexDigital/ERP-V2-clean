@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      await authService.resetPassword({
+      await (authService as any).resetPassword({
         identifier,
         new_password: newPassword,
         reset_key: resetKey || undefined,

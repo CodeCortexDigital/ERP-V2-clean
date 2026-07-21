@@ -75,7 +75,7 @@ export default function PromoteStudentsPage() {
     setLoading(true);
     try {
       // Fetch students with fresh data
-      const sRes = await studentService.getAll({ page_size: 1000 }).catch(() => ({ data: [] }));
+      const sRes = await studentService.getAll({ page_size: 1000 } as any).catch(() => ({ data: [] }));
       const rawStudents = extractListData<any>(sRes.data || []);
 
       // Fetch classes
@@ -85,15 +85,16 @@ export default function PromoteStudentsPage() {
         const classesRes = await academicService.getClasses();
         console.log('📚 Classes API Response:', classesRes);
         
-        if (classesRes) {
-          if (Array.isArray(classesRes)) {
-            rawClasses = classesRes;
-          } else if (classesRes.data && Array.isArray(classesRes.data)) {
-            rawClasses = classesRes.data;
-          } else if (classesRes.results && Array.isArray(classesRes.results)) {
-            rawClasses = classesRes.results;
-          } else if (classesRes.data?.results && Array.isArray(classesRes.data.results)) {
-            rawClasses = classesRes.data.results;
+        const cr = classesRes as any;
+        if (cr) {
+          if (Array.isArray(cr)) {
+            rawClasses = cr;
+          } else if (cr.data && Array.isArray(cr.data)) {
+            rawClasses = cr.data;
+          } else if (cr.results && Array.isArray(cr.results)) {
+            rawClasses = cr.results;
+          } else if (cr.data?.results && Array.isArray(cr.data.results)) {
+            rawClasses = cr.data.results;
           }
         }
       } catch (err) {

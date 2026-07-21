@@ -102,6 +102,7 @@ export default function AttendancePage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [studentHistory, setStudentHistory] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>('all');
 
   // Statistics based on actual student data
   const totalStudents = students.length;
@@ -112,11 +113,12 @@ export default function AttendancePage() {
   const nonSchoolDay = isSunday(selectedDate);
   const attendanceRate = totalStudents > 0 ? (presentCount / totalStudents) * 100 : 0;
 
-  // Filtered students based on search
-  const filteredStudents = students.filter(student =>
-    student.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.student_id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filtered students based on search + status filter
+  const filteredStudents = students.filter(student => {
+    if (statusFilter !== 'all' && student.status !== statusFilter) return false;
+    return student.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.student_id.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   // Teacher attendance states
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -1268,19 +1270,53 @@ export default function AttendancePage() {
               /* ── MARKING SHEET — Code Cortex style ─────────────────────────── */
               <div className="space-y-4 max-w-2xl mx-auto">
 
-                {/* Stats row */}
+                {/* Statistics Cards — matching employee style */}
                 {students.length > 0 && (
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Total Students</span>
+                      <span className="text-xl font-black text-blue-600 block">{totalStudents}</span>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border-l-4 border-l-emerald-500 border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest block">Present</span>
+                      <span className="text-xl font-black text-emerald-600 block">{presentCount}</span>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border-l-4 border-l-rose-500 border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest block">Absent</span>
+                      <span className="text-xl font-black text-rose-500 block">{absentCount}</span>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border-l-4 border-l-amber-400 border border-slate-150 shadow-2xs flex flex-col justify-between h-24">
+                      <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest block">Late</span>
+                      <span className="text-xl font-black text-amber-500 block">{lateCount}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status filter chips */}
+                {students.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
                     {[
-                      { label: 'TOTAL STUDENTS', value: totalStudents, color: 'text-slate-700' },
-                      { label: 'PRESENT',         value: presentCount,  color: 'text-emerald-600' },
-                      { label: 'ABSENT',          value: absentCount,   color: 'text-rose-500' },
-                      { label: 'LATE',            value: lateCount,     color: 'text-amber-500' },
-                    ].map(({ label, value, color }) => (
-                      <div key={label} className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-                        <p className={`text-2xl font-black ${color}`}>{value}</p>
-                      </div>
+                      { key: 'all', label: 'All', count: students.length, color: 'text-slate-700', bg: 'bg-slate-100', activeBg: 'bg-slate-700', activeText: 'text-white' },
+                      { key: 'present', label: 'Present', count: presentCount, color: 'text-emerald-600', bg: 'bg-emerald-50', activeBg: 'bg-emerald-500', activeText: 'text-white' },
+                      { key: 'excused', label: 'Leave', count: students.filter(s => s.status === 'excused').length, color: 'text-amber-500', bg: 'bg-amber-50', activeBg: 'bg-amber-400', activeText: 'text-white' },
+                      { key: 'holiday', label: 'Holiday', count: holidayCount, color: 'text-purple-600', bg: 'bg-purple-50', activeBg: 'bg-purple-600', activeText: 'text-white' },
+                      { key: 'absent', label: 'Absent', count: absentCount, color: 'text-rose-500', bg: 'bg-rose-50', activeBg: 'bg-rose-500', activeText: 'text-white' },
+                    ].map(({ key, label, count, color, bg, activeBg, activeText }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setStatusFilter(key as any)}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all ${
+                          statusFilter === key
+                            ? `${activeBg} ${activeText} shadow-sm`
+                            : `${bg} ${color} hover:opacity-80`
+                        }`}
+                      >
+                        {label}
+                        <span className={`text-[10px] font-black ${statusFilter === key ? 'opacity-80' : 'opacity-60'}`}>
+                          {count}
+                        </span>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -1332,12 +1368,12 @@ export default function AttendancePage() {
                       <div className="flex justify-center py-12">
                         <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"/>
                       </div>
-                    ) : students.length === 0 ? (
+                    ) : filteredStudents.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 text-sm font-semibold">
-                        No students found for the selected class(es)
+                        No students match the active filter
                       </div>
                     ) : (
-                      students.map((student) => (
+                      filteredStudents.map((student) => (
                         <div key={student.id} className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50/50 transition-colors">
 
                           {/* Avatar */}

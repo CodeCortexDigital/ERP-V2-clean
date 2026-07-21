@@ -150,6 +150,10 @@ def executive_dashboard(request):
         # Smart Insights/Alerts
         smart_insights = _generate_smart_insights(attendance_trends, fee_recovery_trends, exam_performance_trends)
 
+        # Total expenses from LedgerEntry
+        LedgerEntry = apps.get_model('education_finance', 'LedgerEntry')
+        total_expenses = float(LedgerEntry.objects.filter(type='expense').aggregate(total=Sum('amount'))['total'] or 0)
+
         return Response({
             'revenue_trends': revenue_trends,
             'attendance_trends': attendance_trends,
@@ -158,6 +162,7 @@ def executive_dashboard(request):
             'exam_performance_trends': exam_performance_trends,
             'teacher_metrics': teacher_metrics,
             'smart_insights': smart_insights,
+            'total_expenses': total_expenses,
             'generated_at': timezone.now().isoformat()
         })
 
@@ -267,8 +272,16 @@ def _calculate_fee_recovery_trends():
     # Sort by recovery rate ascending (worst first)
     recovery_data.sort(key=lambda x: x['recovery_rate'])
 
+    # Compute totals from ALL invoices (not just class-filtered)
+    all_invoices = Invoice.objects.all()
+    total_collected = all_invoices.aggregate(total=Sum('paid_amount'))['total'] or 0
+    total_amount_all = all_invoices.aggregate(total=Sum('amount'))['total'] or 0
+    total_pending = total_amount_all - total_collected
+
     return {
         'class_recovery': recovery_data,
+        'total_collected': float(total_collected),
+        'total_pending': float(total_pending),
         'worst_performing_class': recovery_data[0] if recovery_data else None,
         'best_performing_class': recovery_data[-1] if recovery_data else None
     }

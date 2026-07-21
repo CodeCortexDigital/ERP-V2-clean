@@ -12,6 +12,7 @@ export { default as MetricsPills } from './MetricsPills';
 export { default as SmsGatewayCard } from './SmsGatewayCard';
 export { default as DesktopAppBanner } from './DesktopAppBanner';
 export { default as DynamicCalendar } from './DynamicCalendar';
+export { default as StudentAttendanceSummary } from './StudentAttendanceSummary';
 export { default as SmartInsights } from './SmartInsights';
 export { default as WidgetErrorBoundary } from './WidgetErrorBoundary';
 export * from './types';
