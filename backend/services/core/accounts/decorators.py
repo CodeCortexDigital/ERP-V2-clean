@@ -22,7 +22,14 @@ def get_user_role(user):
         return 'admin'
 
     if hasattr(user, 'profile') and getattr(user.profile, 'role', None):
-        return normalize_role_name(user.profile.role.name)
+        role_obj = user.profile.role
+        role_type = getattr(role_obj, 'role_type', None)
+        if role_type in ('super_admin', 'school_admin'):
+            return 'admin'
+        role_name = normalize_role_name(role_obj.name)
+        if role_name in ('super admin', 'super_admin', 'school admin', 'school_admin', 'admin'):
+            return 'admin'
+        return normalize_role_name(role_type or role_obj.name)
 
     if hasattr(user, 'parent_profile'):
         return 'parent'

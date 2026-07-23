@@ -38,6 +38,7 @@ export interface FinanceSummary {
   balance_due?: number;
   total_amount?: number;
   collection_rate?: number | null;
+  total_expenses?: number;
 }
 
 export interface RevenueItem {

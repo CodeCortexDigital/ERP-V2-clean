@@ -27,7 +27,7 @@ export default function MotivationalWidget() {
   const q = quotes[index];
 
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-5 rounded-2xl shadow-sm text-white overflow-hidden relative">
+    <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-5 rounded-2xl shadow-sm text-white overflow-hidden relative">
       <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/5" />
       <div className="absolute -bottom-6 -left-6 w-32 h-32 rounded-full bg-white/5" />
 

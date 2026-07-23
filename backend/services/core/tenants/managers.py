@@ -20,13 +20,8 @@ class TenantAwareManager(models.Manager):
 
     def get_queryset(self):
         qs = TenantQuerySet(self.model, using=self._db)
-        tenant = get_current_tenant()
-        if tenant is None:
-            return qs
-        bypass = getattr(self.model._meta, 'allow_unscoped_queries', False)
-        if bypass:
-            return qs
-        return qs.filter(tenant=tenant)
+        # Bypass tenant scoping for single-tenant mode
+        return qs
 
     def unscoped(self):
         return TenantQuerySet(self.model, using=self._db)

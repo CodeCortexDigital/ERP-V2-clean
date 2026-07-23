@@ -194,7 +194,7 @@ export default function CommunicationPage() {
                   onClick={() => setSelectedContact(c.id)}
                   className={`p-3.5 rounded-xl cursor-pointer transition-all flex items-center gap-3 ${
                     selectedContact === c.id
-                      ? 'bg-white text-blue-650 shadow-3xs border border-slate-100'
+                      ? 'bg-white text-green-600 shadow-3xs border border-slate-100'
                       : 'hover:bg-slate-100/50 text-slate-600'
                   }`}
                 >
@@ -228,12 +228,12 @@ export default function CommunicationPage() {
                 >
                   <div className={`max-w-[70%] rounded-2xl p-3 shadow-3xs space-y-1 ${
                     m.sender === 'me'
-                      ? 'bg-blue-600 text-white rounded-br-none'
+                      ? 'bg-green-600 text-white rounded-br-none'
                       : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none'
                   }`}>
                     <p className="text-xs font-semibold leading-relaxed">{m.text}</p>
                     <p className={`text-[8px] text-right font-bold ${
-                      m.sender === 'me' ? 'text-blue-200' : 'text-slate-400'
+                      m.sender === 'me' ? 'text-green-200' : 'text-slate-400'
                     }`}>{m.time}</p>
                   </div>
                 </div>
@@ -247,11 +247,11 @@ export default function CommunicationPage() {
                 value={typedMessage}
                 onChange={(e) => setTypedMessage(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleStudentSendMessage(); }}
-                className="flex-1 text-xs h-10 border border-slate-200 rounded-xl px-3 focus:outline-none focus:ring-1 focus:ring-blue-600 font-semibold"
+                className="flex-1 text-xs h-10 border border-slate-200 rounded-xl px-3 focus:outline-none focus:ring-1 focus:ring-green-600 font-semibold"
               />
               <button
                 onClick={handleStudentSendMessage}
-                className="w-10 h-10 shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center transition-colors shadow-2xs"
+                className="w-10 h-10 shrink-0 bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center justify-center transition-colors shadow-2xs"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -342,7 +342,7 @@ export default function CommunicationPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Send className="w-4 h-4 text-blue-600" /> Helpdesk & Messaging
+            <Send className="w-4 h-4 text-green-600" /> Helpdesk & Messaging
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -368,9 +368,9 @@ export default function CommunicationPage() {
 
   const renderSmsCompose = (channel: string, branded: boolean) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-      <Card className="md:col-span-1 border-blue-200">
-        <CardHeader className="bg-blue-50/50">
-          <CardTitle className="text-base font-semibold flex items-center gap-2 text-blue-800">
+      <Card className="md:col-span-1 border-green-200">
+        <CardHeader className="bg-green-50/50">
+          <CardTitle className="text-base font-semibold flex items-center gap-2 text-green-800">
             <PhoneCall className="w-4 h-4" /> {channel}
           </CardTitle>
         </CardHeader>
@@ -389,14 +389,14 @@ export default function CommunicationPage() {
             <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Message Body</label>
             <textarea
               rows={4}
-              className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 outline-none"
               value={smsMsg}
               onChange={(e) => setSmsMsg(e.target.value)}
             />
           </div>
           <Button
             onClick={() => handleSendSms(channel)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center justify-center gap-2"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium flex items-center justify-center gap-2"
           >
             <Send className="w-4 h-4" /> Send SMS
           </Button>
@@ -428,7 +428,7 @@ export default function CommunicationPage() {
                   {smsLogs.map((log) => (
                     <tr key={log.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-mono font-medium text-xs flex items-center gap-1">
-                        <PhoneCall className="w-3 h-3 text-blue-600" /> {log.recipient}
+                        <PhoneCall className="w-3 h-3 text-green-600" /> {log.recipient}
                       </td>
                       <td className="p-3 text-gray-700">{log.content}</td>
                       <td className="p-3 text-center text-xs text-gray-500">{log.timestamp}</td>
@@ -450,9 +450,9 @@ export default function CommunicationPage() {
 
   const renderTemplates = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-      <Card className="md:col-span-1 border-purple-200">
-        <CardHeader className="bg-purple-50/50">
-          <CardTitle className="text-base font-semibold flex items-center gap-2 text-purple-800">
+      <Card className="md:col-span-1 border-green-200">
+        <CardHeader className="bg-green-50/50">
+          <CardTitle className="text-base font-semibold flex items-center gap-2 text-green-800">
             <MessageSquare className="w-4 h-4" /> New Template
           </CardTitle>
         </CardHeader>
@@ -465,14 +465,14 @@ export default function CommunicationPage() {
             <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Message Body</label>
             <textarea
               rows={4}
-              className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+              className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 outline-none"
               value={templateBody}
               onChange={(e) => setTemplateBody(e.target.value)}
             />
           </div>
           <Button
             onClick={handleAddTemplate}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium flex items-center justify-center gap-2"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium flex items-center justify-center gap-2"
           >
             <MessageSquare className="w-4 h-4" /> Save Template
           </Button>

@@ -201,7 +201,7 @@ export default function DashboardPage() {
           });
           setPresentEmployees(teachers.slice(0, 3).map(t => ({
             id: t.id,
-            employee_name: t.full_name || t.name || 'Teacher',
+            employee_name: t.full_name || 'Teacher',
             role: 'Teacher'
           })));
         }
@@ -392,7 +392,7 @@ export default function DashboardPage() {
           title="Total Students"
           value={execData?.student_growth?.current_total ?? students.length}
           icon={<Users className="w-8 h-8 opacity-80" />}
-          color="bg-[#4C469D]"
+          color="bg-gradient-to-br from-emerald-600 to-teal-800"
           subValue={execData?.student_growth?.current_total ?? students.length}
           navigateTo="/education/students"
           onClick={handleStudentsClick}
@@ -401,7 +401,7 @@ export default function DashboardPage() {
           title="Total Employees"
           value={execData?.teacher_metrics?.total_teachers ?? teachers.length}
           icon={<Briefcase className="w-8 h-8 opacity-80" />}
-          color="bg-[#8C90C9]"
+          color="bg-gradient-to-br from-teal-500 to-emerald-700"
           subValue={execData?.teacher_metrics?.total_teachers ?? teachers.length}
           navigateTo="/education/teachers"
           onClick={handleTeachersClick}
@@ -410,7 +410,7 @@ export default function DashboardPage() {
           title="Revenue"
           value={`${symbol} ${totalIncome.toLocaleString()}`}
           icon={<DollarSign className="w-8 h-8 opacity-80" />}
-          color="bg-[#F87171]"
+          color="bg-gradient-to-br from-green-500 to-emerald-700"
           subValue={`${symbol} ${thisMonthIncome.toLocaleString()}`}
           navigateTo="/education/finance"
           onClick={handleRevenueClick}
@@ -419,7 +419,7 @@ export default function DashboardPage() {
           title="Total Profit"
           value={`${symbol} ${(totalIncome - totalExpense).toLocaleString()}`}
           icon={<DollarSign className="w-8 h-8 opacity-80" />}
-          color="bg-[#4F46E5]"
+          color="bg-gradient-to-br from-emerald-700 to-teal-900"
           subValue={`${symbol} ${(thisMonthIncome - thisMonthExpense).toLocaleString()}`}
           navigateTo="/education/finance/report"
           onClick={handleProfitClick}

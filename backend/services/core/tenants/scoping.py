@@ -9,20 +9,7 @@ from .context import get_current_tenant
 
 def scope_queryset(queryset: QuerySet, request=None) -> QuerySet:
     """Filter queryset by request.tenant or thread-local tenant."""
-    tenant = None
-    if request is not None:
-        tenant = getattr(request, 'tenant', None)
-    if tenant is None:
-        tenant = get_current_tenant()
-    if tenant is None:
-        return queryset
-    if not hasattr(queryset.model, '_meta'):
-        return queryset
-    field_names = {f.name for f in queryset.model._meta.fields}
-    if 'tenant' in field_names:
-        return queryset.filter(tenant=tenant)
-    if 'tenant_id' in field_names and 'tenant' not in field_names:
-        return queryset.filter(tenant_id=tenant.id)
+    # Bypass tenant scoping for single-tenant mode
     return queryset
 
 

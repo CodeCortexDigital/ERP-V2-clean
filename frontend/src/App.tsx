@@ -113,11 +113,7 @@ import AdmissionsPage from './pages/education/AdmissionsPage'
 import NewApplicationPage from '@/pages/education/admissions/NewApplicationPage'
 
 // Behaviour
-import RateBehavioursPage from './pages/education/behaviour/RateBehavioursPage'
-import RateSkillsPage from './pages/education/behaviour/RateSkillsPage'
-import ObservationsPage from './pages/education/behaviour/ObservationsPage'
-import AffectiveDomainReportPage from './pages/education/behaviour/AffectiveDomainReportPage'
-import PsycomotorDomainReportPage from './pages/education/behaviour/PsycomotorDomainReportPage'
+import BehaviourPage from './pages/education/behaviour/BehaviourPage'
 
 // Finance
 import ChartOfAccountsPage from './pages/education/finance/ChartOfAccountsPage'
@@ -353,13 +349,7 @@ function App() {
                 
                 {/* Behaviour & Skills */}
                 <Route path="education/behaviour" element={<CanAccess module="behaviour" redirect><ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" /></CanAccess>}>
-                  <Route path="rate" element={<RateBehavioursPage />} />
-                  <Route path="observations" element={<ObservationsPage />} />
-                  <Route path="affective-report" element={<AffectiveDomainReportPage />} />
-                  <Route path="psycomotor-report" element={<PsycomotorDomainReportPage />} />
-                </Route>
-                <Route path="education/skills" element={<CanAccess module="behaviour" redirect><ModuleTabsLayout tabs={behaviourTabs} scopeClass="behaviour-scope" /></CanAccess>}>
-                  <Route path="rate" element={<RateSkillsPage />} />
+                  <Route index element={<BehaviourPage />} />
                 </Route>
                 
                 {/* Accounts */}

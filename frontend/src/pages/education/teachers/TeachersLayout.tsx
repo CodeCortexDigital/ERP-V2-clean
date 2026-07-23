@@ -5,12 +5,12 @@ import {
 } from 'lucide-react';
 
 const tabs = [
-  { id: 'list', path: '/education/teachers', label: 'All Employees', icon: Users, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
+  { id: 'list', path: '/education/teachers', label: 'All Employees', icon: Users, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'add', path: '/education/teachers/add', label: 'New Employee', icon: UserPlus, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
-  { id: 'job', path: '/education/teachers/job-letter', label: 'Job Letter', icon: FileText, dark: 'bg-teal-700', light: 'bg-teal-100', rgb: '15 118 110' },
-  { id: 'idcards', path: '/education/teachers/id-cards', label: 'ID Cards', icon: IdCard, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
-  { id: 'logins', path: '/education/teachers/logins', label: 'Portal Logins', icon: KeyRound, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
-  { id: 'rules', path: '/education/teachers/rules', label: 'Staff Rules', icon: BookOpenCheck, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
+  { id: 'job', path: '/education/teachers/job-letter', label: 'Job Letter', icon: FileText, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'idcards', path: '/education/teachers/id-cards', label: 'ID Cards', icon: IdCard, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'logins', path: '/education/teachers/logins', label: 'Portal Logins', icon: KeyRound, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'rules', path: '/education/teachers/rules', label: 'Staff Rules', icon: BookOpenCheck, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
 ];
 
 const isTabActive = (t: typeof tabs[number], pathname: string) =>

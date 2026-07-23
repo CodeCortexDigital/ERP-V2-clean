@@ -6,16 +6,16 @@ import {
 } from 'lucide-react';
 
 const tabs = [
-  { id: 'list', path: '/education/students', label: 'All Students', icon: Users, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
+  { id: 'list', path: '/education/students', label: 'All Students', icon: Users, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'add', path: '/education/students/add', label: 'New Student', icon: UserPlus, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
-  { id: 'admission', path: '/education/students/admission-letter', label: 'Admission Letter', icon: FileText, dark: 'bg-teal-700', light: 'bg-teal-100', rgb: '15 118 110' },
-  { id: 'families', path: '/education/students/families', label: 'Family Directory', icon: Users2, dark: 'bg-purple-700', light: 'bg-purple-100', rgb: '126 34 206' },
-  { id: 'status', path: '/education/students/status', label: 'Active Status', icon: ToggleLeft, dark: 'bg-amber-700', light: 'bg-amber-100', rgb: '180 83 9' },
-  { id: 'idcards', path: '/education/students/id-cards', label: 'ID Cards', icon: IdCard, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
-  { id: 'logins', path: '/education/students/logins', label: 'Portal Logins', icon: KeyRound, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
-  { id: 'print', path: '/education/students/print-list', label: 'Print List', icon: Printer, dark: 'bg-slate-700', light: 'bg-slate-200', rgb: '51 65 85' },
-  { id: 'promote', path: '/education/students/promote', label: 'Class Promotion', icon: ArrowUpDown, dark: 'bg-rose-700', light: 'bg-rose-100', rgb: '190 24 93' },
-  { id: 'rules', path: '/education/students/rules', label: 'Student Rules', icon: BookOpenCheck, dark: 'bg-indigo-700', light: 'bg-indigo-100', rgb: '67 56 202' },
+  { id: 'admission', path: '/education/students/admission-letter', label: 'Admission Letter', icon: FileText, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'families', path: '/education/students/families', label: 'Family Directory', icon: Users2, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'status', path: '/education/students/status', label: 'Active Status', icon: ToggleLeft, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'idcards', path: '/education/students/id-cards', label: 'ID Cards', icon: IdCard, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'logins', path: '/education/students/logins', label: 'Portal Logins', icon: KeyRound, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'print', path: '/education/students/print-list', label: 'Print List', icon: Printer, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'promote', path: '/education/students/promote', label: 'Class Promotion', icon: ArrowUpDown, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'rules', path: '/education/students/rules', label: 'Student Rules', icon: BookOpenCheck, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
 ];
 
 const isTabActive = (t: typeof tabs[number], pathname: string) =>
