@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Briefcase, DollarSign, BookOpen, CreditCard, Calendar, UserPlus, FileText } from 'lucide-react';
+import { Users, Briefcase, DollarSign, TrendingUp, BookOpen, CreditCard, Calendar, UserPlus, FileText, GraduationCap, PenTool, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import studentService from '@/services/student.service';
 import teacherService from '@/services/teacher.service';
@@ -34,6 +34,83 @@ import type {
   SmartInsight,
 } from '@/components/dashboard/types';
 
+// ── Design tokens ─────────────────────────────────────────────
+// A single restrained palette instead of a different bright gradient
+// per element: slate for structure, indigo as the one accent, with
+// muted semantic colors (emerald/amber) reserved for status only.
+const STAT_CARD_STYLES = {
+  students: 'bg-gradient-to-br from-indigo-600 to-indigo-800',
+  employees: 'bg-gradient-to-br from-slate-700 to-slate-900',
+  revenue: 'bg-gradient-to-br from-indigo-700 to-slate-900',
+  profit: 'bg-gradient-to-br from-slate-800 to-slate-950',
+};
+
+// Self-contained keyframes so the page animates without relying on any
+// animation library being installed elsewhere in the app.
+const DASHBOARD_ANIMATION_STYLES = `
+  @keyframes dashFadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes dashFloat {
+    0%, 100% { transform: translateY(0) rotate(var(--float-rot, 0deg)); }
+    50% { transform: translateY(-8px) rotate(var(--float-rot, 0deg)); }
+  }
+  @keyframes dashShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .dash-fade-up {
+    opacity: 0;
+    animation: dashFadeUp 0.5s ease-out forwards;
+  }
+  .dash-float {
+    animation: dashFloat 5s ease-in-out infinite;
+  }
+  .dash-skeleton {
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
+    background-size: 400% 100%;
+    animation: dashShimmer 1.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dash-fade-up, .dash-float, .dash-skeleton { animation: none; opacity: 1; }
+  }
+`;
+
+// Animates a number counting up to its target whenever the target changes.
+// Returned value is passed straight into StatCard as a plain number/string,
+// so it doesn't require StatCard to know anything about animation.
+function useCountUp(target: number, durationMs = 700) {
+  const [value, setValue] = useState(target);
+  const fromRef = useRef(target);
+
+  useEffect(() => {
+    const from = fromRef.current;
+    const to = target;
+    if (from === to) return;
+
+    let start: number | null = null;
+    let raf = 0;
+
+    const tick = (timestamp: number) => {
+      if (start === null) start = timestamp;
+      const progress = Math.min((timestamp - start) / durationMs, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setValue(Math.round(from + (to - from) * eased));
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = to;
+      }
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, durationMs]);
+
+  return value;
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -44,21 +121,21 @@ export default function DashboardPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const mountedRef = useRef(true);
 
-  const [studentAttendance, setStudentAttendance] = useState<{ 
-    present: number; 
-    total: number; 
-    late: number; 
-    absent: number; 
-    class_breakdown?: any[] 
+  const [studentAttendance, setStudentAttendance] = useState<{
+    present: number;
+    total: number;
+    late: number;
+    absent: number;
+    class_breakdown?: any[]
   } | null>(null);
-  
-  const [employeeAttendance, setEmployeeAttendance] = useState<{ 
-    present: number; 
-    total: number; 
-    absent: number; 
-    leave: number 
+
+  const [employeeAttendance, setEmployeeAttendance] = useState<{
+    present: number;
+    total: number;
+    absent: number;
+    leave: number
   } | null>(null);
-  
+
   const [absentStudents, setAbsentStudents] = useState<any[]>([]);
   const [presentEmployees, setPresentEmployees] = useState<any[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
@@ -178,7 +255,7 @@ export default function DashboardPage() {
           const totalStudents = students.length;
           const estimatedPresent = Math.round(totalStudents * 0.85); // 85% attendance
           const estimatedAbsent = totalStudents - estimatedPresent;
-          
+
           setStudentAttendance({
             present: estimatedPresent,
             total: totalStudents,
@@ -210,20 +287,20 @@ export default function DashboardPage() {
       }
 
       const payload = res.data as {
-        students?: { 
-          total: number; 
-          present: number; 
-          late: number; 
-          absent: number; 
-          present_pct: number; 
+        students?: {
+          total: number;
+          present: number;
+          late: number;
+          absent: number;
+          present_pct: number;
           absent_list: any[];
           class_breakdown?: any[];
         };
-        employees?: { 
-          total: number; 
-          present: number; 
-          absent: number; 
-          leave: number; 
+        employees?: {
+          total: number;
+          present: number;
+          absent: number;
+          leave: number;
           present_pct: number;
         };
       };
@@ -252,8 +329,8 @@ export default function DashboardPage() {
             leave: e.leave ?? 0,
           });
           setPresentEmployees(
-            e.present > 0 
-              ? [{ id: 'count', employee_name: `${e.present} employee(s) present`, role: 'present' }] 
+            e.present > 0
+              ? [{ id: 'count', employee_name: `${e.present} employee(s) present`, role: 'present' }]
               : []
           );
         } else if (teachers.length > 0) {
@@ -273,7 +350,7 @@ export default function DashboardPage() {
       if (mountedRef.current && students.length > 0) {
         const totalStudents = students.length;
         const estimatedPresent = Math.round(totalStudents * 0.85);
-        
+
         setStudentAttendance({
           present: estimatedPresent,
           total: totalStudents,
@@ -368,137 +445,219 @@ export default function DashboardPage() {
     ? Math.round((employeeAttendance.present / employeeAttendance.total) * 100)
     : null;
 
+  // ── Animated stat values ───────────────────────────────────
+  const studentCountRaw = execData?.student_growth?.current_total ?? students.length;
+  const employeeCountRaw = execData?.teacher_metrics?.total_teachers ?? teachers.length;
+  const profitRaw = totalIncome - totalExpense;
+
+  const animatedStudentCount = useCountUp(studentCountRaw);
+  const animatedEmployeeCount = useCountUp(employeeCountRaw);
+  const animatedIncome = useCountUp(totalIncome);
+  const animatedProfit = useCountUp(profitRaw);
+
   // ── Navigation handlers for stat cards ────────────────────
   const handleStudentsClick = () => navigate('/education/students');
   const handleTeachersClick = () => navigate('/education/teachers');
   const handleRevenueClick = () => navigate('/education/finance');
   const handleProfitClick = () => navigate('/education/finance/report');
 
+  const todayLabel = now.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const hour = now.getHours();
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = (user as any)?.first_name || (user as any)?.name?.split(' ')?.[0] || '';
+  const greeting = firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-600 border-t-transparent" />
+      <div className="min-h-screen bg-slate-50 p-4 md:p-6">
+        <style>{DASHBOARD_ANIMATION_STYLES}</style>
+        <div className="max-w-[1600px] mx-auto space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-7 w-7 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+            <p className="text-sm text-slate-500">Getting your classroom ready…</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-28 rounded-xl dash-skeleton" />
+            ))}
+          </div>
+          <div className="h-40 rounded-xl dash-skeleton" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 bg-slate-50 min-h-screen p-3 text-slate-800 font-sans">
-      <LiveDataBadge connected={wsConnected} />
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
+      <style>{DASHBOARD_ANIMATION_STYLES}</style>
+      <div className="max-w-[1600px] mx-auto space-y-6 p-4 md:p-6">
 
-      {/* Stat Cards — Clickable */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard
-          title="Total Students"
-          value={execData?.student_growth?.current_total ?? students.length}
-          icon={<Users className="w-8 h-8 opacity-80" />}
-          color="bg-gradient-to-br from-emerald-600 to-teal-800"
-          subValue={execData?.student_growth?.current_total ?? students.length}
-          navigateTo="/education/students"
-          onClick={handleStudentsClick}
-        />
-        <StatCard
-          title="Total Employees"
-          value={execData?.teacher_metrics?.total_teachers ?? teachers.length}
-          icon={<Briefcase className="w-8 h-8 opacity-80" />}
-          color="bg-gradient-to-br from-teal-500 to-emerald-700"
-          subValue={execData?.teacher_metrics?.total_teachers ?? teachers.length}
-          navigateTo="/education/teachers"
-          onClick={handleTeachersClick}
-        />
-        <StatCard
-          title="Revenue"
-          value={`${symbol} ${totalIncome.toLocaleString()}`}
-          icon={<DollarSign className="w-8 h-8 opacity-80" />}
-          color="bg-gradient-to-br from-green-500 to-emerald-700"
-          subValue={`${symbol} ${thisMonthIncome.toLocaleString()}`}
-          navigateTo="/education/finance"
-          onClick={handleRevenueClick}
-        />
-        <StatCard
-          title="Total Profit"
-          value={`${symbol} ${(totalIncome - totalExpense).toLocaleString()}`}
-          icon={<DollarSign className="w-8 h-8 opacity-80" />}
-          color="bg-gradient-to-br from-emerald-700 to-teal-900"
-          subValue={`${symbol} ${(thisMonthIncome - thisMonthExpense).toLocaleString()}`}
-          navigateTo="/education/finance/report"
-          onClick={handleProfitClick}
-        />
-      </div>
+        {/* Page header */}
+        <div className="relative overflow-hidden rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-white px-5 py-4">
+          {/* Subtle floating school-themed accents — signature touch, kept quiet */}
+          <GraduationCap
+            className="dash-float pointer-events-none absolute -top-2 right-24 w-9 h-9 text-indigo-200/70 hidden md:block"
+            style={{ animationDelay: '0.2s', ['--float-rot' as any]: '-8deg' }}
+          />
+          <BookOpen
+            className="dash-float pointer-events-none absolute top-6 right-6 w-7 h-7 text-indigo-200/60 hidden md:block"
+            style={{ animationDelay: '1s', ['--float-rot' as any]: '6deg' }}
+          />
+          <PenTool
+            className="dash-float pointer-events-none absolute bottom-2 right-40 w-6 h-6 text-indigo-200/60 hidden lg:block"
+            style={{ animationDelay: '1.8s', ['--float-rot' as any]: '10deg' }}
+          />
 
-      <MotivationalWidget />
-
-      <WelcomeBanner />
-
-      {/* Quick Action Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <QuickActionCard
-          title="Add Student"
-          icon={<UserPlus className="w-5 h-5" />}
-          color="bg-purple-50 text-purple-600 border-purple-200"
-          onClick={() => navigate('/education/students/add')}
-        />
-        <QuickActionCard
-          title="View Classes"
-          icon={<BookOpen className="w-5 h-5" />}
-          color="bg-blue-50 text-blue-600 border-blue-200"
-          onClick={() => navigate('/education/academics/classes')}
-        />
-        <QuickActionCard
-          title="All Invoices"
-          icon={<FileText className="w-5 h-5" />}
-          color="bg-emerald-50 text-emerald-600 border-emerald-200"
-          onClick={() => navigate('/education/fees/invoices')}
-        />
-        <QuickActionCard
-          title="Take Attendance"
-          icon={<Calendar className="w-5 h-5" />}
-          color="bg-amber-50 text-amber-600 border-amber-200"
-          onClick={() => navigate('/education/attendance')}
-        />
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        <div className="lg:col-span-3 space-y-6">
-          <WidgetErrorBoundary title="Attendance Summary">
-            <StudentAttendanceSummary
-              total={studentAttendance?.total ?? 0}
-              present={studentAttendance?.present ?? 0}
-              late={studentAttendance?.late ?? 0}
-              absent={studentAttendance?.absent ?? 0}
-              loading={attendanceLoading}
-              overallRate={execData?.attendance_trends?.this_week_rate ?? null}
-              overallLabel="This Week"
-              empTotal={employeeAttendance?.total}
-              empPresent={employeeAttendance?.present}
-              empAbsent={employeeAttendance?.absent ?? 0}
-              empLeave={employeeAttendance?.leave ?? 0}
-              empRate={employeeAttendance && employeeAttendance.total > 0 
-                ? Math.round((employeeAttendance.present / employeeAttendance.total) * 100) 
-                : undefined}
-            />
-          </WidgetErrorBoundary>
+          <div className="relative flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
+                {greeting}
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+              </h1>
+              <p className="text-sm text-slate-500">{todayLabel} · here's how your school is doing</p>
+            </div>
+            <LiveDataBadge connected={wsConnected} />
+          </div>
         </div>
 
-        <div className="space-y-6">
-          <WidgetErrorBoundary title="Fee Donut">
-            <FeeDonut collections={feeCol} remainings={feeRem} currency={symbol} />
-          </WidgetErrorBoundary>
-          <WidgetErrorBoundary title="Metrics">
-            <MetricsPills
-              studentPct={studentPct}
-              employeePct={employeePct}
-              feeCollectionPct={feePct}
-              loading={attendanceLoading}
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '0ms' }}>
+            <StatCard
+              title="Total Students"
+              value={animatedStudentCount}
+              icon={<Users className="w-6 h-6 opacity-90" />}
+              color={STAT_CARD_STYLES.students}
+              subValue={studentCountRaw}
+              navigateTo="/education/students"
+              onClick={handleStudentsClick}
             />
-          </WidgetErrorBoundary>
-          {execData?.smart_insights && execData.smart_insights.length > 0 && (
-            <WidgetErrorBoundary title="Insights">
-              <SmartInsights insights={execData.smart_insights as SmartInsight[]} />
+          </div>
+          <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '80ms' }}>
+            <StatCard
+              title="Total Employees"
+              value={animatedEmployeeCount}
+              icon={<Briefcase className="w-6 h-6 opacity-90" />}
+              color={STAT_CARD_STYLES.employees}
+              subValue={employeeCountRaw}
+              navigateTo="/education/teachers"
+              onClick={handleTeachersClick}
+            />
+          </div>
+          <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '160ms' }}>
+            <StatCard
+              title="Revenue"
+              value={`${symbol} ${animatedIncome.toLocaleString()}`}
+              icon={<DollarSign className="w-6 h-6 opacity-90" />}
+              color={STAT_CARD_STYLES.revenue}
+              subValue={`${symbol} ${thisMonthIncome.toLocaleString()} this month`}
+              navigateTo="/education/finance"
+              onClick={handleRevenueClick}
+            />
+          </div>
+          <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '240ms' }}>
+            <StatCard
+              title="Total Profit"
+              value={`${symbol} ${animatedProfit.toLocaleString()}`}
+              icon={<TrendingUp className="w-6 h-6 opacity-90" />}
+              color={STAT_CARD_STYLES.profit}
+              subValue={`${symbol} ${(thisMonthIncome - thisMonthExpense).toLocaleString()} this month`}
+              navigateTo="/education/finance/report"
+              onClick={handleProfitClick}
+            />
+          </div>
+        </div>
+
+        <WidgetErrorBoundary title="Welcome">
+          <WelcomeBanner />
+        </WidgetErrorBoundary>
+
+        {/* Quick Actions */}
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 px-0.5">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <QuickActionCard
+              title="Add Student"
+              icon={<UserPlus className="w-4.5 h-4.5" />}
+              delayMs={0}
+              onClick={() => navigate('/education/students/add')}
+            />
+            <QuickActionCard
+              title="View Classes"
+              icon={<BookOpen className="w-4.5 h-4.5" />}
+              delayMs={60}
+              onClick={() => navigate('/education/academics/classes')}
+            />
+            <QuickActionCard
+              title="All Invoices"
+              icon={<FileText className="w-4.5 h-4.5" />}
+              delayMs={120}
+              onClick={() => navigate('/education/fees/invoices')}
+            />
+            <QuickActionCard
+              title="Take Attendance"
+              icon={<Calendar className="w-4.5 h-4.5" />}
+              delayMs={180}
+              onClick={() => navigate('/education/attendance')}
+            />
+          </div>
+        </div>
+
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          <div className="lg:col-span-3 space-y-6 dash-fade-up" style={{ animationDelay: '260ms' }}>
+            <WidgetErrorBoundary title="Attendance Summary">
+              <StudentAttendanceSummary
+                total={studentAttendance?.total ?? 0}
+                present={studentAttendance?.present ?? 0}
+                late={studentAttendance?.late ?? 0}
+                absent={studentAttendance?.absent ?? 0}
+                loading={attendanceLoading}
+                overallRate={execData?.attendance_trends?.this_week_rate ?? null}
+                overallLabel="This Week"
+                empTotal={employeeAttendance?.total}
+                empPresent={employeeAttendance?.present}
+                empAbsent={employeeAttendance?.absent ?? 0}
+                empLeave={employeeAttendance?.leave ?? 0}
+                empRate={employeeAttendance && employeeAttendance.total > 0
+                  ? Math.round((employeeAttendance.present / employeeAttendance.total) * 100)
+                  : undefined}
+              />
             </WidgetErrorBoundary>
-          )}
-          <DynamicCalendar />
+
+            {execData?.smart_insights && execData.smart_insights.length > 0 && (
+              <WidgetErrorBoundary title="Insights">
+                <SmartInsights insights={execData.smart_insights as SmartInsight[]} />
+              </WidgetErrorBoundary>
+            )}
+          </div>
+
+          <div className="space-y-6 dash-fade-up" style={{ animationDelay: '320ms' }}>
+            <WidgetErrorBoundary title="Fee Collection">
+              <FeeDonut collections={feeCol} remainings={feeRem} currency={symbol} />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary title="Metrics">
+              <MetricsPills
+                studentPct={studentPct}
+                employeePct={employeePct}
+                feeCollectionPct={feePct}
+                loading={attendanceLoading}
+              />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary title="Calendar">
+              <DynamicCalendar />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary title="Motivation">
+              <MotivationalWidget />
+            </WidgetErrorBoundary>
+          </div>
         </div>
       </div>
     </div>
@@ -510,23 +669,26 @@ export default function DashboardPage() {
 interface QuickActionCardProps {
   title: string;
   icon: React.ReactNode;
-  color: string;
   onClick: () => void;
+  delayMs?: number;
 }
 
-function QuickActionCard({ title, icon, color, onClick }: QuickActionCardProps) {
+function QuickActionCard({ title, icon, onClick, delayMs = 0 }: QuickActionCardProps) {
   return (
     <button
       onClick={onClick}
-      className={`
-        flex items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200
-        ${color} hover:scale-[1.02] hover:shadow-md
-      `}
+      className="
+        dash-fade-up group flex items-center gap-3 p-3.5 rounded-lg border border-slate-200 bg-white
+        text-slate-700 transition-all duration-200
+        hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-700 hover:-translate-y-0.5 hover:shadow-md
+        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500
+      "
+      style={{ animationDelay: `${delayMs}ms` }}
     >
-      <div className="p-2 rounded-lg bg-white/50">
+      <div className="p-1.5 rounded-md bg-slate-100 text-slate-500 transition-transform duration-200 group-hover:text-indigo-600 group-hover:scale-110 group-hover:-rotate-6">
         {icon}
       </div>
-      <span className="text-sm font-semibold">{title}</span>
+      <span className="text-sm font-medium">{title}</span>
     </button>
   );
 }

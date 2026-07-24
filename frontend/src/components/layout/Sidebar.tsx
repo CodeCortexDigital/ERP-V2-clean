@@ -66,7 +66,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   };
   const [theme, setTheme] = useState({
     sidebarBg: 'Dark',
-    activeColor: 'Soft Light Purple'
+    activeColor: 'Indigo'
   });
 
   useEffect(() => {
@@ -77,13 +77,13 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
           const parsed = JSON.parse(saved);
           setTheme({
             sidebarBg: parsed.sidebarBg || 'Dark',
-            activeColor: parsed.activeColor || 'Soft Light Purple'
+            activeColor: parsed.activeColor || 'Indigo'
           });
         } catch (e) {}
       } else {
         setTheme({
           sidebarBg: 'Dark',
-          activeColor: 'Soft Light Purple'
+          activeColor: 'Indigo'
         });
       }
     };
@@ -371,6 +371,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     : 'w-full bg-white text-xs text-slate-700 pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-400';
 
   const colorMap: Record<string, { bg: string; text: string }> = {
+    'Indigo': { bg: 'bg-indigo-600', text: 'text-white font-bold' },
     'Coral Red': { bg: 'bg-[#E55B4C]', text: 'text-white font-bold' },
     'Magenta': { bg: 'bg-[#D81B60]', text: 'text-white font-bold' },
     'Turquoise': { bg: 'bg-[#00BFA5]', text: 'text-slate-950 font-bold' },
@@ -385,7 +386,30 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     'Dark Purple': { bg: 'bg-[#730073]', text: 'text-white font-bold' }
   };
 
-  const activeStyle = colorMap[theme.activeColor] || { bg: 'bg-blue-50', text: 'text-blue-600 font-bold' };
+  const activeStyle = colorMap[theme.activeColor] || { bg: 'bg-indigo-600', text: 'text-white font-bold' };
+
+  // Self-contained keyframes for entrance/hover motion — no external
+  // animation library required, mirrors the approach used on the dashboard.
+  const SIDEBAR_ANIMATION_STYLES = `
+    @keyframes sbFadeIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes sbFlyoutIn {
+      from { opacity: 0; transform: translateX(-4px) scale(0.98); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    .sb-fade-in {
+      opacity: 0;
+      animation: sbFadeIn 0.35s ease-out forwards;
+    }
+    .sb-flyout-in {
+      animation: sbFlyoutIn 0.15s ease-out forwards;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sb-fade-in, .sb-flyout-in { animation: none; opacity: 1; }
+    }
+  `;
 
   // Render a divider line
   const renderDivider = () => (
@@ -394,12 +418,38 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     </div>
   );
 
+  const portalLabel = isTeacher ? 'Teacher Portal' : isStudent ? 'Student Portal' : 'Admin Portal';
+
   return (
     <aside className={`flex flex-col h-full transition-all duration-300 z-40 ${containerClass} ${isCollapsed ? 'w-20' : 'w-64'}`}>
-      {/* Search Input Bar & Menu Title Header */}
+      <style>{SIDEBAR_ANIMATION_STYLES}</style>
+
+      {/* Brand header */}
+      <div className={`flex items-center gap-2 px-4 py-3.5 border-b ${isDarkSidebar ? 'border-slate-800' : 'border-slate-200'}`}>
+        <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${isDarkSidebar ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
+          <GraduationCap className="w-4.5 h-4.5" />
+        </div>
+        {!isCollapsed && (
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold truncate ${isDarkSidebar ? 'text-white' : 'text-slate-900'}`}>
+              {portalLabel}
+            </p>
+          </div>
+        )}
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            className={`shrink-0 p-1.5 rounded-md transition-colors duration-150 ${isDarkSidebar ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        )}
+      </div>
+
+      {/* Search Input Bar */}
       {!isCollapsed && (
         <div className={searchBarClass}>
-          <div className={`text-xs font-bold tracking-wider uppercase font-display ${isDarkSidebar ? 'text-slate-400' : 'text-slate-800'}`}>menu</div>
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
             <input 
@@ -415,7 +465,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
 
       {/* Navigation List */}
       <div className="sidebar-nav flex-1 overflow-y-auto py-3 px-2 space-y-1 custom-scrollbar">
-        {filteredMenuItems.map((item) => {
+        {filteredMenuItems.map((item, itemIndex) => {
           const hasSub = item.subItems && item.subItems.length > 0;
           const hasActiveSub = item.subItems?.some(sub => isLinkActive(sub.href));
           const isSettingsItem = item.id === 'settings';
@@ -428,7 +478,8 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                 <button
                   key={item.id}
                   onClick={handleLogout}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${isDarkSidebar ? 'text-slate-300 hover:bg-rose-900/40 hover:text-rose-300' : 'text-slate-700 hover:bg-rose-50 hover:text-rose-600'} ${isCollapsed ? 'justify-center' : ''}`}
+                  className={`sb-fade-in w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 text-left ${isDarkSidebar ? 'text-slate-300 hover:bg-rose-900/40 hover:text-rose-300' : 'text-slate-700 hover:bg-rose-50 hover:text-rose-600'} ${isCollapsed ? 'justify-center' : ''}`}
+                  style={{ animationDelay: `${itemIndex * 30}ms` }}
                   title={isCollapsed ? item.label : undefined}
                 >
                   <div className="flex-shrink-0">{item.icon}</div>
@@ -443,13 +494,15 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                 to={item.href || '#'}
                 onClick={isMobile && onClose ? onClose : undefined}
                 className={({ isActive }) => `
-                  flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all
+                  sb-fade-in relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold
+                  transition-all duration-150
                   ${isActive 
-                    ? `${activeStyle.bg} ${activeStyle.text}` 
-                    : isDarkSidebar ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                    ? `${activeStyle.bg} ${activeStyle.text} shadow-sm` 
+                    : isDarkSidebar ? 'text-slate-300 hover:bg-slate-800 hover:text-white hover:translate-x-0.5' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5'
                   }
                   ${isCollapsed ? 'justify-center' : ''}
                 `}
+                style={{ animationDelay: `${itemIndex * 30}ms` }}
                 title={isCollapsed ? item.label : undefined}
               >
                 <div className="flex-shrink-0">{item.icon}</div>
@@ -466,10 +519,13 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
           // Item with sub-items (expandable)
           const isActive = isSettingsItem ? isSettingsActive() : hasActiveSub;
 
+          const isExpanded = expandedItems.includes(item.id) && !isCollapsed;
+
           return (
             <div
               key={item.id}
-              className="space-y-0.5"
+              className="sb-fade-in space-y-0.5"
+              style={{ animationDelay: `${itemIndex * 30}ms` }}
               onMouseEnter={(e) => openFlyout(item.id, e.currentTarget.getBoundingClientRect(), item.subItems?.length || 0)}
               onMouseLeave={scheduleClose}
             >
@@ -477,9 +533,9 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
               <button
                 onClick={() => isCollapsed ? toggleSidebar() : toggleExpand(item.id)}
                 className={`
-                  w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left
+                  w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 text-left
                   ${isActive || hoveredId === item.id
-                    ? `${activeStyle.bg} ${activeStyle.text}`
+                    ? `${activeStyle.bg} ${activeStyle.text} shadow-sm`
                     : isDarkSidebar ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-slate-700 hover:bg-slate-50'
                   }
                   ${isCollapsed ? 'justify-center' : 'justify-between'}
@@ -501,60 +557,68 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                 )}
               </button>
 
-              {/* Expanded Sub-Items (when sidebar is open) */}
-              {!isCollapsed && expandedItems.includes(item.id) && item.subItems && (
-                <div className="ml-3 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-0.5">
-                  {item.subItems.map((sub, idx) => {
-                    if (sub.isDivider) {
-                      return (
-                        <div key={`divider-${idx}`} className="flex items-center justify-center px-2 py-0.5">
-                          <div className="w-full border-t border-slate-200 dark:border-slate-700" />
-                        </div>
-                      );
-                    }
-                    if (sub.isLogout) {
-                      return (
-                        <button
-                          key={`logout-${idx}`}
-                          onClick={handleLogout}
-                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all text-left ${isDarkSidebar ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800' : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'}`}
-                        >
-                          <LogOut className="w-3.5 h-3.5" />
-                          <span>Log out</span>
-                        </button>
-                      );
-                    }
-                    const subActive = isLinkActive(sub.href);
-                    return (
-                      <NavLink
-                        key={`${sub.href}-${idx}`}
-                        to={sub.href}
-                        onClick={(e) => {
-                          if (isMobile && onClose) {
-                            onClose();
-                          }
-                        }}
-                        className={`
-                          relative flex items-center justify-between px-3 py-1.5 rounded-md text-xs font-medium transition-all
-                          ${subActive 
-                            ? `${activeStyle.bg} ${activeStyle.text}` 
-                            : isDarkSidebar ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                          }
-                        `}
-                      >
-                        {sub.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 ml-auto" />}
-                        <span className="truncate">{sub.label}</span>
-                      </NavLink>
-                    );
-                  })}
+              {/* Expanded Sub-Items (when sidebar is open) — animated via a
+                  grid-row transition so it grows/shrinks smoothly instead
+                  of popping in and out. */}
+              {!isCollapsed && item.subItems && (
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="ml-3 pl-3 mt-0.5 border-l-2 border-slate-200 dark:border-slate-700 space-y-0.5">
+                      {item.subItems.map((sub, idx) => {
+                        if (sub.isDivider) {
+                          return (
+                            <div key={`divider-${idx}`} className="flex items-center justify-center px-2 py-0.5">
+                              <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                            </div>
+                          );
+                        }
+                        if (sub.isLogout) {
+                          return (
+                            <button
+                              key={`logout-${idx}`}
+                              onClick={handleLogout}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 text-left ${isDarkSidebar ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800' : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'}`}
+                            >
+                              <LogOut className="w-3.5 h-3.5" />
+                              <span>Log out</span>
+                            </button>
+                          );
+                        }
+                        const subActive = isLinkActive(sub.href);
+                        return (
+                          <NavLink
+                            key={`${sub.href}-${idx}`}
+                            to={sub.href}
+                            onClick={(e) => {
+                              if (isMobile && onClose) {
+                                onClose();
+                              }
+                            }}
+                            className={`
+                              relative flex items-center justify-between px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150
+                              ${subActive 
+                                ? `${activeStyle.bg} ${activeStyle.text}` 
+                                : isDarkSidebar ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                              }
+                            `}
+                          >
+                            {sub.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 ml-auto" />}
+                            <span className="truncate">{sub.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Right-side Flyout Sub-Menu */}
               {hoveredId === item.id && flyoutPos && (
                 <div
-                  className={`sidebar-nav fixed z-50 min-w-[220px] max-h-[80vh] overflow-y-auto custom-scrollbar rounded-lg shadow-2xl border py-2 px-2 space-y-1 ${isDarkSidebar ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-                  style={{ top: flyoutPos.top, left: flyoutPos.left }}
+                  className={`sidebar-nav sb-flyout-in fixed z-50 min-w-[220px] max-h-[80vh] overflow-y-auto custom-scrollbar rounded-xl shadow-2xl border py-2 px-2 space-y-1 ${isDarkSidebar ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+                  style={{ top: flyoutPos.top, left: flyoutPos.left, transformOrigin: 'left center' }}
                   onMouseEnter={cancelClose}
                   onMouseLeave={scheduleClose}
                 >
@@ -620,7 +684,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       <div className={`shrink-0 border-t ${isDarkSidebar ? 'border-slate-800' : 'border-slate-200'}`}>
         <button
           onClick={() => { logout(); navigate('/'); }}
-          className={`w-full flex items-center gap-3 px-3 py-3 text-xs font-semibold transition-all ${
+          className={`w-full flex items-center gap-3 px-3 py-3 text-xs font-semibold transition-colors duration-150 ${
             isDarkSidebar
               ? 'text-rose-300 hover:text-rose-200 hover:bg-rose-900/40'
               : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
