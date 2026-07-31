@@ -493,7 +493,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
+    <div className="dashboard-scope min-h-screen bg-slate-50 text-slate-800 font-sans">
       <style>{DASHBOARD_ANIMATION_STYLES}</style>
       <div className="max-w-[1600px] mx-auto space-y-6 p-4 md:p-6">
 

@@ -50,7 +50,7 @@ export const useAppStore = create<AppState>()(
       sidebarCollapsed: false,
       mobileSidebarOpen: false,
       theme: 'light',
-      accentColor: 'blue',
+      accentColor: 'green',
       globalLoading: false,
       loadingMessage: null,
 

@@ -92,7 +92,7 @@ h6 { font-size: 0.866rem; }
 
 /* Buttons & prominent labels: track out slightly for a modern, airy feel */
 button, .btn, .tab-label, th {
-  font-family: 'Mulish', 'Museo Sans', 'Roboto', sans-serif;
+  font-family: var(--font-display, 'Mulish', 'Museo Sans', 'Roboto', sans-serif);
   letter-spacing: 0.01em;
 }
 
@@ -108,295 +108,42 @@ button, .btn, .tab-label, th {
 }
 
 
-/* Student, Settings, Employees & module section theming: page headings pick up the active tab accent */
-.students-scope h1,
-.students-scope h2,
-.students-scope h3,
-.settings-scope h1,
-.settings-scope h2,
-.settings-scope h3,
-.employees-scope h1,
-.employees-scope h2,
-.employees-scope h3,
-.finance-scope h1,
-.finance-scope h2,
-.finance-scope h3,
-.salary-scope h1,
-.salary-scope h2,
-.salary-scope h3,
-.attendance-scope h1,
-.attendance-scope h2,
-.attendance-scope h3,
-.timetable-scope h1,
-.timetable-scope h2,
-.timetable-scope h3,
-.behaviour-scope h1,
-.behaviour-scope h2,
-.behaviour-scope h3,
-.exam-scope h1,
-.exam-scope h2,
-.exam-scope h3,
-.subjects-scope h1,
-.subjects-scope h2,
-.subjects-scope h3,
-.communication-scope h1,
-.communication-scope h2,
-.communication-scope h3,
-.certificates-scope h1,
-.certificates-scope h2,
-.certificates-scope h3,
-.reports-scope h1,
-.reports-scope h2,
-.reports-scope h3,
-.academic-setup-scope h1,
-.academic-setup-scope h2,
-.academic-setup-scope h3,
-.students-scope h1,
-.students-scope h2,
-.students-scope h3,
-.employees-scope h1,
-.employees-scope h2,
-.employees-scope h3 {
-  color: rgb(var(--sa));
-  font-family: 'Mulish', 'Museo Sans', 'Roboto', sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.018em;
+/* ============================================================
+   DYNAMIC THEME ACCENT SCOPE OVERRIDES
+   Automatically overrides static Tailwind classes inside
+   workspace scopes to react to the selected accent color.
+   ============================================================ */
+
+/* 1. Page Title & Section Headings */
+:is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(h1, h2, h3) {
+  color: var(--app-accent-strong) !important;
+  font-family: var(--font-display, 'Mulish', sans-serif);
 }
 
-/* Global emerald theme override for buttons, spinners, progress bars, text, and badges across all scoped modules */
-.academic-setup-scope button.bg-purple-600,
-.academic-setup-scope button.bg-blue-600,
-.academic-setup-scope button.bg-teal-600,
-.academic-setup-scope button.bg-rose-600,
-.reports-scope button.bg-purple-600,
-.reports-scope button.bg-blue-600,
-.reports-scope button.bg-teal-600,
-.reports-scope button.bg-rose-600,
-.exam-scope button.bg-purple-600,
-.exam-scope button.bg-blue-600,
-.exam-scope button.bg-teal-600,
-.exam-scope button.bg-rose-600,
-.behaviour-scope button.bg-purple-600,
-.behaviour-scope button.bg-blue-600,
-.behaviour-scope button.bg-teal-600,
-.behaviour-scope button.bg-rose-600,
-.attendance-scope button.bg-purple-600,
-.attendance-scope button.bg-blue-600,
-.attendance-scope button.bg-teal-600,
-.attendance-scope button.bg-rose-600,
-.timetable-scope button.bg-purple-600,
-.timetable-scope button.bg-blue-600,
-.timetable-scope button.bg-teal-600,
-.timetable-scope button.bg-rose-600,
-.finance-scope button.bg-purple-600,
-.finance-scope button.bg-blue-600,
-.finance-scope button.bg-teal-600,
-.finance-scope button.bg-rose-600,
-.salary-scope button.bg-purple-600,
-.salary-scope button.bg-blue-600,
-.salary-scope button.bg-teal-600,
-.salary-scope button.bg-rose-600,
-.certificates-scope button.bg-purple-600,
-.certificates-scope button.bg-blue-600,
-.certificates-scope button.bg-teal-600,
-.certificates-scope button.bg-rose-600,
-.students-scope button.bg-purple-600,
-.students-scope button.bg-blue-600,
-.students-scope button.bg-teal-600,
-.students-scope button.bg-rose-600,
-.employees-scope button.bg-purple-600,
-.employees-scope button.bg-blue-600,
-.employees-scope button.bg-teal-600,
-.employees-scope button.bg-rose-600 {
-  background-color: rgb(4 120 87) !important;
+/* 2. Solid Background Buttons & Accents (600/700 shades) */
+:is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(.bg-blue-600, .bg-purple-600, .bg-indigo-600, .bg-teal-600, .bg-emerald-600, .bg-rose-600, .bg-cyan-600, .bg-violet-600, .bg-sky-600, .bg-blue-700, .bg-purple-700, .bg-indigo-700, .bg-teal-700, .bg-emerald-700, .bg-rose-700, .bg-cyan-700, .bg-violet-700, .bg-sky-700) {
+  background-color: var(--app-accent-strong) !important;
 }
 
-.academic-setup-scope button.hover\:bg-purple-700:hover,
-.academic-setup-scope button.hover\:bg-blue-700:hover,
-.academic-setup-scope button.hover\:bg-teal-700:hover,
-.academic-setup-scope button.hover\:bg-rose-700:hover,
-.reports-scope button.hover\:bg-purple-700:hover,
-.reports-scope button.hover\:bg-blue-700:hover,
-.reports-scope button.hover\:bg-teal-700:hover,
-.reports-scope button.hover\:bg-rose-700:hover,
-.exam-scope button.hover\:bg-purple-700:hover,
-.exam-scope button.hover\:bg-blue-700:hover,
-.exam-scope button.hover\:bg-teal-700:hover,
-.exam-scope button.hover\:bg-rose-700:hover,
-.behaviour-scope button.hover\:bg-purple-700:hover,
-.behaviour-scope button.hover\:bg-blue-700:hover,
-.behaviour-scope button.hover\:bg-teal-700:hover,
-.behaviour-scope button.hover\:bg-rose-700:hover,
-.attendance-scope button.hover\:bg-purple-700:hover,
-.attendance-scope button.hover\:bg-blue-700:hover,
-.attendance-scope button.hover\:bg-teal-700:hover,
-.attendance-scope button.hover\:bg-rose-700:hover,
-.timetable-scope button.hover\:bg-purple-700:hover,
-.timetable-scope button.hover\:bg-blue-700:hover,
-.timetable-scope button.hover\:bg-teal-700:hover,
-.timetable-scope button.hover\:bg-rose-700:hover,
-.finance-scope button.hover\:bg-purple-700:hover,
-.finance-scope button.hover\:bg-blue-700:hover,
-.finance-scope button.hover\:bg-teal-700:hover,
-.finance-scope button.hover\:bg-rose-700:hover,
-.salary-scope button.hover\:bg-purple-700:hover,
-.salary-scope button.hover\:bg-blue-700:hover,
-.salary-scope button.hover\:bg-teal-700:hover,
-.salary-scope button.hover\:bg-rose-700:hover,
-.certificates-scope button.hover\:bg-purple-700:hover,
-.certificates-scope button.hover\:bg-blue-700:hover,
-.certificates-scope button.hover\:bg-teal-700:hover,
-.certificates-scope button.hover\:bg-rose-700:hover,
-.students-scope button.hover\:bg-purple-700:hover,
-.students-scope button.hover\:bg-blue-700:hover,
-.students-scope button.hover\:bg-teal-700:hover,
-.students-scope button.hover\:bg-rose-700:hover,
-.employees-scope button.hover\:bg-purple-700:hover,
-.employees-scope button.hover\:bg-blue-700:hover,
-.employees-scope button.hover\:bg-teal-700:hover,
-.employees-scope button.hover\:bg-rose-700:hover {
-  background-color: rgb(3 105 76) !important;
+/* 3. Button Hover States */
+:is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(.hover\:bg-blue-700:hover, .hover\:bg-purple-700:hover, .hover\:bg-indigo-700:hover, .hover\:bg-teal-700:hover, .hover\:bg-emerald-700:hover, .hover\:bg-rose-700:hover, .hover\:bg-cyan-700:hover, .hover\:bg-violet-700:hover, .hover\:bg-sky-700:hover, .hover\:bg-blue-600:hover, .hover\:bg-purple-600:hover, .hover\:bg-indigo-600:hover, .hover\:bg-teal-600:hover, .hover\:bg-emerald-600:hover, .hover\:bg-rose-600:hover, .hover\:bg-cyan-600:hover, .hover\:bg-violet-600:hover, .hover\:bg-sky-600:hover) {
+  background-color: var(--app-accent-strong) !important;
+  opacity: 0.92;
 }
 
-.academic-setup-scope .text-purple-600,
-.academic-setup-scope .text-blue-600,
-.academic-setup-scope .text-teal-600,
-.academic-setup-scope .text-rose-600,
-.reports-scope .text-purple-600,
-.reports-scope .text-blue-600,
-.reports-scope .text-teal-600,
-.reports-scope .text-rose-600,
-.exam-scope .text-purple-600,
-.exam-scope .text-blue-600,
-.exam-scope .text-teal-600,
-.exam-scope .text-rose-600,
-.behaviour-scope .text-purple-600,
-.behaviour-scope .text-blue-600,
-.behaviour-scope .text-teal-600,
-.behaviour-scope .text-rose-600,
-.attendance-scope .text-purple-600,
-.attendance-scope .text-blue-600,
-.attendance-scope .text-teal-600,
-.attendance-scope .text-rose-600,
-.timetable-scope .text-purple-600,
-.timetable-scope .text-blue-600,
-.timetable-scope .text-teal-600,
-.timetable-scope .text-rose-600,
-.finance-scope .text-purple-600,
-.finance-scope .text-blue-600,
-.finance-scope .text-teal-600,
-.finance-scope .text-rose-600,
-.salary-scope .text-purple-600,
-.salary-scope .text-blue-600,
-.salary-scope .text-teal-600,
-.salary-scope .text-rose-600,
-.certificates-scope .text-purple-600,
-.certificates-scope .text-blue-600,
-.certificates-scope .text-teal-600,
-.certificates-scope .text-rose-600,
-.students-scope .text-purple-600,
-.students-scope .text-blue-600,
-.students-scope .text-teal-600,
-.students-scope .text-rose-600,
-.employees-scope .text-purple-600,
-.employees-scope .text-blue-600,
-.employees-scope .text-teal-600,
-.employees-scope .text-rose-600 {
-  color: rgb(4 120 87) !important;
+/* 4. Active Text Colors */
+:is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(.text-blue-600, .text-purple-600, .text-indigo-600, .text-teal-600, .text-emerald-600, .text-rose-600, .text-cyan-600, .text-violet-600, .text-sky-600, .text-blue-700, .text-purple-700, .text-indigo-700, .text-teal-700, .text-emerald-700, .text-rose-700, .text-cyan-700, .text-violet-700, .text-sky-700) {
+  color: var(--app-accent-strong) !important;
 }
 
-.academic-setup-scope .border-purple-600,
-.academic-setup-scope .border-blue-600,
-.academic-setup-scope .border-teal-600,
-.academic-setup-scope .border-rose-600,
-.reports-scope .border-purple-600,
-.reports-scope .border-blue-600,
-.reports-scope .border-teal-600,
-.reports-scope .border-rose-600,
-.exam-scope .border-purple-600,
-.exam-scope .border-blue-600,
-.exam-scope .border-teal-600,
-.exam-scope .border-rose-600,
-.behaviour-scope .border-purple-600,
-.behaviour-scope .border-blue-600,
-.behaviour-scope .border-teal-600,
-.behaviour-scope .border-rose-600,
-.attendance-scope .border-purple-600,
-.attendance-scope .border-blue-600,
-.attendance-scope .border-teal-600,
-.attendance-scope .border-rose-600,
-.timetable-scope .border-purple-600,
-.timetable-scope .border-blue-600,
-.timetable-scope .border-teal-600,
-.timetable-scope .border-rose-600,
-.finance-scope .border-purple-600,
-.finance-scope .border-blue-600,
-.finance-scope .border-teal-600,
-.finance-scope .border-rose-600,
-.salary-scope .border-purple-600,
-.salary-scope .border-blue-600,
-.salary-scope .border-teal-600,
-.salary-scope .border-rose-600,
-.certificates-scope .border-purple-600,
-.certificates-scope .border-blue-600,
-.certificates-scope .border-teal-600,
-.certificates-scope .border-rose-600,
-.students-scope .border-purple-600,
-.students-scope .border-blue-600,
-.students-scope .border-teal-600,
-.students-scope .border-rose-600,
-.employees-scope .border-purple-600,
-.employees-scope .border-blue-600,
-.employees-scope .border-teal-600,
-.employees-scope .border-rose-600 {
-  border-color: rgb(4 120 87) !important;
+/* 5. Border Accents */
+:is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(.border-blue-600, .border-purple-600, .border-indigo-600, .border-teal-600, .border-emerald-600, .border-rose-600, .border-cyan-600, .border-violet-600, .border-sky-600, .border-blue-200, .border-purple-200, .border-indigo-200, .border-teal-200, .border-emerald-200, .border-rose-200, .border-cyan-200, .border-violet-200, .border-sky-200) {
+  border-color: var(--app-accent-strong) !important;
 }
 
-.academic-setup-scope .bg-purple-100,
-.academic-setup-scope .bg-blue-100,
-.academic-setup-scope .bg-teal-100,
-.academic-setup-scope .bg-rose-100,
-.reports-scope .bg-purple-100,
-.reports-scope .bg-blue-100,
-.reports-scope .bg-teal-100,
-.reports-scope .bg-rose-100,
-.exam-scope .bg-purple-100,
-.exam-scope .bg-blue-100,
-.exam-scope .bg-teal-100,
-.exam-scope .bg-rose-100,
-.behaviour-scope .bg-purple-100,
-.behaviour-scope .bg-blue-100,
-.behaviour-scope .bg-teal-100,
-.behaviour-scope .bg-rose-100,
-.attendance-scope .bg-purple-100,
-.attendance-scope .bg-blue-100,
-.attendance-scope .bg-teal-100,
-.attendance-scope .bg-rose-100,
-.timetable-scope .bg-purple-100,
-.timetable-scope .bg-blue-100,
-.timetable-scope .bg-teal-100,
-.timetable-scope .bg-rose-100,
-.finance-scope .bg-purple-100,
-.finance-scope .bg-blue-100,
-.finance-scope .bg-teal-100,
-.finance-scope .bg-rose-100,
-.salary-scope .bg-purple-100,
-.salary-scope .bg-blue-100,
-.salary-scope .bg-teal-100,
-.salary-scope .bg-rose-100,
-.certificates-scope .bg-purple-100,
-.certificates-scope .bg-blue-100,
-.certificates-scope .bg-teal-100,
-.certificates-scope .bg-rose-100,
-.students-scope .bg-purple-100,
-.students-scope .bg-blue-100,
-.students-scope .bg-teal-100,
-.students-scope .bg-rose-100,
-.employees-scope .bg-purple-100,
-.employees-scope .bg-blue-100,
-.employees-scope .bg-teal-100,
-.employees-scope .bg-rose-100 {
-  background-color: rgb(209 250 229) !important; /* bg-emerald-100 */
+/* 6. Light Tint Background Highlights (50/100 shades) */
+:is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(.bg-blue-100, .bg-purple-100, .bg-indigo-100, .bg-teal-100, .bg-emerald-100, .bg-rose-100, .bg-cyan-100, .bg-violet-100, .bg-sky-100, .bg-blue-50, .bg-purple-50, .bg-indigo-50, .bg-teal-50, .bg-emerald-50, .bg-rose-50, .bg-cyan-50, .bg-violet-50, .bg-sky-50) {
+  background-color: var(--app-accent-light) !important;
 }
 
 /* Freeze list table headers so they stay visible while scrolling data.

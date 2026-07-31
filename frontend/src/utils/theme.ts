@@ -1,16 +1,16 @@
 // frontend/src/utils/theme.ts
 import { useAppStore } from '@/store/appStore';
 
-export const accentMap: Record<string, { hsl: string; hex: string; rgb: string; strong: string }> = {
-  blue: { hsl: '221.2 83.2% 53.3%', hex: '#2563eb', rgb: '37 99 235', strong: '#1e40af' },
-  green: { hsl: '142.1 76.2% 36.3%', hex: '#16a34a', rgb: '22 163 74', strong: '#15803d' },
-  purple: { hsl: '262.1 83.3% 57.8%', hex: '#9333ea', rgb: '147 51 234', strong: '#6d28d9' },
-  orange: { hsl: '24.6 95% 53.1%', hex: '#ea580c', rgb: '234 88 12', strong: '#c2410c' },
-  red: { hsl: '346.8 77.2% 49.8%', hex: '#dc2626', rgb: '220 38 38', strong: '#be123c' },
-  coral: { hsl: '10 82% 56%', hex: '#e55b4c', rgb: '229 91 76', strong: '#c22f17' },
-  magenta: { hsl: '340 82% 52%', hex: '#d81b60', rgb: '216 27 96', strong: '#9f1239' },
-  turquoise: { hsl: '170 100% 38%', hex: '#00bfa5', rgb: '0 191 165', strong: '#0f766e' },
-  navy: { hsl: '210 100% 12%', hex: '#001830', rgb: '0 24 48', strong: '#0f172a' }
+export const accentMap: Record<string, { hsl: string; hex: string; rgb: string; strong: string; light: string }> = {
+  blue: { hsl: '221.2 83.2% 53.3%', hex: '#2563eb', rgb: '37 99 235', strong: '#1e40af', light: '#eff6ff' },
+  green: { hsl: '142.1 76.2% 36.3%', hex: '#16a34a', rgb: '22 163 74', strong: '#15803d', light: '#ecfdf5' },
+  purple: { hsl: '262.1 83.3% 57.8%', hex: '#9333ea', rgb: '147 51 234', strong: '#6d28d9', light: '#faf5ff' },
+  orange: { hsl: '24.6 95% 53.1%', hex: '#ea580c', rgb: '234 88 12', strong: '#c2410c', light: '#fff7ed' },
+  red: { hsl: '346.8 77.2% 49.8%', hex: '#dc2626', rgb: '220 38 38', strong: '#be123c', light: '#fef2f2' },
+  coral: { hsl: '10 82% 56%', hex: '#e55b4c', rgb: '229 91 76', strong: '#c22f17', light: '#fff5f5' },
+  magenta: { hsl: '340 82% 52%', hex: '#d81b60', rgb: '216 27 96', strong: '#9f1239', light: '#fdf2f8' },
+  turquoise: { hsl: '170 100% 38%', hex: '#00bfa5', rgb: '0 191 165', strong: '#0f766e', light: '#f0fdfa' },
+  navy: { hsl: '210 100% 12%', hex: '#001830', rgb: '0 24 48', strong: '#0f172a', light: '#f1f5f9' }
 };
 
 export const applyGlobalTheme = () => {
@@ -29,8 +29,8 @@ export const applyGlobalTheme = () => {
     }
 
     // 2. Resolve Accent Color
-    const colorKey = t.accentColor || 'blue';
-    const accent = accentMap[colorKey] || accentMap.blue;
+    const colorKey = t.accentColor || 'green';
+    const accent = accentMap[colorKey] || accentMap.green;
 
     // Set HSL variables for Tailwind
     root.style.setProperty('--primary', accent.hsl);
@@ -40,6 +40,7 @@ export const applyGlobalTheme = () => {
     root.style.setProperty('--app-accent', accent.hex);
     root.style.setProperty('--app-accent-strong', accent.strong);
     root.style.setProperty('--app-accent-rgb', accent.rgb);
+    root.style.setProperty('--app-accent-light', accent.light);
     
     // 3. Radius
     const radius = t.radius || '0.5rem';
