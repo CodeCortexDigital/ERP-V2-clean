@@ -93,6 +93,38 @@ Versioned OpenAPI docs are auto-generated with drf-spectacular:
 - `/api/v1/schema/swagger-ui/`
 - `/api/v1/schema/redoc/`
 
+## Deployment
+
+The backend (Django + PostgreSQL + Redis + Celery + WebSockets) cannot run on static-only hosts. Use one of the prepared options:
+
+### Recommended — Vercel (frontend) + Oracle Cloud Free ARM (backend)
+
+Fully free, always-on, no expiry:
+
+- **Frontend** → Vercel Hobby (static SPA, `frontend/vercel.json`)
+- **Backend** → Oracle Cloud Always Free ARM VM running `docker compose up -d --build` (Django/daphne + PostgreSQL + Redis + Celery, all self-contained)
+
+Step-by-step instructions: **[deploy/oracle-setup.md](deploy/oracle-setup.md)**
+
+### Option A — Self-hosted with Docker (full stack, recommended)
+
+```bash
+cp .env.example .env   # set SECRET_KEY and DB_PASSWORD
+docker compose up -d --build
+```
+
+Starts PostgreSQL, Redis, Django (daphne/ASGI), Celery worker + beat, and the Nginx-served frontend on port 80. Media and collected static files live in shared Docker volumes.
+
+### Option B — Render blueprint
+
+Import this repo into [Render](https://render.com) as a Blueprint (`render.yaml`). It provisions PostgreSQL, Redis, the Django web service, two Celery workers, and the frontend static site automatically. After first deploy, set `VITE_API_URL` on the frontend to `https://<your-backend>.onrender.com/api`.
+
+### Option C — Vercel (frontend) + backend elsewhere
+
+The SPA can be deployed to [Vercel](https://vercel.com) using the included `frontend/vercel.json`. Host the Django backend separately (Render/Railway/VPS) and set `VITE_API_URL` to its URL during the Vercel build.
+
+> Production checklist: set a strong `SECRET_KEY`, restrict `ALLOWED_HOSTS` and CORS to your real domains, enable HTTPS, and set `USE_S3_STORAGE=true` for media once you have S3/R2 credentials.
+
 ## Testing
 
 ```bash

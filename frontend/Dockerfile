@@ -13,6 +13,12 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Same-origin API path by default (nginx proxies /api and /ws to the backend).
+# Override with a full URL (e.g. https://api.yourdomain.com/api/v1/) when
+# the frontend is hosted separately from the backend.
+ARG VITE_API_URL=/api/v1/
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build the application
 RUN npm run build
 

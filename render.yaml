@@ -1,0 +1,115 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploy: push to GitHub, then "New Blueprint" → select this repo.
+# After first deploy, set VITE_API_URL on the frontend static site to
+# https://<your-backend>.onrender.com/api and re-deploy.
+
+databases:
+  - name: erp-db
+    databaseName: erp_db
+    user: erp_user
+    plan: free
+
+  - name: erp-redis
+    plan: free
+
+envVarGroups:
+  - name: erp-backend-env
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: erp_core.settings
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: DB_HOST
+        fromDatabase:
+          name: erp-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: erp-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: erp-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: erp-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: erp-db
+          property: password
+      - key: REDIS_URL
+        fromService:
+          name: erp-redis
+          type: redis
+          property: connectionString
+      - key: CACHE_URL
+        fromService:
+          name: erp-redis
+          type: redis
+          property: connectionString
+      - key: CHANNEL_REDIS_URL
+        fromService:
+          name: erp-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: erp-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: erp-redis
+          type: redis
+          property: connectionString
+
+services:
+  - type: web
+    name: erp-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: daphne -b 0.0.0.0 -p $PORT erp_core.asgi:application
+    preDeployCommand: python manage.py migrate --noinput && python manage.py collectstatic --noinput
+    healthCheckPath: /api/v1/health/
+    autoDeploy: true
+    envVars:
+      - fromGroup: erp-backend-env
+
+  - type: worker
+    name: erp-celery-worker
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: celery -A erp_core.celery worker -l info
+    autoDeploy: true
+    envVars:
+      - fromGroup: erp-backend-env
+
+  - type: worker
+    name: erp-celery-beat
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: celery -A erp_core.celery beat -l info
+    autoDeploy: true
+    envVars:
+      - fromGroup: erp-backend-env
+
+  - type: static
+    name: erp-frontend
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    publishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://erp-backend.onrender.com/api
