@@ -77,24 +77,8 @@ export default function InvoicesPage() {
         loadedPayments = Array.isArray(pData) ? pData : (pData.results || pData.data || []);
       }
 
-      // Check local storage payments recorded during session
-      try {
-        const localFeeReceipts = JSON.parse(localStorage.getItem('erp_collected_fees') || '[]');
-        if (Array.isArray(localFeeReceipts)) {
-          localFeeReceipts.forEach((rcpt: any) => {
-            if (rcpt.invoice_number || rcpt.invoice_id) {
-              loadedPayments.push({
-                invoice: rcpt.invoice_id,
-                invoice_number: rcpt.invoice_number,
-                amount: Number(rcpt.depositAmount || rcpt.amount || 0)
-              });
-            }
-          });
-        }
-      } catch (e) {}
-
-      // Map payments by invoice key safely handling strings and nested objects
-      const paymentsByInvoice: Record<string, number> = {};
+      // Map API payments by invoice key safely handling strings and nested objects
+      const apiPaymentsByInvoice: Record<string, number> = {};
       loadedPayments.forEach(p => {
         if (!p) return;
         const amt = Number(p.amount || p.depositAmount || 0);
@@ -115,13 +99,33 @@ export default function InvoicesPage() {
           invNum = String(p.invoice.invoice_number);
         }
 
-        if (invId) paymentsByInvoice[invId] = (paymentsByInvoice[invId] || 0) + amt;
-        if (invNum) paymentsByInvoice[invNum] = (paymentsByInvoice[invNum] || 0) + amt;
+        if (invId) apiPaymentsByInvoice[invId] = (apiPaymentsByInvoice[invId] || 0) + amt;
+        if (invNum) apiPaymentsByInvoice[invNum] = (apiPaymentsByInvoice[invNum] || 0) + amt;
       });
+
+      // Local receipts are only a session fallback for payments that did NOT
+      // persist to the backend. Payments recorded through the collect-fee flows
+      // are ALSO returned by the payments API, so summing both here would
+      // double-count and inflate paid amounts - making partially paid invoices
+      // appear as fully paid. Take the larger of the two sources instead.
+      const localPaymentsByInvoice: Record<string, number> = {};
+      try {
+        const localFeeReceipts = JSON.parse(localStorage.getItem('erp_collected_fees') || '[]');
+        if (Array.isArray(localFeeReceipts)) {
+          localFeeReceipts.forEach((rcpt: any) => {
+            if (!rcpt) return;
+            const amt = Number(rcpt.depositAmount || rcpt.amount || 0);
+            const rcptKey = rcpt.invoice_id ? String(rcpt.invoice_id) : (rcpt.invoice_number ? String(rcpt.invoice_number) : '');
+            if (rcptKey) localPaymentsByInvoice[rcptKey] = (localPaymentsByInvoice[rcptKey] || 0) + amt;
+          });
+        }
+      } catch (e) {}
 
       // Merge effective paid amounts onto invoices
       const mergedInvoices = loadedInvoices.map(inv => {
-        const extraPaid = (paymentsByInvoice[String(inv.id)] || paymentsByInvoice[String(inv.invoice_number)] || 0);
+        const apiPaid = (apiPaymentsByInvoice[String(inv.id)] || apiPaymentsByInvoice[String(inv.invoice_number)] || 0);
+        const localPaid = (localPaymentsByInvoice[String(inv.id)] || localPaymentsByInvoice[String(inv.invoice_number)] || 0);
+        const extraPaid = Math.max(apiPaid, localPaid);
         const currentPaid = Number(inv.paid_amount || 0);
         let effectivePaid = Math.max(currentPaid, extraPaid);
         const totalAmt = Number(inv.total_amount ?? (Number(inv.amount || 0) + Number(inv.late_fee_amount || 0) - Number(inv.discount_amount || 0)));
