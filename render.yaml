@@ -1,10 +1,11 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
 # Deploy: push to GitHub, then "New Blueprint" → select this repo.
-# This provisions the backend stack (Postgres, Redis/KeyValue, Django web, Celery).
+# This provisions the backend stack (Postgres, Redis/KeyValue, Django web).
 # The frontend SPA is deployed separately on Vercel (free) — see README.
 #
-# Note: on the free plan, Render does not allow a preDeployCommand, so
-# migrations/collectstatic run in the web start command instead.
+# Note: on the free plan, Render does not allow a preDeployCommand (migrations
+# run in the web start command instead) and background workers are not
+# available (Celery worker/beat are omitted; scheduled tasks are skipped).
 
 databases:
   - name: erp-db
@@ -29,132 +30,6 @@ services:
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p $PORT erp_core.asgi:application
     healthCheckPath: /api/v1/health/
-    autoDeploy: true
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: erp_core.settings
-      - key: DEBUG
-        value: "False"
-      - key: SECRET_KEY
-        generateValue: true
-      - key: ALLOWED_HOSTS
-        value: ".onrender.com,localhost,127.0.0.1"
-      - key: DB_HOST
-        fromDatabase:
-          name: erp-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: erp-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: erp-db
-          property: database
-      - key: DB_USER
-        fromDatabase:
-          name: erp-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: erp-db
-          property: password
-      - key: REDIS_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CACHE_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CHANNEL_REDIS_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CELERY_BROKER_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CELERY_RESULT_BACKEND
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-
-  - type: worker
-    name: erp-celery-worker
-    runtime: python
-    rootDir: backend
-    plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: celery -A erp_core.celery worker -l info
-    autoDeploy: true
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: erp_core.settings
-      - key: DEBUG
-        value: "False"
-      - key: SECRET_KEY
-        generateValue: true
-      - key: ALLOWED_HOSTS
-        value: ".onrender.com,localhost,127.0.0.1"
-      - key: DB_HOST
-        fromDatabase:
-          name: erp-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: erp-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: erp-db
-          property: database
-      - key: DB_USER
-        fromDatabase:
-          name: erp-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: erp-db
-          property: password
-      - key: REDIS_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CACHE_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CHANNEL_REDIS_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CELERY_BROKER_URL
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-      - key: CELERY_RESULT_BACKEND
-        fromService:
-          name: erp-redis
-          type: keyvalue
-          property: connectionString
-
-  - type: worker
-    name: erp-celery-beat
-    runtime: python
-    rootDir: backend
-    plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: celery -A erp_core.celery beat -l info
     autoDeploy: true
     envVars:
       - key: DJANGO_SETTINGS_MODULE
