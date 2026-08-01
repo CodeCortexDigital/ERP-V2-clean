@@ -1,6 +1,6 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
 # Deploy: push to GitHub, then "New Blueprint" → select this repo.
-# This provisions the backend stack (Postgres, Redis, Django web, Celery).
+# This provisions the backend stack (Postgres, Redis/KeyValue, Django web, Celery).
 # The frontend SPA is deployed separately on Vercel (free) — see README.
 #
 # Note: on the free plan, Render does not allow a preDeployCommand, so
@@ -12,10 +12,15 @@ databases:
     user: erp_user
     plan: free
 
-  - name: erp-redis
-    plan: free
-
 services:
+  - type: keyvalue
+    name: erp-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
+
   - type: web
     name: erp-backend
     runtime: python
@@ -57,27 +62,27 @@ services:
       - key: REDIS_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CACHE_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CHANNEL_REDIS_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_BROKER_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_RESULT_BACKEND
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
 
   - type: worker
@@ -120,27 +125,27 @@ services:
       - key: REDIS_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CACHE_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CHANNEL_REDIS_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_BROKER_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_RESULT_BACKEND
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
 
   - type: worker
@@ -183,25 +188,25 @@ services:
       - key: REDIS_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CACHE_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CHANNEL_REDIS_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_BROKER_URL
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_RESULT_BACKEND
         fromService:
           name: erp-redis
-          type: redis
+          type: keyvalue
           property: connectionString
