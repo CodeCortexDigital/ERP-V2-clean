@@ -103,11 +103,13 @@ export default function InvoicesPage() {
         if (invNum) apiPaymentsByInvoice[invNum] = (apiPaymentsByInvoice[invNum] || 0) + amt;
       });
 
-      // Local receipts are only a session fallback for payments that did NOT
-      // persist to the backend. Payments recorded through the collect-fee flows
-      // are ALSO returned by the payments API, so summing both here would
-      // double-count and inflate paid amounts - making partially paid invoices
-      // appear as fully paid. Take the larger of the two sources instead.
+      // Local receipts are only a fallback for payments that did NOT persist to
+      // the backend (e.g. failed API call / offline). Payments recorded through
+      // the collect-fee flows are ALSO returned by the payments API, and the
+      // stored receipts are never cleaned up - so summing or max()ing them in
+      // can double-count and inflate paid amounts, making partially paid
+      // invoices appear as fully paid. Only trust localStorage when the API
+      // reports no persisted payments for that invoice.
       const localPaymentsByInvoice: Record<string, number> = {};
       try {
         const localFeeReceipts = JSON.parse(localStorage.getItem('erp_collected_fees') || '[]');
@@ -125,7 +127,7 @@ export default function InvoicesPage() {
       const mergedInvoices = loadedInvoices.map(inv => {
         const apiPaid = (apiPaymentsByInvoice[String(inv.id)] || apiPaymentsByInvoice[String(inv.invoice_number)] || 0);
         const localPaid = (localPaymentsByInvoice[String(inv.id)] || localPaymentsByInvoice[String(inv.invoice_number)] || 0);
-        const extraPaid = Math.max(apiPaid, localPaid);
+        const extraPaid = apiPaid > 0 ? apiPaid : localPaid;
         const currentPaid = Number(inv.paid_amount || 0);
         let effectivePaid = Math.max(currentPaid, extraPaid);
         const totalAmt = Number(inv.total_amount ?? (Number(inv.amount || 0) + Number(inv.late_fee_amount || 0) - Number(inv.discount_amount || 0)));
