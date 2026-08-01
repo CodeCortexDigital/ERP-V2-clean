@@ -1,7 +1,7 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
 # Deploy: push to GitHub, then "New Blueprint" → select this repo.
-# After first deploy, set VITE_API_URL on the frontend static site to
-# https://<your-backend>.onrender.com/api and re-deploy.
+# This provisions the backend stack (Postgres, Redis, Django web, Celery).
+# The frontend SPA is deployed separately on Vercel (free) — see README.
 
 databases:
   - name: erp-db
@@ -104,12 +104,3 @@ services:
     autoDeploy: true
     envVars:
       - fromGroup: erp-backend-env
-
-  - type: static
-    name: erp-frontend
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    publishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://erp-backend.onrender.com/api
