@@ -153,6 +153,13 @@ else:
             'HOST': _u.hostname or DATABASES['default']['HOST'],
             'PORT': str(_u.port or 5432),
         })
+    # One start-up line (no secrets) so deploy logs show which database settings are in use.
+    import sys as _sys
+    print(
+        f"[settings] database from {'DATABASE_URL' if _database_url else 'DB_HOST/DB_* variables'}: "
+        f"host={DATABASES['default']['HOST']} port={DATABASES['default']['PORT']} name={DATABASES['default']['NAME']}",
+        file=_sys.stderr,
+    )
     if _use_pgbouncer:
         DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
         DATABASES['default']['CONN_MAX_AGE'] = 0
