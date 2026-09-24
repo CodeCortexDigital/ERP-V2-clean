@@ -1,7 +1,7 @@
 @echo off
 REM ==========================================================================
 REM  ERP-V2 local demo: installs (first run), seeds a demo school, starts the
-REM  backend on http://localhost:8001 and the frontend on http://localhost:5179
+REM  backend on http://localhost:8009 and the frontend on http://localhost:5179
 REM  No API keys needed. See README "Run the demo locally".
 REM ==========================================================================
 setlocal
@@ -31,15 +31,15 @@ if defined FIRST_RUN (
 )
 
 echo [4/4] Starting servers...
-start "ERP backend (port 8001)" cmd /k ".venv\Scripts\python manage.py runserver 0.0.0.0:8001"
+start "ERP backend (port 8009)" cmd /k ".venv\Scripts\python manage.py runserver 0.0.0.0:8009"
 
 cd /d "%~dp0frontend"
 if not exist node_modules call npm install
-set VITE_API_URL=http://localhost:8001/api/v1/
-set VITE_WS_NOTIFICATIONS_URL=ws://localhost:8001/ws/notifications/
-set VITE_WS_DASHBOARD_URL=ws://localhost:8001/ws/dashboard/
-set VITE_WS_URL=ws://localhost:8001/ws/notifications/
-set VITE_PROXY_TARGET=http://localhost:8001
+set VITE_API_URL=http://localhost:8009/api/v1/
+set VITE_WS_NOTIFICATIONS_URL=ws://localhost:8009/ws/notifications/
+set VITE_WS_DASHBOARD_URL=ws://localhost:8009/ws/dashboard/
+set VITE_WS_URL=ws://localhost:8009/ws/notifications/
+set VITE_PROXY_TARGET=http://localhost:8009
 start "ERP frontend (port 5179)" cmd /k "npx vite --port 5179 --strictPort"
 
 timeout /t 10 /nobreak >nul

@@ -52,9 +52,9 @@ On Windows, double-click **`demo.bat`** in the project root (or run it from a te
 
 1. Creates the Python environment and installs packages (first run only).
 2. Sets up a local SQLite database and fills it with a demo school, **CodeCortex Model School** (first run only, 10–15 minutes, so do it before the meeting; later runs start in seconds): 6 classes, 6 teachers, 120 students, 3 months of fees with payments, 30 school days of attendance, exams with results, homework, behaviour records and payroll.
-3. Starts the backend on **http://localhost:8001** and the frontend on **http://localhost:5179** in two windows, then opens the login page.
+3. Starts the backend on **http://localhost:8009** and the frontend on **http://localhost:5179** in two windows, then opens the login page.
 
-To stop, run **`stop-demo.bat`** (or close the two server windows); **`restart-demo.bat`** stops and starts again. Both only touch the demo ports 8001 and 5179. On this machine there are desktop shortcuts: *ERP Demo - Start / Stop / Restart*. To rebuild the demo data from scratch: `cd backend` then `.venv\Scripts\python manage.py seed_demo --reset`.
+To stop, run **`stop-demo.bat`** (or close the two server windows); **`restart-demo.bat`** stops and starts again. Both only touch the demo ports 8009 and 5179. On this machine there are desktop shortcuts: *ERP Demo - Start / Stop / Restart*. To rebuild the demo data from scratch: `cd backend` then `.venv\Scripts\python manage.py seed_demo --reset`.
 
 **Demo logins**
 
@@ -76,7 +76,7 @@ To stop, run **`stop-demo.bat`** (or close the two server windows); **`restart-d
 
 **Without API keys** the assistant runs in *quick-answer mode* (keyword matching over the same live data and role rules), and lesson plans use a standard template. Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to the backend environment to switch both to full AI. No other change is needed. Face-recognition attendance needs DeepFace/OpenCV and is not part of the demo.
 
-> Ports 8001 and 5179 are used so the demo doesn't clash with other local dev servers on 8000/5173.
+> Ports 8009 and 5179 are used so the demo doesn't clash with other local dev servers on 8000/5173.
 
 ## Quick Start
 

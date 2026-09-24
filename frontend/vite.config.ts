@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-// Backend for the dev proxy (relative /api and /media URLs). demo.bat uses 8001.
+// Backend for the dev proxy (relative /api and /media URLs). demo.bat uses 8009.
 const backend = process.env.VITE_PROXY_TARGET || 'http://localhost:8000'
 
 export default defineConfig({
