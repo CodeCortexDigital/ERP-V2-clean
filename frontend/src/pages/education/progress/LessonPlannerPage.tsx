@@ -59,7 +59,7 @@ export default function LessonPlannerPage() {
         subject: subjectName,
         grade: className,
         topic: aiTopic,
-        objectives: objectives ? objectives.split(',') : ['Understand core concepts']
+        objectives: objectives ? objectives.split(',') : []
       }
       
       const res = await api.post('/ai/lesson-plan/', payload)
@@ -79,14 +79,21 @@ export default function LessonPlannerPage() {
       if (data.homework) {
         setHomework(data.homework)
       }
-      if (data.assessment) {
-        setNotes(`Assessment Questions: ${Array.isArray(data.assessment) ? data.assessment.join(', ') : data.assessment}`)
+      if (!objectives && Array.isArray(data.learning_objectives) && data.learning_objectives.length) {
+        setObjectives(data.learning_objectives.join(', '))
       }
-      
-      toast.success('Lesson plan fields generated and populated!')
-    } catch (err) {
+      const noteParts = [
+        data.assessment ? `Assessment Questions: ${Array.isArray(data.assessment) ? data.assessment.join(' | ') : data.assessment}` : '',
+        data.differentiation ? `Differentiation: ${data.differentiation}` : '',
+      ].filter(Boolean)
+      if (noteParts.length) {
+        setNotes(noteParts.join('\n'))
+      }
+
+      toast.success('Lesson plan drafted — review and edit before saving.')
+    } catch (err: any) {
       console.error('AI Lesson Generation failed:', err)
-      toast.error('AI Lesson Generation failed. Please try again.')
+      toast.error(err?.response?.data?.error || 'AI Lesson Generation failed. Please try again.')
     } finally {
       setGeneratingLesson(false)
     }

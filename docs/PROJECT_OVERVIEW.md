@@ -6,7 +6,7 @@ ERP V2 is a school and campus ERP platform built to manage the full student life
 ## Stack
 - Backend: Django, Django REST Framework, JWT auth, Celery, Redis, SQLite or PostgreSQL
 - Frontend: React 18, TypeScript, Vite, Tailwind CSS, Zustand, React Query
-- AI/ML support: audit, chatbot, attendance, academics, predictions, setup, training utilities
+- AI/ML support: audit, attendance, academics, predictions, setup, training utilities
 - API documentation: versioned OpenAPI and Swagger/Redoc endpoints
 
 ## Product Capabilities
@@ -121,7 +121,7 @@ ERP V2 is a school and campus ERP platform built to manage the full student life
 ### Analytics, AI & ML
 - **Dashboards & Reports:** Student/finance/attendance analytics dashboards and exportable charts.
 - **Risk Scoring & Recommendations:** Student risk modeling, risk level and score calculation, and actionable recommendations.
-- **AI/ML Workspace:** `ai-ml` scripts for data audits, infrastructure checks, training utilities, chatbot, lesson/quiz generators, and prediction models.
+- **AI/ML Workspace:** `ai-ml` scripts for data audits, infrastructure checks, training utilities, lesson/quiz generators, and prediction models.
 
 ### Documents & PDF Generation
 - **PDF Engine:** Server-side PDF generation for invoices, receipts, transcripts, and report cards.

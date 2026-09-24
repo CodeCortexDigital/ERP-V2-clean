@@ -457,36 +457,19 @@ export default function TimetableEditorPage() {
     }
 
     setOptimizing(true)
-    const toastId = toast.loading('Running GA Timetable Optimizer... Evolving generations...')
-
+    // Generation runs in the browser. A server-side optimizer is planned
+    // (docs/AI_UPGRADE_TODO.md, P3.8).
     try {
-      const response = await api.post('/ai/generate-timetable/', {
-        academic_year_id: activeYearId
-      })
-      toast.dismiss(toastId)
-      toast.success(`Timetable optimized successfully! Evolved ${response.data.generations_run} generations with fitness ${response.data.fitness_score}.`)
-      
       const generated = generateCompleteTimetable();
       if (generated.length > 0) {
         toast.success(`✅ Generated ${generated.length} conflict-free sessions using ${teachers.length} teachers`)
+      } else {
+        toast.error('Failed to generate. Please verify that classes, teachers, and classrooms exist.')
       }
-      
       await fetchEditorResources()
     } catch (err: any) {
       console.error(err)
-      toast.dismiss(toastId)
-      
-      // Fallback: generate locally
-      toast.warning('Backend GA failed or unconfigured. Simulating timetable optimization...')
-      setTimeout(async () => {
-        const generated = generateCompleteTimetable();
-        if (generated.length > 0) {
-          toast.success(`✅ Conflict-free weekly schedule optimized! Scheduled ${generated.length} sessions using ${teachers.length} teachers.`);
-        } else {
-          toast.error('Failed to generate. Please verify that classes, teachers, and classrooms exist.');
-        }
-        await fetchEditorResources()
-      }, 1500)
+      toast.error('Timetable generation failed.')
     } finally {
       setOptimizing(false)
     }

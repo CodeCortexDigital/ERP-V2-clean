@@ -1,15 +1,31 @@
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.apps import apps
-from django.db import transaction
-from django.utils import timezone
+"""AI analytics & content endpoints (mounted under /api/v1/ai/).
+
+ML features (risk scoring, anomaly detection, face recognition) need the
+packages in ai-ml/requirements.txt; when they are not installed these
+endpoints answer 503 instead of pretending to work. Lesson plans and quizzes
+use the configured LLM provider (services/ai/llm).
+"""
+import logging
 import os
 import sys
 import tempfile
 
-# Add ai-ml path dynamically
+from django.apps import apps
+from django.db import transaction
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+
+from services.ai.context import AIContext
+from services.ai.generation import generate_lesson_plan, generate_quiz as llm_generate_quiz
+from services.ai.llm import LLMError, get_llm_client
+from services.ai.permissions import HasAIRole, IsAIAdmin, IsAIEducator
+from services.ai.quota import AIQuotaExceeded, check_rate_limit, check_token_budget, feature_enabled, record_usage
+
+logger = logging.getLogger("erp.ai")
+
+# ai-ml/ lives next to backend/ in the repo.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ai_ml_path = os.path.abspath(os.path.join(BASE_DIR, '..', 'ai-ml'))
 if os.name == 'nt' and len(ai_ml_path) > 1 and ai_ml_path[1] == ':':
@@ -17,91 +33,93 @@ if os.name == 'nt' and len(ai_ml_path) > 1 and ai_ml_path[1] == ':':
 if ai_ml_path not in sys.path:
     sys.path.append(ai_ml_path)
 
-# Import AI modules with graceful fallbacks
-try:
-    from chatbot.agent import chat_response
-except (ImportError, ModuleNotFoundError):
-    def chat_response(query):
-        return {"response": "AI chat service unavailable. Install required dependencies.", "source": "Fallback", "status": "offline"}
-
-try:
-    from academics.lesson_generator import generate_ai_lesson_plan
-except (ImportError, ModuleNotFoundError):
-    def generate_ai_lesson_plan(subject, grade, topic, objectives):
-        return {"error": "AI lesson generator unavailable. Install required dependencies."}
-
 try:
     from attendance.anomaly_detector import detect_anomalies
-except (ImportError, ModuleNotFoundError):
-    def detect_anomalies():
-        return {"message": "Anomaly detection unavailable"}
-
-try:
     from predictions.performance_predictor import train_and_save_model, predict_student_performance
-except (ImportError, ModuleNotFoundError):
-    def train_and_save_model():
-        return "Performance predictor unavailable"
-    def predict_student_performance():
-        return []
+    from predictions.dropout_fee_model import train_and_save_fee_dropout_models, predict_fee_dropout_risk
+    RISK_ML_AVAILABLE = True
+except ImportError:
+    logger.info("Risk-scoring ML packages not installed; /ai/train-models/ disabled")
+    RISK_ML_AVAILABLE = False
 
 try:
     from attendance.face_recognizer import extract_embedding_from_image, match_embeddings
-except (ImportError, ModuleNotFoundError):
-    def extract_embedding_from_image(image_path):
-        return None
-    def match_embeddings(embedding1, embedding2):
-        return 0.0
+    FACE_ML_AVAILABLE = True
+except ImportError:
+    logger.info("Face recognition packages not installed; face endpoints disabled")
+    FACE_ML_AVAILABLE = False
 
-try:
-    from predictions.dropout_fee_model import train_and_save_fee_dropout_models, predict_fee_dropout_risk
-except (ImportError, ModuleNotFoundError):
-    def train_and_save_fee_dropout_models():
-        return "Dropout/Fee model unavailable"
-    def predict_fee_dropout_risk(student):
-        return {"fee_default_risk": 0.0, "dropout_risk": 0.0}
 
-try:
-    from academics.timetable_optimizer import optimize_timetable
-except (ImportError, ModuleNotFoundError):
-    def optimize_timetable():
-        return {}
+def _unavailable(feature):
+    return Response({'error': f'{feature} is not available on this server yet.'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-try:
-    from academics.quiz_generator import generate_ai_quiz
-except (ImportError, ModuleNotFoundError):
-    def generate_ai_quiz():
-        return {}
+
+def _visible_student_ids(ctx):
+    """Student ids the caller may see analytics for."""
+    from services.ai.tools import _self_student_ids
+    Student = apps.get_model('education_students', 'Student')
+    if ctx.role in ('admin', 'accountant'):
+        return ctx.scope_tenant(Student.objects.all(), 'tenant').values('id')
+    if ctx.role == 'teacher':
+        return Student.objects.filter(current_class_id__in=ctx.teacher_class_ids).values('id')
+    return _self_student_ids(ctx)
+
+
+def _llm_for(request, feature):
+    """(ctx, llm) for a generation request, or (None, error Response)."""
+    ctx = AIContext.from_request(request)
+    if not feature_enabled(feature, ctx):
+        return None, Response({'error': 'This AI feature is turned off for your school.'},
+                              status=status.HTTP_403_FORBIDDEN)
+    llm = get_llm_client()
+    if llm is None:
+        return None, Response({'error': 'AI generation needs an AI provider to be configured.'},
+                              status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    try:
+        check_rate_limit(ctx, feature)
+        check_token_budget(ctx)
+    except AIQuotaExceeded as exc:
+        return None, Response({'error': str(exc)}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+    return (ctx, llm), None
+
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def ai_chat(request):
-    query = request.data.get('query', '').strip()
-    if not query:
-        return Response({'error': 'Query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    res = chat_response(query)
-    return Response(res, status=status.HTTP_200_OK)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAIEducator])
 def ai_lesson_plan(request):
-    subject = request.data.get('subject', '').strip()
-    grade = request.data.get('grade', '').strip()
-    topic = request.data.get('topic', '').strip()
+    subject = str(request.data.get('subject', '')).strip()[:100]
+    grade = str(request.data.get('grade', '')).strip()[:100]
+    topic = str(request.data.get('topic', '')).strip()[:200]
     objectives = request.data.get('objectives', [])
-    
     if not (subject and grade and topic):
         return Response({'error': 'subject, grade, and topic are required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
     if isinstance(objectives, str):
-        objectives = [o.strip() for o in objectives.split(',') if o.strip()]
-        
-    plan = generate_ai_lesson_plan(subject, grade, topic, objectives)
+        objectives = objectives.split(',')
+    objectives = [str(o).strip()[:200] for o in (objectives if isinstance(objectives, list) else [])][:8]
+    try:
+        duration = int(request.data.get('duration_minutes', 40))
+    except (TypeError, ValueError):
+        duration = 40
+
+    ready, error = _llm_for(request, 'ai_lesson_plans')
+    if error:
+        return error
+    ctx, llm = ready
+    try:
+        plan, usage, model = generate_lesson_plan(
+            llm, subject=subject, grade=grade, topic=topic, objectives=objectives, duration=duration)
+    except LLMError:
+        logger.exception("Lesson plan generation failed")
+        return Response({'error': 'Lesson plan generation failed. Please try again.'},
+                        status=status.HTTP_502_BAD_GATEWAY)
+    record_usage(ctx, 'ai_lesson_plans', llm.provider, model, usage)
     return Response(plan, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAIAdmin])
 def train_and_predict(request):
+    if not RISK_ML_AVAILABLE:
+        return _unavailable('AI risk scanning')
     try:
         # 1. Train Random Forest model and predict performance
         train_msg = train_and_save_model()
@@ -164,17 +182,21 @@ def train_and_predict(request):
             'anomalies_detected': len(anomaly_results),
             'anomalies': anomaly_results
         }, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({'status': 'success', 'message': 'AI Risk scan models executed cleanly.'}, status=status.HTTP_200_OK)
+    except Exception:
+        logger.exception("AI model training / risk scan failed")
+        return Response({'status': 'error', 'message': 'AI risk scan failed. See server logs.'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([HasAIRole])
 def get_student_predictions(request):
     StudentRisk = apps.get_model('analytics', 'StudentRisk')
     AcademicPrediction = apps.get_model('analytics', 'AcademicPrediction')
     
-    risks = StudentRisk.objects.all().select_related('student')
-    predictions = AcademicPrediction.objects.all().select_related('student')
+    ctx = AIContext.from_request(request)
+    student_ids = _visible_student_ids(ctx)
+    risks = StudentRisk.objects.filter(student_id__in=student_ids).select_related('student', 'student__current_class')
+    predictions = AcademicPrediction.objects.filter(student_id__in=student_ids).select_related('student')
     
     predictions_map = {str(p.student_id): p for p in predictions}
     
@@ -183,14 +205,14 @@ def get_student_predictions(request):
         p = predictions_map.get(str(r.student_id))
         factors = r.factors or {}
         
-        # Read from factors or default
-        fee_default_risk = factors.get("fee_default_risk", 12.5)
-        dropout_risk = factors.get("dropout_risk", 8.4)
+        fee_default_risk = factors.get("fee_default_risk")
+        dropout_risk = factors.get("dropout_risk")
         
         data.append({
             'student_id': str(r.student_id),
             'student_name': r.student.full_name,
             'student_roll': r.student.student_id,
+            'class_name': r.student.current_class.name if r.student.current_class_id else None,
             'risk_level': r.risk_level,
             'risk_score': float(r.risk_score),
             'factors': factors,
@@ -204,10 +226,13 @@ def get_student_predictions(request):
     return Response(data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAIEducator])
 def get_attendance_anomalies(request):
     AttendanceAlert = apps.get_model('education_attendance', 'AttendanceAlert')
-    alerts = AttendanceAlert.objects.filter(is_resolved=False).select_related('student', 'pattern')
+    ctx = AIContext.from_request(request)
+    alerts = AttendanceAlert.objects.filter(
+        is_resolved=False, student_id__in=_visible_student_ids(ctx)
+    ).select_related('student', 'pattern')
     
     data = []
     for a in alerts:
@@ -227,8 +252,10 @@ def get_attendance_anomalies(request):
 # --- PHASE 2 CORE VIEWS ---
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAIEducator])
 def face_register(request):
+    if not FACE_ML_AVAILABLE:
+        return _unavailable('Face recognition')
     student_id = request.data.get('student_id')
     image_file = request.FILES.get('image')
     
@@ -273,8 +300,10 @@ def face_register(request):
             os.remove(temp_path)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAIEducator])
 def face_attendance(request):
+    if not FACE_ML_AVAILABLE:
+        return _unavailable('Face recognition')
     classroom_id = request.data.get('classroom_id')
     image_file = request.FILES.get('image')
     
@@ -376,129 +405,115 @@ def face_attendance(request):
             os.remove(temp_path)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAIAdmin])
 def generate_timetable(request):
-    academic_year_id = request.data.get('academic_year_id')
-    AcademicYear = apps.get_model('education_academics', 'AcademicYear')
-    
-    ay = None
-    if academic_year_id:
-        ay = AcademicYear.objects.filter(id=academic_year_id).first()
-    if not ay:
-        ay = AcademicYear.objects.filter(is_active=True).first()
-        
-    try:
-        # Execute optimization or return success metrics
-        return Response({
-            'status': 'success',
-            'academic_year_id': str(ay.id) if ay else None,
-            'generations_run': 50,
-            'fitness_score': 0.98,
-            'entries_created': 800,
-            'message': 'Timetable optimized successfully!'
-        }, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # Server-side optimisation is not wired up yet (docs/AI_UPGRADE_TODO.md, P3.8).
+    return Response({'error': 'Server-side timetable optimisation is not available yet.'},
+                    status=status.HTTP_501_NOT_IMPLEMENTED)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAIEducator])
 def generate_quiz(request):
     subject_id = request.data.get('subject_id')
-    topic = request.data.get('topic', '').strip()
-    difficulty = request.data.get('difficulty', 'medium').strip()
-    count = int(request.data.get('count', 4))
-    
+    topic = str(request.data.get('topic', '')).strip()[:200]
+    difficulty = str(request.data.get('difficulty', 'medium')).strip().lower()
+    grade = str(request.data.get('grade', '')).strip()[:100]
+    try:
+        count = max(1, min(int(request.data.get('count', 5)), 20))
+    except (TypeError, ValueError):
+        count = 5
+    if difficulty not in ('easy', 'medium', 'hard'):
+        difficulty = 'medium'
+
     Subject = apps.get_model('education_academics', 'Subject')
     Quiz = apps.get_model('education_exams', 'Quiz')
     QuizQuestion = apps.get_model('education_exams', 'QuizQuestion')
-    
+
+    subject = Subject.objects.filter(id=subject_id).first() if subject_id else None
+    if subject is None:
+        return Response({'error': 'A valid subject_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not topic:
+        return Response({'error': 'topic is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    ready, error = _llm_for(request, 'ai_quiz')
+    if error:
+        return error
+    ctx, llm = ready
     try:
-        subject = Subject.objects.get(id=subject_id)
-    except Exception:
-        subject = Subject.objects.first()
-        
-    try:
-        quiz_data = generate_ai_quiz(subject.name if subject else "General", topic, difficulty, count)
-        
-        with transaction.atomic():
-            quiz = Quiz.objects.create(
-                subject=subject,
-                title=quiz_data.get("title", f"Quiz: {topic}"),
-                topic=topic,
-                difficulty=difficulty.lower(),
-                is_published=False
-            )
-            
-            created_questions = []
-            for q in quiz_data.get("questions", []):
-                question = QuizQuestion.objects.create(
-                    quiz=quiz,
-                    question_type=q.get("question_type", "mcq"),
-                    question_text=q.get("question_text", "Sample question text"),
-                    options=q.get("options", ["Option A", "Option B", "Option C", "Option D"]),
-                    correct_answer=q.get("correct_answer", "Option A"),
-                    explanation=q.get("explanation", "")
-                )
-                created_questions.append({
-                    "id": str(question.id),
-                    "question_type": question.question_type,
-                    "question_text": question.question_text,
-                    "options": question.options,
-                    "correct_answer": question.correct_answer,
-                    "explanation": question.explanation
-                })
-                
-        return Response({
-            "quiz_id": str(quiz.id),
-            "title": quiz.title,
-            "subject": subject.name if subject else "General",
-            "topic": topic,
-            "difficulty": difficulty,
-            "is_published": quiz.is_published,
-            "offline": quiz_data.get("offline", False),
-            "questions": created_questions
-        }, status=status.HTTP_201_CREATED)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        quiz_data, usage, model = llm_generate_quiz(
+            llm, subject=subject.name, topic=topic, difficulty=difficulty, count=count, grade=grade)
+    except LLMError:
+        logger.exception("Quiz generation failed")
+        return Response({'error': 'Quiz generation failed. Please try again.'}, status=status.HTTP_502_BAD_GATEWAY)
+    record_usage(ctx, 'ai_quiz', llm.provider, model, usage)
+
+    with transaction.atomic():
+        quiz = Quiz.objects.create(subject=subject, title=quiz_data['title'][:200], topic=topic,
+                                   difficulty=difficulty, is_published=False)
+        questions = [
+            QuizQuestion.objects.create(
+                quiz=quiz, question_type=q['question_type'], question_text=q['question_text'],
+                options=q['options'], correct_answer=q['correct_answer'], explanation=q['explanation'])
+            for q in quiz_data['questions']
+        ]
+    # Saved as a draft: a teacher reviews it and then calls publish-quiz.
+    return Response({
+        "quiz_id": str(quiz.id),
+        "title": quiz.title,
+        "subject": subject.name,
+        "topic": topic,
+        "difficulty": difficulty,
+        "is_published": False,
+        "questions": [
+            {"id": str(q.id), "question_type": q.question_type, "question_text": q.question_text,
+             "options": q.options, "correct_answer": q.correct_answer, "explanation": q.explanation}
+            for q in questions
+        ],
+    }, status=status.HTTP_201_CREATED)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAIEducator])
 def publish_quiz(request):
     quiz_id = request.data.get('quiz_id')
+    class_id = request.data.get('class_id')
     Quiz = apps.get_model('education_exams', 'Quiz')
     Exam = apps.get_model('education_exams', 'Exam')
     SchoolClass = apps.get_model('education_academics', 'SchoolClass')
-    
-    try:
-        quiz = Quiz.objects.get(id=quiz_id)
-    except Exception:
-        quiz = Quiz.objects.first()
 
-    if not quiz:
-        return Response({'status': 'success', 'message': 'Quiz published to student portals.'})
-        
+    quiz = Quiz.objects.filter(id=quiz_id).select_related('subject').first() if quiz_id else None
+    if quiz is None:
+        return Response({'error': 'Quiz not found.'}, status=status.HTTP_404_NOT_FOUND)
+    target_class = SchoolClass.objects.filter(id=class_id).first() if class_id else None
+    if target_class is None:
+        return Response({'error': 'A valid class_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    ctx = AIContext.from_request(request)
+    if ctx.role == 'teacher' and target_class.id not in ctx.teacher_class_ids:
+        return Response({'error': 'You can only publish quizzes to your own classes.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
     try:
         with transaction.atomic():
             quiz.is_published = True
             quiz.save()
-            
-            default_class = SchoolClass.objects.first()
-            if default_class and quiz.subject:
-                Exam.objects.create(
-                    title=quiz.title,
-                    exam_type='quiz',
-                    class_ref=default_class,
-                    subject=quiz.subject,
-                    total_marks=40,
-                    passing_marks=20,
-                    exam_date=timezone.localdate(),
-                    is_published=True
-                )
-                
+            question_count = quiz.questions.count()
+            exam = Exam.objects.create(
+                title=quiz.title,
+                exam_type='quiz',
+                class_ref=target_class,
+                subject=quiz.subject,
+                total_marks=question_count,
+                passing_marks=(question_count + 1) // 2,
+                exam_date=timezone.localdate(),
+                is_published=True
+            )
+            quiz.exam = exam
+            quiz.save(update_fields=['exam'])
         return Response({
             'status': 'success',
-            'message': 'Quiz successfully published and integrated with student portal assessments.',
+            'message': 'Quiz published to the class.',
             'quiz_id': str(quiz.id)
         }, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({'status': 'success', 'message': 'Quiz published successfully.'}, status=status.HTTP_200_OK)
+    except Exception:
+        logger.exception("Quiz publish failed")
+        return Response({'error': 'Quiz publish failed.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

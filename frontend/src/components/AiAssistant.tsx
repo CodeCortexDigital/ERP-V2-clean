@@ -1,6 +1,13 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageSquare, X, Send, Sparkles, Bot, AlertCircle, Mic, MicOff, Volume2, VolumeX, Loader2 } from 'lucide-react';
-import { sendAiMessage, ChatMessage } from '@/services/ai.service';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  X, Send, Sparkles, Bot, AlertCircle, Mic, MicOff, Volume2, VolumeX,
+  History, Plus, Square, Copy, Check, ThumbsUp, ThumbsDown, Trash2, Search,
+} from 'lucide-react';
+import {
+  AiConversation, AiRequestError, ChatMessage, deleteConversation, getConversation,
+  listConversations, sendAiMessage, sendFeedback, streamAiMessage,
+} from '@/services/ai.service';
+import MarkdownText from '@/components/MarkdownText';
 
 export type ChatMode = 'student' | 'teacher' | 'parent' | 'admin';
 
@@ -19,7 +26,7 @@ const SUGGESTIONS: Record<ChatMode, string[]> = {
     'My homework',
     'Student strength in each class',
     'Search / find students',
-    'Student profile & outstanding balance',
+    'Student profile',
   ],
   parent: [
     'My attendance',
@@ -65,42 +72,50 @@ const SpeechRecognition = (window as any).SpeechRecognition || (window as any).w
 const speechRecognitionSupported = !!SpeechRecognition;
 const speechSynthesisSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
+type VoiceLang = 'en-US' | 'ur-PK';
+
 function stopSpeaking() {
   if (speechSynthesisSupported) window.speechSynthesis.cancel();
 }
 
-function speakText(text: string, onEnd?: () => void) {
+function speakText(text: string, lang: VoiceLang, onEnd?: () => void) {
   if (!speechSynthesisSupported) return;
   stopSpeaking();
-  const clean = text.replace(/[#*_`~\[\]()]/g, '').slice(0, 2000);
+  const clean = text.replace(/[#*_`~\[\]()|]/g, '').slice(0, 2000);
   if (!clean.trim()) return;
   const utterance = new SpeechSynthesisUtterance(clean);
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
   utterance.volume = 1;
-  utterance.lang = 'en-US';
+  utterance.lang = lang;
   if (onEnd) utterance.onend = onEnd;
   window.speechSynthesis.speak(utterance);
 }
 
 export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
+  const welcome: ChatMessage = { role: 'assistant', content: WELCOME[mode] };
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [offline, setOffline] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'assistant', content: WELCOME[mode] },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([welcome]);
+  const [conversationId, setConversationId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+  const [activity, setActivity] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversations, setConversations] = useState<AiConversation[]>([]);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [listening, setListening] = useState(false);
   const [voiceOutput, setVoiceOutput] = useState(true);
+  const [voiceLang, setVoiceLang] = useState<VoiceLang>('en-US');
   const [speakingMsgIdx, setSpeakingMsgIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, loading, activity]);
 
   useEffect(() => {
     if (!open) {
@@ -109,38 +124,129 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
     }
   }, [open]);
 
+  // Update the last (in-progress) assistant message.
+  const patchLast = (patch: (m: ChatMessage) => ChatMessage) =>
+    setMessages((prev) => [...prev.slice(0, -1), patch(prev[prev.length - 1])]);
+
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || loading) return;
-    const next: ChatMessage[] = [...messages, { role: 'user', content: q }];
-    setMessages(next);
+    setMessages((prev) => [...prev, { role: 'user', content: q }, { role: 'assistant', content: '' }]);
     setInput('');
     setLoading(true);
+    setActivity(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let finalReply = '';
+    let gotEvent = false;
     try {
-      const res = await sendAiMessage(next.filter((m) => m.role !== 'system'), mode);
-      setOffline(!!res.offline);
-      const replyMsg: ChatMessage = { role: 'assistant', content: res.reply };
-      setMessages((prev) => [...prev, replyMsg]);
-      if (voiceOutput && speechSynthesisSupported) {
-        setTimeout(() => speakText(res.reply), 100);
-      }
-    } catch {
-      const fallback = 'Sorry, I could not reach the assistant service. Please try again.';
-      const fallbackMsg: ChatMessage = { role: 'assistant', content: fallback };
-      setMessages((prev) => [...prev, fallbackMsg]);
-      if (voiceOutput && speechSynthesisSupported) {
-        setTimeout(() => speakText(fallback), 100);
+      await streamAiMessage(q, conversationId, (ev) => {
+        gotEvent = true;
+        if (ev.type === 'token') {
+          patchLast((m) => ({ ...m, content: m.content + ev.text }));
+        } else if (ev.type === 'tool_start') {
+          // Text before a tool call is the model thinking aloud; the answer follows.
+          setActivity(ev.label);
+          patchLast((m) => ({ ...m, content: '' }));
+        } else if (ev.type === 'tool_end') {
+          setActivity(null);
+        } else if (ev.type === 'done') {
+          finalReply = ev.reply;
+          setOffline(ev.offline);
+          setConversationId(ev.conversation_id);
+          patchLast((m) => ({ ...m, id: ev.message_id, content: ev.reply, offline: ev.offline }));
+        } else if (ev.type === 'error') {
+          patchLast((m) => ({ ...m, content: ev.message }));
+        }
+      }, controller.signal);
+    } catch (err) {
+      if (controller.signal.aborted) {
+        patchLast((m) => ({ ...m, content: (m.content ? `${m.content}\n\n` : '') + '_(stopped)_' }));
+      } else if (err instanceof AiRequestError) {
+        patchLast((m) => ({ ...m, content: err.message }));
+      } else if (!gotEvent) {
+        // Streaming unavailable (e.g. a proxy blocks it) — fall back to a plain request.
+        try {
+          const res = await sendAiMessage(q, conversationId);
+          finalReply = res.reply;
+          setOffline(res.offline);
+          setConversationId(res.conversation_id);
+          patchLast((m) => ({ ...m, id: res.message_id, content: res.reply, offline: res.offline }));
+        } catch {
+          patchLast((m) => ({ ...m, content: 'Sorry, I could not reach the assistant service. Please try again.' }));
+        }
+      } else {
+        patchLast((m) => ({ ...m, content: m.content || 'The connection was interrupted. Please try again.' }));
       }
     } finally {
       setLoading(false);
+      setActivity(null);
+      abortRef.current = null;
     }
+    if (finalReply && voiceOutput && speechSynthesisSupported) {
+      setTimeout(() => speakText(finalReply, voiceLang), 100);
+    }
+  };
+
+  const stop = () => abortRef.current?.abort();
+
+  const newChat = () => {
+    stop();
+    setConversationId(undefined);
+    setMessages([welcome]);
+    setOffline(false);
+    setShowHistory(false);
+  };
+
+  const toggleHistory = async () => {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (!next) return;
+    try {
+      setConversations(await listConversations());
+    } catch {
+      setConversations([]);
+    }
+  };
+
+  const loadConversation = async (id: string) => {
+    try {
+      const conv = await getConversation(id);
+      setConversationId(conv.id);
+      setMessages([welcome, ...(conv.messages || [])]);
+      setShowHistory(false);
+    } catch { /* keep the current chat */ }
+  };
+
+  const removeConversation = async (id: string) => {
+    try {
+      await deleteConversation(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (id === conversationId) newChat();
+    } catch { /* ignore */ }
+  };
+
+  const rate = async (idx: number, rating: 1 | -1) => {
+    const msg = messages[idx];
+    if (!msg.id) return;
+    const next = msg.feedback === rating ? null : rating;
+    setMessages((prev) => prev.map((m, i) => (i === idx ? { ...m, feedback: next } : m)));
+    try { await sendFeedback(msg.id, next); } catch { /* non-critical */ }
+  };
+
+  const copy = async (idx: number) => {
+    try {
+      await navigator.clipboard.writeText(messages[idx].content);
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(null), 1500);
+    } catch { /* clipboard blocked */ }
   };
 
   const startListening = useCallback(() => {
     if (!speechRecognitionSupported || listening) return;
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
+      recognition.lang = voiceLang;
       recognition.interimResults = true;
       recognition.continuous = false;
       recognitionRef.current = recognition;
@@ -166,7 +272,7 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
     } catch {
       setListening(false);
     }
-  }, [listening, send]);
+  }, [listening, send, voiceLang]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -187,9 +293,12 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
     } else {
       stopSpeaking();
       setSpeakingMsgIdx(idx);
-      speakText(content, () => setSpeakingMsgIdx(null));
+      speakText(content, voiceLang, () => setSpeakingMsgIdx(null));
     }
   };
+
+  const lastIdx = messages.length - 1;
+  const pendingEmpty = loading && !messages[lastIdx]?.content;
 
   return (
     <>
@@ -204,7 +313,7 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
 
       {open && (
         <div className="fixed bottom-24 right-5 z-50 w-[380px] max-w-[calc(100vw-2.5rem)] h-[560px] max-h-[calc(100vh-7rem)] flex flex-col rounded-2xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-purple-600 to-indigo-700 text-white">
+          <div className="flex items-center gap-2 px-4 py-4 bg-gradient-to-r from-purple-600 to-indigo-700 text-white">
             <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/15 backdrop-blur-sm">
               <Bot className="w-5 h-5" />
             </div>
@@ -213,6 +322,25 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
               <p className="text-[10px] opacity-75 font-medium tracking-wide uppercase">AI Assistant · {mode}</p>
             </div>
             <button
+              onClick={toggleHistory}
+              className={`p-1.5 rounded-lg transition-colors ${showHistory ? 'bg-white/30' : 'hover:bg-white/20'}`}
+              title="Chat history"
+              aria-label="Chat history"
+            >
+              <History className="w-4 h-4" />
+            </button>
+            <button onClick={newChat} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors" title="New chat" aria-label="New chat">
+              <Plus className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setVoiceLang((l) => (l === 'en-US' ? 'ur-PK' : 'en-US'))}
+              className="px-1.5 py-1 rounded-lg hover:bg-white/20 transition-colors text-[10px] font-bold"
+              title="Voice language (English / Urdu)"
+              aria-label="Switch voice language"
+            >
+              {voiceLang === 'en-US' ? 'EN' : 'اردو'}
+            </button>
+            <button
               onClick={() => setVoiceOutput((v) => !v)}
               className={`p-1.5 rounded-lg transition-colors ${voiceOutput ? 'bg-white/20 hover:bg-white/30' : 'bg-white/10 hover:bg-white/20'}`}
               title={voiceOutput ? 'Mute voice' : 'Enable voice'}
@@ -220,7 +348,7 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
             >
               {voiceOutput ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
-            <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
+            <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors" aria-label="Close">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -228,48 +356,107 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
           {offline && (
             <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 text-[11px] text-amber-700 border-b border-amber-100">
               <AlertCircle size={13} className="shrink-0" />
-              <span>Offline mode — configure an AI provider key for live answers.</span>
+              <span>Basic mode — AI answers are unavailable, showing quick lookups instead.</span>
+            </div>
+          )}
+
+          {showHistory && (
+            <div className="border-b border-slate-200 bg-white max-h-56 overflow-y-auto">
+              {conversations.length === 0 ? (
+                <p className="px-4 py-3 text-[11px] text-slate-400">No previous chats.</p>
+              ) : conversations.map((c) => (
+                <div key={c.id} className={`group flex items-center gap-2 px-4 py-2 text-[11px] hover:bg-purple-50 ${c.id === conversationId ? 'bg-purple-50' : ''}`}>
+                  <button className="flex-1 min-w-0 text-left" onClick={() => loadConversation(c.id)}>
+                    <p className="truncate text-slate-700 font-medium">{c.title || 'Untitled chat'}</p>
+                    <p className="text-[10px] text-slate-400">{new Date(c.updated_at).toLocaleString()}</p>
+                  </button>
+                  <button
+                    onClick={() => removeConversation(c.id)}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-400 hover:text-red-500"
+                    title="Delete chat"
+                    aria-label="Delete chat"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-slate-50/80 to-white">
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-200`}
-                style={{ animationDelay: `${i * 50}ms` }}
-              >
+            {messages.map((m, i) => {
+              if (i === lastIdx && pendingEmpty && m.role === 'assistant') return null;
+              const streaming = loading && i === lastIdx;
+              return (
                 <div
-                  className={`relative max-w-[88%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-tr-sm shadow-sm shadow-purple-300/30'
-                      : 'bg-white border border-slate-200/80 text-slate-700 rounded-tl-sm shadow-sm'
-                  }`}
+                  key={m.id || i}
+                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-200`}
                 >
-                  <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                  {m.role === 'assistant' && speechSynthesisSupported && messages.length > 1 && (
-                    <button
-                      onClick={() => handleSpeakMessage(m.content, i)}
-                      className={`mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium transition-colors ${
-                        speakingMsgIdx === i ? 'text-purple-600' : 'text-slate-400 hover:text-purple-500'
-                      }`}
-                      title={speakingMsgIdx === i ? 'Stop' : 'Read aloud'}
-                    >
-                      {speakingMsgIdx === i ? (
-                        <><VolumeX className="w-3 h-3" /> Stop</>
-                      ) : (
-                        <><Volume2 className="w-3 h-3" /> Listen</>
-                      )}
-                    </button>
-                  )}
+                  <div
+                    className={`relative max-w-[88%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                      m.role === 'user'
+                        ? 'bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-tr-sm shadow-sm shadow-purple-300/30'
+                        : 'bg-white border border-slate-200/80 text-slate-700 rounded-tl-sm shadow-sm'
+                    }`}
+                  >
+                    {m.role === 'assistant'
+                      ? <MarkdownText text={m.content} />
+                      : <div className="whitespace-pre-wrap break-words">{m.content}</div>}
+                    {m.role === 'assistant' && i > 0 && m.content && !streaming && (
+                      <div className="mt-1.5 flex items-center gap-2.5">
+                        <button onClick={() => copy(i)} className="text-slate-400 hover:text-purple-500" title="Copy" aria-label="Copy answer">
+                          {copiedIdx === i ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                        {m.id && (
+                          <>
+                            <button
+                              onClick={() => rate(i, 1)}
+                              className={m.feedback === 1 ? 'text-green-600' : 'text-slate-400 hover:text-green-600'}
+                              title="Helpful"
+                              aria-label="Helpful"
+                            >
+                              <ThumbsUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => rate(i, -1)}
+                              className={m.feedback === -1 ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}
+                              title="Not helpful"
+                              aria-label="Not helpful"
+                            >
+                              <ThumbsDown className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
+                        {speechSynthesisSupported && (
+                          <button
+                            onClick={() => handleSpeakMessage(m.content, i)}
+                            className={`inline-flex items-center gap-1 text-[10px] font-medium transition-colors ${
+                              speakingMsgIdx === i ? 'text-purple-600' : 'text-slate-400 hover:text-purple-500'
+                            }`}
+                            title={speakingMsgIdx === i ? 'Stop' : 'Read aloud'}
+                          >
+                            {speakingMsgIdx === i ? (
+                              <><VolumeX className="w-3 h-3" /> Stop</>
+                            ) : (
+                              <><Volume2 className="w-3 h-3" /> Listen</>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
-            {loading && (
+            {pendingEmpty && (
               <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-200">
                 <div className="px-4 py-3 rounded-2xl bg-white border border-slate-200/80 rounded-tl-sm shadow-sm">
-                  <SpeakingDots />
+                  {activity ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] text-purple-700">
+                      <Search className="w-3 h-3" /> {activity}…
+                    </span>
+                  ) : <SpeakingDots />}
                 </div>
               </div>
             )}
@@ -320,6 +507,7 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={listening ? 'Listening...' : 'Ask anything...'}
+                dir="auto"
                 className={`w-full text-xs h-10 px-4 rounded-xl border transition-colors focus:outline-none focus:ring-2 ${
                   listening
                     ? 'border-red-300 bg-red-50/50 focus:ring-red-300/30'
@@ -333,13 +521,26 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || (!input.trim() && !listening)}
-              className="w-10 h-10 shrink-0 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 disabled:opacity-50 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl flex items-center justify-center transition-all duration-200 active:scale-95 shadow-sm shadow-purple-300/30"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </button>
+            {loading ? (
+              <button
+                type="button"
+                onClick={stop}
+                className="w-10 h-10 shrink-0 bg-slate-700 hover:bg-slate-800 text-white rounded-xl flex items-center justify-center transition-all duration-200 active:scale-95"
+                title="Stop"
+                aria-label="Stop generating"
+              >
+                <Square className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim() && !listening}
+                className="w-10 h-10 shrink-0 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 disabled:opacity-50 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl flex items-center justify-center transition-all duration-200 active:scale-95 shadow-sm shadow-purple-300/30"
+                aria-label="Send"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            )}
           </form>
         </div>
       )}

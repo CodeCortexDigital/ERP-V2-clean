@@ -1,6 +1,5 @@
 from django.urls import path
 from .ai_views import (
-    ai_chat,
     ai_lesson_plan,
     train_and_predict,
     get_student_predictions,
@@ -13,7 +12,6 @@ from .ai_views import (
 )
 
 urlpatterns = [
-    path('chat/', ai_chat, name='ai-chat'),
     path('lesson-plan/', ai_lesson_plan, name='ai-lesson-plan'),
     path('train-models/', train_and_predict, name='ai-train-models'),
     path('student-predictions/', get_student_predictions, name='ai-student-predictions'),

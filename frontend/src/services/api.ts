@@ -9,7 +9,7 @@ import { setupApiErrorInterceptor } from '@/utils/errorHandler';
 //      so opening via the LAN IP works even if the env is missing.
 // This keeps the configured IP authoritative (robust to how you open the page)
 // while still surviving a DHCP IP change when you browse by IP.
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)
+export const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)
   || (typeof window !== 'undefined' && window.location?.hostname
       ? `http://${window.location.hostname}:8000/api/v1/`
       : '/api/v1/');

@@ -203,26 +203,10 @@ export default function AnalyticsPage() {
 
       // 1. Attendance Trends
       const rawAttendance = data.attendance_trends?.monthly_data || [];
-      const defaultAttendance: AttendanceTrend[] = [
-        { month: 'Jan', present: 480, absent: 20, late: 10, percentage: 92 },
-        { month: 'Feb', present: 490, absent: 15, late: 8, percentage: 94 },
-        { month: 'Mar', present: 505, absent: 25, late: 12, percentage: 90 },
-        { month: 'Apr', present: 520, absent: 18, late: 5, percentage: 95 },
-        { month: 'May', present: 535, absent: 30, late: 15, percentage: 89 },
-        { month: 'Jun', present: 550, absent: 12, late: 6, percentage: 96 }
-      ];
-      setAttendanceTrends(rawAttendance.length > 0 ? rawAttendance : defaultAttendance);
+setAttendanceTrends(rawAttendance);
 
       // 2. Fee Trends
       const feeRecovery = data.fee_recovery_trends?.class_recovery || [];
-      const defaultFeeTrends: FeeTrend[] = [
-        // Data loaded from API
-        { month: 'Grade 2', collected: 420000, pending: 80000, total: 500000 },
-        { month: 'Grade 3', collected: 480000, pending: 40000, total: 520000 },
-        { month: 'Grade 4', collected: 390000, pending: 110000, total: 500000 },
-        { month: 'Grade 5', collected: 510000, pending: 30000, total: 540000 },
-        { month: 'Grade 6', collected: 460000, pending: 60000, total: 520000 }
-      ];
       if (feeRecovery.length > 0) {
         setFeeTrends(
           feeRecovery.map((c: any) => ({
@@ -233,45 +217,34 @@ export default function AnalyticsPage() {
           }))
         );
       } else {
-        setFeeTrends(defaultFeeTrends);
+        setFeeTrends([]);
       }
 
       // 3. Student Growth
       const rawGrowth = data.student_growth?.monthly_growth || [];
-      const defaultGrowth: StudentGrowthPoint[] = [
-        { month: 'Jan', count: 420 },
-        { month: 'Feb', count: 445 },
-        { month: 'Mar', count: 470 },
-        { month: 'Apr', count: 500 },
-        { month: 'May', count: 535 },
-        { month: 'Jun', count: 568 }
-      ];
-      setStudentGrowth(rawGrowth.length > 0 ? rawGrowth.map((g: any) => ({ month: g.month, count: Number(g.student_count || 0) })) : defaultGrowth);
+      setStudentGrowth(rawGrowth.length > 0 ? rawGrowth.map((g: any) => ({ month: g.month, count: Number(g.student_count || 0) })) : []);
 
       // 4. Teacher Performance
       const rawTeachers = data.teacher_metrics?.teacher_ratings || [];
-      const defaultTeachers: TeacherPerformanceItem[] = [
-        { id: 1, name: 'Prof. Tariq Mahmood', subject_count: 3, class_count: 4, avg_student_score: 88, attendance_rate: 98 },
-        { id: 2, name: 'Dr. Ayesha Malik', subject_count: 2, class_count: 3, avg_student_score: 82, attendance_rate: 96 },
-        { id: 3, name: 'Muhammad Rizwan', subject_count: 4, class_count: 5, avg_student_score: 76, attendance_rate: 94 },
-        { id: 4, name: 'Sadia Ahmed', subject_count: 2, class_count: 4, avg_student_score: 91, attendance_rate: 99 },
-        { id: 5, name: 'Zeeshan Ali', subject_count: 3, class_count: 3, avg_student_score: 68, attendance_rate: 92 }
-      ];
-      setTeacherPerformance(rawTeachers.length > 0 ? rawTeachers : defaultTeachers);
+setTeacherPerformance(rawTeachers);
 
-      // 5. AI At-Risk Students
-      // The backend does not yet expose /ai/student-predictions/, so we render
-      // realistic fallback data directly (no failed request / 404 flash).
-      const mappedRisks: AtRiskStudent[] = [
-        { id: 1, name: 'Abdullah Chaudhry', student_id: 'STU001', class: 'Grade 10', risk_level: 'critical', reason: 'High fee default & low attendance in Math', fee_default_risk: 86.5, dropout_risk: 81.2 },
-        { id: 2, name: 'Muhammad Ali', student_id: 'STU002', class: 'Grade 9', risk_level: 'high', reason: 'Repeated absence in CS & Science', fee_default_risk: 68.4, dropout_risk: 74.8 },
-        { id: 3, name: 'Fatima Khan', student_id: 'STU003', class: 'Grade 8', risk_level: 'high', reason: 'Pending fee installation for 2 months', fee_default_risk: 79.0, dropout_risk: 42.1 },
-        { id: 4, name: 'Zainab Ahmed', student_id: 'STU004', class: 'Grade 7', risk_level: 'medium', reason: 'Declining academic performance', fee_default_risk: 54.2, dropout_risk: 63.5 },
-        { id: 5, name: 'Bilal Hussain', student_id: 'STU005', class: 'Grade 10', risk_level: 'medium', reason: 'Attendance below 70%', fee_default_risk: 38.0, dropout_risk: 59.0 },
-        { id: 6, name: 'Sana Malik', student_id: 'STU006', class: 'Grade 6', risk_level: 'low', reason: 'Satisfactory parameters', fee_default_risk: 28.5, dropout_risk: 31.0 },
-        { id: 7, name: 'Usman Raza', student_id: 'STU007', class: 'Grade 9', risk_level: 'low', reason: 'Good standing', fee_default_risk: 15.0, dropout_risk: 22.4 }
-      ];
-      setAtRiskStudents(mappedRisks);
+      // 5. AI At-Risk Students (from the latest risk scan)
+      try {
+        const riskRes = await api.get('/ai/student-predictions/');
+        const risks: AtRiskStudent[] = (riskRes.data || []).map((r: any) => ({
+          id: r.student_id,
+          name: r.student_name,
+          student_id: r.student_roll,
+          class: r.class_name || '',
+          risk_level: r.risk_level,
+          reason: [r.factors?.dropout_alert, r.factors?.finance].filter(Boolean).join(' ') || 'No specific factors recorded',
+          fee_default_risk: Number(r.fee_default_risk ?? 0),
+          dropout_risk: Number(r.dropout_risk ?? 0),
+        }));
+        setAtRiskStudents(risks);
+      } catch {
+        setAtRiskStudents([]);
+      }
 
     } catch (err) {
       console.error(err);
@@ -280,15 +253,16 @@ export default function AnalyticsPage() {
     }
   };
 
+  // Not connected to messaging yet (docs/AI_UPGRADE_TODO.md, P3.3).
   const notifyCounselor = (studentName: string) => {
-    alert(`Counselor notified successfully regarding ${studentName}'s dropout risk.`);
+    toast.info(`Counselor notifications are not connected yet. Please contact the counselor about ${studentName} directly.`);
   };
 
   const sendFeeReminder = (studentName: string) => {
-    alert(`Automated fee reminder email/SMS sent to ${studentName}'s parent.`);
+    toast.info(`Automated fee reminders are not connected yet. Please send ${studentName}'s reminder from the Finance module.`);
   };
 
-  const totalStudents = atRiskStudents.length || (studentGrowth.length > 0 ? studentGrowth[studentGrowth.length - 1].count : 50);
+  const totalStudents = studentGrowth.length > 0 ? studentGrowth[studentGrowth.length - 1].count : atRiskStudents.length;
   const totalCollected = feeTrends.reduce((sum, t) => sum + (t.collected || 0), 0);
   const totalPending = feeTrends.reduce((sum, t) => sum + (t.pending || 0), 0);
   const attendanceRate = attendanceTrends[attendanceTrends.length - 1]?.percentage || 0;

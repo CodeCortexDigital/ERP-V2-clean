@@ -4,26 +4,121 @@ Each tool is a plain Python function that queries the school database and
 returns a small, serialisable result the LLM can use to answer the user.
 Tools are intentionally read-only and limited in row count to keep context
 small and latency low.
+
+Every tool takes an `AIContext` as its first argument. Access control lives in
+one place — `call_tool` — which checks the caller's role against the roles the
+tool was registered with. Inside the tools, `ctx.scope_tenant` restricts rows to
+the caller's school and `ctx.scope_classes` restricts teachers to their classes.
 """
 from __future__ import annotations
 
-from typing import Any
+import logging
+from dataclasses import dataclass
+from typing import Any, Callable
 
+from django.conf import settings
 from django.db.models import Count, Q
+from django.utils import timezone
 
-from services.core.accounts.decorators import (
-    get_user_role,
-    _get_parent_student_ids,
-    _get_teacher_class_ids,
-)
-from services.education.students.models import Student
-from services.education.finance.models import Invoice, FeeStructure
+from services.core.accounts.decorators import _get_parent_student_ids
+from services.education.students.models import Student, Certificate
+from services.education.finance.models import Invoice, Payslip
 from services.education.attendance.models import AttendanceRecord
 from services.education.exams.models import Exam
-from services.education.academics.models import Homework, ClassSubject, TimetableEntry
+from services.education.academics.models import Homework, TimetableEntry, Teacher
 from services.education.behaviour.models import BehaviourRating, Observation
-from services.education.students.models import Certificate
 from services.core.user_notifications.models import Notification
+
+from .context import AIContext
+
+logger = logging.getLogger("erp.ai")
+
+# Role groups used when registering tools.
+ADMIN = ("admin",)
+FINANCE = ("admin", "accountant")
+SCHOOL_READ = ("admin", "accountant", "teacher")  # teachers are class-scoped
+ACADEMIC_READ = ("admin", "teacher")               # teachers are class-scoped
+SELF_SERVICE = ("student", "parent", "teacher")
+FAMILY = ("student", "parent")
+EVERYONE = ("admin", "accountant", "teacher", "student", "parent")
+
+# Keys stripped from tool results before they are sent to an external LLM
+# unless settings.AI_SHARE_CONTACT_INFO is True.
+CONTACT_KEYS = {"phone", "guardian_phone", "email", "cnic", "address"}
+
+
+@dataclass
+class ToolSpec:
+    name: str
+    func: Callable
+    description: str
+    roles: tuple[str, ...]
+    properties: dict
+    required: tuple[str, ...] = ()
+
+    def schema(self) -> dict:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": self.properties,
+                "required": list(self.required),
+            },
+        }
+
+
+REGISTRY: dict[str, ToolSpec] = {}
+
+
+def ai_tool(description: str, roles: tuple[str, ...], properties: dict | None = None, required=()):
+    def register(func):
+        REGISTRY[func.__name__] = ToolSpec(
+            name=func.__name__,
+            func=func,
+            description=description,
+            roles=tuple(roles),
+            properties=properties or {},
+            required=tuple(required),
+        )
+        return func
+    return register
+
+
+def _limit(value, default: int, maximum: int) -> int:
+    try:
+        return max(1, min(int(value), maximum))
+    except (TypeError, ValueError):
+        return default
+
+
+def _str(desc):
+    return {"type": "string", "description": desc}
+
+
+def _int(desc):
+    return {"type": "integer", "description": desc}
+
+
+LIMIT = _int("Max rows to return.")
+
+
+# ---------------------------------------------------------------------------
+# Shared querysets
+# ---------------------------------------------------------------------------
+
+def _students(ctx: AIContext):
+    qs = ctx.scope_tenant(Student.objects.all(), "tenant")
+    return ctx.scope_classes(qs, "current_class_id")
+
+
+def _find_student(ctx: AIContext, key: str):
+    return (
+        _students(ctx)
+        .filter(Q(student_id__iexact=key) | Q(full_name__icontains=key))
+        .select_related("current_class", "current_section")
+        .first()
+    )
 
 
 def _student_summary(s: Student) -> dict:
@@ -39,25 +134,67 @@ def _student_summary(s: Student) -> dict:
     }
 
 
-def student_strength_by_class() -> dict:
-    """Get active student count grouped by class (strength per class)."""
+def _invoice_due(i: Invoice) -> float:
+    return (
+        float(i.amount)
+        + float(i.opening_balance or 0)
+        - float(i.discount_amount or 0)
+        + float(i.late_fee_amount or 0)
+        - float(i.paid_amount or 0)
+    )
+
+
+def _exam_row(e: Exam) -> dict:
+    return {
+        "exam_code": e.exam_code,
+        "title": e.title,
+        "type": e.exam_type,
+        "class": e.class_ref.name if e.class_ref_id else None,
+        "subject": e.subject.name if e.subject_id else None,
+        "total_marks": e.total_marks,
+        "exam_date": str(e.exam_date),
+        "published": e.is_published,
+    }
+
+
+def _homework_row(h: Homework) -> dict:
+    return {
+        "title": h.title,
+        "class": h.class_ref.name if h.class_ref_id else (h.class_name or None),
+        "subject": h.subject_name or None,
+        "due_date": str(h.due_date) if h.due_date else None,
+        "description": (h.description or "")[:200],
+    }
+
+
+# ---------------------------------------------------------------------------
+# School-wide tools (staff; teachers are limited to their own classes)
+# ---------------------------------------------------------------------------
+
+@ai_tool("Get active student count grouped by class (strength per class).", SCHOOL_READ)
+def student_strength_by_class(ctx: AIContext) -> dict:
+    base = _students(ctx)
     qs = (
-        Student.objects.filter(is_active=True)
+        base.filter(is_active=True)
         .values("current_class__name")
         .annotate(count=Count("id"))
         .order_by("current_class__name")
     )
-    rows = [
-        {"class": item["current_class__name"] or "Unassigned", "count": item["count"]}
-        for item in qs
-    ]
-    total = sum(r["count"] for r in rows)
-    return {"strength": rows, "total_students": total}
+    rows = [{"class": r["current_class__name"] or "Unassigned", "count": r["count"]} for r in qs]
+    return {
+        "strength": rows,
+        "total_students": sum(r["count"] for r in rows),
+        "inactive_students": base.filter(is_active=False).count(),
+    }
 
 
-def search_students(query: str = "", class_name: str = "", limit: int = 20) -> dict:
-    """Search students by name, student id, or guardian. Optionally filter by class name."""
-    qs = Student.objects.filter(is_active=True)
+@ai_tool(
+    "Search enrolled students by name, student id, guardian or class.",
+    SCHOOL_READ,
+    {"query": _str("Name / id / guardian search text."), "class_name": _str("Optional class filter."), "limit": LIMIT},
+)
+def search_students(ctx: AIContext, query: str = "", class_name: str = "", limit: int = 20) -> dict:
+    qs = _students(ctx).filter(is_active=True)
     if query:
         qs = qs.filter(
             Q(full_name__icontains=query)
@@ -67,28 +204,28 @@ def search_students(query: str = "", class_name: str = "", limit: int = 20) -> d
         )
     if class_name:
         qs = qs.filter(current_class__name__icontains=class_name)
-    qs = qs.select_related("current_class", "current_section")[: max(1, min(limit, 50))]
-    return {"count": qs.count(), "students": [_student_summary(s) for s in qs]}
+    total = qs.count()
+    rows = qs.select_related("current_class", "current_section")[: _limit(limit, 20, 50)]
+    return {"count": total, "students": [_student_summary(s) for s in rows]}
 
 
-def student_detail(student_id: str) -> dict:
-    """Get full profile + fee standing for a single student by student_id or name."""
-    s = (
-        Student.objects.filter(
-            Q(student_id__iexact=student_id) | Q(full_name__icontains=student_id)
-        )
-        .select_related("current_class", "current_section")
-        .first()
-    )
+@ai_tool(
+    "Full profile for one student; includes outstanding fee balance for admin/accountant.",
+    SCHOOL_READ,
+    {"student_id": _str("Student id or name.")},
+    required=("student_id",),
+)
+def student_detail(ctx: AIContext, student_id: str) -> dict:
+    s = _find_student(ctx, student_id)
     if not s:
         return {"found": False}
-    invoices = Invoice.objects.filter(student=s).exclude(status="cancelled").order_by("-due_date")[:10]
-    total_due = sum(float(i.amount) - float(i.paid_amount or 0) for i in invoices if i.status in ("issued", "overdue", "partial"))
-    return {
-        "found": True,
-        "profile": _student_summary(s),
-        "outstanding_balance": round(total_due, 2),
-        "recent_invoices": [
+    out = {"found": True, "profile": _student_summary(s)}
+    if ctx.is_staff:
+        invoices = Invoice.objects.filter(student=s).exclude(status="cancelled").order_by("-due_date")[:10]
+        out["outstanding_balance"] = round(
+            sum(max(_invoice_due(i), 0) for i in invoices if i.status in ("issued", "overdue", "partial")), 2
+        )
+        out["recent_invoices"] = [
             {
                 "invoice_number": i.invoice_number,
                 "amount": float(i.amount),
@@ -97,57 +234,48 @@ def student_detail(student_id: str) -> dict:
                 "due_date": str(i.due_date),
             }
             for i in invoices
-        ],
-    }
+        ]
+    return out
 
 
-def fee_defaulters(class_name: str = "", limit: int = 20) -> dict:
-    """List students with past-due balances (fee defaulters).
-    Only invoices past their due date with pending balance are counted."""
-    from django.utils import timezone
-    today = timezone.localdate()
-    qs = (
-        Invoice.objects.filter(
-            due_date__lt=today,
-            status__in=["issued", "overdue", "partial"],
-        )
-        .select_related("student", "student__current_class", "student__current_section")
-        .order_by("due_date")
-    )
+@ai_tool(
+    "List students with past-due balances (fee defaulters).",
+    FINANCE,
+    {"class_name": _str("Optional class filter."), "limit": LIMIT},
+)
+def fee_defaulters(ctx: AIContext, class_name: str = "", limit: int = 20) -> dict:
+    qs = ctx.scope_tenant(
+        Invoice.objects.filter(due_date__lt=timezone.localdate(), status__in=["issued", "overdue", "partial"]),
+        "student__tenant",
+    ).select_related("student", "student__current_class").order_by("due_date")
     if class_name:
         qs = qs.filter(student__current_class__name__icontains=class_name)
-    qs = qs[: max(1, min(limit, 50))]
     out = []
-    for i in qs:
-        due = float(i.amount) + float(i.opening_balance or 0) - float(i.discount_amount or 0) + float(i.late_fee_amount or 0) - float(i.paid_amount or 0)
+    for i in qs[: _limit(limit, 20, 50)]:
+        due = _invoice_due(i)
         if due <= 0:
             continue
-        out.append(
-            {
-                "student_id": i.student.student_id,
-                "name": i.student.full_name,
-                "class": i.student.current_class.name if i.student.current_class_id else None,
-                "status": i.status,
-                "amount_due": round(due, 2),
-                "due_date": str(i.due_date),
-            }
-        )
+        out.append({
+            "student_id": i.student.student_id,
+            "name": i.student.full_name,
+            "class": i.student.current_class.name if i.student.current_class_id else None,
+            "status": i.status,
+            "amount_due": round(due, 2),
+            "due_date": str(i.due_date),
+        })
     return {"count": len(out), "defaulters": out}
 
 
-def finance_summary() -> dict:
-    """High-level finance stats: total billed, collected, outstanding, paid count."""
-    invoices = Invoice.objects.exclude(status="cancelled")
-    total = sum(float(i.amount) for i in invoices)
-    collected = sum(float(i.paid_amount or 0) for i in invoices)
-    outstanding = sum(
-        float(i.amount) - float(i.paid_amount or 0)
-        for i in invoices
-        if i.status in ("issued", "overdue", "partial")
-    )
-    by_status = dict(
-        invoices.values_list("status").order_by("status").annotate(c=Count("id")).values_list("status", "c")
-    )
+@ai_tool("Overall finance stats: billed, collected, outstanding, invoice counts by status.", FINANCE)
+def finance_summary(ctx: AIContext) -> dict:
+    invoices = ctx.scope_tenant(Invoice.objects.exclude(status="cancelled"), "student__tenant")
+    total = collected = outstanding = 0.0
+    for i in invoices:
+        total += float(i.amount)
+        collected += float(i.paid_amount or 0)
+        if i.status in ("issued", "overdue", "partial"):
+            outstanding += float(i.amount) - float(i.paid_amount or 0)
+    by_status = dict(invoices.order_by().values("status").annotate(c=Count("id")).values_list("status", "c"))
     return {
         "total_billed": round(total, 2),
         "total_collected": round(collected, 2),
@@ -156,287 +284,269 @@ def finance_summary() -> dict:
     }
 
 
-def attendance_stats(class_name: str = "", student_id: str = "", date_mode: str = "today") -> dict:
-    """Attendance percentage for today, a specific class, or a single student."""
-    from django.utils import timezone
+@ai_tool(
+    "Attendance for today (or the latest marked day) for the school, a class or one student.",
+    ACADEMIC_READ,
+    {"class_name": _str("Class name filter."), "student_id": _str("Student id or name.")},
+)
+def attendance_stats(ctx: AIContext, class_name: str = "", student_id: str = "") -> dict:
     today = timezone.localdate()
-    
-    qs = AttendanceRecord.objects.exclude(status="holiday")
-    date_label = f"Today ({today.strftime('%d %b %Y')})"
-    
-    # Filter by date mode
-    if date_mode == "today" or not date_mode:
-        today_qs = qs.filter(date=today)
-        if today_qs.exists():
-            qs = today_qs
-        else:
-            # Fall back to latest date if today hasn't been marked yet
-            latest_date = qs.order_by("-date").values_list("date", flat=True).first()
-            if latest_date:
-                qs = qs.filter(date=latest_date)
-                date_label = f"Latest Marked Date ({latest_date.strftime('%d %b %Y')})"
-            else:
-                date_label = "All Time"
+    qs = ctx.scope_tenant(AttendanceRecord.objects.exclude(status="holiday"), "tenant")
+    qs = ctx.scope_classes(qs, "student__current_class_id")
 
-    label = None
+    date_label = f"Today ({today.strftime('%d %b %Y')})"
+    if qs.filter(date=today).exists():
+        qs = qs.filter(date=today)
+    else:
+        latest = qs.order_by("-date").values_list("date", flat=True).first()
+        if latest:
+            qs = qs.filter(date=latest)
+            date_label = f"Latest Marked Date ({latest.strftime('%d %b %Y')})"
+        else:
+            date_label = "All Time"
+
     if student_id:
-        stu = Student.objects.filter(
-            Q(student_id__iexact=student_id) | Q(full_name__icontains=student_id)
-        ).first()
+        stu = _find_student(ctx, student_id)
         if not stu:
             return {"found": False}
         qs = qs.filter(student=stu)
-        label = f"{stu.full_name} ({date_label})"
+        scope = f"{stu.full_name} ({date_label})"
     elif class_name:
         qs = qs.filter(student__current_class__name__icontains=class_name)
-        label = f"Class {class_name} ({date_label})"
+        scope = f"Class {class_name} ({date_label})"
     else:
-        label = date_label
+        scope = date_label if ctx.role != "teacher" else f"My classes ({date_label})"
 
     total = qs.count()
     present = qs.filter(status__in=["present", "late"]).count()
-    absent = qs.filter(status="absent").count()
-    late = qs.filter(status="late").count()
-    pct = round((present / total) * 100, 1) if total else 0.0
-
-    absent_names = list(qs.filter(status="absent").select_related("student").values_list("student__full_name", flat=True)[:15])
-
     return {
         "found": True,
-        "scope": label,
+        "scope": scope,
         "date_label": date_label,
         "total_records": total,
         "present": present,
-        "absent": absent,
-        "late": late,
-        "attendance_percentage": pct,
-        "absent_students": absent_names,
+        "absent": qs.filter(status="absent").count(),
+        "late": qs.filter(status="late").count(),
+        "attendance_percentage": round((present / total) * 100, 1) if total else 0.0,
+        "absent_students": list(
+            qs.filter(status="absent").values_list("student__full_name", flat=True)[:15]
+        ),
     }
 
 
-def list_exams(class_name: str = "", subject: str = "", limit: int = 15) -> dict:
-    """List exams, optionally filtered by class or subject."""
-    qs = Exam.objects.all().select_related("class_ref", "subject").order_by("-exam_date")
+@ai_tool(
+    "List exams, optionally filtered by class or subject.",
+    ACADEMIC_READ,
+    {"class_name": _str("Class filter."), "subject": _str("Subject filter."), "limit": LIMIT},
+)
+def list_exams(ctx: AIContext, class_name: str = "", subject: str = "", limit: int = 15) -> dict:
+    qs = ctx.scope_tenant(Exam.objects.all(), "tenant")
+    qs = ctx.scope_classes(qs, "class_ref_id").select_related("class_ref", "subject").order_by("-exam_date")
     if class_name:
         qs = qs.filter(class_ref__name__icontains=class_name)
     if subject:
         qs = qs.filter(subject__name__icontains=subject)
-    qs = qs[: max(1, min(limit, 30))]
+    total = qs.count()
+    return {"count": total, "exams": [_exam_row(e) for e in qs[: _limit(limit, 15, 30)]]}
+
+
+@ai_tool(
+    "List homework, optionally filtered by class or subject.",
+    ACADEMIC_READ,
+    {"class_name": _str("Optional class filter."), "subject": _str("Optional subject filter."), "limit": LIMIT},
+)
+def admin_homework(ctx: AIContext, class_name: str = "", subject: str = "", limit: int = 20) -> dict:
+    qs = ctx.scope_tenant(Homework.objects.all(), "class_ref__tenant")
+    qs = ctx.scope_classes(qs, "class_ref_id").select_related("class_ref").order_by("-created_at")
+    if class_name:
+        qs = qs.filter(Q(class_ref__name__icontains=class_name) | Q(class_name__icontains=class_name))
+    if subject:
+        qs = qs.filter(Q(subject_name__icontains=subject) | Q(title__icontains=subject))
+    total = qs.count()
+    return {"count": total, "homework": [_homework_row(h) for h in qs[: _limit(limit, 20, 50)]]}
+
+
+@ai_tool(
+    "Recent behaviour ratings, optionally filtered by class.",
+    ACADEMIC_READ,
+    {"class_name": _str("Optional class filter."), "limit": LIMIT},
+)
+def admin_behaviour(ctx: AIContext, class_name: str = "", limit: int = 20) -> dict:
+    qs = ctx.scope_tenant(BehaviourRating.objects.all(), "student__tenant")
+    qs = ctx.scope_classes(qs, "student__current_class_id")
+    qs = qs.select_related("student", "student__current_class").order_by("-term")
+    if class_name:
+        qs = qs.filter(student__current_class__name__icontains=class_name)
+    total = qs.count()
     return {
-        "count": qs.count(),
-        "exams": [
+        "count": total,
+        "ratings": [
             {
-                "exam_code": e.exam_code,
-                "title": e.title,
-                "type": e.exam_type,
-                "class": e.class_ref.name if e.class_ref_id else None,
-                "subject": e.subject.name if e.subject_id else None,
-                "total_marks": e.total_marks,
-                "exam_date": str(e.exam_date),
-                "published": e.is_published,
+                "student": r.student.full_name if r.student_id else None,
+                "class": r.student.current_class.name if r.student_id and r.student.current_class_id else None,
+                "term": r.term,
+                "domain": r.domain,
+                "ratings": r.ratings,
+                "comments": (r.comments or "")[:200],
             }
-            for e in qs
+            for r in qs[: _limit(limit, 20, 50)]
         ],
     }
 
 
+@ai_tool(
+    "List issued certificates, optionally filtered by recipient type or template.",
+    ADMIN,
+    {"recipient_type": _str("e.g. student / teacher / staff."), "limit": LIMIT},
+)
+def admin_certificates(ctx: AIContext, recipient_type: str = "", limit: int = 20) -> dict:
+    qs = Certificate.objects.all().order_by("-issue_date")
+    if ctx.tenant is not None:
+        # Certificate has no tenant FK; keep ones issued to people in this school.
+        names = list(_students(ctx).values_list("full_name", flat=True)) + list(
+            ctx.scope_tenant(Teacher.objects.all(), "tenant").values_list("full_name", flat=True)
+        )
+        qs = qs.filter(recipient_name__in=names)
+    if recipient_type:
+        qs = qs.filter(Q(recipient_type__iexact=recipient_type) | Q(template__icontains=recipient_type))
+    total = qs.count()
+    return {
+        "count": total,
+        "certificates": [
+            {
+                "title": c.template,
+                "type": c.recipient_type,
+                "recipient": c.recipient_name,
+                "issued_on": str(c.issue_date) if c.issue_date else None,
+            }
+            for c in qs[: _limit(limit, 20, 50)]
+        ],
+    }
+
+
+@ai_tool("Staff headcount and payroll status (payslips paid / pending).", FINANCE)
+def staff_payroll_overview(ctx: AIContext) -> dict:
+    teachers = ctx.scope_tenant(Teacher.objects.all(), "tenant")
+    slips = ctx.scope_tenant(Payslip.objects.all(), "employee__tenant")
+    return {
+        "total_staff": teachers.count(),
+        "active_staff": teachers.filter(is_active=True).count(),
+        "payslips_total": slips.count(),
+        "payslips_paid": slips.filter(status="paid").count(),
+        "payslips_pending": slips.filter(status__in=["pending", "partial"]).count(),
+    }
+
+
 # ---------------------------------------------------------------------------
-# SCOPE HELPERS — every "my"/self tool resolves the caller's own data only.
+# Self-service tools — every "my_*" tool resolves the caller's own data only.
 # No cross-user data can ever be returned, regardless of what the model asks.
 # ---------------------------------------------------------------------------
 
-def _resolve_self_student(user):
-    """Return the single Student row the authenticated user is allowed to see."""
-    role = get_user_role(user)
-    if role == "student":
-        return Student.objects.filter(email=user.email).first()
-    if role == "parent":
-        ids = _get_parent_student_ids(user)
-        if not ids:
-            return None
-        return Student.objects.filter(id__in=ids).first()
-    return None
-
-
-def _self_student_ids(user):
-    role = get_user_role(user)
-    if role == "student":
-        s = Student.objects.filter(email=user.email).first()
+def _self_student_ids(ctx: AIContext) -> list:
+    if ctx.role == "student":
+        s = Student.objects.filter(email=ctx.user.email).first()
         return [s.id] if s else []
-    if role == "parent":
-        return _get_parent_student_ids(user)
-    if role == "teacher":
-        return list(
-            Student.objects.filter(current_class_id__in=_get_teacher_class_ids(user)).values_list("id", flat=True)
-        )
+    if ctx.role == "parent":
+        return list(_get_parent_student_ids(ctx.user))
     return []
 
 
-def my_attendance(user):
-    """Attendance % for the caller's own student record (or their child/class)."""
+def _self_class_ids(ctx: AIContext) -> list:
+    if ctx.role == "teacher":
+        return ctx.teacher_class_ids
+    return list(
+        Student.objects.filter(id__in=_self_student_ids(ctx)).values_list("current_class_id", flat=True)
+    )
+
+
+@ai_tool(
+    "Attendance % for the caller's own record (student), their children (parent) or their classes (teacher).",
+    SELF_SERVICE,
+)
+def my_attendance(ctx: AIContext) -> dict:
     qs = AttendanceRecord.objects.exclude(status="holiday")
-    if get_user_role(user) == "student":
-        s = _resolve_self_student(user)
-        if not s:
-            return {"found": False, "reason": "No linked student record."}
-        qs = qs.filter(student=s)
-        label = s.full_name
-    elif get_user_role(user) == "parent":
-        ids = _self_student_ids(user)
-        if not ids:
-            return {"found": False, "reason": "No linked child."}
-        qs = qs.filter(student_id__in=ids)
-        label = "linked children"
-    elif get_user_role(user) == "teacher":
-        cids = _get_teacher_class_ids(user)
-        if not cids:
+    if ctx.role == "teacher":
+        if not ctx.teacher_class_ids:
             return {"found": False, "reason": "No assigned class."}
-        qs = qs.filter(student__current_class_id__in=cids)
-        label = "my class"
+        qs = qs.filter(student__current_class_id__in=ctx.teacher_class_ids)
+        label = "my classes"
     else:
-        return {"found": False, "reason": "Not applicable for this role."}
+        ids = _self_student_ids(ctx)
+        if not ids:
+            return {"found": False, "reason": "No linked student record."}
+        qs = qs.filter(student_id__in=ids)
+        label = "my record" if ctx.role == "student" else "linked children"
     total = qs.count()
     present = qs.filter(status__in=["present", "late"]).count()
-    absent = qs.filter(status="absent").count()
-    pct = round((present / total) * 100, 1) if total else 0.0
     return {
-        "scope": label,
         "found": True,
+        "scope": label,
         "total_records": total,
         "present": present,
-        "absent": absent,
-        "attendance_percentage": pct,
+        "absent": qs.filter(status="absent").count(),
+        "attendance_percentage": round((present / total) * 100, 1) if total else 0.0,
     }
 
 
-def my_fees(user):
-    """Outstanding fees for the caller's own student record (or their child)."""
-    role = get_user_role(user)
-    if role in ("student", "parent"):
-        ids = _self_student_ids(user)
-        if not ids:
-            return {"found": False, "reason": "No linked student."}
-        qs = Invoice.objects.filter(student_id__in=ids).exclude(status="cancelled")
-    elif role == "teacher":
-        return {"found": False, "reason": "Fee data is not available to teachers."}
-    else:
-        return {"found": False, "reason": "Not applicable for this role."}
-    outstanding = []
-    total_due = 0.0
-    for i in qs.exclude(status="paid").order_by("due_date")[:10]:
-        due = float(i.amount) - float(i.paid_amount or 0)
+@ai_tool("Outstanding fees for the caller's own record or their linked children.", FAMILY)
+def my_fees(ctx: AIContext) -> dict:
+    ids = _self_student_ids(ctx)
+    if not ids:
+        return {"found": False, "reason": "No linked student."}
+    qs = Invoice.objects.filter(student_id__in=ids).exclude(status__in=["cancelled", "paid"]).order_by("due_date")
+    unpaid, total_due = [], 0.0
+    for i in qs[:10]:
+        due = _invoice_due(i)
         if due <= 0:
             continue
         total_due += due
-        outstanding.append(
-            {
-                "invoice_number": i.invoice_number,
-                "amount": float(i.amount),
-                "paid": float(i.paid_amount or 0),
-                "status": i.status,
-                "due_date": str(i.due_date),
-            }
-        )
-    return {
-        "found": True,
-        "outstanding_balance": round(total_due, 2),
-        "unpaid_invoices": outstanding,
-    }
+        unpaid.append({
+            "invoice_number": i.invoice_number,
+            "amount": float(i.amount),
+            "paid": float(i.paid_amount or 0),
+            "amount_due": round(due, 2),
+            "status": i.status,
+            "due_date": str(i.due_date),
+        })
+    return {"found": True, "outstanding_balance": round(total_due, 2), "unpaid_invoices": unpaid}
 
 
-def my_exams(user, limit: int = 15):
-    """Upcoming/published exams for the caller's class (student/parent/teacher)."""
-    role = get_user_role(user)
-    qs = Exam.objects.all().select_related("class_ref", "subject").order_by("-exam_date")
-    if role in ("student", "parent"):
-        ids = _self_student_ids(user)
-        if not ids:
-            return {"found": False, "reason": "No linked student."}
-        classes = Student.objects.filter(id__in=ids).values_list("current_class_id", flat=True)
-        qs = qs.filter(class_ref_id__in=classes)
-    elif role == "teacher":
-        cids = _get_teacher_class_ids(user)
-        if not cids:
-            return {"found": False, "reason": "No assigned class."}
-        qs = qs.filter(class_ref_id__in=cids)
-    else:
-        return {"found": False, "reason": "Not applicable for this role."}
-    qs = qs[: max(1, min(limit, 30))]
-    return {
-        "found": True,
-        "count": qs.count(),
-        "exams": [
-            {
-                "exam_code": e.exam_code,
-                "title": e.title,
-                "type": e.exam_type,
-                "class": e.class_ref.name if e.class_ref_id else None,
-                "subject": e.subject.name if e.subject_id else None,
-                "total_marks": e.total_marks,
-                "exam_date": str(e.exam_date),
-                "published": e.is_published,
-            }
-            for e in qs
-        ],
-    }
+@ai_tool("Exams for the caller's class / child's class / teacher's classes.", SELF_SERVICE, {"limit": LIMIT})
+def my_exams(ctx: AIContext, limit: int = 15) -> dict:
+    cids = _self_class_ids(ctx)
+    if not cids:
+        return {"found": False, "reason": "No linked class."}
+    qs = Exam.objects.filter(class_ref_id__in=cids).select_related("class_ref", "subject").order_by("-exam_date")
+    total = qs.count()
+    return {"found": True, "count": total, "exams": [_exam_row(e) for e in qs[: _limit(limit, 15, 30)]]}
 
 
-def my_homework(user, limit: int = 15):
-    """Homework assigned to the caller's class (student/parent/teacher)."""
-    role = get_user_role(user)
-    qs = Homework.objects.filter(class_ref__isnull=False).select_related(
-        "class_ref"
-    ).order_by("-created_at")
-    if role in ("student", "parent"):
-        ids = _self_student_ids(user)
-        if not ids:
-            return {"found": False, "reason": "No linked student."}
-        classes = Student.objects.filter(id__in=ids).values_list("current_class_id", flat=True)
-        qs = qs.filter(class_ref_id__in=classes)
-    elif role == "teacher":
-        cids = _get_teacher_class_ids(user)
-        if not cids:
-            return {"found": False, "reason": "No assigned class."}
-        qs = qs.filter(class_ref_id__in=cids)
-    else:
-        return {"found": False, "reason": "Not applicable for this role."}
-    qs = qs[: max(1, min(limit, 30))]
-    return {
-        "found": True,
-        "count": qs.count(),
-        "homework": [
-            {
-                "title": h.title,
-                "class": h.class_ref.name if h.class_ref_id else None,
-                "subject": h.subject.name if h.subject_id else None,
-                "due_date": str(h.due_date) if h.due_date else None,
-                "description": (h.description or "")[:200],
-            }
-            for h in qs
-        ],
-    }
+@ai_tool("Homework assigned to the caller's class / child's class / teacher's classes.", SELF_SERVICE, {"limit": LIMIT})
+def my_homework(ctx: AIContext, limit: int = 15) -> dict:
+    cids = _self_class_ids(ctx)
+    if not cids:
+        return {"found": False, "reason": "No linked class."}
+    qs = Homework.objects.filter(class_ref_id__in=cids).select_related("class_ref").order_by("-created_at")
+    total = qs.count()
+    return {"found": True, "count": total, "homework": [_homework_row(h) for h in qs[: _limit(limit, 15, 30)]]}
 
 
-def my_timetable(user, limit: int = 40):
-    """Timetable periods for the caller's class (student/parent/teacher)."""
-    role = get_user_role(user)
+@ai_tool("Timetable periods for the caller's class / child / teacher.", SELF_SERVICE, {"limit": LIMIT})
+def my_timetable(ctx: AIContext, limit: int = 40) -> dict:
     qs = TimetableEntry.objects.select_related(
         "class_subject__class_ref", "class_subject__subject", "teacher", "period"
     ).order_by("day_of_week", "period__period_number", "period__start_time")
-    if role in ("student", "parent"):
-        ids = _self_student_ids(user)
-        if not ids:
-            return {"found": False, "reason": "No linked student."}
-        classes = Student.objects.filter(id__in=ids).values_list("current_class_id", flat=True)
-        qs = qs.filter(class_subject__class_ref_id__in=classes)
-    elif role == "teacher":
-        qs = qs.filter(teacher__email=user.email)
+    if ctx.role == "teacher":
+        qs = qs.filter(teacher__email=ctx.user.email)
     else:
-        return {"found": False, "reason": "Not applicable for this role."}
-    qs = qs[: max(1, min(limit, 60))]
+        cids = _self_class_ids(ctx)
+        if not cids:
+            return {"found": False, "reason": "No linked student."}
+        qs = qs.filter(class_subject__class_ref_id__in=cids)
+    total = qs.count()
     return {
         "found": True,
-        "count": qs.count(),
+        "count": total,
         "entries": [
             {
                 "day": e.day_of_week,
@@ -445,32 +555,24 @@ def my_timetable(user, limit: int = 40):
                 "subject": e.class_subject.subject.name if e.class_subject_id else None,
                 "teacher": e.teacher.full_name if e.teacher_id else None,
             }
-            for e in qs
+            for e in qs[: _limit(limit, 40, 60)]
         ],
     }
 
 
-def my_behaviour(user):
-    """Behaviour ratings/observations for the caller's own student (or child)."""
-    role = get_user_role(user)
-    if role in ("student", "parent"):
-        ids = _self_student_ids(user)
+@ai_tool("Behaviour ratings & observations for the caller's own record / child / classes.", SELF_SERVICE)
+def my_behaviour(ctx: AIContext) -> dict:
+    if ctx.role == "teacher":
+        if not ctx.teacher_class_ids:
+            return {"found": False, "reason": "No assigned class."}
+        flt = {"student__current_class_id__in": ctx.teacher_class_ids}
+    else:
+        ids = _self_student_ids(ctx)
         if not ids:
             return {"found": False, "reason": "No linked student."}
-        ratings = BehaviourRating.objects.filter(student_id__in=ids).order_by("-term")[:10]
-        obs = Observation.objects.filter(student_id__in=ids).order_by("-date")[:10]
-    elif role == "teacher":
-        cids = _get_teacher_class_ids(user)
-        if not cids:
-            return {"found": False, "reason": "No assigned class."}
-        ratings = BehaviourRating.objects.filter(
-            student__current_class_id__in=cids
-        ).order_by("-term")[:10]
-        obs = Observation.objects.filter(
-            student__current_class_id__in=cids
-        ).order_by("-date")[:10]
-    else:
-        return {"found": False, "reason": "Not applicable for this role."}
+        flt = {"student_id__in": ids}
+    ratings = BehaviourRating.objects.filter(**flt).select_related("student").order_by("-term")[:10]
+    obs = Observation.objects.filter(**flt).select_related("student").order_by("-date")[:10]
     return {
         "found": True,
         "ratings": [
@@ -497,48 +599,33 @@ def my_behaviour(user):
     }
 
 
-def my_certificates(user):
-    """Certificates awarded to the caller's own student (or child)."""
-    role = get_user_role(user)
-    if role in ("student", "parent"):
-        ids = _self_student_ids(user)
-        if not ids:
-            return {"found": False, "reason": "No linked student."}
-        names = list(
-            Student.objects.filter(id__in=ids).values_list("full_name", flat=True)
-        )
-        qs = Certificate.objects.filter(
-            recipient_name__in=names
-        ).order_by("-issue_date")[:20]
-    else:
-        return {"found": False, "reason": "Not applicable for this role."}
-    return {
-        "found": True,
-        "count": qs.count(),
-        "certificates": [
-            {
-                "title": c.template,
-                "type": c.recipient_type,
-                "recipient": c.recipient_name,
-                "issued_on": str(c.issue_date) if c.issue_date else None,
-            }
-            for c in qs
-        ],
-    }
+@ai_tool("Certificates awarded to the caller's own record or child.", FAMILY)
+def my_certificates(ctx: AIContext) -> dict:
+    ids = _self_student_ids(ctx)
+    if not ids:
+        return {"found": False, "reason": "No linked student."}
+    names = list(Student.objects.filter(id__in=ids).values_list("full_name", flat=True))
+    qs = Certificate.objects.filter(recipient_name__in=names).order_by("-issue_date")[:20]
+    rows = [
+        {
+            "title": c.template,
+            "type": c.recipient_type,
+            "recipient": c.recipient_name,
+            "issued_on": str(c.issue_date) if c.issue_date else None,
+        }
+        for c in qs
+    ]
+    return {"found": True, "count": len(rows), "certificates": rows}
 
 
-def my_notifications(user, limit: int = 15):
-    """Recent in-app notifications for the logged-in user."""
-    role = get_user_role(user)
-    if role in ("student", "parent", "teacher"):
-        qs = Notification.objects.filter(recipient=user).order_by("-created_at")
-    else:
-        qs = Notification.objects.all().order_by("-created_at")
-    qs = qs[: max(1, min(limit, 30))]
+@ai_tool("Recent in-app notifications for the logged-in user.", EVERYONE, {"limit": LIMIT})
+def my_notifications(ctx: AIContext, limit: int = 15) -> dict:
+    qs = Notification.objects.filter(recipient=ctx.user).order_by("-created_at")
+    rows = list(qs[: _limit(limit, 15, 30)])
     return {
         "found": True,
-        "unread": sum(1 for n in qs if not n.is_read),
-        "count": qs.count(),
+        "unread": qs.filter(is_read=False).count(),
+        "count": len(rows),
         "notifications": [
             {
                 "title": n.title,
@@ -547,350 +634,60 @@ def my_notifications(user, limit: int = 15):
                 "is_read": n.is_read,
                 "created_at": str(n.created_at),
             }
-            for n in qs
+            for n in rows
         ],
     }
 
 
-# Admin/staff-wide tools (only offered to admin/teacher — see views.py).
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
 
-def admin_homework(class_name: str = "", subject: str = "", limit: int = 20):
-    """List homework across the school, optionally filtered by class or subject."""
-    qs = Homework.objects.all().select_related("class_ref").order_by("-created_at")
-    if class_name:
-        qs = qs.filter(class_ref__name__icontains=class_name)
-    if subject:
-        qs = qs.filter(Q(subject_name__icontains=subject) | Q(title__icontains=subject))
-    qs = qs[: max(1, min(limit, 50))]
-    return {
-        "count": qs.count(),
-        "homework": [
-            {
-                "title": h.title,
-                "class": h.class_ref.name if getattr(h, 'class_ref_id', None) else None,
-                "subject": getattr(h, 'subject_name', 'General'),
-                "due_date": str(h.due_date) if getattr(h, 'due_date', None) else None,
-            }
-            for h in qs
-        ],
-    }
+_JSON_TYPES = {"string": str, "integer": int, "number": (int, float), "boolean": bool}
 
 
-def admin_behaviour(class_name: str = "", limit: int = 20):
-    """Recent behaviour ratings, optionally filtered by class."""
-    qs = BehaviourRating.objects.select_related(
-        "student", "student__current_class"
-    ).order_by("-term")
-    if class_name:
-        qs = qs.filter(student__current_class__name__icontains=class_name)
-    qs = qs[: max(1, min(limit, 50))]
-    return {
-        "count": qs.count(),
-        "ratings": [
-            {
-                "student": r.student.full_name if r.student_id else None,
-                "class": r.student.current_class.name if r.student_id and r.student.current_class_id else None,
-                "term": r.term,
-                "domain": r.domain,
-                "ratings": r.ratings,
-                "comments": (r.comments or "")[:200],
-            }
-            for r in qs
-        ],
-    }
-
-
-def admin_certificates(recipient_type: str = "", limit: int = 20):
-    """List issued certificates, optionally filtered by recipient type."""
-    qs = Certificate.objects.all().order_by("-issue_date")
-    if recipient_type:
-        qs = qs.filter(Q(recipient_type__iexact=recipient_type) | Q(certificate_type__icontains=recipient_type))
-    qs = qs[: max(1, min(limit, 50))]
-    return {
-        "count": qs.count(),
-        "certificates": [
-            {
-                "title": getattr(c, 'certificate_type', None) or getattr(c, 'title', 'Certificate'),
-                "type": getattr(c, 'recipient_type', 'Student'),
-                "recipient": getattr(c, 'recipient_name', None) or getattr(c, 'recipient_id', 'Recipient'),
-                "issued_on": str(c.issue_date) if getattr(c, 'issue_date', None) else None,
-            }
-            for c in qs
-        ],
-    }
-
-
-TOOL_SCHEMAS: list[dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "student_strength_by_class",
-            "description": "Get student count grouped by class (strength per class).",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_students",
-            "description": "Search enrolled students by name, student id, guardian or class.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Name / id / guardian search text."},
-                    "class_name": {"type": "string", "description": "Optional class filter."},
-                    "limit": {"type": "integer", "description": "Max rows (default 20)."},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "student_detail",
-            "description": "Full profile + outstanding fee balance for one student.",
-            "parameters": {
-                "type": "object",
-                "properties": {"student_id": {"type": "string", "description": "Student id or name."}},
-                "required": ["student_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "fee_defaulters",
-            "description": "List students with unpaid / overdue / partial invoices.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "class_name": {"type": "string", "description": "Optional class filter."},
-                    "limit": {"type": "integer", "description": "Max rows (default 20)."},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "finance_summary",
-            "description": "Overall finance stats: billed, collected, outstanding, counts by status.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "attendance_stats",
-            "description": "Attendance percentage for a class or a single student.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "class_name": {"type": "string", "description": "Class name filter."},
-                    "student_id": {"type": "string", "description": "Student id or name."},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_exams",
-            "description": "List exams filtered by class or subject.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "class_name": {"type": "string", "description": "Class filter."},
-                    "subject": {"type": "string", "description": "Subject filter."},
-                    "limit": {"type": "integer", "description": "Max rows (default 15)."},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_attendance",
-            "description": "Attendance % for the caller's own record (student), their child (parent) or their class (teacher).",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_fees",
-            "description": "Outstanding fees for the caller's own record or their linked child.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_exams",
-            "description": "Exams for the caller's class / child.",
-            "parameters": {
-                "type": "object",
-                "properties": {"limit": {"type": "integer", "description": "Max rows (default 15)."}},
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_homework",
-            "description": "Homework assigned to the caller's class / child.",
-            "parameters": {
-                "type": "object",
-                "properties": {"limit": {"type": "integer", "description": "Max rows (default 15)."}},
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_timetable",
-            "description": "Timetable periods for the caller's class / child / teacher.",
-            "parameters": {
-                "type": "object",
-                "properties": {"limit": {"type": "integer", "description": "Max rows (default 40)."}},
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_behaviour",
-            "description": "Behaviour ratings & observations for the caller's own record / child / class.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_certificates",
-            "description": "Certificates awarded to the caller's own record or child.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "my_notifications",
-            "description": "Recent in-app notifications for the logged-in user.",
-            "parameters": {
-                "type": "object",
-                "properties": {"limit": {"type": "integer", "description": "Max rows (default 15)."}},
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "admin_homework",
-            "description": "List homework across the school, filtered by class or subject (staff only).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "class_name": {"type": "string", "description": "Optional class filter."},
-                    "subject": {"type": "string", "description": "Optional subject filter."},
-                    "limit": {"type": "integer", "description": "Max rows (default 20)."},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "admin_behaviour",
-            "description": "Recent behaviour ratings across the school, filtered by class (staff only).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "class_name": {"type": "string", "description": "Optional class filter."},
-                    "limit": {"type": "integer", "description": "Max rows (default 20)."},
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "admin_certificates",
-            "description": "List issued certificates, filtered by recipient type (staff only).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "recipient_type": {"type": "string", "description": "e.g. student / teacher / staff."},
-                    "limit": {"type": "integer", "description": "Max rows (default 20)."},
-                },
-                "required": [],
-            },
-        },
-    },
-]
-
-# Which tool names are offered to which role. "my_*" tools enforce the
-# caller's own scope internally, so even if the model is prompted to ask about
-# someone else it can only ever read the caller's allowed rows.
-SELF_TOOLS = {
-    "my_attendance", "my_fees", "my_exams", "my_homework",
-    "my_timetable", "my_behaviour", "my_certificates", "my_notifications",
-}
-ADMIN_TOOLS = {
-    "search_students", "student_detail", "fee_defaulters", "finance_summary",
-    "attendance_stats", "list_exams", "admin_homework", "admin_behaviour",
-    "admin_certificates", "student_strength_by_class",
-}
+class ToolNotAllowed(Exception):
+    pass
 
 
 def get_tools_for_role(role: str | None) -> list[dict[str, Any]]:
-    """Return only the tool schemas the given role is allowed to use."""
-    if role in ("admin", "accountant"):
-        allowed = SELF_TOOLS | ADMIN_TOOLS
-    elif role == "teacher":
-        allowed = SELF_TOOLS | ADMIN_TOOLS
-    elif role in ("student", "parent"):
-        allowed = set(SELF_TOOLS)
-    else:
-        allowed = set()
-    return [t for t in TOOL_SCHEMAS if t["function"]["name"] in allowed]
+    """Provider-neutral schemas ({name, description, parameters}) the role may use."""
+    return [spec.schema() for spec in REGISTRY.values() if role in spec.roles]
 
 
-def call_tool(name: str, arguments: dict, user=None) -> Any:
-    """Dispatch a tool call by name. Self-scoped tools always receive `user`
-    so they can only return data the caller is entitled to see."""
-    if name in SELF_TOOLS and user is None:
-        return {"error": "Authentication required for this tool."}
-    func = {
-        # admin / staff-wide
-        "student_strength_by_class": student_strength_by_class,
-        "search_students": search_students,
-        "student_detail": student_detail,
-        "fee_defaulters": fee_defaulters,
-        "finance_summary": finance_summary,
-        "attendance_stats": attendance_stats,
-        "list_exams": list_exams,
-        "admin_homework": admin_homework,
-        "admin_behaviour": admin_behaviour,
-        "admin_certificates": admin_certificates,
-        # self-scoped (always receive `user`)
-        "my_attendance": my_attendance,
-        "my_fees": my_fees,
-        "my_exams": my_exams,
-        "my_homework": my_homework,
-        "my_timetable": my_timetable,
-        "my_behaviour": my_behaviour,
-        "my_certificates": my_certificates,
-        "my_notifications": my_notifications,
-    }.get(name)
-    if not func:
+def call_tool(name: str, arguments: dict | None, ctx: AIContext) -> Any:
+    """Run a tool on behalf of `ctx`. Raises ToolNotAllowed for role violations;
+    other failures are returned as {"error": ...} so the model can recover."""
+    spec = REGISTRY.get(name)
+    if spec is None:
         return {"error": f"Unknown tool {name}"}
-    if name in SELF_TOOLS:
-        return func(user, **(arguments or {}))
-    return func(**(arguments or {}))
+    if ctx.role not in spec.roles:
+        raise ToolNotAllowed(f"Role {ctx.role!r} may not call {name}")
+    # Drop arguments the tool does not declare (models sometimes invent them)
+    # and reject ones of the wrong type (e.g. truncated streamed input).
+    args = {k: v for k, v in (arguments or {}).items() if k in spec.properties}
+    for key, value in list(args.items()):
+        expected = _JSON_TYPES.get(spec.properties[key].get("type"))
+        if expected is int and isinstance(value, str) and value.strip().isdigit():
+            args[key] = value = int(value)
+        if expected and (not isinstance(value, expected) or (expected is int and isinstance(value, bool))):
+            return {"error": f"Invalid value for '{key}'."}
+    missing = [k for k in spec.required if k not in args]
+    if missing:
+        return {"error": f"Missing required argument(s): {', '.join(missing)}."}
+    try:
+        return spec.func(ctx, **args)
+    except Exception:
+        logger.exception("AI tool %s failed", name)
+        return {"error": f"Tool {name} failed to run."}
+
+
+def redact_for_llm(result: Any) -> Any:
+    """Strip contact details from tool output before it leaves for an external LLM."""
+    if getattr(settings, "AI_SHARE_CONTACT_INFO", False):
+        return result
+    if isinstance(result, dict):
+        return {k: ("[hidden]" if k in CONTACT_KEYS and v else redact_for_llm(v)) for k, v in result.items()}
+    if isinstance(result, list):
+        return [redact_for_llm(v) for v in result]
+    return result

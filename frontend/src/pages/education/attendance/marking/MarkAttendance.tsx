@@ -203,38 +203,6 @@ export default function MarkAttendance() {
     }
   }
 
-  const triggerMockScan = async () => {
-    setScanning(true)
-    setScanMessage('Scanning camera view... Evolving deep neural face mappings...')
-    
-    // Simulate API call
-    setTimeout(() => {
-      const updatedStatus = { ...attendanceStatus }
-      const newScores: Record<string, number> = {}
-      
-      // Mark first 3 students present with high confidence
-      students.slice(0, 3).forEach((s, idx) => {
-        updatedStatus[s.id] = 'present'
-        newScores[s.id] = 94.5 - (idx * 3.2)
-      })
-      
-      // Mark others as absent
-      students.slice(3).forEach((s) => {
-        updatedStatus[s.id] = 'absent'
-      })
-      
-      setAttendanceStatus(updatedStatus)
-      setFaceScores(newScores)
-      setScanMessage('Mock Scan Successful! Marked first 3 students present.')
-      
-      setTimeout(() => {
-        setShowScanner(false)
-        setScanning(false)
-        setScanMessage('')
-      }, 2000)
-    }, 2000)
-  }
-
   const selectedCourseObj = courses.find(c => c.id === selectedCourse)
 
   return (
@@ -379,14 +347,6 @@ export default function MarkAttendance() {
                     >
                       <FileImage className="w-4 h-4 mr-2" />
                       Upload Class Picture
-                    </Button>
-                    <Button 
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
-                      onClick={triggerMockScan}
-                      disabled={scanning}
-                    >
-                      <Scan className="w-4 h-4 mr-2" />
-                      Run Test Scan
                     </Button>
                   </div>
                 </div>

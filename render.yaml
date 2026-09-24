@@ -85,3 +85,10 @@ services:
           name: erp-redis
           type: keyvalue
           property: connectionString
+      # AI assistant - set keys in the Render dashboard (docs/AI_UPGRADE_TODO.md)
+      - key: AI_PROVIDER
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

@@ -437,9 +437,22 @@ except ImportError:
     CELERY_BEAT_SCHEDULE = {}
 
 # ---------------------------------------------------------------------------
-# AI Assistant (OpenAI)
+# AI Assistant (see docs/AI_UPGRADE_TODO.md)
 # ---------------------------------------------------------------------------
+# "openai" or "anthropic"; empty = first provider with a key configured.
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+# Override the provider's default models (fast: chat; smart: content generation).
+AI_MODEL_FAST = os.environ.get("AI_MODEL_FAST", "")
+AI_MODEL_SMART = os.environ.get("AI_MODEL_SMART", "")
+AI_CLAUDE_EFFORT = os.environ.get("AI_CLAUDE_EFFORT", "medium")
+# Per-user requests per window, and per-school monthly token cap (0 = unlimited).
+AI_RATE_LIMIT = int(os.environ.get("AI_RATE_LIMIT", "30"))
+AI_RATE_WINDOW = int(os.environ.get("AI_RATE_WINDOW", "600"))
+AI_TENANT_MONTHLY_TOKENS = int(os.environ.get("AI_TENANT_MONTHLY_TOKENS", "0"))
+# When False, phone/email/CNIC/address are masked in data sent to external LLMs.
+AI_SHARE_CONTACT_INFO = os.environ.get("AI_SHARE_CONTACT_INFO", "False").lower() in ("1", "true", "yes")
 
 
