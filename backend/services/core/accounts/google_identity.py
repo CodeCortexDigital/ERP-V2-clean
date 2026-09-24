@@ -22,8 +22,13 @@ class GoogleIdentity:
     email_verified: bool
 
 
+# The Firebase project the web app is built against (frontend/src/services/firebase.ts).
+# It is public, not a secret. Set FIREBASE_PROJECT_ID='' to turn Google sign-in off.
+DEFAULT_FIREBASE_PROJECT_ID = 'school-erp-c53b4'
+
+
 def firebase_project_id() -> str:
-    pid = os.environ.get('FIREBASE_PROJECT_ID', '').strip()
+    pid = os.environ.get('FIREBASE_PROJECT_ID', DEFAULT_FIREBASE_PROJECT_ID).strip()
     return '' if pid in ('', 'your-project-id', 'your_project_id') else pid
 
 

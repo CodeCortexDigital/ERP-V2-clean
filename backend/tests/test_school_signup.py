@@ -94,7 +94,7 @@ def test_unknown_google_user_is_sent_to_signup_not_given_an_account():
 
 @pytest.mark.django_db
 def test_google_login_without_configuration_is_refused(monkeypatch):
-    monkeypatch.delenv('FIREBASE_PROJECT_ID', raising=False)
+    monkeypatch.setenv('FIREBASE_PROJECT_ID', '')  # explicitly turned off
     res = APIClient().post('/api/v1/auth/firebase/login/', {'id_token': 'anything'}, format='json')
     assert res.status_code == 401
     assert APIClient().get('/api/v1/tenants/signup/config/').json()['google_sign_in'] is False

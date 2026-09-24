@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Firebase credentials path
 FIREBASE_CREDENTIALS = os.environ.get('FIREBASE_CREDENTIALS_JSON', None)
-FIREBASE_PROJECT_ID = os.environ.get('FIREBASE_PROJECT_ID', 'your-project-id')
+FIREBASE_PROJECT_ID = os.environ.get('FIREBASE_PROJECT_ID', 'school-erp-c53b4')
 
 # Initialize Firebase (lazy loading)
 _firebase_app = None
