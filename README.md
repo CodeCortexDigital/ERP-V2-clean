@@ -170,6 +170,64 @@ Paths are relative to `/api/v1`.
 
 The code lives in `backend/services/ai/` (assistant, tools, AI providers, limits) and `backend/services/analytics/ai_views.py` (content generation and ML). The roadmap for further AI work is in [docs/AI_UPGRADE_TODO.md](docs/AI_UPGRADE_TODO.md).
 
+### Pending actions
+
+#### Setup (to do now)
+
+- [ ] **Add an AI key on Render.** Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` on the backend service (Environment tab). Until then, the assistant runs in basic keyword mode and lesson plans and quizzes return "not configured".
+- [ ] **Check the deploy.** Log in, open the assistant and ask "fee defaulters". Also confirm that `/api/v1/ai/chat/` refuses requests from someone who isn't logged in.
+- [ ] **Optional: set limits.** `AI_RATE_LIMIT`, `AI_TENANT_MONTHLY_TOKENS`.
+
+#### Decisions needed
+
+- [ ] **Main AI provider:** OpenAI or Claude. Current behaviour: OpenAI if its key is set, otherwise Claude (`claude-opus-5`).
+- [ ] **Model choice:** a cheaper "fast" model for chat and a stronger "smart" model for lesson plans and grading.
+- [ ] **Monthly AI budget:** overall and per school.
+- [ ] **Where heavy ML runs:** a separate paid Render worker, a scheduled job, or dropping face recognition for now. The ML packages are not installed on Render today.
+- [ ] **Parent message languages:** English, Urdu, or Roman Urdu.
+- [ ] **Data sent to the AI provider:** contact details are masked by default. Confirm what else must never be sent.
+- [ ] **Knowledge-base search:** allow `pgvector` on the Render Postgres database.
+
+#### Not finished from the current work
+
+- [ ] Gemini support (only OpenAI and Claude are built).
+- [ ] Switching to a second AI provider automatically when the first one fails.
+- [ ] Error tracking and performance metrics for AI calls (Sentry/Prometheus).
+- [ ] Charts inside chat answers (tables already work).
+- [ ] Removing basic keyword mode once an AI key is live and stable.
+- [ ] Basing lesson plans and quizzes on the school's own syllabus.
+- [ ] Lesson plan versioning and PDF export.
+- [ ] A quiz screen: teachers review, edit and publish AI quizzes (the backend is ready).
+- [ ] Splitting the AI tools into separate files when more are added.
+
+#### Planned new AI features (Phase 3)
+
+- [ ] Search over school documents (policies, circulars, syllabus) with answers that cite the source.
+- [ ] AI report card remarks for each student, reviewed by the teacher before saving.
+- [ ] Parent message drafts (fee reminders, absence alerts, progress notes), approved before sending over SMS/WhatsApp.
+- [ ] At-risk alerts that explain why a student was flagged and suggest what to do.
+- [ ] AI help with grading written answers (teacher confirms every mark).
+- [ ] Plain-language analytics questions, e.g. "compare fee collection this term vs last".
+- [ ] Actions the AI prepares and a person confirms, e.g. "send reminders to defaulters".
+- [ ] A server-side timetable optimizer (generation currently runs in the browser).
+- [ ] A study helper for students, limited to their syllabus.
+
+#### Later (Phases 4–5)
+
+- [ ] Run ML training and bulk AI jobs as background jobs, with progress shown in the app.
+- [ ] Retrain the risk models on real school data and track model versions.
+- [ ] Consent and data-deletion handling for face recognition.
+- [ ] Automated AI quality tests: sample questions per role, prompt-injection and role-escalation checks.
+- [ ] An admin dashboard for AI usage, cost per school and feedback.
+- [ ] Privacy note for schools, per-school AI opt-out, and a retention policy for saved chats.
+
+#### Known issues (not caused by the AI work)
+
+- [ ] `tests/test_leave_approval.py::test_manager_can_approve_leave` fails on `main`.
+- [ ] `tests/test_finance.py` hangs after `test_retrieve_invoice`.
+- [ ] Report card view ([AnalyticsPage.tsx](frontend/src/pages/education/AnalyticsPage.tsx)): if a student's own record isn't found, the first student in the list is shown. That could show someone else's report card.
+- [ ] `npm run lint` doesn't run: ESLint 9 needs an `eslint.config.js`.
+
 ## Deployment
 
 The backend (Django + PostgreSQL + Redis + Celery + WebSockets) cannot run on static-only hosts. Use one of the prepared options:
