@@ -1,326 +1,273 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { User, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import {
+  User, Lock, Eye, EyeOff, ShieldCheck, GraduationCap, Briefcase, AlertCircle,
+  CalendarCheck, Wallet, Sparkles, ArrowRight, Loader2,
+} from 'lucide-react';
+
+type LoginRole = 'admin' | 'employee' | 'student';
+
+const ROLES: { id: LoginRole; label: string; icon: typeof User }[] = [
+  { id: 'admin', label: 'Admin', icon: ShieldCheck },
+  { id: 'employee', label: 'Staff', icon: Briefcase },
+  { id: 'student', label: 'Student / Parent', icon: GraduationCap },
+];
+
+// What to type depends on who is signing in; the server decides the portal.
+const HINTS: Record<LoginRole, { placeholder: string; hint: string }> = {
+  admin: { placeholder: 'admin@school.com', hint: 'Your admin email address.' },
+  employee: { placeholder: 'e.g. EMP-001', hint: 'Your Employee ID from the job offer letter, or your email.' },
+  student: { placeholder: 'e.g. DS-2026061', hint: 'Students: your Student ID. Parents: the email on the admission letter.' },
+};
+
+const FEATURES = [
+  { icon: CalendarCheck, title: 'Attendance & timetables', text: 'Daily attendance, reports and class schedules.' },
+  { icon: Wallet, title: 'Fees & finance', text: 'Invoices, collections and defaulters at a glance.' },
+  { icon: Sparkles, title: 'AI assistant', text: 'Ask questions about your school in plain language.' },
+];
+
+const REMEMBER_KEY = 'login_remembered_username';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'employee' | 'student'>('admin');
+  const { login } = useAuth();
+  const [role, setRole] = useState<LoginRole>('admin');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
 
   useEffect(() => {
-    // Older builds kept fake portal logins in the browser; they are never valid.
     try {
+      // Older builds kept fake portal logins in the browser; they are never valid.
       localStorage.removeItem('staff_login_credentials');
       localStorage.removeItem('student_login_credentials');
+      const remembered = localStorage.getItem(REMEMBER_KEY);
+      if (remembered) {
+        setUserId(remembered);
+        setRememberMe(true);
+      }
     } catch {
       /* storage unavailable */
     }
   }, []);
 
-  const getPortalRoute = (user: any) => {
-    return user?.portal_path || (user?.role === 'student' ? '/student' : '/dashboard');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !password) {
-      setError('Please enter your username and password');
+    if (!userId.trim() || !password) {
+      setError('Please enter your username and password.');
       return;
     }
     setLoading(true);
     setError('');
-    // Every role signs in against the server; it decides the portal from the account.
     try {
       const authUser = await login(userId.trim(), password);
-      navigate(getPortalRoute(authUser));
+      try {
+        if (rememberMe) localStorage.setItem(REMEMBER_KEY, userId.trim());
+        else localStorage.removeItem(REMEMBER_KEY);
+      } catch {
+        /* storage unavailable */
+      }
+      navigate(authUser?.portal_path || (authUser?.role === 'student' ? '/student' : '/dashboard'));
     } catch (err: any) {
       const status = err.response?.status;
       setError(
         err.response?.data?.error ||
-          (status === 401 ? 'Incorrect username or password.' : err.message) ||
-          'Invalid username or password'
+          (status === 401 ? 'Incorrect username or password.' : '') ||
+          (err.message === 'Network Error' ? 'Cannot reach the server. Check your connection and try again.' : err.message) ||
+          'Sign in failed. Please try again.'
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // The tabs only change the hint; the account itself decides the portal.
-  const handleQuickDemo = (role: 'admin' | 'employee' | 'student') => {
-    setSelectedRole(role);
-    setError('');
-  };
-
-  const usernameHint =
-    selectedRole === 'student'
-      ? 'Students: your Student ID. Parents: the email on the admission letter.'
-      : selectedRole === 'employee'
-        ? 'Your Employee ID (from the job offer letter) or email.'
-        : 'Your admin email address.';
+  const { placeholder, hint } = HINTS[role];
 
   return (
-    <div className="min-h-screen bg-[#DEDDF8] dark:bg-[#0b1220] flex items-center justify-center p-4 sm:p-8 font-sans">
-      <div className="max-w-6xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col lg:flex-row min-h-[620px]">
-        
-        {/* Left Side: Login Form (Code Cortex theme) */}
-        <div className="w-full lg:w-1/2 p-8 sm:p-12 flex flex-col justify-between space-y-8 bg-slate-50/50">
-          
-          {/* Logo & Header */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-3xl text-purple-650">🎓</span>
-              <span className="text-2xl font-black tracking-tight text-slate-800">
-                Code Cortex
-              </span>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-400">
-                Please enter your credentials to access your school dashboard.
-              </p>
-              <h2 className="text-base font-extrabold text-[#746BF3] flex items-center gap-1">
-                Welcome Back! <span className="animate-bounce">👋</span>
-              </h2>
+    <div className="min-h-screen flex bg-slate-50">
+      {/* Brand panel (large screens) */}
+      <aside className="hidden lg:flex lg:w-[46%] xl:w-1/2 bg-brand-gradient relative overflow-hidden flex-col justify-between p-12 xl:p-16">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10" />
+        <div className="absolute -bottom-32 -left-20 w-[28rem] h-[28rem] rounded-full bg-white/5" />
+
+        <div className="relative flex items-center gap-3">
+          <span className="w-11 h-11 rounded-xl bg-white/15 ring-1 ring-white/25 flex items-center justify-center">
+            <GraduationCap className="w-6 h-6" />
+          </span>
+          <div className="leading-tight">
+            <p className="text-lg font-bold">CodeCortex</p>
+            <p className="text-xs text-white/70">School ERP</p>
+          </div>
+        </div>
+
+        <div className="relative max-w-md">
+          <h1 className="text-4xl xl:text-[2.6rem] font-extrabold leading-tight tracking-tight !text-white">
+            Everything your school runs on, in one place.
+          </h1>
+          <p className="mt-4 text-white/75 text-[15px] leading-relaxed">
+            Students, staff, fees and results for admins, teachers, parents and students, each with their own portal.
+          </p>
+
+          <ul className="mt-10 space-y-5">
+            {FEATURES.map(({ icon: Icon, title, text }) => (
+              <li key={title} className="flex gap-4">
+                <span className="shrink-0 w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Icon className="w-5 h-5" />
+                </span>
+                <div>
+                  <p className="font-semibold">{title}</p>
+                  <p className="text-sm text-white/70">{text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative flex items-center gap-2 text-xs text-white/70">
+          <ShieldCheck className="w-4 h-4" />
+          Secure sign-in. Your data stays with your school.
+        </p>
+      </aside>
+
+      {/* Sign-in form */}
+      <main className="flex-1 flex items-center justify-center px-4 py-10 sm:px-8">
+        <div className="w-full max-w-[420px]">
+          {/* Compact brand (small screens) */}
+          <div className="lg:hidden flex items-center gap-3 mb-8">
+            <span className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center shadow-sm">
+              <GraduationCap className="w-5 h-5" />
+            </span>
+            <div className="leading-tight">
+              <p className="font-bold text-slate-900">CodeCortex</p>
+              <p className="text-xs text-slate-500">School ERP</p>
             </div>
           </div>
 
-          {/* Form Content */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Role selector group */}
-            <div className="space-y-3">
-              <span className="block text-xs font-black text-[#5C53CD] uppercase tracking-wider">You're</span>
-              <div className="flex items-center gap-6">
-                
-                {/* Admin */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemo('admin')}
-                  className="flex flex-col items-center gap-1.5 focus:outline-none group"
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                    selectedRole === 'admin' 
-                      ? 'bg-[#746BF3] border-[#746BF3] text-white shadow-md' 
-                      : 'border-slate-200 text-slate-400 bg-white hover:border-[#746BF3]/50 hover:text-[#746BF3]'
-                  }`}>
-                    👤
-                  </div>
-                  <span className={`text-[10px] font-black tracking-wide ${
-                    selectedRole === 'admin' ? 'text-[#746BF3]' : 'text-slate-400 group-hover:text-slate-650'
-                  }`}>Admin</span>
-                </button>
+          <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Sign in</h2>
+          <p className="mt-1.5 text-sm text-slate-500">Welcome back. Choose who you are and enter your login.</p>
 
-                {/* Employee */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemo('employee')}
-                  className="flex flex-col items-center gap-1.5 focus:outline-none group"
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                    selectedRole === 'employee' 
-                      ? 'bg-[#746BF3] border-[#746BF3] text-white shadow-md' 
-                      : 'border-slate-200 text-slate-400 bg-white hover:border-[#746BF3]/50 hover:text-[#746BF3]'
-                  }`}>
-                    👥
-                  </div>
-                  <span className={`text-[10px] font-black tracking-wide ${
-                    selectedRole === 'employee' ? 'text-[#746BF3]' : 'text-slate-400 group-hover:text-slate-650'
-                  }`}>Employee</span>
-                </button>
-
-                {/* Student */}
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemo('student')}
-                  className="flex flex-col items-center gap-1.5 focus:outline-none group"
-                >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                    selectedRole === 'student' 
-                      ? 'bg-[#746BF3] border-[#746BF3] text-white shadow-md' 
-                      : 'border-slate-200 text-slate-400 bg-white hover:border-[#746BF3]/50 hover:text-[#746BF3]'
-                  }`}>
-                    🎓
-                  </div>
-                  <span className={`text-[10px] font-black tracking-wide ${
-                    selectedRole === 'student' ? 'text-[#746BF3]' : 'text-slate-400 group-hover:text-slate-650'
-                  }`}>Student</span>
-                </button>
-
-              </div>
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
+            {/* Who is signing in */}
+            <div role="radiogroup" aria-label="I am signing in as" className="grid grid-cols-[1fr_1fr_1.5fr] gap-1 p-1 rounded-xl bg-slate-100">
+              {ROLES.map(({ id, label, icon: Icon }) => {
+                const active = role === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => { setRole(id); setError(''); }}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs sm:text-[13px] font-semibold transition-all ${
+                      active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-brand' : ''}`} />
+                    <span className="whitespace-nowrap">{label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Error Message */}
             {error && (
-              <div className="text-xs font-semibold text-red-500 bg-red-50 border border-red-150 p-2.5 rounded-xl">
-                ⚠️ {error}
+              <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-700">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Inputs */}
-            <div className="space-y-4 pt-2">
-              
-              {/* Username */}
-              <div className="relative border-b-2 border-slate-200 focus-within:border-[#746BF3] transition-colors py-2 flex items-center gap-2">
-                <User className="w-4.5 h-4.5 text-slate-400" />
+            {/* Username */}
+            <div>
+              <label htmlFor="login-username" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                Username
+              </label>
+              <div className="relative">
+                <User className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
+                  id="login-username"
                   type="text"
-                  placeholder="Your Username*"
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
-                  required
+                  placeholder={placeholder}
                   autoComplete="username"
-                  aria-describedby="username-hint"
-                  className="w-full bg-transparent border-none text-xs font-bold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-0 p-0"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  aria-describedby="login-username-hint"
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[color:var(--app-accent)] focus:ring-4 focus:ring-[color:rgb(var(--app-accent-rgb)/0.15)] transition"
                 />
               </div>
-              <p id="username-hint" className="-mt-2 text-[11px] text-slate-400">{usernameHint}</p>
+              <p id="login-username-hint" className="mt-1.5 text-xs text-slate-500">{hint}</p>
+            </div>
 
-              {/* Password */}
-              <div className="relative border-b-2 border-slate-200 focus-within:border-[#746BF3] transition-colors py-2 flex items-center gap-2">
-                <Lock className="w-4.5 h-4.5 text-slate-400" />
+            {/* Password */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="login-password" className="block text-sm font-semibold text-slate-700">
+                  Password
+                </label>
+                <Link to="/forgot-password" className="text-xs font-semibold text-brand hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Your Password*"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full bg-transparent border-none text-xs font-bold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-0 p-0"
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-10 pr-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[color:var(--app-accent)] focus:ring-4 focus:ring-[color:rgb(var(--app-accent-rgb)/0.15)] transition"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-slate-400 hover:text-slate-600 focus:outline-none"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-
             </div>
 
-            {/* Keep me logged in */}
-            <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none font-bold text-slate-450">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-350 text-[#746BF3] focus:ring-[#746BF3]"
-                />
-                Remember Me
-              </label>
-            </div>
+            <label className="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 accent-[color:var(--app-accent)]"
+              />
+              Remember my username on this device
+            </label>
 
-            {/* Login button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-[#5C53CD] hover:bg-[#4d45bd] text-white rounded-xl font-extrabold text-xs shadow-md transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-xl bg-brand font-semibold text-sm shadow-sm hover:opacity-95 active:opacity-90 disabled:opacity-70 transition flex items-center justify-center gap-2"
             >
               {loading ? (
-                <div className="animate-spin rounded-full h-4.5 w-4.5 border-b-2 border-white" />
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Signing in…
+                </>
               ) : (
                 <>
-                  🔒 Login
+                  Sign in <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
-
           </form>
 
-          {/* Footer Link */}
-          <div className="text-center">
-            <Link to="/forgot-password" className="text-xs font-black text-slate-700 hover:underline">
-              Forgot your <span className="text-[#746BF3]">password</span>?
-            </Link>
+          <div className="mt-8 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-xs text-slate-500 leading-relaxed">
+            <span className="font-semibold text-slate-700">New here?</span> Your school creates your account. Your
+            login is printed on your admission letter (students and parents) or job offer letter (staff).
           </div>
-
         </div>
-
-        {/* Right Side: Welcome Banner Card (Dark Purple) */}
-        <div className="w-full lg:w-1/2 bg-[#1C1656] p-8 sm:p-12 text-white flex flex-col justify-between relative overflow-hidden">
-          
-          {/* Top Info */}
-          <div className="flex justify-between items-center z-10">
-            <span className="text-xs font-bold text-blue-200">Don't have an account?</span>
-            <button className="px-4 py-1.5 border border-white/30 rounded-xl text-xs font-black hover:bg-white/10 transition-colors uppercase">
-              Contact Admin
-            </button>
-          </div>
-
-          {/* Middle text & graphic */}
-          <div className="space-y-6 my-auto pt-8 z-10">
-            <div className="space-y-2 text-center lg:text-left">
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-                Continue Managing!
-              </h1>
-              <p className="text-xs text-blue-200 leading-relaxed max-w-sm mx-auto lg:mx-0">
-                Pick up right where you left off. Sign in to the world's favorite fast, easy, and 100% free school management platform.
-              </p>
-            </div>
-
-            {/* Premium Animated SVG Student Illustration */}
-            <div className="w-full max-w-xs mx-auto pt-4 relative select-none">
-              <svg viewBox="0 0 200 200" className="w-full h-auto drop-shadow-2xl">
-                {/* Background Glow */}
-                <circle cx="100" cy="100" r="80" fill="url(#purpleGlow)" opacity="0.3" />
-                
-                {/* Floating Elements */}
-                <g className="animate-pulse">
-                  {/* Database box */}
-                  <rect x="25" y="110" width="30" height="25" rx="5" fill="#746BF3" />
-                  <line x1="30" y1="118" x2="50" y2="118" stroke="#FFF" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="30" y1="126" x2="45" y2="126" stroke="#FFF" strokeWidth="2" strokeLinecap="round" />
-                  
-                  {/* Floating lock */}
-                  <rect x="145" y="65" width="24" height="20" rx="4" fill="#10B981" />
-                  <path d="M151,65 L151,58 C151,53 163,53 163,58 L163,65" stroke="#10B981" strokeWidth="2" fill="none" />
-                </g>
-
-                {/* Animated Laptop User Illustration */}
-                <g className="animate-bounce" style={{ animationDuration: '4s' }}>
-                  {/* Head */}
-                  <circle cx="100" cy="65" r="18" fill="#FEE2E2" />
-                  {/* Hair */}
-                  <path d="M80,62 C80,42 120,42 120,62 C115,55 105,55 100,58" fill="#1E293B" />
-                  {/* Graduation Hat */}
-                  <polygon points="100,38 122,46 100,54 78,46" fill="#5C53CD" />
-                  <rect x="97" y="46" width="6" height="8" fill="#475569" />
-                  <line x1="122" y1="46" x2="122" y2="58" stroke="#FBBF24" strokeWidth="2" />
-                  
-                  {/* Body & Laptop */}
-                  <path d="M72,110 L128,110 L120,78 L80,78 Z" fill="#746BF3" />
-                  <rect x="82" y="110" width="36" height="22" rx="3" fill="#334155" />
-                  <polygon points="76,132 124,132 118,138 82,138" fill="#475569" />
-                </g>
-
-                {/* Gradient Definitions */}
-                <defs>
-                  <radialGradient id="purpleGlow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#746BF3" />
-                    <stop offset="100%" stopColor="#1C1656" stopOpacity="0" />
-                  </radialGradient>
-                </defs>
-              </svg>
-            </div>
-
-          </div>
-
-          {/* Bottom Stamp */}
-          <div className="flex items-center gap-1.5 justify-center lg:justify-start text-[10px] text-blue-200 z-10 border-t border-white/10 pt-4">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Authorized school credentials only.</span>
-          </div>
-
-        </div>
-
-      </div>
+      </main>
     </div>
   );
 }

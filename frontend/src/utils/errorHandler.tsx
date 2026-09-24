@@ -54,6 +54,12 @@ export function setupApiErrorInterceptor(api: AxiosInstance) {
 
       const status = error.response?.status;
 
+      // A wrong password on the sign-in form is not an expired session; the
+      // form shows its own error.
+      if (status === 401 && /\/auth\/login\/?$/.test(String(config?.url || ''))) {
+        return Promise.reject(error);
+      }
+
       if (status === 401) {
         useAuthStore.getState().logout();
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
