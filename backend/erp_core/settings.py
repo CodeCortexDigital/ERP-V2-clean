@@ -153,6 +153,14 @@ else:
             'HOST': _u.hostname or DATABASES['default']['HOST'],
             'PORT': str(_u.port or 5432),
         })
+        # Honour ?sslmode=... and require TLS for external hosted hosts (Render rejects plain connections).
+        from urllib.parse import parse_qs
+
+        _sslmode = parse_qs(_u.query).get('sslmode', [''])[0]
+        if not _sslmode and '.' in (_u.hostname or '') and _u.hostname not in ('127.0.0.1', 'localhost'):
+            _sslmode = 'require'
+        if _sslmode:
+            DATABASES['default']['OPTIONS']['sslmode'] = _sslmode
     # One start-up line (no secrets) so deploy logs show which database settings are in use.
     import sys as _sys
     print(
