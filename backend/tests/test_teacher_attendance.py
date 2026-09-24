@@ -47,9 +47,14 @@ def test_ensure_teacher_attendance_for_past_days():
 
 def test_teacher_attendance_list_view(authenticated_api_client):
     client, user = authenticated_api_client
-    
-    # Create a teacher
+    from services.core.tenants.models import TenantMembership
+    from tests.conftest import SchoolFactory
+    school = SchoolFactory()
+    TenantMembership.objects.create(user=user, school=school, role='admin', is_primary=True)
+
+    # Create a teacher in the admin's school
     teacher = Teacher.objects.create(
+        tenant=school,
         employee_id="T1002",
         full_name="Prof. Jane Smith",
         email="jane.smith@school.edu",

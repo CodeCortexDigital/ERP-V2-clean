@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star
+  DollarSign, User, Star, Building2
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -183,6 +183,10 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
     { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
+    // Platform owner only: every school on this installation.
+    ...(user?.is_superuser
+      ? [{ id: 'platform', label: 'All Schools', icon: <Building2 className="w-4 h-4" />, href: '/platform/schools' }]
+      : []),
   ];
 
   // Teacher Menu - derived from the SAME permission-filtered quick

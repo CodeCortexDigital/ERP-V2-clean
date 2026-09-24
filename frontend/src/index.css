@@ -293,3 +293,27 @@ html.theme-transition * {
 @media (prefers-reduced-motion: reduce) {
   html.theme-transition, html.theme-transition * { transition: none !important; }
 }
+
+/* Sign-in / signup form controls (shared by the auth pages). */
+@layer components {
+  .auth-input {
+    @apply w-full h-11 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 transition;
+  }
+  .auth-input:focus {
+    outline: none;
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 4px rgb(var(--app-accent-rgb) / 0.15);
+  }
+  .auth-primary-btn {
+    @apply w-full h-11 rounded-xl bg-brand font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2;
+  }
+  .auth-primary-btn:hover { opacity: 0.95; }
+  .auth-primary-btn:disabled { opacity: 0.7; }
+  .auth-secondary-btn {
+    @apply w-full h-11 rounded-xl border border-slate-200 bg-white font-semibold text-sm text-slate-700 shadow-sm transition flex items-center justify-center gap-2 hover:bg-slate-50;
+  }
+  .auth-secondary-btn:disabled { opacity: 0.7; }
+}
+.dark .auth-input { background-color: var(--dk-surface); border-color: var(--dk-border); color: var(--dk-text); }
+.dark .auth-secondary-btn { background-color: var(--dk-surface); border-color: var(--dk-border); color: var(--dk-text); }
+.dark .auth-secondary-btn:hover { background-color: var(--dk-raised); }

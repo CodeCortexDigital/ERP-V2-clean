@@ -60,6 +60,9 @@ class AttendanceRecord(SchoolAliasMixin, SoftDeleteModel):
 
 
 class StudentFaceEncoding(models.Model):
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     student = models.OneToOneField(
         'education_students.Student',
         on_delete=models.CASCADE,

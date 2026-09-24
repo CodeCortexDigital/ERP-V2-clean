@@ -3,6 +3,9 @@ import uuid
 from services.core.tenants.mixins import SchoolAliasMixin
 
 class AcademicYear(models.Model):
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
     start_date = models.DateField()
@@ -84,9 +87,12 @@ class Section(SchoolAliasMixin, models.Model):
 
 class Subject(models.Model):
     """Subject/Course model"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20)
     credits = models.IntegerField(default=3)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -95,6 +101,7 @@ class Subject(models.Model):
         return f"{self.name} ({self.code})"
     
     class Meta:
+        constraints = [models.UniqueConstraint(fields=['tenant', 'code'], name='uniq_subject_code_per_school')]
         ordering = ['name']
 
 
@@ -116,6 +123,9 @@ class ClassSubject(models.Model):
 # LEVEL 2: GRADE SCALE & ASSESSMENT RULES
 class GradeScale(models.Model):
     """Grade scale with percentage ranges"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     grade = models.CharField(max_length=5)  # A+, A, B+, B, C, D, F
     min_percentage = models.DecimalField(max_digits=5, decimal_places=2)
@@ -134,9 +144,12 @@ class GradeScale(models.Model):
 
 class AssessmentType(models.Model):
     """Types of assessments (Midterm, Final, Quiz, etc.)"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -145,6 +158,7 @@ class AssessmentType(models.Model):
         return self.name
     
     class Meta:
+        constraints = [models.UniqueConstraint(fields=['tenant', 'code'], name='uniq_assessmenttype_code_per_school')]
         ordering = ['name']
 
 
@@ -401,9 +415,12 @@ class Period(models.Model):
 
 class Classroom(models.Model):
     """Classroom/Room information"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20)
     capacity = models.IntegerField(default=30)
     location = models.CharField(max_length=100, blank=True)
     floor = models.CharField(max_length=20, blank=True)  # ground, first, second, third, outdoor
@@ -416,6 +433,7 @@ class Classroom(models.Model):
         return f"{self.name} ({self.code})"
     
     class Meta:
+        constraints = [models.UniqueConstraint(fields=['tenant', 'code'], name='uniq_classroom_code_per_school')]
         ordering = ['name']
 
 
@@ -455,6 +473,9 @@ class TeacherLeave(models.Model):
     """Leave record for a teacher. Creating one can trigger automatic
     substitution of the teacher's timetable periods by an available relief
     teacher (matched by subject specialisation)."""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     LEAVE_TYPES = [
         ('sick', 'Sick'),
         ('casual', 'Casual'),
@@ -533,6 +554,9 @@ class LeaveBalance(models.Model):
     the matching type), so no field needs updating when leaves are
     approved/cancelled.
     """
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     LEAVE_TYPE_FIELDS = ['sick', 'casual', 'annual', 'maternity', 'emergency', 'other']
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -604,6 +628,9 @@ class LeaveBalance(models.Model):
 
 class Homework(models.Model):
     """Homework assignment given to a class by a teacher."""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     STATUS_CHOICES = [
         ('assigned', 'Assigned'),
         ('collected', 'Collected'),
@@ -839,6 +866,9 @@ class SectionTeacherAssignment(models.Model):
 
 class LiveMeeting(models.Model):
     """Live class sessions / online meetings"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     MEETING_WITH_CHOICES = [
         ('all', 'All Students'),
         ('class', 'Select Class'),

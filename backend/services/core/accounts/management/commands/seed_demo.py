@@ -83,12 +83,31 @@ class Command(BaseCommand):
         parser.add_argument("--students-per-class", type=int, default=20)
 
     def handle(self, *args, **opts):
+        from services.core.tenants.context import use_tenant
+
         M = lambda app, name: apps.get_model(app, name)  # noqa: E731
+        self.school = self._demo_school(M)
+        # Everything below runs as the demo school: new rows are stamped with it
+        # and other schools' data is never touched.
+        with use_tenant(self.school):
+            self._seed(M, opts)
+
+    def _demo_school(self, M):
+        School = M("core_tenants", "School")
+        school = School.objects.filter(tenant_code="DMS").first() or School.objects.create(
+            tenant_code="DMS", school_id="DEMO-001", name="CodeCortex Model School", subdomain="demo")
+        # Institute profile shown in Settings -> Profile, portal banners and the header.
+        school.settings_json = {**(school.settings_json or {}), **DEMO_INSTITUTE}
+        school.save(update_fields=["settings_json"])
+        return school
+
+    def _seed(self, M, opts):
         self.Student = M("education_students", "Student")
         if opts["reset"]:
-            n = self.Student.all_objects.filter(student_id__startswith=DEMO_PREFIX).count() \
-                if hasattr(self.Student, "all_objects") else 0
-            qs = getattr(self.Student, "all_objects", self.Student.objects).filter(student_id__startswith=DEMO_PREFIX)
+            # all_objects includes soft-deleted rows; limit it to the demo school.
+            qs = getattr(self.Student, "all_objects", self.Student.objects).filter(
+                student_id__startswith=DEMO_PREFIX, tenant=self.school)
+            n = qs.count()
             for s in qs:
                 s.hard_delete() if hasattr(s, "hard_delete") else s.delete()
             # Class-level demo records aren't removed with the students.
@@ -220,12 +239,8 @@ class Command(BaseCommand):
     def _link_demo_logins(self, M, st, students):
         User = get_user_model()
         # Demo school (shown in portal headers) with the demo logins as members.
-        School, Membership = M("core_tenants", "School"), M("core_tenants", "TenantMembership")
-        school = School.objects.filter(tenant_code="DMS").first() or School.objects.create(
-            tenant_code="DMS", school_id="DEMO-001", name="CodeCortex Model School", subdomain="demo")
-        # Institute profile shown in Settings -> Profile, portal banners and the header.
-        school.settings_json = {**(school.settings_json or {}), **DEMO_INSTITUTE}
-        school.save(update_fields=["settings_json"])
+        Membership = M("core_tenants", "TenantMembership")
+        school = self.school
         for email, role in (("admin@code.com", "admin"), ("teacher@code.com", "teacher"),
                             ("parent@code.com", "parent"), ("student@code.com", "student")):
             u = User.objects.filter(email=email).first()

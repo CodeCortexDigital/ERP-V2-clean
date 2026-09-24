@@ -59,6 +59,8 @@ interface AuthState {
   login: (userId: string, password: string) => Promise<AuthUser>;
   demoLogin: (name?: string) => Promise<AuthUser>;
   googleLogin: (token: string) => Promise<AuthUser>;
+  /** Sign in from a server payload that already holds tokens (school signup). */
+  startSession: (data: { access: string; refresh: string; user: AuthUser }) => AuthUser;
   logout: () => void;
   setUser: (user: AuthUser | null) => void;
 }
@@ -145,20 +147,22 @@ export const useAuthStore = create<AuthState>()(
 
       googleLogin: async (token) => {
         const response = await authService.googleLogin(token);
-        const { access, refresh, user } = response.data;
-        const authUser = user as AuthUser;
+        return get().startSession(response.data as { access: string; refresh: string; user: AuthUser });
+      },
+
+      startSession: ({ access, refresh, user }) => {
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);
         applyAuthHeader(access);
         set({
           accessToken: access,
           refreshToken: refresh,
-          user: authUser,
-          role: resolveRole(authUser),
+          user,
+          role: resolveRole(user),
           isAuthenticated: true,
           loading: false,
         });
-        return authUser;
+        return user;
       },
 
       logout: () => {

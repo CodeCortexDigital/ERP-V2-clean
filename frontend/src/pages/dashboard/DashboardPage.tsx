@@ -1,3 +1,4 @@
+import SetupChecklist from '@/components/dashboard/SetupChecklist';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Briefcase, DollarSign, TrendingUp, BookOpen, CreditCard, Calendar, UserPlus, FileText, GraduationCap, PenTool, Sparkles } from 'lucide-react';
@@ -524,6 +525,9 @@ export default function DashboardPage() {
             <LiveDataBadge connected={wsConnected} />
           </div>
         </div>
+
+        {/* Getting started (new schools only; hides when setup is complete) */}
+        <SetupChecklist />
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

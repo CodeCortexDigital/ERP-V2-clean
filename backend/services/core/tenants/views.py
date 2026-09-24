@@ -14,11 +14,9 @@ def current_tenant(request):
     # JWT requests usually have no session tenant yet, so use the user's own
     # (primary) school before falling back to the first active school, which
     # keeps institute name/tagline available to dashboards.
-    tenant = (
-        getattr(request, 'tenant', None)
-        or resolve_tenant_for_user(request.user)
-        or School.objects.filter(is_active=True).first()
-    )
+    tenant = getattr(request, 'tenant', None) or resolve_tenant_for_user(request.user)
+    if not tenant and request.user.is_superuser:
+        tenant = School.objects.filter(is_active=True).first()
     if not tenant:
         return Response({'tenant': None})
     return Response({'tenant': SchoolSerializer(tenant).data})
@@ -94,11 +92,9 @@ def tenant_settings(request):
     """GET or update institutional parameters, fee particulars, bank accounts, rules, and grading for active tenant."""
     try:
         # Same resolution as current_tenant, so reads and saves hit the user's school.
-        tenant = (
-            getattr(request, 'tenant', None)
-            or resolve_tenant_for_user(request.user)
-            or School.objects.filter(is_active=True).first()
-        )
+        tenant = getattr(request, 'tenant', None) or resolve_tenant_for_user(request.user)
+        if not tenant and request.user.is_superuser:
+            tenant = School.objects.filter(is_active=True).first()
 
         if request.method == 'GET':
             if tenant and hasattr(tenant, 'settings_json'):

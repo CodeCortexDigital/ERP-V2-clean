@@ -112,9 +112,10 @@ def attendance_dashboard_broadcast(sender, instance, **kwargs):
                 return
 
             Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
+            # This school's attendance only; sent to this school's dashboards.
             student_qs = (
-                Attendance.objects
-                .filter(date=today)
+                Attendance._base_manager
+                .filter(date=today, tenant_id=instance.tenant_id)
                 .exclude(status='holiday')
                 .exclude(student__isnull=True)
             )
@@ -129,8 +130,10 @@ def attendance_dashboard_broadcast(sender, instance, **kwargs):
             if not channel_layer:
                 return
 
+            from erp_core.consumers import dashboard_group
+
             async_to_sync(channel_layer.group_send)(
-                'dashboard_updates',
+                dashboard_group(instance.tenant_id),
                 {
                     'type': 'attendance_update',
                     'data': {

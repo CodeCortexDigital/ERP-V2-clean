@@ -21,6 +21,11 @@ def get_user_role(user):
     if getattr(user, 'is_superuser', False):
         return 'admin'
 
+    # A school's own administrator (e.g. whoever signed the school up).
+    TenantMembership = apps.get_model('core_tenants', 'TenantMembership')
+    if TenantMembership.objects.filter(user=user, role='admin', is_active=True).exists():
+        return 'admin'
+
     if hasattr(user, 'profile') and getattr(user.profile, 'role', None):
         role_obj = user.profile.role
         role_type = getattr(role_obj, 'role_type', None)

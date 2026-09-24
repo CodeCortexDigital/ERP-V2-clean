@@ -30,7 +30,7 @@ class WhatsAppService:
     def _get_active_config(self) -> Optional[WhatsAppConfig]:
         query = WhatsAppConfig.objects.filter(is_active=True)
         if self.tenant_id:
-            query = query.filter(tenant_id=self.tenant_id)
+            query = query.filter(legacy_tenant_code=self.tenant_id)
         config = query.order_by('-updated_at').first()
         if config:
             return config
@@ -45,7 +45,7 @@ class WhatsAppService:
                 business_account_id=business_account_id or '',
                 webhook_verified=False,
                 is_active=True,
-                tenant_id=self.tenant_id or '',
+                legacy_tenant_code=self.tenant_id or '',
             )
         return None
 

@@ -7,6 +7,8 @@ REM ==========================================================================
 setlocal
 set DEBUG=1
 set USE_SQLITE=1
+REM Google sign-in: the Firebase project the frontend uses (public id, not a secret)
+set FIREBASE_PROJECT_ID=school-erp-c53b4
 
 cd /d "%~dp0backend"
 if not exist .venv\Scripts\python.exe (

@@ -153,6 +153,13 @@ def cache_get_or_set(key: str, producer: Callable[[], Any], timeout: int, cache_
   return value
 
 
+def _cache_identity(request) -> str:
+  """User + school: cached responses are never shared across users or schools."""
+  user_id = str(getattr(request.user, 'id', 'anon'))
+  tenant = getattr(request, 'tenant', None)
+  return f'{user_id}@{tenant.pk}' if tenant is not None else user_id
+
+
 def cached_api_view(timeout: int | None = None, cache_type: str = 'api', key_func: Callable | None = None):
   """
   Cache DRF function view responses (stores serializable response data).
@@ -165,7 +172,7 @@ def cached_api_view(timeout: int | None = None, cache_type: str = 'api', key_fun
   def decorator(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-      user_id = str(getattr(request.user, 'id', 'anon'))
+      user_id = _cache_identity(request)
       qs = request.META.get('QUERY_STRING', '')
       if args or kwargs:
           extra = ':'.join([str(a) for a in args] + [f'{k}={v}' for k, v in sorted(kwargs.items())])
@@ -220,7 +227,7 @@ class CachedListResponseMixin:
   cache_key_prefix: str = CacheKeys.STUDENT_LIST
 
   def get_cache_key(self) -> str:
-    user_id = str(getattr(self.request.user, 'id', 'anon'))
+    user_id = _cache_identity(self.request)
     qs = self.request.META.get('QUERY_STRING', '')
     if self.cache_key_prefix == CacheKeys.STUDENT_LIST:
       return CacheKeys.student_list(user_id, qs)

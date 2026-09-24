@@ -32,6 +32,8 @@ services:
     healthCheckPath: /api/v1/health/
     autoDeploy: true
     envVars:
+      - key: FIREBASE_PROJECT_ID  # enables 'Continue with Google' (school signup/sign-in)
+        value: school-erp-c53b4
       - key: DJANGO_SETTINGS_MODULE
         value: erp_core.settings
       - key: DEBUG

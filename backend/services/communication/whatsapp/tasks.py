@@ -25,7 +25,7 @@ def send_whatsapp_message(self, message_id):
     msg.retry_count += 1
     msg.save(update_fields=['last_attempt_at', 'retry_count'])
 
-    service = WhatsAppService(tenant_id=msg.tenant_id or None)
+    service = WhatsAppService(tenant_id=msg.legacy_tenant_code or None)
     payload = {
         'body': msg.message,
     }

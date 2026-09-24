@@ -331,6 +331,9 @@ class Payment(models.Model):
 
 
 class PaymentGatewayConfig(models.Model):
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     GATEWAY_PROVIDERS = [
         ('jazzcash', 'JazzCash'),
         ('easypaisa', 'Easypaisa'),
@@ -388,6 +391,9 @@ class PaymentTransaction(models.Model):
 
 class InstallmentPlan(models.Model):
     """Installment plan for fee payments"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -411,6 +417,9 @@ class InstallmentPlan(models.Model):
 
 class Scholarship(models.Model):
     """Scholarship/Discount management"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     SCHOLARSHIP_TYPES = [
         ('percentage', 'Percentage Discount'),
         ('fixed', 'Fixed Amount Discount'),
@@ -457,6 +466,9 @@ class StudentScholarship(models.Model):
 
 class LateFeeRule(models.Model):
     """Late fee calculation rules"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -481,6 +493,9 @@ class LateFeeRule(models.Model):
 
 class TransactionLog(models.Model):
     """Audit log for all financial transactions"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     ACTION_TYPES = [
         ('create', 'Created'),
         ('update', 'Updated'),
@@ -516,6 +531,9 @@ class TransactionLog(models.Model):
 
 class FinanceSettings(models.Model):
     """Tenant-level finance system settings"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     school_name = models.CharField(max_length=255, default='School Management System')
@@ -555,6 +573,9 @@ class FinanceSettings(models.Model):
 
 class AccountHead(models.Model):
     """Chart of accounts - income and expense heads"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     TYPE_CHOICES = [
         ('income', 'Income'),
         ('expense', 'Expense'),
@@ -562,7 +583,7 @@ class AccountHead(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=20, unique=True, blank=True)
+    code = models.CharField(max_length=20, blank=True)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -573,6 +594,7 @@ class AccountHead(models.Model):
         return f"{self.name} ({self.get_type_display()})"
     
     class Meta:
+        constraints = [models.UniqueConstraint(fields=['tenant', 'code'], name='uniq_accounthead_code_per_school')]
         ordering = ['type', 'name']
     
     def save(self, *args, **kwargs):
@@ -585,6 +607,9 @@ class AccountHead(models.Model):
 
 class LedgerEntry(models.Model):
     """General ledger entries for income and expense tracking"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     TYPE_CHOICES = [
         ('income', 'Income'),
         ('expense', 'Expense'),
@@ -689,9 +714,12 @@ class EmployeeCredit(models.Model):
 
 class WeekdayConfig(models.Model):
     """School weekday configuration"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=20)
-    day_code = models.CharField(max_length=10, unique=True)
+    day_code = models.CharField(max_length=10)
     is_active = models.BooleanField(default=True)
     is_half_day = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
@@ -703,6 +731,7 @@ class WeekdayConfig(models.Model):
         return f"{self.name} - {'Active' if self.is_active else 'Inactive'}"
     
     class Meta:
+        constraints = [models.UniqueConstraint(fields=['tenant', 'day_code'], name='uniq_weekdayconfig_day_code_per_school')]
         ordering = ['order']
         verbose_name_plural = 'Weekday Configs'
     

@@ -9,6 +9,8 @@ import { RoleBasedRoute } from './components/auth/RoleBasedRoute'
 import { CanAccess } from './components/auth/CanAccess'
 import LoginPage from './pages/auth/LoginPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import SignupPage from './pages/auth/SignupPage'
+import PlatformSchoolsPage from './pages/platform/PlatformSchoolsPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import AuditLogViewer from './pages/admin/AuditLogViewer'
 
@@ -207,6 +209,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/signup" element={<SignupPage />} />
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><DashboardPage /></RoleBasedRoute>} />
@@ -433,6 +436,7 @@ function App() {
                     SETTINGS ROUTES
                     ============================================================ */}
                 <Route path="settings/*" element={<SettingsPage />} />
+                <Route path="platform/schools" element={<RoleBasedRoute allowedRoles={['admin']}><PlatformSchoolsPage /></RoleBasedRoute>} />
                 {/* Legacy aliases: fee/settings moved to Fees top tabs */}
                 <Route path="settings/fee-particulars" element={<Navigate to="/education/fees/fee-items" replace />} />
                 <Route path="settings/fee-structure" element={<Navigate to="/education/fees/fee-plan" replace />} />

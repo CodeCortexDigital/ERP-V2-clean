@@ -1,6 +1,7 @@
 from django.utils.decorators import method_decorator
 from django.db.models import Q
 from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
@@ -37,7 +38,8 @@ class AcademicYearListCreateView(generics.ListCreateAPIView):
     serializer_class = AcademicYearSerializer
 
 
-@method_decorator(cache_page(get_timeout('class_list')), name='get')
+# Cache per signed-in user and school (Vary), never shared between schools.
+@method_decorator([cache_page(get_timeout('class_list')), vary_on_headers('Authorization', 'X-Tenant-ID')], name='get')
 class SchoolClassListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = SchoolClass.objects.all()

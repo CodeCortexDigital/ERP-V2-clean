@@ -34,11 +34,11 @@ class WhatsAppConfigAdmin(admin.ModelAdmin):
         'phone_number_id',
         'webhook_verified',
         'is_active',
-        'tenant_id',
+        'legacy_tenant_code',
         'updated_at',
     )
     list_filter = ('is_active', 'webhook_verified')
-    search_fields = ('phone_number_id', 'business_account_id', 'tenant_id')
+    search_fields = ('phone_number_id', 'business_account_id', 'legacy_tenant_code')
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):

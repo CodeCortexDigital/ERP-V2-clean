@@ -19,64 +19,39 @@ logger = logging.getLogger(__name__)
 
 class FirebaseLoginView(APIView):
     """
-    View to handle Firebase Google Login
-    Accepts Firebase ID token and returns JWT tokens
+    POST /api/v1/auth/firebase/login/  {"id_token": "<Firebase ID token>"}
+
+    Signs in an EXISTING account with Google. Unknown Google users are not
+    given an account here (that would let anyone in); the response tells the
+    app to send them to school signup instead:
+        404 {"needs_signup": true, "email": ..., "name": ...}
     """
     permission_classes = [AllowAny]
-    
+    authentication_classes = []
+
     def post(self, request):
-        """
-        POST /api/auth/firebase/login/
-        
-        Body:
-        {
-            "id_token": "Firebase ID token from Google Sign-In"
-        }
-        
-        Returns:
-        {
-            "access": "JWT access token",
-            "refresh": "JWT refresh token",
-            "user": {
-                "id": "user UUID",
-                "email": "user email",
-                "full_name": "user full name"
-            }
-        }
-        """
-        id_token = request.data.get('id_token') or request.data.get('token')
-        
-        if not id_token:
-            return Response(
-                {'error': 'id_token is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+        from .google_identity import GoogleIdentityError, verify_google_identity
+        from .views import build_login_response
+
         try:
-            # Verify Firebase token and get/create user
-            user, token = verify_firebase_token(id_token)
-            
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            
-            return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': {
-                    'id': str(user.id),
-                    'email': user.email,
-                    'full_name': user.full_name,
-                    'is_active': user.is_active,
-                    'account_status': user.account_status
-                }
-            })
-            
-        except Exception as e:
-            logger.error(f"Firebase login failed: {e}")
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            ident = verify_google_identity(request.data.get('id_token') or request.data.get('token'))
+        except GoogleIdentityError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
+        if not ident.email_verified:
+            return Response({'error': 'Please verify your Google email address first.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        user = (User.objects.filter(firebase_uid=ident.uid).first() if ident.uid else None)             or User.objects.filter(email__iexact=ident.email).first()
+        if user is None:
+            return Response({'needs_signup': True, 'email': ident.email, 'name': ident.name},
+                            status=status.HTTP_404_NOT_FOUND)
+        if not user.is_active:
+            return Response({'error': 'This account is disabled.'}, status=status.HTTP_403_FORBIDDEN)
+        if ident.uid and not user.firebase_uid:
+            user.firebase_uid = ident.uid
+            user.save(update_fields=['firebase_uid'])
+        return build_login_response(request, user)
+
 
 class FirebaseTokenObtainPairView(SimpleJWTTokenObtainPairView):
     """

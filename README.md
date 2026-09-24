@@ -91,6 +91,26 @@ Admins see the logins under **Students → Portal Logins** and **Employees → P
 
 **Theming (for developers).** One accent colour drives the header, active navigation, primary buttons, page titles and focus rings. `frontend/src/utils/theme.ts` reads Settings → Theme and sets the `--app-accent-*` CSS variables; use the `bg-brand`, `bg-brand-soft` and `text-brand` classes for new UI rather than a fixed colour. Dark mode sets `html.dark`, and `src/styles/dark-theme.css` remaps the common light utilities (`bg-white`, `text-slate-800`, `bg-emerald-50`, and so on), so existing pages work in dark mode without `dark:` variants. That file is generated: edit `frontend/scripts/gen-dark-theme.cjs` and run `node scripts/gen-dark-theme.cjs`.
 
+## Multiple schools
+
+One installation serves many schools. Each school's data is kept separate: staff, students and parents only ever see their own school.
+
+**How a school joins.** On the sign-in page, **Create your school** opens `/signup`. The person signing up enters the school's name, then either creates a password or uses **Sign up with Google**. The server creates the school, makes that person its administrator and signs them in. A new school starts empty, and its dashboard shows a setup checklist (profile, classes, subjects, staff, students, fees). Everyone the admin adds (staff, students, parents) belongs to that school and gets their own login (see "Portal logins" above).
+
+**How the data is kept apart.**
+
+- Every school-owned record carries its school, either in its own column or through its parent record (a payment through its invoice and student). The list is in `backend/services/core/tenants/registry.py`.
+- Each API request works out the user's school once the login token is checked (`tenants/authentication.py`). Every query on those records is then filtered to that school automatically (`tenants/scoping.py`).
+- New records are stamped with the school. Writing a record that points at another school's data is refused.
+- A signed-in user with no school sees no school data at all. Cached responses and live dashboard updates are kept per school too.
+- `backend/tests/test_tenant_isolation.py` calls every list endpoint in the API as a second school and fails if any of the first school's data appears.
+
+**Google sign-in** uses the Firebase project in `frontend/src/services/firebase.ts`. The backend only needs that project's id: set `FIREBASE_PROJECT_ID` (it's public, not a secret). A Google account that isn't registered is sent to "create your school". It is never given an account automatically.
+
+**Platform owner.** Superusers get **All Schools** in the sidebar (`/platform/schools`): every school with student and staff counts and its admins. A school can be suspended there, after which its users can't sign in. A superuser who belongs to a school sees that school's data on the normal pages. Send `X-Tenant-ID: <school id>` to act for another school through the API.
+
+**Existing data.** The upgrade migration assigns every record that had no school to the school most users belong to (for the demo, CodeCortex Model School), and links superusers without a school to it. Nothing else changes for a single-school installation.
+
 ## Quick Start
 
 ### Prerequisites
@@ -222,6 +242,8 @@ The code lives in `backend/services/ai/` (assistant, tools, AI providers, limits
 - [ ] **Add an AI key on Render.** Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` on the backend service (Environment tab). Until then, the assistant runs in basic keyword mode and lesson plans and quizzes return "not configured".
 - [ ] **Check the deploy.** Log in, open the assistant and ask "fee defaulters". Also confirm that `/api/v1/ai/chat/` refuses requests from someone who isn't logged in.
 - [ ] **Optional: set limits.** `AI_RATE_LIMIT`, `AI_TENANT_MONTHLY_TOKENS`.
+- [ ] **Turn on Google sign-in.** Set `FIREBASE_PROJECT_ID=school-erp-c53b4` on the Render backend (Environment tab). In the Firebase console (Authentication → Sign-in method), enable **Google** and add the live frontend domain under **Authorized domains**.
+- [ ] **Portal logins for existing students and staff.** Open Students → Portal Logins and Employees → Portal Logins, click **Generate missing logins**, and reprint the letters.
 
 #### Decisions needed
 
@@ -272,6 +294,13 @@ The code lives in `backend/services/ai/` (assistant, tools, AI providers, limits
 - [ ] `tests/test_finance.py` hangs after `test_retrieve_invoice`.
 - [ ] Report card view ([AnalyticsPage.tsx](frontend/src/pages/education/AnalyticsPage.tsx)): if a student's own record isn't found, the first student in the list is shown. That could show someone else's report card.
 - [ ] `npm run lint` doesn't run: ESLint 9 needs an `eslint.config.js`.
+
+#### Multiple schools: limits to know
+
+- [ ] Student IDs, employee IDs and user emails must be unique across all schools, because they are login usernames. A second school that types an ID another school already uses gets "already exists". Each school should use its own prefix (the school code, e.g. `GVS-001`).
+- [ ] Parent accounts are matched by phone number (`parent.<phone>@school.edu`). A parent with children in two different schools shares one account and sees their first school's children.
+- [ ] Billing and plans for schools are not built yet (the platform page only lists, suspends and re-activates schools).
+- [ ] The one-off scripts in the repository root (`sync_existing_portal_users.py`, `generate_complete_system_data.py`) reset everyone to shared default passwords. Don't run them on a live school.
 
 ## Deployment
 

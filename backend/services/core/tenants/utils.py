@@ -95,9 +95,14 @@ def user_can_access_tenant(user, school: School) -> bool:
         return False
     if user.is_superuser:
         return True
-    return TenantMembership.objects.filter(
-        user=user, school=school, is_active=True
-    ).exists()
+    if TenantMembership.objects.filter(user=user, school=school, is_active=True).exists():
+        return True
+    # Portal users (students, parents, staff) belong through their own record.
+    from .context import use_tenant
+
+    with use_tenant(None):
+        record_school = _school_from_records(user)
+    return record_school is not None and record_school.pk == school.pk
 
 
 def assign_user_to_tenant(user, school: School, role: str = 'staff', *, primary: bool = False):

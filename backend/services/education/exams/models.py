@@ -54,7 +54,8 @@ class Exam(SchoolAliasMixin, models.Model):
     def save(self, *args, **kwargs):
         if not self.exam_code:
             year = timezone.now().year
-            last_exam = Exam.objects.filter(exam_code__startswith=f'EXM-{year}').order_by('-exam_code').first()
+            # exam_code is unique across all schools, so number against every school's exams.
+            last_exam = Exam._base_manager.filter(exam_code__startswith=f'EXM-{year}').order_by('-exam_code').first()
             if last_exam:
                 last_num = int(last_exam.exam_code.split('-')[-1])
                 new_num = last_num + 1

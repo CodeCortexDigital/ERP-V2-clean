@@ -126,6 +126,9 @@ class Student(SchoolAliasMixin, SoftDeleteModel):
 
 class Certificate(models.Model):
     """Generated certificates for students and employees"""
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     RECIPIENT_CHOICES = [
         ('student', 'Student'),
         ('employee', 'Employee'),

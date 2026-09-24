@@ -18,6 +18,7 @@ from services.core.utils.cache import (
 from .decorators import get_user_role, filter_students_for_user
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 import logging
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,66 @@ def _serialize_student(student):
 
 
 
+def build_login_response(request, user):
+    """Tokens + user/tenant payload after a successful sign-in (password, Google or signup)."""
+    role = get_user_role(user)
+    student_obj = _get_student_for_user(user)
+
+    if role == 'student' and not student_obj:
+        return Response(
+            {'error': 'This student account is not registered by admin yet.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    import sys
+    is_testing = 'test' in sys.argv or any('pytest' in arg for arg in sys.argv)
+    if role is None and not (user.is_staff or user.is_superuser) and not is_testing:
+        return Response(
+            {'error': 'This account is not assigned to a valid portal role.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Activate pending accounts on first successful login
+    if getattr(user, 'account_status', None) == 'pending':
+        user.account_status = 'active'
+        user.save(update_fields=['account_status'])
+
+    from services.core.tenants.utils import (
+        resolve_tenant_for_user,
+        set_session_tenant,
+    )
+    from services.core.tenants.serializers import SchoolSerializer
+
+    tenant = resolve_tenant_for_user(user)
+    if tenant is not None and not tenant.is_active and not user.is_superuser:
+        return Response({'error': "This school's account is suspended. Please contact support."},
+                        status=status.HTTP_403_FORBIDDEN)
+    refresh = RefreshToken.for_user(user)
+    if tenant:
+        set_session_tenant(request, tenant)
+
+    payload = {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': {
+            'id': str(user.id),
+            'email': user.email,
+            'full_name': getattr(user, 'full_name', user.email),
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'role': role,
+            'portal_path': '/student' if role == 'student' else '/teacher' if role == 'teacher' else '/parent' if role == 'parent' else '/dashboard',
+        },
+    }
+    if student_obj:
+        payload['user']['student'] = _serialize_student(student_obj)
+    if role == 'parent':
+        payload['user']['children'] = [_serialize_student(s) for s in _get_children_for_user(user)]
+    if tenant:
+        payload['tenant'] = SchoolSerializer(tenant).data
+    return Response(payload)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
@@ -109,60 +170,8 @@ def login_view(request):
         except (User.DoesNotExist, ValueError, ValidationError):
             user = authenticate(request, username=login_username, password=password)
     if user and user.is_active:
-        role = get_user_role(user)
-        student_obj = _get_student_for_user(user)
+        return build_login_response(request, user)
 
-        if role == 'student' and not student_obj:
-            return Response(
-                {'error': 'This student account is not registered by admin yet.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        import sys
-        is_testing = 'test' in sys.argv or any('pytest' in arg for arg in sys.argv)
-        if role is None and not (user.is_staff or user.is_superuser) and not is_testing:
-            return Response(
-                {'error': 'This account is not assigned to a valid portal role.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Activate pending accounts on first successful login
-        if getattr(user, 'account_status', None) == 'pending':
-            user.account_status = 'active'
-            user.save(update_fields=['account_status'])
-
-        from services.core.tenants.utils import (
-            resolve_tenant_for_user,
-            set_session_tenant,
-        )
-        from services.core.tenants.serializers import SchoolSerializer
-
-        refresh = RefreshToken.for_user(user)
-        tenant = resolve_tenant_for_user(user)
-        if tenant:
-            set_session_tenant(request, tenant)
-
-        payload = {
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'id': str(user.id),
-                'email': user.email,
-                'full_name': getattr(user, 'full_name', user.email),
-                'is_staff': user.is_staff,
-                'is_superuser': user.is_superuser,
-                'role': role,
-                'portal_path': '/student' if role == 'student' else '/teacher' if role == 'teacher' else '/parent' if role == 'parent' else '/dashboard',
-            },
-        }
-        if student_obj:
-            payload['user']['student'] = _serialize_student(student_obj)
-        if role == 'parent':
-            payload['user']['children'] = [_serialize_student(s) for s in _get_children_for_user(user)]
-        if tenant:
-            payload['tenant'] = SchoolSerializer(tenant).data
-        return Response(payload)
-    
     return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
@@ -269,7 +278,8 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Response({'message': 'Student deactivated'}, status=status.HTTP_200_OK)
 
 
-@method_decorator(cache_page(get_timeout('class_list')), name='get')
+# Cache per signed-in user and school (Vary), never shared between schools.
+@method_decorator([cache_page(get_timeout('class_list')), vary_on_headers('Authorization', 'X-Tenant-ID')], name='get')
 class ClassListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -393,7 +403,9 @@ class ParentDashboardView(generics.GenericAPIView):
 @permission_classes([IsAuthenticated])
 def select_options(request, option_type):
     """Cached dropdown options (classes, sections, subjects, academic_years) — TTL 1 day."""
-    data = get_dropdown_options(option_type)
+    # Cached per school: the cache key must never be shared between schools.
+    tenant = getattr(request, 'tenant', None)
+    data = get_dropdown_options(option_type, tenant_id=str(tenant.pk) if tenant else f'user-{request.user.pk}')
     return Response(data)
 
 

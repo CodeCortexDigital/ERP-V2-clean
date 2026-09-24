@@ -3,6 +3,9 @@ from django.utils import timezone
 import uuid
 
 class Applicant(models.Model):
+    # School (tenant) this row belongs to; filled in automatically (tenants/scoping.py).
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     full_name = models.CharField(max_length=200)
     email = models.EmailField()

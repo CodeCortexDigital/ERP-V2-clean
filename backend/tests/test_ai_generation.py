@@ -46,9 +46,14 @@ def admin():
 
 
 @pytest.fixture
-def subject():
+def school():
+    return SchoolFactory()
+
+
+@pytest.fixture
+def subject(school):
     from services.education.academics.models import Subject
-    return Subject.objects.create(name="Biology", code="BIO-T1")
+    return Subject.objects.create(name="Biology", code="BIO-T1", tenant=school)
 
 
 @pytest.mark.django_db
@@ -130,13 +135,15 @@ class TestQuiz:
         quiz.refresh_from_db()
         assert quiz.is_published and quiz.exam.class_ref_id == cls.id and quiz.exam.total_marks == 3
 
-    def test_teacher_cannot_publish_to_other_class(self, subject):
+    def test_teacher_cannot_publish_to_other_class(self, subject, school):
         from services.core.accounts.models import TeacherProfile
+        from services.core.tenants.models import TenantMembership
         from services.education.exams.models import Quiz
         teacher = UserFactory()
         TeacherProfile.objects.create(user=teacher, employee_id="T-GEN-1")
+        TenantMembership.objects.create(user=teacher, school=school, role="teacher", is_primary=True)
         quiz = Quiz.objects.create(subject=subject, title="Q", topic="t", difficulty="easy")
-        cls = ClassFactory(school=SchoolFactory())
+        cls = ClassFactory(school=school)  # same school, but not a class this teacher teaches
         res = _client(teacher).post("/api/v1/ai/publish-quiz/", {"quiz_id": str(quiz.id), "class_id": str(cls.id)}, format="json")
         assert res.status_code == 403
 
