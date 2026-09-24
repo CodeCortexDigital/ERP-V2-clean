@@ -1,0 +1,36 @@
+All four phases are finished and pushed to GitHub (b36bc54), so Render is deploying now. The earlier security fix went out first, as its own push.
+
+Phase 1 – schools are kept separate
+
+Before this, every school would have seen every other school's data: filtering by school was switched off, and 65 of 74 data tables didn't record a school.
+Every school-owned record now belongs to a school. Each request is filtered to the user's school automatically, new records are stamped with it, and saving a record that points at another school's data is refused.
+A signed-in user with no school sees nothing at all.
+Also fixed: cached responses, the dropdown lists and the live dashboard updates were shared between schools. The live dashboard also accepted connections from anyone who wasn't logged in; it no longer does.
+A test calls all 193 list endpoints as a second school and checks that none of the first school's data appears. I checked the test itself: with separation switched off, it immediately flags dozens of endpoints.
+Existing demo data now belongs to CodeCortex Model School, and the demo works as before.
+Phase 2 – schools can sign up themselves
+
+"Create your school" on the login page opens /signup. The person signing up becomes that school's admin, and the new school starts empty with a setup checklist on its dashboard.
+Tested in a browser: a new school signed up, saw none of the demo school's data, added a class and a student, and that student signed in with their generated login.
+Phase 3 – Google sign-in
+
+"Continue with Google" appears on the login and signup pages.
+A Google account that isn't registered is sent to "Create your school"; before, anyone with a Google account would have got an account.
+I couldn't test the real Google pop-up (it needs a real Google account). The server side is covered by tests using a simulated Google login.
+Phase 4 – your platform view
+
+All Schools (in the sidebar for superusers) lists every school with student and staff counts and its admins.
+You can suspend a school there, which blocks its users from signing in, and re-activate it later.
+Tests: 155 backend tests pass. The only failure is the leave-approval test that was already failing before this work. Frontend type check is clean, and the frontend unit tests show the same two failures as before.
+
+What you need to do:
+
+In Render, add FIREBASE_PROJECT_ID = school-erp-c53b4 to the backend's Environment tab. I added it to render.yaml, but Render doesn't always pick blueprint changes up by itself.
+In the Firebase console, go to Authentication → Sign-in method, enable Google, and add your live frontend domain under Authorized domains.
+Check the security fix is live (I don't know your backend's address). This should return 401: curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer mock-access-token" https://<your-backend>/api/v1/auth/me/
+Generate portal logins. In Portal Logins (Students and Employees), click Generate missing logins, then reprint the letters.
+Limits to know (also listed in the README):
+
+Student IDs, employee IDs and emails must be unique across all schools, because they are login usernames. Each school should use its own prefix, e.g. GVS-001.
+A parent with children in two different schools shares one account and sees only their first school's children.
+Billing and plans aren't built yet; the platform page only lists, suspends and re-activates schools.
