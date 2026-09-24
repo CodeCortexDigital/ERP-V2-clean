@@ -5,6 +5,7 @@ import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import financeService from '@/services/finance.service';
 import classSectionService from '@/services/classSection.service';
+import { cur } from '@/utils/currency';
 
 export default function DiscountType() {
   const [discounts, setDiscounts] = useState<any[]>([]);
@@ -229,7 +230,7 @@ export default function DiscountType() {
                     </td>
                     <td className="p-3.5 font-bold text-slate-700">
                       {d.scholarship_type === 'percentage' ? `${d.value}%` :
-                       d.scholarship_type === 'fixed' ? `PKR ${Number(d.value).toLocaleString()}` : '100% Waiver'}
+                       d.scholarship_type === 'fixed' ? `${cur()} ${Number(d.value).toLocaleString()}` : '100% Waiver'}
                     </td>
                     <td className="p-3.5 font-mono text-[11px] text-slate-500">{d.valid_from}</td>
                     <td className="p-3.5 font-mono text-[11px] text-slate-500">{d.valid_until || 'No Limit'}</td>
@@ -338,7 +339,7 @@ export default function DiscountType() {
                 {scholarshipType !== 'fee_waiver' ? (
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                      {scholarshipType === 'percentage' ? 'Percentage (%) *' : 'Fixed Amount (PKR) *'}
+                      {scholarshipType === 'percentage' ? 'Percentage (%) *' : `Fixed Amount (${cur()}) *`}
                     </label>
                     <input
                       type="number"

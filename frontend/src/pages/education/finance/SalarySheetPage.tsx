@@ -5,6 +5,7 @@ import { Landmark, Search, Printer, Calendar, Users, DollarSign, Wallet, FileTex
 import teacherService from '@/services/teacher.service';
 import api, { extractListData } from '@/services/api';
 import ledgerService from '@/services/ledger.service';
+import { cur } from '@/utils/currency';
 
 interface SalaryPayment {
   id: string;
@@ -220,19 +221,19 @@ export default function SalarySheetPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-4 print:pt-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">TOTAL BUDGET</span>
-          <span className="text-xl font-black text-slate-850 block">Rs {totalLiabilities.toLocaleString()}</span>
+          <span className="text-xl font-black text-slate-850 block">{cur()} {totalLiabilities.toLocaleString()}</span>
           <span className="text-[9px] text-slate-400 font-bold block">{filteredTeachers.length} registered employees</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">TOTAL DISBURSED</span>
-          <span className="text-xl font-black text-emerald-600 block">Rs {totalDisbursed.toLocaleString()}</span>
+          <span className="text-xl font-black text-emerald-600 block">{cur()} {totalDisbursed.toLocaleString()}</span>
           <span className="text-[9px] text-slate-400 font-bold block">{paidCount} employees paid</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">TOTAL PENDING</span>
-          <span className="text-xl font-black text-amber-500 block">Rs {totalPending.toLocaleString()}</span>
+          <span className="text-xl font-black text-amber-500 block">{cur()} {totalPending.toLocaleString()}</span>
           <span className="text-[9px] text-slate-400 font-bold block">{unpaidCount} employees unpaid</span>
         </div>
 
@@ -281,15 +282,15 @@ export default function SalarySheetPage() {
                     <td className="py-2.5 px-4 font-mono text-slate-500">{teacher.id?.slice(0, 8) || '250963'}</td>
                     <td className="py-2.5 px-4 font-black text-slate-800">{teacher.full_name}</td>
                     <td className="py-2.5 px-4 text-slate-555">{teacher.designation || 'Teacher'}</td>
-                    <td className="py-2.5 px-4 text-right">Rs {fixed.toLocaleString()}</td>
+                    <td className="py-2.5 px-4 text-right">{cur()} {fixed.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right text-emerald-600">
-                      Rs {paidRecord ? paidRecord.allowances.toLocaleString() : '0'}
+                      {cur()} {paidRecord ? paidRecord.allowances.toLocaleString() : '0'}
                     </td>
                     <td className="py-2.5 px-4 text-right text-rose-500">
-                      Rs {paidRecord ? paidRecord.deductions.toLocaleString() : '0'}
+                      {cur()} {paidRecord ? paidRecord.deductions.toLocaleString() : '0'}
                     </td>
                     <td className="py-2.5 px-4 text-right font-black text-slate-900">
-                      Rs {paidRecord ? paidRecord.net_salary.toLocaleString() : fixed.toLocaleString()}
+                      {cur()} {paidRecord ? paidRecord.net_salary.toLocaleString() : fixed.toLocaleString()}
                     </td>
                     <td className="py-2.5 px-4 text-center">
                       <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${

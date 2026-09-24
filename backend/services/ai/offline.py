@@ -2,8 +2,11 @@
 provider call fails. Goes through the same role-gated tools as the LLM path."""
 from __future__ import annotations
 
+import contextvars
 import json
 import re
+
+from services.core.tenants.localization import school_locale
 
 from .context import AIContext
 from .tools import ToolNotAllowed, call_tool
@@ -11,6 +14,16 @@ from .tools import ToolNotAllowed, call_tool
 # ---------------------------------------------------------------------------
 # Offline fallback — keyword intent matching over the same role-gated tools.
 # ---------------------------------------------------------------------------
+
+# The asking school's currency, set per answer by offline_answer().
+_LOCALE = contextvars.ContextVar('offline_locale', default=None)
+
+
+def _m(amount) -> str:
+    """Money in the school's currency, e.g. 'Rs 2,028,500' or '€ 1,234.50'."""
+    loc = _LOCALE.get() or school_locale(None)
+    return f"{loc['currency_symbol']} {float(amount or 0):,.{loc['currency_decimals']}f}"
+
 
 def _run(ctx: AIContext, name: str, **args):
     """Call a tool; returns None if the caller's role may not use it."""
@@ -46,11 +59,11 @@ def _fmt_search(d):
 def _fmt_finance(fin, dfl):
     return (
         f"💰 **Financial & Fee Overview**\n"
-        f"  - Total Billed: Rs {fin['total_billed']:,.0f}\n"
-        f"  - Total Fee Collected: Rs {fin['total_collected']:,.0f}\n"
-        f"  - Total Outstanding Due: Rs {fin['total_outstanding']:,.0f}\n\n"
+        f"  - Total Billed: {_m(fin['total_billed'])}\n"
+        f"  - Total Fee Collected: {_m(fin['total_collected'])}\n"
+        f"  - Total Outstanding Due: {_m(fin['total_outstanding'])}\n\n"
         f"⚠️ **Fee Defaulters ({dfl['count']}):**\n"
-        + _bullets(dfl["defaulters"][:10], lambda r: f"{r['name']} ({r['class']}): Rs {r['amount_due']:,.0f} due",
+        + _bullets(dfl["defaulters"][:10], lambda r: f"{r['name']} ({r['class']}): {_m(r['amount_due'])} due",
                    "No fee defaulters found. All student fees are clear!")
     )
 
@@ -79,7 +92,7 @@ def _fmt_student(d):
         f"  - Guardian: {p['guardian_name']} | Phone: {p['phone']}"
     )
     if "outstanding_balance" in d:
-        text += f"\n  - Outstanding Fee Balance: Rs {d['outstanding_balance']:,.0f}"
+        text += f"\n  - Outstanding Fee Balance: {_m(d['outstanding_balance'])}"
     return text
 
 
@@ -100,8 +113,8 @@ def _fmt_self(name, d):
         return (f"Attendance ({d['scope']}): {d['present']}/{d['total_records']} present "
                 f"({d['attendance_percentage']}%). Absent: {d['absent']}.")
     if name == "my_fees":
-        return f"Your fee summary — Total due: Rs {d['outstanding_balance']:,.0f}\n" + _bullets(
-            d["unpaid_invoices"], lambda i: f"{i['invoice_number']}: Rs {i['amount_due']:,.0f} due {i['due_date']} ({i['status']})",
+        return f"Your fee summary — Total due: {_m(d['outstanding_balance'])}\n" + _bullets(
+            d["unpaid_invoices"], lambda i: f"{i['invoice_number']}: {_m(i['amount_due'])} due {i['due_date']} ({i['status']})",
             "No unpaid invoices.")
     if name == "my_exams":
         return f"Exams ({d['count']}):\n" + _bullets(
@@ -140,6 +153,7 @@ NOT_ALLOWED = "Sorry, that information isn't available for your account."
 
 
 def offline_answer(query: str, ctx: AIContext) -> str:
+    _LOCALE.set(school_locale(ctx.tenant))
     q = query.strip().lower()
     school_wide = ctx.role in ("admin", "accountant") or (ctx.role == "teacher" and "my " not in q)
 

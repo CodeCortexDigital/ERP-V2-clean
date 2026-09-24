@@ -97,7 +97,7 @@ def test_google_login_without_configuration_is_refused(monkeypatch):
     monkeypatch.delenv('FIREBASE_PROJECT_ID', raising=False)
     res = APIClient().post('/api/v1/auth/firebase/login/', {'id_token': 'anything'}, format='json')
     assert res.status_code == 401
-    assert APIClient().get('/api/v1/tenants/signup/config/').json() == {'google_sign_in': False}
+    assert APIClient().get('/api/v1/tenants/signup/config/').json()['google_sign_in'] is False
 
 
 @pytest.mark.django_db
@@ -127,3 +127,53 @@ def test_school_admin_cannot_open_platform_console():
     res = APIClient().post(SIGNUP, {'school_name': 'Plain School', 'admin_name': 'P', 'email': 'p@plain.pk',
                                     'password': 'Plain#School2026'}, format='json')
     assert _bearer(res.json()['access']).get('/api/v1/tenants/platform/schools/').status_code == 403
+
+
+@pytest.mark.django_db
+def test_signup_sets_currency_and_language_and_admin_can_change_them():
+    res = APIClient().post(SIGNUP, {
+        'school_name': 'Ecole Lumiere', 'admin_name': 'Claire', 'email': 'claire@lumiere.fr',
+        'password': 'Lumiere#Ecole2026', 'currency': 'eur', 'language': 'fr', 'timezone': 'Europe/Paris',
+    }, format='json')
+    assert res.status_code == 201, res.content
+    locale = res.json()['tenant']['locale']
+    assert locale['currency'] == 'EUR' and locale['currency_symbol'] == '€'
+    assert locale['language'] == 'fr' and locale['direction'] == 'ltr' and locale['timezone'] == 'Europe/Paris'
+
+    admin = _bearer(res.json()['access'])
+    changed = admin.put('/api/v1/tenants/locale/', {'currency': 'GBP', 'language': 'ar'}, format='json')
+    assert changed.status_code == 200
+    assert changed.json()['locale']['currency_symbol'] == '£' and changed.json()['locale']['direction'] == 'rtl'
+    assert admin.put('/api/v1/tenants/locale/', {'currency': 'XXX'}, format='json').status_code == 400
+
+
+@pytest.mark.django_db
+def test_unsupported_currency_or_language_rejected_at_signup():
+    res = APIClient().post(SIGNUP, {'school_name': 'Bad Money School', 'admin_name': 'B', 'email': 'b@bad.pk',
+                                    'password': 'Bad#Money2026', 'currency': 'ZZZ'}, format='json')
+    assert res.status_code == 400 and 'currency' in res.json()['fields']
+    config = APIClient().get('/api/v1/tenants/signup/config/').json()
+    codes = {c['code'] for c in config['currencies']}
+    assert {'PKR', 'EUR', 'GBP', 'USD', 'SAR', 'TRY', 'RON', 'RSD', 'ALL', 'KRW', 'BRL', 'MXN', 'CAD', 'ZAR'} <= codes
+    assert {'en', 'fr', 'de', 'ar', 'ur', 'tr', 'ko', 'sq', 'sr', 'hr', 'ro', 'pt', 'es'} <= {l['code'] for l in config['languages']}
+
+
+@pytest.mark.django_db
+def test_only_school_admin_changes_locale():
+    school = SchoolFactory()
+    teacher = UserFactory()
+    TenantMembership.objects.create(user=teacher, school=school, role='teacher', is_primary=True)
+    client = _bearer(str(RefreshToken.for_user(teacher).access_token))
+    assert client.get('/api/v1/tenants/locale/').status_code == 200
+    assert client.put('/api/v1/tenants/locale/', {'currency': 'USD'}, format='json').status_code == 403
+
+
+@pytest.mark.django_db
+def test_ai_quick_answers_use_school_currency(settings):
+    settings.OPENAI_API_KEY = ''
+    settings.ANTHROPIC_API_KEY = ''
+    res = APIClient().post(SIGNUP, {'school_name': 'Istanbul Koleji', 'admin_name': 'Ayse', 'email': 'ayse@koleji.tr',
+                                    'password': 'Koleji#Ist2026', 'currency': 'TRY', 'language': 'tr'}, format='json')
+    reply = _bearer(res.json()['access']).post(
+        '/api/v1/ai/chat/', {'messages': [{'role': 'user', 'content': 'finance summary'}]}, format='json').json()['reply']
+    assert '₺' in reply and 'Rs ' not in reply

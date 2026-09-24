@@ -8,6 +8,7 @@ import { Calendar, Clock, DollarSign, BookOpen, User, RefreshCw, UserCheck, Aler
 import { toast } from 'sonner';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import tenantService from '@/services/tenant.service';
+import { cur } from '@/utils/currency';
 
 interface FeeItem {
   amount: number;
@@ -523,7 +524,7 @@ export default function StudentDashboard() {
                       return (
                         <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-150">
                           <div className="space-y-0.5">
-                            <span className="block text-xs font-black text-slate-700">Rs {fee.amount.toLocaleString()}</span>
+                            <span className="block text-xs font-black text-slate-700">{cur()} {fee.amount.toLocaleString()}</span>
                             <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Fees of {fee.month}</span>
                           </div>
                           <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${badge}`}>

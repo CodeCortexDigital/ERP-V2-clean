@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getCurrencySymbol } from '@/utils/currency';
+import { getCurrencySymbol, cur } from '@/utils/currency';
 import { 
   Receipt, 
   Search, 
@@ -508,7 +508,7 @@ export default function InvoicesPage() {
           type: 'income',
           account_head_name: 'Student Fee Collection',
           reference: receivingInvoice.invoice_number || `INV-${receivingInvoice.id}`,
-          notes: `Received Rs ${deposit} via ${receiveMethod}`
+          notes: `Received ${cur()} ${deposit} via ${receiveMethod}`
         });
       } catch (e) {
         console.warn('Ledger notice:', e);
@@ -527,7 +527,7 @@ export default function InvoicesPage() {
         localStorage.setItem('erp_collected_fees', JSON.stringify(localFeeReceipts));
       } catch (e) {}
 
-      toast.success(`Payment of Rs ${deposit.toLocaleString()} received for ${receivingInvoice.invoice_number}!`);
+      toast.success(`Payment of ${cur()} ${deposit.toLocaleString()} received for ${receivingInvoice.invoice_number}!`);
       setShowReceiveModal(false);
       setReceivingInvoice(null);
       fetchData();
@@ -1013,7 +1013,7 @@ export default function InvoicesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Deposit / Payment Amount (Rs) *</label>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Deposit / Payment Amount ({cur()}) *</label>
                 <input
                   type="number"
                   placeholder="Enter amount paid..."

@@ -7,6 +7,7 @@ import academicService from '@/services/academic.service';
 import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 import settingsService from '@/services/settings.service';
+import { cur } from '@/utils/currency';
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
@@ -445,7 +446,7 @@ export default function GenerateFeesInvoicePage() {
         setPreviousBalance(total);
         setPendingInvoices(pending);
         if (total > 0) {
-          toast.info(`Previous balance: Rs ${total.toLocaleString()} from ${pending.length} pending invoice(s)`);
+          toast.info(`Previous balance: ${cur()} ${total.toLocaleString()} from ${pending.length} pending invoice(s)`);
         }
       }
     };
@@ -616,7 +617,7 @@ export default function GenerateFeesInvoicePage() {
             return sum + balance;
           }, 0);
           const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
-          transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
+          transferNote = ` (Includes pending balance of ${cur()} ${totalPending} from invoice(s): ${invNos})`;
         }
         const labelPrefix = calculatedInvoiceType === 'tuition' ? 'Fee Submission' : `${calculatedInvoiceType.toUpperCase()} Fee`;
         const customDesc = structuresLabel 
@@ -695,7 +696,7 @@ export default function GenerateFeesInvoicePage() {
               return sum + balance;
             }, 0);
             const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
-            transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
+            transferNote = ` (Includes pending balance of ${cur()} ${totalPending} from invoice(s): ${invNos})`;
           }
           const labelPrefix = calculatedInvoiceType === 'tuition' ? 'Fee Submission' : `${calculatedInvoiceType.toUpperCase()} Fee`;
           return structuresLabel 
@@ -804,7 +805,7 @@ export default function GenerateFeesInvoicePage() {
               return sum + balance;
             }, 0);
             const invNos = pending.map((pInv: any) => pInv.invoice_number).join(', ');
-            transferNote = ` (Includes pending balance of Rs ${totalPending} from invoice(s): ${invNos})`;
+            transferNote = ` (Includes pending balance of ${cur()} ${totalPending} from invoice(s): ${invNos})`;
           }
           const labelPrefix = calculatedInvoiceType === 'tuition' ? 'Fee Submission' : `${calculatedInvoiceType.toUpperCase()} Fee`;
           return structuresLabel 
@@ -1189,7 +1190,7 @@ export default function GenerateFeesInvoicePage() {
                 <div>
                   <p className="text-xs font-bold text-amber-700">Previous Balance Detected</p>
                   <p className="text-xs text-amber-600">
-                    Rs {previousBalance.toLocaleString()} pending from {pendingInvoices.length} invoice(s).
+                    {cur()} {previousBalance.toLocaleString()} pending from {pendingInvoices.length} invoice(s).
                     <span className="text-amber-700 font-bold ml-1">
                       These will be transferred to the new invoice.
                     </span>
@@ -1198,7 +1199,7 @@ export default function GenerateFeesInvoicePage() {
                     <div className="mt-1 text-[10px] text-amber-500">
                       {pendingInvoices.map((inv: any) => (
                         <span key={inv.id} className="inline-block mr-3">
-                          {inv.fee_month}: Rs {inv.remaining_balance}
+                          {inv.fee_month}: {cur()} {inv.remaining_balance}
                         </span>
                       ))}
                     </div>
@@ -1269,7 +1270,7 @@ export default function GenerateFeesInvoicePage() {
                 <div>
                   <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-2">PREVIOUS BALANCE</label>
                   <div className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-amber-600 flex items-center">
-                    Rs {previousBalance.toLocaleString()}
+                    {cur()} {previousBalance.toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -1333,7 +1334,7 @@ export default function GenerateFeesInvoicePage() {
                             <span className="text-xs">{fs.fee_name}</span>
                           </label>
                           <div className="flex items-center gap-1.5 pl-2">
-                            <span className="text-xs text-slate-400 font-bold">Rs</span>
+                            <span className="text-xs text-slate-400 font-bold">{cur()}</span>
                             <input
                               type="number"
                               value={customAmounts[fs.id] !== undefined ? customAmounts[fs.id] : Number(fs.amount)}
@@ -1370,7 +1371,7 @@ export default function GenerateFeesInvoicePage() {
                     {activeDiscount && discountAmount > 0 && (
                       <div className="mt-2 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 rounded-lg p-2 flex items-center justify-between">
                         <span>✓ Discount Applied: ({activeDiscount.scholarship_name})</span>
-                        <span>-Rs {discountAmount.toLocaleString()}</span>
+                        <span>-{cur()} {discountAmount.toLocaleString()}</span>
                       </div>
                     )}
                   </div>
@@ -1383,7 +1384,7 @@ export default function GenerateFeesInvoicePage() {
                   {activeStructures.length === 0 && parseFloat(feeAmount || '0') > 0 && (
                     <div className="flex justify-between">
                       <span>Tuition / Base Fee:</span>
-                      <span>Rs {parseFloat(feeAmount || '0').toLocaleString()}</span>
+                      <span>{cur()} {parseFloat(feeAmount || '0').toLocaleString()}</span>
                     </div>
                   )}
                   {activeStructures.filter(fs => checkedStructureIds.includes(fs.id)).map(fs => {
@@ -1391,27 +1392,27 @@ export default function GenerateFeesInvoicePage() {
                     return (
                       <div key={fs.id} className="flex justify-between font-normal text-slate-555">
                         <span>{fs.fee_name}:</span>
-                        <span>Rs {amt.toLocaleString()}</span>
+                        <span>{cur()} {amt.toLocaleString()}</span>
                       </div>
                     );
                   })}
                   {previousBalance > 0 && (
                     <div className="flex justify-between text-amber-700 font-bold bg-amber-50/50 px-2 py-1 rounded">
                       <span>Previous Balance:</span>
-                      <span>Rs {previousBalance.toLocaleString()}</span>
+                      <span>{cur()} {previousBalance.toLocaleString()}</span>
                     </div>
                   )}
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-emerald-600 font-bold bg-emerald-50/50 px-2 py-1 rounded">
                       <span>Discount:</span>
-                      <span>-Rs {discountAmount.toLocaleString()}</span>
+                      <span>-{cur()} {discountAmount.toLocaleString()}</span>
                     </div>
                   )}
                 </div>
                 <div className="flex justify-between items-center text-sm font-extrabold text-slate-800 border-t border-purple-100 pt-3">
                   <span className="text-purple-800 uppercase tracking-wide text-xs">Total Invoice Amount:</span>
                   <span className="text-purple-700 text-lg font-mono">
-                    Rs {(
+                    {cur()} {(
                       (activeStructures.length === 0 ? parseFloat(feeAmount || '0') : 0) +
                       activeStructures
                         .filter(fs => checkedStructureIds.includes(fs.id))
@@ -1604,11 +1605,11 @@ function ChallanSlipCard({
           <div className="space-y-1 text-right pt-2">
             <div className="flex justify-between font-bold text-slate-500">
               <span>TOTAL</span>
-              <span className="font-extrabold text-slate-800">Rs {invoice.total_amount || invoice.amount}</span>
+              <span className="font-extrabold text-slate-800">{cur()} {invoice.total_amount || invoice.amount}</span>
             </div>
             <div className="flex justify-between font-black text-purple-800 text-[10px] leading-tight">
               <span>PAYABLE AFTER DUE DATE</span>
-              <span>Rs {(invoice.total_amount || invoice.amount) + (invoice.fine_after_due_date || 0)}</span>
+              <span>{cur()} {(invoice.total_amount || invoice.amount) + (invoice.fine_after_due_date || 0)}</span>
             </div>
           </div>
         </div>
@@ -1622,7 +1623,7 @@ function ParticularRow({ sr, name, amount }: { sr: number; name: string; amount:
     <div className={`grid grid-cols-12 font-semibold ${amount > 0 ? 'text-slate-700 font-extrabold' : 'text-slate-350'}`}>
       <span className="col-span-2 text-slate-400">{sr}</span>
       <span className="col-span-6 truncate">{name}</span>
-      <span className="col-span-4 text-right">Rs {amount}</span>
+      <span className="col-span-4 text-right">{cur()} {amount}</span>
     </div>
   );
 }

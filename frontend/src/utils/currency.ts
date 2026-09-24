@@ -1,15 +1,15 @@
+import { currentCurrency } from '@/store/localeStore';
+
+/** The school's currency symbol, e.g. 'Rs', '€', '£' (Settings → Language & currency). */
 export function getCurrencySymbol(): string {
-  try {
-    const raw = localStorage.getItem('account_settings');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.symbol) return parsed.symbol;
-    }
-  } catch {}
-  return 'Rs';
+  return currentCurrency().currency_symbol || 'Rs';
 }
 
-const SOUTH_ASIAN = ['rs', 'rs.', '₨', '₹', 'pkr', 'inr'];
+/** Short alias for page text: `${cur()} 1,000` or <>{cur()} {amount}</>. */
+export const cur = getCurrencySymbol;
+
+// Currencies whose readers group large amounts in lakh / crore.
+const LAKH_CRORE = ['PKR', 'INR', 'LKR', 'NPR', 'BDT'];
 
 /**
  * Short money label for cards where space is tight: "Rs 20.3 lakh",
@@ -20,7 +20,7 @@ export function formatCompactMoney(amount: number, symbol = getCurrencySymbol())
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
   const fmt = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: v < 10 ? 2 : 1 });
-  if (SOUTH_ASIAN.includes(symbol.trim().toLowerCase())) {
+  if (LAKH_CRORE.includes(currentCurrency().currency) && symbol === getCurrencySymbol()) {
     if (abs >= 1e7) return `${sign}${symbol} ${fmt(abs / 1e7)} crore`;
     if (abs >= 1e5) return `${sign}${symbol} ${fmt(abs / 1e5)} lakh`;
   } else if (abs >= 1e5) {
@@ -30,8 +30,10 @@ export function formatCompactMoney(amount: number, symbol = getCurrencySymbol())
   return `${sign}${symbol} ${abs.toLocaleString()}`;
 }
 
-/** Full amount, e.g. "Rs 2,028,500" (used for tooltips next to compact values). */
+/** Full amount in the school's currency, e.g. "Rs 2,028,500" or "€ 1,234.50". */
 export function formatMoney(amount: number, symbol = getCurrencySymbol()): string {
   const n = Number(amount) || 0;
-  return `${n < 0 ? '-' : ''}${symbol} ${Math.abs(n).toLocaleString()}`;
+  const decimals = currentCurrency().currency_decimals ?? 0;
+  const text = Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: n % 1 ? decimals : 0, maximumFractionDigits: decimals });
+  return `${n < 0 ? '-' : ''}${symbol} ${text}`;
 }

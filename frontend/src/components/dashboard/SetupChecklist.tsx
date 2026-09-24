@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Circle, ChevronRight, Rocket, X } from 'lucide-react';
 import schoolService, { type SetupStep } from '@/services/school.service';
+import { useTranslation } from 'react-i18next';
 
 const DISMISS_KEY = 'setup_checklist_dismissed';
 
 /** Getting-started steps for a new school; hides itself once everything is done. */
 export default function SetupChecklist() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [params] = useSearchParams();
   const [steps, setSteps] = useState<SetupStep[] | null>(null);
   const [schoolName, setSchoolName] = useState('');
@@ -52,16 +54,16 @@ export default function SetupChecklist() {
         </span>
         <div className="flex-1 min-w-0">
           <h2 id="setup-title" className="text-base font-bold text-slate-900">
-            {justCreated ? `Welcome to ${schoolName || 'your new school'}!` : 'Finish setting up your school'}
+            {justCreated ? t('setup.welcome', { school: schoolName }) : t('setup.finish')}
           </h2>
           <p className="text-sm text-slate-500">
-            {done} of {steps.length} steps done. Your school's data is private to your school.
+            {t('setup.progress', { done, total: steps.length })}
           </p>
           <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
             <div className="h-full bg-brand transition-all" style={{ width: `${pct}%` }} />
           </div>
         </div>
-        <button onClick={dismiss} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100" aria-label="Hide setup checklist">
+        <button onClick={dismiss} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100" aria-label={t('setup.hide')}>
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -76,8 +78,8 @@ export default function SetupChecklist() {
               }`}
             >
               {s.done ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <Circle className="w-5 h-5 shrink-0 text-slate-300" />}
-              <span className={`flex-1 ${s.done ? 'line-through decoration-emerald-400' : 'font-medium'}`}>{s.label}</span>
-              {!s.done && <ChevronRight className="w-4 h-4 text-slate-400" />}
+              <span className={`flex-1 ${s.done ? 'line-through decoration-emerald-400' : 'font-medium'}`}>{t(`setup.steps.${s.key}`, { defaultValue: s.label })}</span>
+              {!s.done && <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />}
             </button>
           </li>
         ))}

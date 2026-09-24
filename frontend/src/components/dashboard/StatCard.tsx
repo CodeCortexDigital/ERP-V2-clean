@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface StatCardProps {
   title: string;
@@ -29,6 +30,7 @@ export default function StatCard({
   fullValue,
 }: StatCardProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleClick = () => {
     if (onClick) {
@@ -71,15 +73,15 @@ export default function StatCard({
 
       {(suffix || subValue !== undefined) && (
         <p className="relative z-10 mt-1 text-xs text-white/75 truncate" title={String(subValue ?? '')}>
-          <span className="font-semibold text-white/90">{suffix || 'This month'}:</span>{' '}
+          <span className="font-semibold text-white/90">{suffix || t('dashboard.thisMonth')}:</span>{' '}
           {currency ? `${currency} ` : ''}{subValue ?? value}
         </p>
       )}
 
       {isClickable && (
         <div className="relative z-10 mt-auto pt-3 text-[11px] font-medium text-white/60 group-hover:text-white flex items-center gap-0.5 transition-colors">
-          View details
-          <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+          {t('dashboard.viewDetails')}
+          <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 rtl:rotate-180" />
         </div>
       )}
     </div>

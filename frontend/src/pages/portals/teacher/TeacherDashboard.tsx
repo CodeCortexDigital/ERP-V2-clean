@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { cur } from '@/utils/currency';
 
 interface ClassStat {
   present: number;
@@ -219,7 +220,7 @@ export default function TeacherDashboard() {
             joining_date: savedEmployee.joiningDate || '',
             is_active: true,
             profile_picture: null,
-            monthly_salary: savedEmployee.monthlySalary || 'Rs. 1,000',
+            monthly_salary: savedEmployee.monthlySalary || `${cur()} 1,000`,
             father_husband_name: savedEmployee.fatherName || '',
             national_id: savedEmployee.cnic || '',
             religion: savedEmployee.religion || 'Islam',
@@ -264,7 +265,7 @@ export default function TeacherDashboard() {
         regNo: currentEmp?.employee_id ||
           (localStorage.getItem('current_employee_data') && JSON.parse(localStorage.getItem('current_employee_data') || '{}').regNo) || 'N/A',
         role: currentEmp?.specializations?.[0] || 'Teacher',
-        monthlySalary: currentEmp?.monthly_salary || 'Rs. 1,000',
+        monthlySalary: currentEmp?.monthly_salary || `${cur()} 1,000`,
         fatherName: currentEmp?.father_husband_name || '--',
         phone: currentEmp?.phone || '--',
         email: currentEmp?.email || user?.email || '--',

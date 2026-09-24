@@ -6,6 +6,7 @@ import {
   Activity, RefreshCw, Loader2, AlertCircle, FileText
 } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
+import { cur } from '@/utils/currency';
 
 interface HistoryItem {
   id: string;
@@ -54,7 +55,7 @@ export default function EmployeeHistoryPage() {
       // Load extra details from teacher record
       const extra = {
         role: teacherData?.designation || teacherData?.specializations?.[0] || 'Teacher',
-        monthlySalary: teacherData?.monthly_salary || 'Rs 0'
+        monthlySalary: teacherData?.monthly_salary || `${cur()} 0`
       };
 
       // Generate history
@@ -93,7 +94,7 @@ export default function EmployeeHistoryPage() {
         id: 'hist-2',
         action_type: 'salary',
         action: 'Salary Configured',
-        description: `Monthly salary configured to ${extra.monthlySalary || 'Rs 45,000'}.`,
+        description: `Monthly salary configured to ${extra.monthlySalary || `${cur()} 45,000`}.`,
         timestamp: teacher.joining_date ? `${teacher.joining_date}T09:15:00Z` : new Date().toISOString(),
         user: 'System'
       },

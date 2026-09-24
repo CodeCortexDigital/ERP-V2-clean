@@ -91,7 +91,8 @@ export const applyGlobalTheme = (settings?: ThemeSettings) => {
   root.style.setProperty('--font-display', fontDisplay);
 
   // 5. Direction
-  root.dir = String(t.placement).toLowerCase() === 'rtl' ? 'rtl' : 'ltr';
+  // Right-to-left languages (Arabic, Urdu) always get RTL; otherwise the theme setting decides.
+  root.dir = root.dataset.langDir === 'rtl' || String(t.placement).toLowerCase() === 'rtl' ? 'rtl' : 'ltr';
 
   // 6. Chrome styles read by Sidebar / Header
   root.dataset.sidebarBg = t.sidebarBg === 'Light' ? 'light' : 'dark';

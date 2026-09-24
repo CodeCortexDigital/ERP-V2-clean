@@ -68,7 +68,10 @@ class PDFGenerator:
         elements.append(Spacer(1, 20))
         
         # Fee Details
-        fee_data = [["Description", "Amount (PKR)", "Status"]]
+        from services.core.tenants.localization import school_locale
+
+        student_school = getattr(getattr(invoice, 'student', None), 'tenant', None) if invoice else None
+        fee_data = [["Description", f"Amount ({school_locale(student_school)['currency']})", "Status"]]
         
         # Base Items
         if invoice and getattr(invoice, 'opening_balance', 0) > 0:

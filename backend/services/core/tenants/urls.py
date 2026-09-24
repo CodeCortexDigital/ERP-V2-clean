@@ -11,6 +11,8 @@ urlpatterns = [
     # Self-service: create a school and its first admin (public, throttled)
     path('signup/', signup.school_signup, name='tenant-signup'),
     path('signup/config/', signup.signup_config, name='tenant-signup-config'),
+    # The school's currency and language (read: everyone; change: school admin)
+    path('locale/', signup.school_locale_view, name='tenant-locale'),
     path('onboarding/', signup.onboarding_status, name='tenant-onboarding'),
     # Platform owner (superuser): all schools, suspend / re-activate
     path('platform/schools/', platform.platform_schools, name='platform-schools'),

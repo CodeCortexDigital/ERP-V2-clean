@@ -22,7 +22,7 @@ export interface SettingsTab {
 export const menuItems: SettingsTab[] = [
   { id: 'profile', path: '/settings/profile', label: 'Profile', icon: Building2, dark: 'bg-blue-700', light: 'bg-blue-100', rgb: '29 78 216' },
   { id: 'theme', path: '/settings/theme', label: 'Theme', icon: Palette, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
-  { id: 'language', path: '/settings/language', label: 'Language', icon: Languages, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'language', path: '/settings/language', label: 'Language & currency', icon: Languages, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'account', path: '/settings/account', label: 'Account', icon: ShieldCheck, dark: 'bg-slate-700', light: 'bg-slate-100', rgb: '51 65 85' },
   { id: 'role-permissions', path: '/settings/role-permissions', label: 'Role Permissions', icon: ShieldCheck, dark: 'bg-purple-700', light: 'bg-purple-100', rgb: '147 51 234' },
 ];

@@ -5,6 +5,7 @@ import { Search, CreditCard, ArrowLeft, Printer, FileText, Ban, User } from 'luc
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import ledgerService from '@/services/ledger.service';
+import { cur } from '@/utils/currency';
 
 interface SalaryPayment {
   id: string;
@@ -182,9 +183,9 @@ export default function SalaryPaidSlipPage() {
               <div className="space-y-1">
                 <p className="text-slate-450">Salary Month: <strong className="text-slate-850">{latestSlip.month}</strong></p>
                 <p className="text-slate-450">Date of Receiving: <strong className="text-slate-850">{latestSlip.paid_date}</strong></p>
-                <p className="text-slate-450">Basic Amount: <strong className="text-slate-850">Rs {latestSlip.basic_salary.toLocaleString()}</strong></p>
-                <p className="text-slate-450">Deduction Amount: <strong className="text-slate-850">Rs {latestSlip.deductions.toLocaleString()}</strong></p>
-                <p className="text-slate-450">Net Salary Paid: <strong className="text-[#5C53CD] font-black">Rs {latestSlip.net_salary.toLocaleString()}</strong></p>
+                <p className="text-slate-450">Basic Amount: <strong className="text-slate-850">{cur()} {latestSlip.basic_salary.toLocaleString()}</strong></p>
+                <p className="text-slate-450">Deduction Amount: <strong className="text-slate-850">{cur()} {latestSlip.deductions.toLocaleString()}</strong></p>
+                <p className="text-slate-450">Net Salary Paid: <strong className="text-[#5C53CD] font-black">{cur()} {latestSlip.net_salary.toLocaleString()}</strong></p>
               </div>
             </div>
           </div>
@@ -211,7 +212,7 @@ export default function SalaryPaidSlipPage() {
                     <td className="p-2 border-r border-slate-200">{sal.paid_date}</td>
                     <td className="p-2 border-r border-slate-200">{sal.allowances}</td>
                     <td className="p-2 border-r border-slate-200">{sal.deductions}</td>
-                    <td className="p-2 text-right font-bold">Rs {sal.net_salary.toLocaleString()}</td>
+                    <td className="p-2 text-right font-bold">{cur()} {sal.net_salary.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -331,15 +332,15 @@ export default function SalaryPaidSlipPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Bonus:</span>
-                    <span>Rs {latestSlip.allowances}</span>
+                    <span>{cur()} {latestSlip.allowances}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Deduction:</span>
-                    <span>Rs {latestSlip.deductions}</span>
+                    <span>{cur()} {latestSlip.deductions}</span>
                   </div>
                   <div className="flex justify-between border-t border-slate-100 pt-2 font-black text-slate-900">
                     <span className="text-slate-500">Net Paid:</span>
-                    <span>Rs {latestSlip.net_salary.toLocaleString()}</span>
+                    <span>{cur()} {latestSlip.net_salary.toLocaleString()}</span>
                   </div>
                 </div>
 

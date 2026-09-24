@@ -10,6 +10,18 @@ export interface SignupPayload {
   password?: string;
   /** Firebase ID token when signing up with Google (name/email come from Google). */
   id_token?: string;
+  /** ISO currency code, e.g. PKR, EUR, GBP. */
+  currency?: string;
+  /** Interface language code, e.g. en, ar, fr. */
+  language?: string;
+  timezone?: string;
+}
+
+export interface SignupConfig {
+  google_sign_in: boolean;
+  currencies: { code: string; symbol: string; name: string; decimals: number }[];
+  languages: { code: string; name: string; native_name: string; direction: 'ltr' | 'rtl' }[];
+  defaults: { currency: string; language: string; timezone: string };
 }
 
 export interface SessionPayload {
@@ -41,7 +53,11 @@ export interface PlatformSchool {
 }
 
 export const schoolService = {
-  signupConfig: async () => (await api.get<{ google_sign_in: boolean }>('/tenants/signup/config/')).data,
+  signupConfig: async () => (await api.get<SignupConfig>('/tenants/signup/config/')).data,
+
+  /** Change the school's currency / default language (school admin). */
+  updateLocale: async (patch: { currency?: string; language?: string; timezone?: string }) =>
+    (await api.put('/tenants/locale/', patch)).data,
 
   signup: async (payload: SignupPayload) => (await api.post<SessionPayload>('/tenants/signup/', payload)).data,
 

@@ -107,6 +107,18 @@ One installation serves many schools. Each school's data is kept separate: staff
 
 **Google sign-in** uses the Firebase project in `frontend/src/services/firebase.ts`. The backend only needs that project's id: set `FIREBASE_PROJECT_ID` (it's public, not a secret). A Google account that isn't registered is sent to "create your school". It is never given an account automatically.
 
+**Currency and language per school.**
+
+- **Setting them.** The school's currency and default language are chosen at signup; currency is suggested from the visitor's browser. The school admin can change both later in **Settings → Language & currency**.
+- **Supported.** 45 currencies and 23 interface languages: English, German, Spanish, French, Italian, Portuguese, Dutch, Polish, Czech, Slovenian, Serbian, Croatian, Hungarian, Romanian, Albanian, Turkish, Russian, Ukrainian, Arabic, Urdu, Chinese, Japanese and Korean. Arabic and Urdu switch the layout to right-to-left.
+- **Personal choice.** Everyone can pick their own language from the globe button in the header or on the sign-in page. It falls back to the school's default.
+- **Where currency applies.** Money on every screen, AI answers, fee PDFs and invoice text uses the school's currency. Changing the currency relabels amounts; it doesn't convert them.
+- **Code.**
+  - Backend lists: `backend/services/core/tenants/localization.py`.
+  - Frontend: translation files in `frontend/src/i18n/locales/<code>.json` (a test checks they all have the same keys).
+  - Use `t('…')` from `react-i18next` for new text, and `cur()` / `formatMoney()` from `@/utils/currency` for money.
+- **Status.** Menus, sign-in, signup, dashboard, setup checklist and settings are translated; other screens show English until translated. Have a native speaker review each language before selling in that market.
+
 **Platform owner.** Superusers get **All Schools** in the sidebar (`/platform/schools`): every school with student and staff counts and its admins. A school can be suspended there, after which its users can't sign in. A superuser who belongs to a school sees that school's data on the normal pages. Send `X-Tenant-ID: <school id>` to act for another school through the API.
 
 **Existing data.** The upgrade migration assigns every record that had no school to the school most users belong to (for the demo, CodeCortex Model School), and links superusers without a school to it. Nothing else changes for a single-school installation.

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Wallet, Printer, ChevronDown, RotateCcw, Trash2 } from 'lucide-react';
 import ledgerService from '@/services/ledger.service';
 import financeService from '@/services/finance.service';
+import { cur } from '@/utils/currency';
 
 interface Transaction {
   id: string;
@@ -193,7 +194,7 @@ export default function AccountStatementPage() {
                 {incomePercent}%
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase mt-2">Income</p>
-              <p className="text-xs font-black text-emerald-600 mt-1">Rs {totalIncome.toLocaleString()}</p>
+              <p className="text-xs font-black text-emerald-600 mt-1">{cur()} {totalIncome.toLocaleString()}</p>
             </div>
 
             {/* Expense gauge */}
@@ -202,7 +203,7 @@ export default function AccountStatementPage() {
                 {expensePercent}%
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase mt-2">Expense</p>
-              <p className="text-xs font-black text-rose-500 mt-1">Rs {totalExpense.toLocaleString()}</p>
+              <p className="text-xs font-black text-rose-500 mt-1">{cur()} {totalExpense.toLocaleString()}</p>
             </div>
 
             {/* Net Margin gauge */}
@@ -211,7 +212,7 @@ export default function AccountStatementPage() {
                 {netMarginPercent}%
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase mt-2">Net Margin</p>
-              <p className="text-xs font-black text-purple-650 mt-1">Rs {netMarginVal.toLocaleString()}</p>
+              <p className="text-xs font-black text-purple-650 mt-1">{cur()} {netMarginVal.toLocaleString()}</p>
             </div>
 
           </div>
@@ -345,13 +346,13 @@ export default function AccountStatementPage() {
                       {t.description} {showReferences && <span className="text-[10px] text-slate-400 block font-normal">Ref: {t.id}</span>}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-rose-505">
-                      {t.type === 'Expense' ? `Rs ${t.amount.toLocaleString()}` : 'Rs 0'}
+                      {t.type === 'Expense' ? `${cur()} ${t.amount.toLocaleString()}` : `${cur()} 0`}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-emerald-600">
-                      {t.type === 'Income' ? `Rs ${t.amount.toLocaleString()}` : 'Rs 0'}
+                      {t.type === 'Income' ? `${cur()} ${t.amount.toLocaleString()}` : `${cur()} 0`}
                     </td>
                     <td className="py-3.5 px-4 text-right font-black text-blue-600">
-                      Rs {t.runningBalance.toLocaleString()}
+                      {cur()} {t.runningBalance.toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <button
@@ -375,9 +376,9 @@ export default function AccountStatementPage() {
             <tfoot>
               <tr className="bg-slate-50/50 font-black border-t border-slate-100">
                 <td className="py-4 px-4 text-right" colSpan={2}>Totals</td>
-                <td className="py-4 px-4 text-right text-rose-500">Rs {totalExpense.toLocaleString()}</td>
-                <td className="py-4 px-4 text-right text-emerald-600">Rs {totalIncome.toLocaleString()}</td>
-                <td className="py-4 px-4 text-right text-blue-600">Rs {netMarginVal.toLocaleString()}</td>
+                <td className="py-4 px-4 text-right text-rose-500">{cur()} {totalExpense.toLocaleString()}</td>
+                <td className="py-4 px-4 text-right text-emerald-600">{cur()} {totalIncome.toLocaleString()}</td>
+                <td className="py-4 px-4 text-right text-blue-600">{cur()} {netMarginVal.toLocaleString()}</td>
                 <td></td>
               </tr>
             </tfoot>

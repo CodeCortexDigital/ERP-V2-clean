@@ -10,6 +10,7 @@ import teacherService, { Teacher } from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import api from '@/services/api';
 import credentialsService, { passwordLabel, type StaffLogins } from '@/services/credentials.service';
+import { cur } from '@/utils/currency';
 
 interface AttendanceStats {
   present: number;
@@ -46,7 +47,7 @@ export default function TeacherProfilePage() {
   const [latestPayslip, setLatestPayslip] = useState<PayslipData | null>(null);
   const [extraDetails, setExtraDetails] = useState<any>({
     role: 'Teacher',
-    monthlySalary: 'Rs 0',
+    monthlySalary: `${cur()} 0`,
     fatherName: '--',
     gender: 'Male',
     experience: '0',
@@ -131,7 +132,7 @@ export default function TeacherProfilePage() {
         setTeacher(teacherData);
         setExtraDetails({
           role: teacherData.role || teacherData.designation || teacherData.specializations?.[0] || 'Teacher',
-          monthlySalary: teacherData.monthly_salary ? `Rs ${Number(teacherData.monthly_salary).toLocaleString()}` : 'Rs 0',
+          monthlySalary: teacherData.monthly_salary ? `${cur()} ${Number(teacherData.monthly_salary).toLocaleString()}` : `${cur()} 0`,
           fatherName: teacherData.father_husband_name || '--',
           gender: teacherData.gender || 'Male',
           experience: String(teacherData.experience_years || '0'),
@@ -416,7 +417,7 @@ export default function TeacherProfilePage() {
                 💵 Current Salary: <strong className="text-[#4C469D]">{extraDetails.monthlySalary}</strong>
               </div>
               <div className={`py-2.5 border rounded-xl text-center text-xs font-bold ${latestPayslip ? 'border-green-200 bg-green-50 text-green-600' : 'border-red-200 bg-red-50/30 text-red-500'}`}>
-                This Month: <strong className="uppercase">{latestPayslip ? `PAID Rs ${Number(latestPayslip.paid_amount || latestPayslip.net_salary).toLocaleString()}` : 'SALARY NOT RECEIVED'}</strong>
+                This Month: <strong className="uppercase">{latestPayslip ? `PAID ${cur()} ${Number(latestPayslip.paid_amount || latestPayslip.net_salary).toLocaleString()}` : 'SALARY NOT RECEIVED'}</strong>
               </div>
             </div>
 
@@ -430,7 +431,7 @@ export default function TeacherProfilePage() {
                   </div>
                   <div>
                     <p className="text-slate-400 font-bold">Net Salary</p>
-                    <p className="font-bold text-slate-700">Rs {Number(latestPayslip.net_salary).toLocaleString()}</p>
+                    <p className="font-bold text-slate-700">{cur()} {Number(latestPayslip.net_salary).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-slate-400 font-bold">Status</p>
@@ -438,7 +439,7 @@ export default function TeacherProfilePage() {
                   </div>
                   <div>
                     <p className="text-slate-400 font-bold">Paid Amount</p>
-                    <p className="font-bold text-slate-700">Rs {Number(latestPayslip.paid_amount || 0).toLocaleString()}</p>
+                    <p className="font-bold text-slate-700">{cur()} {Number(latestPayslip.paid_amount || 0).toLocaleString()}</p>
                   </div>
                 </div>
               </div>

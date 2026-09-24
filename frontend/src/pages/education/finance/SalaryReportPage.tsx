@@ -5,6 +5,7 @@ import { Landmark, Search, Printer, Calendar, TrendingUp, AlertCircle, CheckCirc
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import ledgerService from '@/services/ledger.service';
+import { cur } from '@/utils/currency';
 
 interface SalaryPayment {
   id: string;
@@ -146,19 +147,19 @@ export default function SalaryReportPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3 print:gap-4 print:pt-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">TOTAL REGISTERED BUDGET</span>
-          <span className="text-xl font-black text-slate-850 block">Rs {totalBudget.toLocaleString()}</span>
+          <span className="text-xl font-black text-slate-850 block">{cur()} {totalBudget.toLocaleString()}</span>
           <span className="text-[9px] text-slate-400 font-bold block">{teachers.length} registered employees</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">TOTAL DISBURSED SALARIES</span>
-          <span className="text-xl font-black text-emerald-600 block">Rs {totalSalariesPaid.toLocaleString()}</span>
+          <span className="text-xl font-black text-emerald-600 block">{cur()} {totalSalariesPaid.toLocaleString()}</span>
           <span className="text-[9px] text-slate-400 font-bold block">{matchingSalaries.length} transactions paid</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-2xs flex flex-col justify-between h-28">
           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">PENDING DISBURSEMENTS</span>
-          <span className="text-xl font-black text-rose-500 block">Rs {(totalBudget - totalSalariesPaid > 0 ? totalBudget - totalSalariesPaid : 0).toLocaleString()}</span>
+          <span className="text-xl font-black text-rose-500 block">{cur()} {(totalBudget - totalSalariesPaid > 0 ? totalBudget - totalSalariesPaid : 0).toLocaleString()}</span>
           <span className="text-[9px] text-slate-400 font-bold block">Remaining liability</span>
         </div>
       </div>
@@ -190,10 +191,10 @@ export default function SalaryReportPage() {
                   <td className="py-2.5 px-4 font-mono text-slate-500">{sal.id}</td>
                   <td className="py-2.5 px-4 font-black text-slate-800">{sal.employee_name}</td>
                   <td className="py-2.5 px-4 text-slate-600">{sal.month}</td>
-                  <td className="py-2.5 px-4 text-right">Rs {sal.basic_salary.toLocaleString()}</td>
-                  <td className="py-2.5 px-4 text-right text-emerald-600">Rs {sal.allowances.toLocaleString()}</td>
-                  <td className="py-2.5 px-4 text-right text-rose-500">Rs {sal.deductions.toLocaleString()}</td>
-                  <td className="py-2.5 px-4 text-right font-black text-slate-900">Rs {sal.net_salary.toLocaleString()}</td>
+                  <td className="py-2.5 px-4 text-right">{cur()} {sal.basic_salary.toLocaleString()}</td>
+                  <td className="py-2.5 px-4 text-right text-emerald-600">{cur()} {sal.allowances.toLocaleString()}</td>
+                  <td className="py-2.5 px-4 text-right text-rose-500">{cur()} {sal.deductions.toLocaleString()}</td>
+                  <td className="py-2.5 px-4 text-right font-black text-slate-900">{cur()} {sal.net_salary.toLocaleString()}</td>
                   <td className="py-2.5 px-4 text-center text-slate-400">{sal.paid_date}</td>
                 </tr>
               ))}

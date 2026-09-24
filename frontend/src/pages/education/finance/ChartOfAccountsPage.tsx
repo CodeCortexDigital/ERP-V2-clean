@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Wallet, Plus, Trash2, Edit3, Save, ArrowLeft } from 'lucide-react';
 import ledgerService from '@/services/ledger.service';
 import financeService from '@/services/finance.service';
+import { cur } from '@/utils/currency';
 
 interface AccountHead {
   id: string;
@@ -199,15 +200,15 @@ export default function ChartOfAccountsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Total Income</p>
-          <p className="text-xl font-black text-emerald-600 mt-1.5">Rs {totalIncome.toLocaleString()}</p>
+          <p className="text-xl font-black text-emerald-600 mt-1.5">{cur()} {totalIncome.toLocaleString()}</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Total Expense</p>
-          <p className="text-xl font-black text-rose-500 mt-1.5">Rs {totalExpense.toLocaleString()}</p>
+          <p className="text-xl font-black text-rose-500 mt-1.5">{cur()} {totalExpense.toLocaleString()}</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Net Balance</p>
-          <p className={`text-xl font-black mt-1.5 ${netBalance >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>Rs {netBalance.toLocaleString()}</p>
+          <p className={`text-xl font-black mt-1.5 ${netBalance >= 0 ? 'text-blue-600' : 'text-rose-500'}`}>{cur()} {netBalance.toLocaleString()}</p>
         </div>
       </div>
 
@@ -297,7 +298,7 @@ export default function ChartOfAccountsPage() {
                         </span>
                       </td>
                       <td className={`py-3.5 px-4 text-right font-black ${h.type === 'Income' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                        Rs {headTotal(h).toLocaleString()}
+                        {cur()} {headTotal(h).toLocaleString()}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">

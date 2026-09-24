@@ -5,6 +5,7 @@ import { Landmark, Mail, Phone, Send, ArrowRight, List, CalendarDays, AlertCircl
 import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
+import { cur } from '@/utils/currency';
 
 interface Invoice {
   id: string;
@@ -266,7 +267,7 @@ export default function FeesDefaultersPage() {
   const getReminderText = (target: any, templateType: 'friendly' | 'standard' | 'urgent') => {
     if (!target) return '';
     const studentName = target.isBulk ? 'your child' : target.full_name;
-    const amountStr = target.isBulk ? `Rs ${target.totalUnpaid.toLocaleString()}` : `Rs ${target.totalUnpaid.toLocaleString()}`;
+    const amountStr = target.isBulk ? `${cur()} ${target.totalUnpaid.toLocaleString()}` : `${cur()} ${target.totalUnpaid.toLocaleString()}`;
     const feeMonthStr = target.isBulk ? 'current month' : (getInvoiceFeeMonth(target.invoice) || 'current month');
     const daysLateStr = target.isBulk ? '' : `${target.daysLate} days`;
     
@@ -407,7 +408,7 @@ export default function FeesDefaultersPage() {
         <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm text-center space-y-1">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TOTAL PENDING</p>
           <p className="text-3xl font-black text-purple-600">
-            Rs {defaulterStudents.reduce((sum, d) => sum + d.totalUnpaid, 0).toLocaleString()}
+            {cur()} {defaulterStudents.reduce((sum, d) => sum + d.totalUnpaid, 0).toLocaleString()}
           </p>
           <p className="text-[9px] text-slate-400 font-bold">Across all defaulters</p>
         </div>
@@ -506,7 +507,7 @@ export default function FeesDefaultersPage() {
                         year: 'numeric' 
                       }) : 'N/A'}
                     </td>
-                    <td className="py-3 px-5 text-rose-500 font-black text-right">Rs {def.totalUnpaid.toLocaleString()}</td>
+                    <td className="py-3 px-5 text-rose-500 font-black text-right">{cur()} {def.totalUnpaid.toLocaleString()}</td>
                     <td className="py-3 px-5 text-center">
                       <span className={`font-extrabold ${getDaysLateColor(def.daysLate)}`}>
                         {def.daysLate} days
@@ -533,7 +534,7 @@ export default function FeesDefaultersPage() {
               Showing {filteredTableDefaulters.length > 0 ? 1 : 0} to {filteredTableDefaulters.length} of {filteredTableDefaulters.length} entries
             </span>
             <span className="text-[10px] text-purple-600 font-black">
-              Total Pending: Rs {filteredTableDefaulters.reduce((sum, d) => sum + d.totalUnpaid, 0).toLocaleString()}
+              Total Pending: {cur()} {filteredTableDefaulters.reduce((sum, d) => sum + d.totalUnpaid, 0).toLocaleString()}
             </span>
           </div>
         </div>
@@ -570,7 +571,7 @@ export default function FeesDefaultersPage() {
                     }) : 'N/A'}
                   </p>
                   <p className="text-[10px] text-rose-500 font-black pt-1">
-                    Rs {def.totalUnpaid.toLocaleString()}
+                    {cur()} {def.totalUnpaid.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -624,13 +625,13 @@ export default function FeesDefaultersPage() {
                 {reminderTarget.isBulk ? (
                   <>
                     <p><span className="font-bold text-slate-400">RECIPIENTS:</span> <span className="font-bold text-slate-800">{reminderTarget.count} Defaulters</span></p>
-                    <p><span className="font-bold text-slate-400">TOTAL OUTSTANDING:</span> <span className="font-bold text-rose-500">Rs {reminderTarget.totalUnpaid.toLocaleString()}</span></p>
+                    <p><span className="font-bold text-slate-400">TOTAL OUTSTANDING:</span> <span className="font-bold text-rose-500">{cur()} {reminderTarget.totalUnpaid.toLocaleString()}</span></p>
                   </>
                 ) : (
                   <>
                     <p><span className="font-bold text-slate-400">STUDENT:</span> <span className="font-bold text-slate-800">{reminderTarget.full_name}</span></p>
                     <p><span className="font-bold text-slate-400">CLASS:</span> <span className="font-bold text-slate-800">{reminderTarget.class_name || 'N/A'}</span></p>
-                    <p><span className="font-bold text-slate-400">OUTSTANDING FEE:</span> <span className="font-bold text-rose-500">Rs {reminderTarget.totalUnpaid.toLocaleString()}</span></p>
+                    <p><span className="font-bold text-slate-400">OUTSTANDING FEE:</span> <span className="font-bold text-rose-500">{cur()} {reminderTarget.totalUnpaid.toLocaleString()}</span></p>
                     <p><span className="font-bold text-slate-400">DAYS OVERDUE:</span> <span className="font-bold text-amber-600">{reminderTarget.daysLate} days</span></p>
                   </>
                 )}

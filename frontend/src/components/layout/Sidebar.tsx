@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { teacherQuickActions } from '@/config/teacherQuickActions';
 import { readThemeSettings } from '@/utils/theme';
+import { useTranslation } from 'react-i18next';
 
 interface SubMenuItem {
   label: string;
@@ -35,6 +36,11 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   const location = useLocation();
   const navigate = useNavigate();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { t } = useTranslation();
+  // Menu labels translate by their English text ("Academic Setup" -> nav.academic_setup);
+  // labels without a translation yet stay in English.
+  const tl = (label: string) =>
+    t(`nav.${label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`, { defaultValue: label });
   const { user, role, logout } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -387,7 +393,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     </div>
   );
 
-  const portalLabel = isTeacher ? 'Teacher Portal' : isStudent ? 'Student Portal' : isParent ? 'Parent Portal' : 'Admin Portal';
+  const portalLabel = t(`portal.${isTeacher ? 'teacher' : isStudent ? 'student' : isParent ? 'parent' : 'admin'}`);
 
   return (
     <aside className={`flex flex-col h-full transition-all duration-300 z-40 ${containerClass} ${isCollapsed ? 'w-20' : 'w-64'}`}>
@@ -423,7 +429,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search menu..."
+              placeholder={t('portal.searchMenu')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={inputClass}
@@ -452,7 +458,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                   title={isCollapsed ? item.label : undefined}
                 >
                   <div className="flex-shrink-0">{item.icon}</div>
-                  {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+                  {!isCollapsed && <span className="flex-1 truncate">{tl(item.label)}</span>}
                 </button>
               );
             }
@@ -477,7 +483,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                 <div className="flex-shrink-0">{item.icon}</div>
                 {!isCollapsed && (
                   <span className="flex-1 truncate flex items-center justify-between">
-                    {item.label}
+                    {tl(item.label)}
                     {item.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500 ml-2" />}
                   </span>
                 )}
@@ -513,7 +519,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
               >
                 <div className="flex items-center gap-3 truncate">
                   <div className="flex-shrink-0">{item.icon}</div>
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                  {!isCollapsed && <span className="truncate">{tl(item.label)}</span>}
                 </div>
 
                 {!isCollapsed && (
@@ -574,7 +580,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                             `}
                           >
                             {sub.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 ml-auto" />}
-                            <span className="truncate">{sub.label}</span>
+                            <span className="truncate">{tl(sub.label)}</span>
                           </NavLink>
                         );
                       })}
@@ -637,7 +643,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                         {subActive && (
                           <span className="absolute -left-[17px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-brand ring-4 ring-white" />
                         )}
-                        <span className="truncate">{sub.label}</span>
+                        <span className="truncate">{tl(sub.label)}</span>
                         {sub.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 ml-1" />}
                       </NavLink>
                     );
@@ -661,7 +667,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
           title="Logout"
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          {!isCollapsed && <span>Logout</span>}
+          {!isCollapsed && <span>{t('portal.logout')}</span>}
         </button>
       </div>
 

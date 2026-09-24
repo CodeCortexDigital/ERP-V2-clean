@@ -4,9 +4,12 @@ import App from './App'
 import './index.css'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { initGlobalTheme } from './utils/theme'
+import './i18n'
+import { initLocale } from './store/localeStore'
 
 // Apply the saved theme (dark mode, accent) before the first render, on every page.
 initGlobalTheme();
+initLocale();
 
 // Only mount the Google provider when a real Client ID is configured.
 // The placeholder ID causes the lib to fetch accounts.google.com on every

@@ -1,19 +1,25 @@
 import type { ReactNode } from 'react';
 import { ShieldCheck, GraduationCap, CalendarCheck, Wallet, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { LanguageMenuButton } from '@/components/common/LanguagePicker';
+import { useLocaleStore } from '@/store/localeStore';
 
 const FEATURES = [
-  { icon: CalendarCheck, title: 'Attendance & timetables', text: 'Daily attendance, reports and class schedules.' },
-  { icon: Wallet, title: 'Fees & finance', text: 'Invoices, collections and defaulters at a glance.' },
-  { icon: Sparkles, title: 'AI assistant', text: 'Ask questions about your school in plain language.' },
+  { icon: CalendarCheck, title: 'brand.f1Title', text: 'brand.f1Text' },
+  { icon: Wallet, title: 'brand.f2Title', text: 'brand.f2Text' },
+  { icon: Sparkles, title: 'brand.f3Title', text: 'brand.f3Text' },
 ];
 
 /** Brand panel + centred form column shared by sign-in and school signup. */
 export default function AuthShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+  const { t, i18n } = useTranslation();
+  const setUserLanguage = useLocaleStore((s) => s.setUserLanguage);
+
   return (
     <div className="min-h-screen flex bg-slate-50">
       <aside className="hidden lg:flex lg:w-[46%] xl:w-1/2 bg-brand-gradient relative overflow-hidden flex-col justify-between p-12 xl:p-16">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10" />
-        <div className="absolute -bottom-32 -left-20 w-[28rem] h-[28rem] rounded-full bg-white/5" />
+        <div className="absolute -top-24 -end-24 w-96 h-96 rounded-full bg-white/10" />
+        <div className="absolute -bottom-32 -start-20 w-[28rem] h-[28rem] rounded-full bg-white/5" />
 
         <div className="relative flex items-center gap-3">
           <span className="w-11 h-11 rounded-xl bg-white/15 ring-1 ring-white/25 flex items-center justify-center">
@@ -21,17 +27,15 @@ export default function AuthShell({ children, wide = false }: { children: ReactN
           </span>
           <div className="leading-tight">
             <p className="text-lg font-bold">CodeCortex</p>
-            <p className="text-xs text-white/70">School ERP</p>
+            <p className="text-xs text-white/70">{t('brand.product')}</p>
           </div>
         </div>
 
         <div className="relative max-w-md">
           <h1 className="text-4xl xl:text-[2.6rem] font-extrabold leading-tight tracking-tight !text-white">
-            Everything your school runs on, in one place.
+            {t('brand.headline')}
           </h1>
-          <p className="mt-4 text-white/75 text-[15px] leading-relaxed">
-            Students, staff, fees and results for admins, teachers, parents and students, each with their own portal.
-          </p>
+          <p className="mt-4 text-white/75 text-[15px] leading-relaxed">{t('brand.intro')}</p>
           <ul className="mt-10 space-y-5">
             {FEATURES.map(({ icon: Icon, title, text }) => (
               <li key={title} className="flex gap-4">
@@ -39,8 +43,8 @@ export default function AuthShell({ children, wide = false }: { children: ReactN
                   <Icon className="w-5 h-5" />
                 </span>
                 <div>
-                  <p className="font-semibold">{title}</p>
-                  <p className="text-sm text-white/70">{text}</p>
+                  <p className="font-semibold">{t(title)}</p>
+                  <p className="text-sm text-white/70">{t(text)}</p>
                 </div>
               </li>
             ))}
@@ -49,11 +53,18 @@ export default function AuthShell({ children, wide = false }: { children: ReactN
 
         <p className="relative flex items-center gap-2 text-xs text-white/70">
           <ShieldCheck className="w-4 h-4" />
-          Secure sign-in. Each school's data is kept separate.
+          {t('brand.secure')}
         </p>
       </aside>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-10 sm:px-8">
+      <main className="relative flex-1 flex items-center justify-center px-4 py-14 sm:px-8">
+        <div className="absolute top-4 end-4">
+          <LanguageMenuButton
+            value={i18n.language}
+            onChange={(code) => setUserLanguage(code)}
+            buttonClassName="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-600 hover:bg-slate-50"
+          />
+        </div>
         <div className={`w-full ${wide ? 'max-w-[520px]' : 'max-w-[420px]'}`}>
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <span className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center shadow-sm">
@@ -61,7 +72,7 @@ export default function AuthShell({ children, wide = false }: { children: ReactN
             </span>
             <div className="leading-tight">
               <p className="font-bold text-slate-900">CodeCortex</p>
-              <p className="text-xs text-slate-500">School ERP</p>
+              <p className="text-xs text-slate-500">{t('brand.product')}</p>
             </div>
           </div>
           {children}

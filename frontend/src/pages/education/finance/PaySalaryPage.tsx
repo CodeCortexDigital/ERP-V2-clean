@@ -5,6 +5,7 @@ import { Search, CreditCard, ArrowLeft, Check, Printer, Calendar, User, Banknote
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import ledgerService from '@/services/ledger.service';
+import { cur } from '@/utils/currency';
 
 interface SalaryPayment {
   id: string;
@@ -150,7 +151,7 @@ export default function PaySalaryPage() {
         paid_date: paymentDate
       };
 
-      toast.success(`Salary of Rs ${netSalary} paid to ${selectedTeacher.full_name} successfully!`);
+      toast.success(`Salary of ${cur()} ${netSalary} paid to ${selectedTeacher.full_name} successfully!`);
       setActiveSlip(newPayment);
       setPaymentConfirmed(true);
     } catch (e) {
@@ -244,7 +245,7 @@ export default function PaySalaryPage() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-300 font-bold text-slate-700">
                 <th className="p-2 border-r border-slate-350 text-left">Description</th>
-                <th className="p-2 text-right">Amount (Rs)</th>
+                <th className="p-2 text-right">Amount ({cur()})</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -262,7 +263,7 @@ export default function PaySalaryPage() {
               </tr>
               <tr className="font-black bg-slate-100">
                 <td className="p-2 border-r border-slate-200 text-left">NET SALARY PAID</td>
-                <td className="p-2 text-right">Rs {activeSlip.net_salary.toLocaleString()}</td>
+                <td className="p-2 text-right">{cur()} {activeSlip.net_salary.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -299,7 +300,7 @@ export default function PaySalaryPage() {
               </div>
               <div className="flex justify-between border-b pb-2 text-xs font-bold">
                 <span className="text-slate-400">NET DISBURSED</span>
-                <span className="text-emerald-600 font-extrabold">Rs {activeSlip.net_salary.toLocaleString()}</span>
+                <span className="text-emerald-600 font-extrabold">{cur()} {activeSlip.net_salary.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-slate-400">PAID DATE</span>
@@ -447,7 +448,7 @@ export default function PaySalaryPage() {
                 <div className="space-y-1">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">NET SALARY</span>
                   <span className="text-2xl font-black text-[#5C53CD] block">
-                    Rs {netSalaryCalculated.toLocaleString()}
+                    {cur()} {netSalaryCalculated.toLocaleString()}
                   </span>
                 </div>
                 <div className="text-[#5C53CD]/15">

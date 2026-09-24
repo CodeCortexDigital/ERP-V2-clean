@@ -1,98 +1,131 @@
-import React, { useState, useEffect } from 'react';
-import { Languages, Check, Globe, RotateCcw } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Coins, Globe, Info, Loader2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '@/services/api';
-import { API_ENDPOINTS } from '@/services/apiEndpoints';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLocaleStore } from '@/store/localeStore';
+import schoolService, { type SignupConfig } from '@/services/school.service';
+import { LanguageGrid } from '@/components/common/LanguagePicker';
+import { languageByCode } from '@/i18n/languages';
 
+/** Settings → Language & currency: the school's currency and default language, plus my own language. */
 export default function LanguageSettings() {
-  const [lang, setLang] = useState('English');
+  const { t } = useTranslation();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
+  const school = useLocaleStore((s) => s.school);
+  const setSchoolLocale = useLocaleStore((s) => s.setSchoolLocale);
+  const userLanguage = useLocaleStore((s) => s.userLanguage);
+  const setUserLanguage = useLocaleStore((s) => s.setUserLanguage);
+  const refresh = useLocaleStore((s) => s.refresh);
+
+  const [options, setOptions] = useState<SignupConfig | null>(null);
+  const [currency, setCurrency] = useState(school.currency);
+  const [language, setLanguage] = useState(school.language);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme_settings');
-    if (saved) {
-      try {
-        const t = JSON.parse(saved);
-        if (t.lang) setLang(t.lang);
-      } catch (e) {
-        /* ignore */
-      }
+    refresh().then(() => {
+      const s = useLocaleStore.getState().school;
+      setCurrency(s.currency);
+      setLanguage(s.language);
+    });
+    schoolService.signupConfig().then(setOptions).catch(() => {});
+  }, [refresh]);
+
+  const currencies = useMemo(
+    () => [...(options?.currencies || [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [options],
+  );
+  const dirty = currency !== school.currency || language !== school.language;
+
+  const saveSchool = async () => {
+    const picked = currencies.find((c) => c.code === currency);
+    if (currency !== school.currency && !window.confirm(t('locale.confirmCurrency', { currency: picked ? `${picked.name} (${picked.symbol})` : currency }))) {
+      return;
     }
-  }, []);
-
-  const handleSave = async () => {
-    const saved = localStorage.getItem('theme_settings');
-    const base = saved ? JSON.parse(saved) : {};
-    const themeObj = { ...base, lang };
-    localStorage.setItem('theme_settings', JSON.stringify(themeObj));
-    window.dispatchEvent(new Event('theme-changed'));
-
+    setSaving(true);
     try {
-      await api.put(API_ENDPOINTS.SETTINGS, { theme: themeObj });
-    } catch (err) {
-      console.log('Backend language settings save fallback');
+      const res = await schoolService.updateLocale({ currency, language });
+      setSchoolLocale(res.locale);
+      toast.success(t('locale.savedSchool'));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Could not save.');
+    } finally {
+      setSaving(false);
     }
-    toast.success('Language preference saved!');
   };
-
-  const handleReset = () => {
-    const saved = localStorage.getItem('theme_settings');
-    const base = saved ? JSON.parse(saved) : {};
-    const themeObj = { ...base, lang: 'English' };
-    localStorage.setItem('theme_settings', JSON.stringify(themeObj));
-    setLang('English');
-    window.dispatchEvent(new Event('theme-changed'));
-    toast.success('Language reset to English.');
-  };
-
-  const languages = [
-    'English', 'Mandarin', 'Spanish', 'Hindi', 'Arabic', 'Bengali',
-    'Portuguese', 'Russian', 'Japanese', 'Punjabi', 'German', 'Malay',
-    'Telugu', 'Vietnamese', 'Korean', 'French', 'Marathi', 'Tamil',
-    'Turkish', 'Urdu', 'Italian', 'Persian', 'Polish', 'Dutch', 'Thai'
-  ];
 
   return (
-    <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm space-y-8 max-w-3xl mx-auto">
-      <div className="text-center space-y-1">
-        <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center mx-auto">
-          <Globe className="w-7 h-7" />
-        </div>
-        <h2 className="text-lg font-bold text-slate-800">Language</h2>
-        <p className="text-xs text-slate-400">Choose the default display language for the portal.</p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">{t('locale.title')}</h2>
+        <p className="text-sm text-slate-500">{t('locale.intro')}</p>
       </div>
 
-      <div className="space-y-3">
-        <label className="block text-[10px] font-bold tracking-wider text-purple-800 uppercase flex items-center gap-1.5">
-          <Languages className="w-3.5 h-3.5" /> SELECT LANGUAGE
-        </label>
-        <div className="relative">
-          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      {/* School settings (admin) */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 space-y-5">
+        {!isAdmin && (
+          <p className="flex items-start gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-sm text-slate-600">
+            <Info className="w-4 h-4 mt-0.5 shrink-0" /> {t('locale.adminOnly')}
+          </p>
+        )}
+
+        <div>
+          <label htmlFor="locale-currency" className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-1.5">
+            <Coins className="w-4 h-4 text-brand" /> {t('locale.schoolCurrency')}
+          </label>
           <select
-            value={lang}
-            onChange={(e) => setLang(e.target.value)}
-            className="w-full h-11 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-700"
+            id="locale-currency"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            disabled={!isAdmin}
+            className="auth-input px-3 max-w-md disabled:opacity-70"
           >
-            {languages.map((l) => (
-              <option key={l} value={l}>{l}</option>
+            {!currencies.length && <option value={currency}>{school.currency_name} ({school.currency})</option>}
+            {currencies.map((c) => (
+              <option key={c.code} value={c.code}>{c.name} ({c.code} · {c.symbol})</option>
             ))}
           </select>
+          <p className="mt-1.5 text-xs text-slate-500">{t('locale.currencyNote')}</p>
         </div>
-      </div>
 
-      <div className="flex items-center justify-center gap-4 pt-2 border-t border-slate-100">
-        <button
-          onClick={handleSave}
-          className="flex items-center gap-1.5 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all"
-        >
-          <Check className="w-4 h-4" /> Save Language
-        </button>
-        <button
-          onClick={handleReset}
-          className="flex items-center gap-1.5 px-6 py-2.5 border border-slate-200 text-purple-700 hover:bg-slate-50 font-semibold text-xs rounded-xl transition-all"
-        >
-          <RotateCcw className="w-3.5 h-3.5" /> Reset to Default
-        </button>
-      </div>
+        <div>
+          <p className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-1.5">
+            <Globe className="w-4 h-4 text-brand" /> {t('locale.schoolLanguage')}
+          </p>
+          <p className="mb-2 text-xs text-slate-500">{t('locale.schoolLanguageNote')}</p>
+          <div className={isAdmin ? '' : 'pointer-events-none opacity-70'}>
+            <LanguageGrid value={language} onChange={(code) => code && setLanguage(code)} className="sm:grid-cols-3" />
+          </div>
+        </div>
+
+        {isAdmin && (
+          <div className="flex justify-end">
+            <button onClick={saveSchool} disabled={!dirty || saving} className="auth-primary-btn w-auto px-6 disabled:opacity-50">
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t('locale.saveSchool')}
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* Personal language (everyone) */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 space-y-3">
+        <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <UserRound className="w-4 h-4 text-brand" /> {t('locale.myLanguage')}
+        </p>
+        <p className="text-xs text-slate-500">{t('locale.myLanguageNote')}</p>
+        <LanguageGrid
+          value={userLanguage}
+          schoolDefault={school.language}
+          onChange={(code) => setUserLanguage(code)}
+          className="sm:grid-cols-3"
+        />
+        <p className="flex items-start gap-2 text-xs text-slate-500 pt-2">
+          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" /> {t('locale.translationNote')}
+          {' '}({languageByCode(userLanguage || school.language)?.native})
+        </p>
+      </section>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import financeService from '@/services/finance.service';
 import ledgerService from '@/services/ledger.service';
 import { extractListData } from '@/services/api';
 import settingsService from '@/services/settings.service';
+import { cur } from '@/utils/currency';
 
 interface Invoice {
   id: string;
@@ -332,7 +333,7 @@ export default function CollectFeesPage() {
         : calculatedTotal;
 
     if (deposit > currentRemaining) {
-      toast.error(`Deposit cannot exceed the remaining balance of Rs ${currentRemaining}`);
+      toast.error(`Deposit cannot exceed the remaining balance of ${cur()} ${currentRemaining}`);
       return;
     }
 
@@ -390,7 +391,7 @@ export default function CollectFeesPage() {
         type: 'income',
         account_head_name: 'Student Fee Collection',
         reference: activeInvoice.invoice_number || `INV-${activeInvoice.id}`,
-        notes: `Deposited Rs ${deposit} for ${studentName}`
+        notes: `Deposited ${cur()} ${deposit} for ${studentName}`
       }).catch(err => console.warn('Ledger auto-entry warning:', err));
 
       // Store locally so all pages reflect real-time collected fee
@@ -430,7 +431,7 @@ export default function CollectFeesPage() {
         date: collectionDate
       });
 
-      toast.success(`Fee collected successfully! Rs ${deposit} deposited.`);
+      toast.success(`Fee collected successfully! ${cur()} ${deposit} deposited.`);
       setActiveInvoice(null);
 
       if (selectedStudent) {
@@ -538,7 +539,7 @@ export default function CollectFeesPage() {
           }
         }));
 
-        toast.success(`Successfully collected Rs ${totalCollected} from ${toCollect.length} family invoices!`);
+        toast.success(`Successfully collected ${cur()} ${totalCollected} from ${toCollect.length} family invoices!`);
         setFamilyReceiptSummary(summaryList);
         setSelectedFamily('');
       } catch (e) {
@@ -670,12 +671,12 @@ export default function CollectFeesPage() {
                   <td className="py-2 px-3 border-r border-slate-200 font-bold">{item.student_name}</td>
                   <td className="py-2 px-3 border-r border-slate-200">{item.class_name}</td>
                   <td className="py-2 px-3 border-r border-slate-200">{item.invoice_number}</td>
-                  <td className="py-2 px-3 text-right font-bold">Rs {item.amount.toLocaleString()}</td>
+                  <td className="py-2 px-3 text-right font-bold">{cur()} {item.amount.toLocaleString()}</td>
                 </tr>
               ))}
               <tr className="font-black bg-slate-100">
                 <td colSpan={4} className="py-2 px-3 border-r border-slate-200 text-right uppercase">Total Amount Collected</td>
-                <td className="py-2 px-3 text-right font-black">Rs {familyReceiptSummary.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}</td>
+                <td className="py-2 px-3 text-right font-black">{cur()} {familyReceiptSummary.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -724,17 +725,17 @@ export default function CollectFeesPage() {
                 </div>
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Total Amount</p>
-                  <p className="text-slate-800 text-xs font-black">→ Rs {submittedReceipt.totalAmount}</p>
+                  <p className="text-slate-800 text-xs font-black">→ {cur()} {submittedReceipt.totalAmount}</p>
                   {(submittedReceipt.previouslyPaid || 0) > 0 && (
                     <>
                       <p className="text-slate-400">Previously Paid</p>
-                      <p className="text-slate-800 text-xs font-black">→ Rs {submittedReceipt.previouslyPaid}</p>
+                      <p className="text-slate-800 text-xs font-black">→ {cur()} {submittedReceipt.previouslyPaid}</p>
                     </>
                   )}
                   <p className="text-slate-400">Deposit Amount</p>
-                  <p className="text-slate-800 text-xs font-black">→ Rs {submittedReceipt.depositAmount}</p>
+                  <p className="text-slate-800 text-xs font-black">→ {cur()} {submittedReceipt.depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance</p>
-                  <p className="text-rose-600 text-xs font-black">→ Rs {submittedReceipt.remainingBalance}</p>
+                  <p className="text-rose-600 text-xs font-black">→ {cur()} {submittedReceipt.remainingBalance}</p>
                 </div>
               </div>
 
@@ -762,21 +763,21 @@ export default function CollectFeesPage() {
                     
                     <tr className="font-bold bg-slate-50">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">TOTAL</td>
-                      <td className="py-1 px-3 text-right">Rs {submittedReceipt.totalAmount}</td>
+                      <td className="py-1 px-3 text-right">{cur()} {submittedReceipt.totalAmount}</td>
                     </tr>
                     {(submittedReceipt.previouslyPaid || 0) > 0 && (
                       <tr className="font-bold bg-slate-50">
                         <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">PREVIOUSLY PAID</td>
-                        <td className="py-1 px-3 text-right text-amber-600">Rs {submittedReceipt.previouslyPaid}</td>
+                        <td className="py-1 px-3 text-right text-amber-600">{cur()} {submittedReceipt.previouslyPaid}</td>
                       </tr>
                     )}
                     <tr className="font-bold bg-slate-50">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">DEPOSIT</td>
-                      <td className="py-1 px-3 text-right">Rs {submittedReceipt.depositAmount}</td>
+                      <td className="py-1 px-3 text-right">{cur()} {submittedReceipt.depositAmount}</td>
                     </tr>
                     <tr className="font-black bg-slate-100">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">DUE-ABLE BALANCE</td>
-                      <td className="py-1 px-3 text-right">Rs {submittedReceipt.remainingBalance}</td>
+                      <td className="py-1 px-3 text-right">{cur()} {submittedReceipt.remainingBalance}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -871,11 +872,11 @@ export default function CollectFeesPage() {
                 </div>
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Total Amount:</p>
-                  <p className="text-slate-800 font-black">Rs {submittedReceipt.totalAmount}</p>
+                  <p className="text-slate-800 font-black">{cur()} {submittedReceipt.totalAmount}</p>
                   <p className="text-slate-400">Deposit Amount:</p>
-                  <p className="text-slate-800 font-black">Rs {submittedReceipt.depositAmount}</p>
+                  <p className="text-slate-800 font-black">{cur()} {submittedReceipt.depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance:</p>
-                  <p className="text-rose-600 font-black">Rs {submittedReceipt.remainingBalance}</p>
+                  <p className="text-rose-600 font-black">{cur()} {submittedReceipt.remainingBalance}</p>
                 </div>
               </div>
 
@@ -938,21 +939,21 @@ export default function CollectFeesPage() {
               <div className={`grid grid-cols-1 md:grid-cols-${(submittedReceipt.previouslyPaid || 0) > 0 ? 4 : 3} gap-6 text-center`}>
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL AMOUNT</span>
-                  <span className="block text-xl font-black text-[#1b3bb6]">Rs {submittedReceipt.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="block text-xl font-black text-[#1b3bb6]">{cur()} {submittedReceipt.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 {(submittedReceipt.previouslyPaid || 0) > 0 && (
                   <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                     <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">PREVIOUSLY PAID</span>
-                    <span className="block text-xl font-black text-amber-600">Rs {submittedReceipt.previouslyPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="block text-xl font-black text-amber-600">{cur()} {submittedReceipt.previouslyPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">DEPOSIT AMOUNT</span>
-                  <span className="block text-xl font-black text-[#10B981]">Rs {submittedReceipt.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="block text-xl font-black text-[#10B981]">{cur()} {submittedReceipt.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">REMAINING BALANCE</span>
-                  <span className="block text-xl font-black text-[#EF4444]">Rs {submittedReceipt.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="block text-xl font-black text-[#EF4444]">{cur()} {submittedReceipt.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
@@ -963,7 +964,7 @@ export default function CollectFeesPage() {
                     <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-700">
                       <th className="py-2 px-3 border-r border-slate-200">Sr. No.</th>
                       <th className="py-2 px-3 border-r border-slate-200">Particulars</th>
-                      <th className="py-2 px-3 text-right">Amount (Rs)</th>
+                      <th className="py-2 px-3 text-right">Amount ({cur()})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -1051,7 +1052,7 @@ export default function CollectFeesPage() {
                         <label className="block text-[10px] font-black text-purple-700 uppercase tracking-wider">Multiple Invoices Found: Select month to collect</label>
                         <select value={activeInvoice.id} onChange={(e) => { const found = unpaidInvoices.find(inv => inv.id === e.target.value); if (found) handleOpenCollectionForm(found); }} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all">
                           {unpaidInvoices.map(inv => (
-                            <option key={inv.id} value={inv.id}>{getInvoiceFeeMonth(inv)} ({inv.invoice_number}) - Rs {inv.balance_due ?? inv.remaining_balance ?? inv.total_amount ?? inv.amount}</option>
+                            <option key={inv.id} value={inv.id}>{getInvoiceFeeMonth(inv)} ({inv.invoice_number}) - {cur()} {inv.balance_due ?? inv.remaining_balance ?? inv.total_amount ?? inv.amount}</option>
                           ))}
                         </select>
                       </div>
@@ -1109,11 +1110,11 @@ export default function CollectFeesPage() {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-4 text-center">
                       <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl space-y-1">
                         <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL</span>
-                        <span className="block text-xl font-black text-slate-800">Rs {totalAmount.toLocaleString()}</span>
+                        <span className="block text-xl font-black text-slate-800">{cur()} {totalAmount.toLocaleString()}</span>
                       </div>
                       <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl space-y-1">
                         <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">ALREADY PAID</span>
-                        <span className="block text-xl font-black text-emerald-600">Rs {(activeInvoice.paid_amount || 0).toLocaleString()}</span>
+                        <span className="block text-xl font-black text-emerald-600">{cur()} {(activeInvoice.paid_amount || 0).toLocaleString()}</span>
                       </div>
                       <div className="bg-purple-50/50 border border-purple-150 p-4 rounded-2xl space-y-1 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
                         <label htmlFor="form-deposit" className="block text-[9px] font-black text-[#5C53CD] uppercase tracking-widest cursor-pointer">DEPOSIT *</label>
@@ -1121,7 +1122,7 @@ export default function CollectFeesPage() {
                       </div>
                       <div className="bg-slate-50 border border-slate-150 p-4 rounded-2xl space-y-1">
                         <span className="block text-[9px] font-black text-red-400 uppercase tracking-widest">DUE BALANCE</span>
-                        <span className="block text-xl font-black text-rose-600">Rs {dueBalance.toLocaleString()}</span>
+                        <span className="block text-xl font-black text-rose-600">{cur()} {dueBalance.toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -1153,14 +1154,14 @@ export default function CollectFeesPage() {
                           <p className="font-bold text-slate-700">{item.student_name}</p>
                           <p className="text-[9px] text-slate-400 font-bold">{item.class_name} | {item.invoice_number}</p>
                         </div>
-                        <span className="font-extrabold text-slate-800">Rs {item.amount.toLocaleString()}</span>
+                        <span className="font-extrabold text-slate-800">{cur()} {item.amount.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
 
                   <div className="bg-slate-50 p-3.5 rounded-xl flex justify-between items-center text-xs">
                     <span className="font-bold text-slate-500 uppercase">Total Collected</span>
-                    <span className="font-black text-purple-700">Rs {familyReceiptSummary.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}</span>
+                    <span className="font-black text-purple-700">{cur()} {familyReceiptSummary.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-center gap-3 pt-2">

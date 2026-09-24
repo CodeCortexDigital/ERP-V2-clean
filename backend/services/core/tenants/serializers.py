@@ -4,6 +4,14 @@ from .models import School, TenantMembership
 
 
 class SchoolSerializer(serializers.ModelSerializer):
+    # Currency and language the whole app uses for this school.
+    locale = serializers.SerializerMethodField()
+
+    def get_locale(self, obj):
+        from .localization import school_locale
+
+        return school_locale(obj)
+
     class Meta:
         model = School
         fields = [
@@ -15,9 +23,10 @@ class SchoolSerializer(serializers.ModelSerializer):
             'email_domain',
             'is_active',
             'settings_json',
+            'locale',
             'created_at',
         ]
-        read_only_fields = ['id', 'school_id', 'created_at']
+        read_only_fields = ['id', 'school_id', 'created_at', 'locale']
 
 
 class TenantMembershipSerializer(serializers.ModelSerializer):

@@ -8,6 +8,9 @@ import { useUIStore } from '@/store/uiStore';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import tenantService from '@/services/tenant.service';
 import { readThemeSettings, saveThemeSettings, isDarkMode } from '@/utils/theme';
+import { useTranslation } from 'react-i18next';
+import { useLocaleStore } from '@/store/localeStore';
+import { LanguageMenuButton } from '@/components/common/LanguagePicker';
 
 interface HeaderProps {
   onMobileMenuToggle?: () => void;
@@ -25,13 +28,6 @@ const HEADER_STYLES: Record<string, string> = {
   White: 'bg-white text-slate-800 border-b border-slate-200',
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrator',
-  teacher: 'Teacher',
-  student: 'Student',
-  parent: 'Parent',
-};
-
 let cachedSchoolName = '';
 
 export default function Header({ onMobileMenuToggle }: HeaderProps) {
@@ -44,6 +40,11 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
   const [dark, setDark] = useState(() => isDarkMode(readThemeSettings().themeMode));
   const [schoolName, setSchoolName] = useState(cachedSchoolName);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
+  const userLanguage = useLocaleStore((s) => s.userLanguage);
+  const schoolLanguage = useLocaleStore((s) => s.school.language);
+  const setUserLanguage = useLocaleStore((s) => s.setUserLanguage);
+  const roleLabel = t(`roles.${['admin', 'teacher', 'student', 'parent'].includes(role || '') ? role : 'user'}`);
 
   useEffect(() => {
     const sync = () => {
@@ -123,7 +124,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
           <div className="min-w-0 leading-tight">
             <p className="font-bold text-[15px] truncate">{schoolName || 'CodeCortex ERP'}</p>
             <p className={`hidden sm:block text-[11px] truncate ${isWhite ? 'text-slate-500' : 'text-white/70'}`}>
-              {schoolName ? 'CodeCortex School ERP' : 'School management'}
+              {t('header.schoolErp')}
             </p>
           </div>
         </div>
@@ -143,11 +144,18 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
         <button
           onClick={toggleDark}
           className={iconBtn}
-          title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-          aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={dark ? t('header.toLight') : t('header.toDark')}
+          aria-label={dark ? t('header.toLight') : t('header.toDark')}
         >
           {dark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
         </button>
+
+        <LanguageMenuButton
+          value={userLanguage}
+          schoolDefault={schoolLanguage}
+          onChange={setUserLanguage}
+          buttonClassName={iconBtn}
+        />
 
         <div className={isWhite ? 'text-slate-500' : 'text-white'}>
           <NotificationBell />
@@ -166,7 +174,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
             </span>
             <span className="hidden lg:block text-left leading-tight max-w-[160px]">
               <span className="block text-sm font-semibold truncate">{displayName}</span>
-              <span className={`block text-[11px] ${isWhite ? 'text-slate-500' : 'text-white/70'}`}>{ROLE_LABELS[role || ''] || 'User'}</span>
+              <span className={`block text-[11px] ${isWhite ? 'text-slate-500' : 'text-white/70'}`}>{roleLabel}</span>
             </span>
             <ChevronDown className={`hidden sm:block w-4 h-4 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -177,7 +185,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
                 <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
                 <p className="text-xs text-slate-500 truncate">{user?.email}</p>
                 <span className="inline-block mt-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-soft">
-                  {ROLE_LABELS[role || ''] || 'User'}
+                  {roleLabel}
                 </span>
               </div>
               <button
@@ -185,7 +193,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
                 onClick={() => { setMenuOpen(false); navigate('/settings/account'); }}
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
               >
-                <Settings className="w-4 h-4 text-slate-400" /> Account settings
+                <Settings className="w-4 h-4 text-slate-400" /> {t('header.accountSettings')}
               </button>
               <button
                 role="menuitem"
@@ -193,7 +201,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm hover:bg-slate-50 transition-colors"
               >
                 {dark ? <Sun className="w-4 h-4 text-slate-400" /> : <Moon className="w-4 h-4 text-slate-400" />}
-                {dark ? 'Light mode' : 'Dark mode'}
+                {dark ? t('header.lightMode') : t('header.darkMode')}
               </button>
               <div className="my-1 border-t border-slate-100" />
               <button
@@ -201,7 +209,7 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
               >
-                <LogOut className="w-4 h-4" /> Log out
+                <LogOut className="w-4 h-4" /> {t('header.logout')}
               </button>
             </div>
           )}

@@ -9,7 +9,7 @@ import api from '@/services/api';
 import ledgerService, { Payslip } from '@/services/ledger.service';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
-import { getCurrencySymbol } from '@/utils/currency';
+import { getCurrencySymbol, cur } from '@/utils/currency';
 
 const sym = getCurrencySymbol();
 const formatCurrency = (val: number | string | undefined | null): string => {
@@ -294,10 +294,10 @@ export default function PayslipsListPage() {
         type: 'expense',
         account_head_name: 'Staff Salary Expense',
         reference: payingSlip.slip_number || `SAL-${payingSlip.id}`,
-        notes: `Disbursed Rs ${deposit} via ${payMethod}`
+        notes: `Disbursed ${cur()} ${deposit} via ${payMethod}`
       }).catch(e => console.warn('Ledger auto-expense notice:', e));
 
-      toast.success(`Salary payment of Rs ${deposit.toLocaleString()} disbursed to ${payingSlip.employee_name}!`);
+      toast.success(`Salary payment of ${cur()} ${deposit.toLocaleString()} disbursed to ${payingSlip.employee_name}!`);
       setShowPayModal(false);
       setPayingSlip(null);
       fetchData();
@@ -699,7 +699,7 @@ export default function PayslipsListPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Disbursement Amount (Rs) *</label>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Disbursement Amount ({cur()}) *</label>
                 <input
                   type="number"
                   placeholder="Enter amount paid..."

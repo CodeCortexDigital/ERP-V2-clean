@@ -5,6 +5,7 @@ import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import financeService from '@/services/finance.service';
 import classSectionService from '@/services/classSection.service';
+import { cur } from '@/utils/currency';
 
 export default function FeeStructure() {
   const [feeStructures, setFeeStructures] = useState<any[]>([]);
@@ -247,7 +248,7 @@ export default function FeeStructure() {
                         <span className="text-[10px] text-slate-400 font-normal ml-1.5">({sectionName})</span>
                       </td>
                       <td className="p-3.5 font-semibold text-purple-700 uppercase tracking-wide text-[10px]">{fs.fee_name}</td>
-                      <td className="p-3.5 font-bold text-slate-700">PKR {Number(fs.amount).toLocaleString()}</td>
+                      <td className="p-3.5 font-bold text-slate-700">{cur()} {Number(fs.amount).toLocaleString()}</td>
                       <td className="p-3.5 font-mono text-[11px] text-slate-500">{fs.due_date}</td>
                       <td className="p-3.5 text-slate-500">{fs.academic_year}</td>
                       <td className="p-3.5">
@@ -389,7 +390,7 @@ export default function FeeStructure() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Amount (PKR) *</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Amount ({cur()}) *</label>
                   <input
                     type="number"
                     placeholder="e.g. 5000"

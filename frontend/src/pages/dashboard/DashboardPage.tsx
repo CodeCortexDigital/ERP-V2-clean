@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import SetupChecklist from '@/components/dashboard/SetupChecklist';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -115,6 +116,7 @@ function useCountUp(target: number, durationMs = 700) {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [teachers, setTeachers] = useState<TeacherSummary[]>([]);
   const [classes, setClasses] = useState<ClassSummary[]>([]);
@@ -462,14 +464,14 @@ export default function DashboardPage() {
   const handleRevenueClick = () => navigate('/education/finance');
   const handleProfitClick = () => navigate('/education/finance/report');
 
-  const todayLabel = now.toLocaleDateString(undefined, {
+  const todayLabel = now.toLocaleDateString(i18n.language, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
 
   const hour = now.getHours();
-  const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const timeGreeting = t(hour < 12 ? 'dashboard.goodMorning' : hour < 17 ? 'dashboard.goodAfternoon' : 'dashboard.goodEvening');
   const firstName = (user as any)?.first_name || (user as any)?.name?.split(' ')?.[0] || '';
   const greeting = firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
 
@@ -520,7 +522,7 @@ export default function DashboardPage() {
                 {greeting}
                 <Sparkles className="w-4 h-4 text-brand" />
               </h1>
-              <p className="text-sm text-slate-500">{todayLabel} · here's how your school is doing</p>
+              <p className="text-sm text-slate-500">{t('dashboard.subtitle', { date: todayLabel })}</p>
             </div>
             <LiveDataBadge connected={wsConnected} />
           </div>
@@ -533,11 +535,11 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '0ms' }}>
             <StatCard
-              title="Total Students"
+              title={t('dashboard.totalStudents')}
               value={animatedStudentCount}
               icon={<Users className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.students}
-              suffix="Enrolled"
+              suffix={t('dashboard.enrolled')}
               subValue={studentCountRaw.toLocaleString()}
               navigateTo="/education/students"
               onClick={handleStudentsClick}
@@ -545,11 +547,11 @@ export default function DashboardPage() {
           </div>
           <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '80ms' }}>
             <StatCard
-              title="Total Employees"
+              title={t('dashboard.totalEmployees')}
               value={animatedEmployeeCount}
               icon={<Briefcase className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.employees}
-              suffix="On staff"
+              suffix={t('dashboard.onStaff')}
               subValue={employeeCountRaw.toLocaleString()}
               navigateTo="/education/teachers"
               onClick={handleTeachersClick}
@@ -557,12 +559,12 @@ export default function DashboardPage() {
           </div>
           <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '160ms' }}>
             <StatCard
-              title="Revenue"
+              title={t('dashboard.revenue')}
               value={formatCompactMoney(animatedIncome, symbol)}
               fullValue={formatMoney(totalIncome, symbol)}
               icon={<DollarSign className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.revenue}
-              suffix="This month"
+              suffix={t('dashboard.thisMonth')}
               subValue={formatMoney(thisMonthIncome, symbol)}
               navigateTo="/education/finance"
               onClick={handleRevenueClick}
@@ -570,12 +572,12 @@ export default function DashboardPage() {
           </div>
           <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '240ms' }}>
             <StatCard
-              title="Total Profit"
+              title={t('dashboard.totalProfit')}
               value={formatCompactMoney(animatedProfit, symbol)}
               fullValue={formatMoney(profitRaw, symbol)}
               icon={<TrendingUp className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.profit}
-              suffix="This month"
+              suffix={t('dashboard.thisMonth')}
               subValue={formatMoney(thisMonthIncome - thisMonthExpense, symbol)}
               navigateTo="/education/finance/report"
               onClick={handleProfitClick}
@@ -590,29 +592,29 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 px-0.5">
-            Quick Actions
+            {t('dashboard.quickActions')}
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <QuickActionCard
-              title="Add Student"
+              title={t('dashboard.addStudent')}
               icon={<UserPlus className="w-4.5 h-4.5" />}
               delayMs={0}
               onClick={() => navigate('/education/students/add')}
             />
             <QuickActionCard
-              title="View Classes"
+              title={t('dashboard.viewClasses')}
               icon={<BookOpen className="w-4.5 h-4.5" />}
               delayMs={60}
               onClick={() => navigate('/education/academics/classes')}
             />
             <QuickActionCard
-              title="All Invoices"
+              title={t('dashboard.allInvoices')}
               icon={<FileText className="w-4.5 h-4.5" />}
               delayMs={120}
               onClick={() => navigate('/education/fees/invoices')}
             />
             <QuickActionCard
-              title="Take Attendance"
+              title={t('dashboard.takeAttendance')}
               icon={<Calendar className="w-4.5 h-4.5" />}
               delayMs={180}
               onClick={() => navigate('/education/attendance')}

@@ -1,3 +1,4 @@
+import { useLocaleStore } from '@/store/localeStore';
 import React, { useState, useEffect } from 'react';
 import { Edit, Eye, EyeOff, User, Mail, Lock, Tag, Calendar, Trash2, Check, X, School } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
@@ -24,6 +25,7 @@ const DEFAULT: AccountData = {
 };
 
 export default function AccountSettings() {
+  const schoolLocale = useLocaleStore((st) => st.school);
   const { user } = useAuth();
   const [data, setData] = useState<AccountData>(DEFAULT);
   const [schoolName, setSchoolName] = useState('Your School');
@@ -210,7 +212,7 @@ export default function AccountSettings() {
             }
           />
           <DetailRow icon={<Calendar className="w-4 h-4" />} label="Time Zone" value={data.timezone} />
-          <DetailRow icon={<Tag className="w-4 h-4" />} label="Currency" value={`${data.currency} (${data.symbol})`} />
+          <DetailRow icon={<Tag className="w-4 h-4" />} label="Currency" value={`${schoolLocale.currency_name} (${schoolLocale.currency_symbol})`} />
           <DetailRow icon={<Tag className="w-4 h-4" />} label="Subscription" value={<span className="px-2 py-0.5 bg-green-50 text-green-700 font-extrabold rounded text-[10px]">YEARLY</span>} />
         </div>
 
@@ -333,73 +335,12 @@ export default function AccountSettings() {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CURRENCY *</label>
-                <select value={draft.currency} onChange={(e) => handleCurrencyChange(e.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-700 font-semibold">
-                  <optgroup label="—— Popular ——">
-                    <option value="Dollars (USD)">Dollars (USD) $</option>
-                    <option value="Rupees (PKR)">Rupees (PKR) Rs</option>
-                    <option value="Rupees (INR)">Rupees (INR) ₹</option>
-                    <option value="Euro (EUR)">Euro (EUR) €</option>
-                    <option value="Pound Sterling (GBP)">Pound Sterling (GBP) £</option>
-                    <option value="Japanese Yen (JPY)">Japanese Yen (JPY) ¥</option>
-                    <option value="Chinese Yuan (CNY)">Chinese Yuan (CNY) ¥</option>
-                    <option value="Australian Dollar (AUD)">Australian Dollar (AUD) A$</option>
-                    <option value="Canadian Dollar (CAD)">Canadian Dollar (CAD) C$</option>
-                  </optgroup>
-                  <optgroup label="—— Americas ——">
-                    <option value="Mexican Peso (MXN)">Mexican Peso (MXN) Mex$</option>
-                    <option value="Brazilian Real (BRL)">Brazilian Real (BRL) R$</option>
-                    <option value="Argentine Peso (ARS)">Argentine Peso (ARS) ARS$</option>
-                    <option value="Chilean Peso (CLP)">Chilean Peso (CLP) CLP$</option>
-                    <option value="Colombian Peso (COP)">Colombian Peso (COP) COP$</option>
-                    <option value="Peruvian Sol (PEN)">Peruvian Sol (PEN) S/</option>
-                  </optgroup>
-                  <optgroup label="—— Europe ——">
-                    <option value="Swiss Franc (CHF)">Swiss Franc (CHF) Fr</option>
-                    <option value="Swedish Krona (SEK)">Swedish Krona (SEK) kr</option>
-                    <option value="Norwegian Krone (NOK)">Norwegian Krone (NOK) kr</option>
-                    <option value="Danish Krone (DKK)">Danish Krone (DKK) kr</option>
-                    <option value="Polish Zloty (PLN)">Polish Zloty (PLN) zł</option>
-                    <option value="Czech Koruna (CZK)">Czech Koruna (CZK) Kč</option>
-                    <option value="Hungarian Forint (HUF)">Hungarian Forint (HUF) Ft</option>
-                    <option value="Turkish Lira (TRY)">Turkish Lira (TRY) ₺</option>
-                    <option value="Russian Ruble (RUB)">Russian Ruble (RUB) ₽</option>
-                    <option value="Ukrainian Hryvnia (UAH)">Ukrainian Hryvnia (UAH) ₴</option>
-                  </optgroup>
-                  <optgroup label="—— Middle East / Africa ——">
-                    <option value="UAE Dirham (AED)">UAE Dirham (AED) د.إ</option>
-                    <option value="Saudi Riyal (SAR)">Saudi Riyal (SAR) ﷼</option>
-                    <option value="Qatari Riyal (QAR)">Qatari Riyal (QAR) ﷼</option>
-                    <option value="Kuwaiti Dinar (KWD)">Kuwaiti Dinar (KWD) د.ك</option>
-                    <option value="Egyptian Pound (EGP)">Egyptian Pound (EGP) E£</option>
-                    <option value="South African Rand (ZAR)">South African Rand (ZAR) R</option>
-                    <option value="Nigerian Naira (NGN)">Nigerian Naira (NGN) ₦</option>
-                    <option value="Kenyan Shilling (KES)">Kenyan Shilling (KES) KSh</option>
-                  </optgroup>
-                  <optgroup label="—— Asia ——">
-                    <option value="Bangladeshi Taka (BDT)">Bangladeshi Taka (BDT) ৳</option>
-                    <option value="Sri Lankan Rupee (LKR)">Sri Lankan Rupee (LKR) Rs</option>
-                    <option value="Nepalese Rupee (NPR)">Nepalese Rupee (NPR) Rs</option>
-                    <option value="Indonesian Rupiah (IDR)">Indonesian Rupiah (IDR) Rp</option>
-                    <option value="Thai Baht (THB)">Thai Baht (THB) ฿</option>
-                    <option value="Vietnamese Dong (VND)">Vietnamese Dong (VND) ₫</option>
-                    <option value="Malaysian Ringgit (MYR)">Malaysian Ringgit (MYR) RM</option>
-                    <option value="Philippine Peso (PHP)">Philippine Peso (PHP) ₱</option>
-                    <option value="Singapore Dollar (SGD)">Singapore Dollar (SGD) S$</option>
-                    <option value="Hong Kong Dollar (HKD)">Hong Kong Dollar (HKD) HK$</option>
-                    <option value="Taiwan Dollar (TWD)">Taiwan Dollar (TWD) NT$</option>
-                    <option value="South Korean Won (KRW)">South Korean Won (KRW) ₩</option>
-                    <option value="Afghan Afghani (AFN)">Afghan Afghani (AFN) ؋</option>
-                  </optgroup>
-                  <optgroup label="—— Oceania ——">
-                    <option value="New Zealand Dollar (NZD)">New Zealand Dollar (NZD) NZ$</option>
-                    <option value="Fijian Dollar (FJD)">Fijian Dollar (FJD) FJ$</option>
-                  </optgroup>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CURRENCY SYMBOL</label>
-                <Input value={draft.symbol} onChange={(e) => setDraft({ ...draft, symbol: e.target.value })} className="text-xs h-10 rounded-xl border-slate-200 w-full md:w-1/2" />
+                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CURRENCY</label>
+                {/* The currency is a school setting now (server-side), not per browser. */}
+                <p className="h-10 flex items-center text-xs font-semibold text-slate-700">
+                  {schoolLocale.currency_name} ({schoolLocale.currency} · {schoolLocale.currency_symbol})
+                  <a href="/settings/language" className="ms-3 text-brand hover:underline">Change</a>
+                </p>
               </div>
             </div>
 

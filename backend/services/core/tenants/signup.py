@@ -24,6 +24,15 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from .context import use_tenant
+from .localization import (
+    DEFAULT_CURRENCY,
+    DEFAULT_LANGUAGE,
+    DEFAULT_TIMEZONE,
+    normalize_currency,
+    normalize_language,
+    options as localization_options,
+    school_locale,
+)
 from .models import School, TenantMembership
 
 User = get_user_model()
@@ -64,7 +73,7 @@ def _subdomain(name: str) -> str:
 
 
 def create_school_with_admin(*, school_name, admin_email, admin_name, password=None,
-                             firebase_uid='', city='', phone=''):
+                             firebase_uid='', city='', phone='', currency=None, language=None, timezone=None):
     """Create the school and its first admin. Raises ValidationError on bad input."""
     school_name = (school_name or '').strip()
     admin_email = (admin_email or '').strip().lower()
@@ -74,6 +83,12 @@ def create_school_with_admin(*, school_name, admin_email, admin_name, password=N
         raise ValidationError({'email': 'Enter a valid email address.'})
     if User.objects.filter(email__iexact=admin_email).exists():
         raise ValidationError({'email': 'An account with this email already exists. Sign in instead.'})
+    currency_code = normalize_currency(currency or DEFAULT_CURRENCY)
+    if not currency_code:
+        raise ValidationError({'currency': 'Choose a supported currency.'})
+    language_code = normalize_language(language or DEFAULT_LANGUAGE)
+    if not language_code:
+        raise ValidationError({'language': 'Choose a supported language.'})
     if password is not None:
         try:
             validate_password(password)
@@ -91,7 +106,9 @@ def create_school_with_admin(*, school_name, admin_email, admin_name, password=N
                 'name': school_name,
                 'city': city.strip(),
                 'phone': phone.strip(),
-                'country': 'Pakistan',
+                'currency': currency_code,
+                'language': language_code,
+                'timezone': (timezone or DEFAULT_TIMEZONE)[:64],
                 'onboarding': {'created_via': 'google' if firebase_uid else 'signup'},
             },
         )
@@ -113,8 +130,9 @@ def create_school_with_admin(*, school_name, admin_email, admin_name, password=N
 @throttle_classes([SignupThrottle])
 def school_signup(request):
     """
-    Body (password):  {school_name, admin_name, email, password, city?, phone?}
-    Body (Google):    {school_name, city?, phone?, id_token}   (name/email come from Google)
+    Body (password):  {school_name, admin_name, email, password, currency, language, city?, phone?, timezone?}
+    Body (Google):    {school_name, currency, language, city?, phone?, timezone?, id_token}
+                      (name/email come from Google)
     Returns the same payload as /auth/login/ (tokens, user, tenant).
     """
     from services.core.accounts.google_identity import GoogleIdentityError, verify_google_identity
@@ -139,6 +157,7 @@ def school_signup(request):
         _, user = create_school_with_admin(
             school_name=data.get('school_name'), admin_email=email, admin_name=name, password=password,
             firebase_uid=firebase_uid, city=data.get('city') or '', phone=data.get('phone') or '',
+            currency=data.get('currency'), language=data.get('language'), timezone=data.get('timezone'),
         )
     except ValidationError as exc:
         fields = exc.message_dict if hasattr(exc, 'error_dict') else {'non_field': exc.messages}
@@ -157,7 +176,43 @@ def signup_config(request):
     """What the public signup page can offer (Google button only when configured)."""
     from services.core.accounts.google_identity import google_sign_in_enabled
 
-    return Response({'google_sign_in': google_sign_in_enabled()})
+    return Response({'google_sign_in': google_sign_in_enabled(), **localization_options()})
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def school_locale_view(request):
+    """GET: the school's currency/language (+ choices). PUT (school admin): change them."""
+    from services.core.accounts.decorators import is_admin
+
+    tenant = getattr(request, 'tenant', None)
+    if request.method == 'GET':
+        return Response({'locale': school_locale(tenant), **localization_options()})
+    if tenant is None:
+        return Response({'error': 'Your account is not linked to a school.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not (request.user.is_superuser or is_admin(request.user)):
+        return Response({'error': 'Only the school administrator can change this.'}, status=status.HTTP_403_FORBIDDEN)
+    updates, errors = {}, {}
+    if 'currency' in request.data:
+        code = normalize_currency(request.data.get('currency'))
+        if code:
+            updates['currency'] = code
+        else:
+            errors['currency'] = 'Choose a supported currency.'
+    if 'language' in request.data:
+        code = normalize_language(request.data.get('language'))
+        if code:
+            updates['language'] = code
+        else:
+            errors['language'] = 'Choose a supported language.'
+    if request.data.get('timezone'):
+        updates['timezone'] = str(request.data['timezone'])[:64]
+    if errors:
+        return Response({'error': next(iter(errors.values())), 'fields': errors}, status=status.HTTP_400_BAD_REQUEST)
+    with use_tenant(None):
+        tenant.settings_json = {**(tenant.settings_json or {}), **updates}
+        tenant.save(update_fields=['settings_json', 'updated_at'])
+    return Response({'locale': school_locale(tenant)})
 
 
 # Setup checklist shown on a new school's dashboard: (key, label, model, link)

@@ -5,6 +5,7 @@ import { Landmark, Search, Printer, Calendar, TrendingUp, AlertCircle, CheckCirc
 import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
+import { cur } from '@/utils/currency';
 
 interface Invoice {
   id: string;
@@ -282,21 +283,21 @@ export default function FeesReportPage() {
           {/* Total Fees Collected */}
           <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs flex flex-col justify-between h-32 print:shadow-none print:border-slate-200">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">FEES COLLECTED</span>
-            <span className="text-2xl font-black text-[#10B981] block">Rs {totalCollected.toLocaleString()}</span>
+            <span className="text-2xl font-black text-[#10B981] block">{cur()} {totalCollected.toLocaleString()}</span>
             <span className="text-[10px] text-slate-400 font-bold block">{paidCount} Fully Paid</span>
           </div>
 
           {/* Pending Fees */}
           <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs flex flex-col justify-between h-32 print:shadow-none print:border-slate-200">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">PENDING FEES</span>
-            <span className="text-2xl font-black text-[#EF4444] block">Rs {totalPending.toLocaleString()}</span>
+            <span className="text-2xl font-black text-[#EF4444] block">{cur()} {totalPending.toLocaleString()}</span>
             <span className="text-[10px] text-slate-400 font-bold block">{partialCount + unpaidCount} Students Pending</span>
           </div>
 
           {/* Total Generated */}
           <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-xs flex flex-col justify-between h-32 print:shadow-none print:border-slate-200">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">TOTAL GENERATED</span>
-            <span className="text-2xl font-black text-[#1b3bb6] block">Rs {totalGenerated.toLocaleString()}</span>
+            <span className="text-2xl font-black text-[#1b3bb6] block">{cur()} {totalGenerated.toLocaleString()}</span>
             <span className="text-[10px] text-slate-400 font-bold block">Total Invoice Amount</span>
           </div>
 
@@ -348,12 +349,12 @@ export default function FeesReportPage() {
                       <td className="py-2.5 px-3 text-slate-400 font-bold">{index + 1}</td>
                       <td className="py-2.5 px-3 font-black text-slate-800">{inv.student_name}</td>
                       <td className="py-2.5 px-3 text-slate-600">{inv.class_name}</td>
-                      <td className="py-2.5 px-3 text-right">Rs {totalAmt.toLocaleString()}</td>
+                      <td className="py-2.5 px-3 text-right">{cur()} {totalAmt.toLocaleString()}</td>
                       <td className="py-2.5 px-3 text-right text-[#10B981] font-bold">
-                        Rs {paidAmount.toLocaleString()}
+                        {cur()} {paidAmount.toLocaleString()}
                       </td>
                       <td className="py-2.5 px-3 text-right text-[#EF4444] font-bold">
-                        Rs {pendingAmount.toLocaleString()}
+                        {cur()} {pendingAmount.toLocaleString()}
                       </td>
                       <td className="py-2.5 px-3 text-center">
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
@@ -380,9 +381,9 @@ export default function FeesReportPage() {
                 <tfoot className="bg-slate-50/75 border-t border-slate-150 font-bold text-slate-700">
                   <tr>
                     <td colSpan={3} className="py-3 px-3 text-right uppercase text-slate-400">TOTALS</td>
-                    <td className="py-3 px-3 text-right">Rs {totalGenerated.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-right text-[#10B981]">Rs {totalCollected.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-right text-[#EF4444]">Rs {totalPending.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right">{cur()} {totalGenerated.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right text-[#10B981]">{cur()} {totalCollected.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right text-[#EF4444]">{cur()} {totalPending.toLocaleString()}</td>
                     <td className="py-3 px-3 text-center text-slate-400">
                       {paidCount + partialCount + unpaidCount} Active Invoices
                     </td>

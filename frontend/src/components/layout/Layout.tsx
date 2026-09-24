@@ -5,6 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';  // Default import
 import { useAuth } from '@/contexts/AuthContext';
 import { useUIStore } from '@/store/uiStore';
 import { initGlobalTheme } from '@/utils/theme';
+import { useLocaleStore } from '@/store/localeStore';
 import AiAssistant, { type ChatMode } from '@/components/AiAssistant';
 
 interface LayoutProps {
@@ -23,6 +24,8 @@ export function Layout({ children }: LayoutProps) {
   // Apply General Settings theme globally (sidebar/header/accent) to all pages
   useEffect(() => {
     initGlobalTheme();
+    // The school's currency and language (Settings → Language & currency).
+    useLocaleStore.getState().refresh();
   }, []);
 
   // Check mobile on mount and resize

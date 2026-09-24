@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
+import { cur } from '@/utils/currency';
 
 interface StoreItem {
   id: string;
@@ -267,7 +268,7 @@ export default function OnlineStorePage() {
                           <span className="text-lg">{c.item.image}</span>
                           <div>
                             <p className="font-bold text-slate-800">{c.item.name}</p>
-                            <p className="text-[10px] text-slate-400 font-bold">Rs. {c.item.price} each</p>
+                            <p className="text-[10px] text-slate-400 font-bold">{cur()} {c.item.price} each</p>
                           </div>
                         </div>
 
@@ -277,7 +278,7 @@ export default function OnlineStorePage() {
                             <span className="font-bold px-1">{c.quantity}</span>
                             <button onClick={() => handleUpdateQty(c.item.id, 1)} className="p-1 hover:bg-slate-100 rounded text-slate-500"><Plus className="w-3 h-3" /></button>
                           </div>
-                          <span className="font-bold text-slate-800 w-16 text-right">Rs. {c.item.price * c.quantity}</span>
+                          <span className="font-bold text-slate-800 w-16 text-right">{cur()} {c.item.price * c.quantity}</span>
                         </div>
                       </div>
                     ))}
@@ -286,7 +287,7 @@ export default function OnlineStorePage() {
                   <div className="pt-3 border-t border-blue-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                       <p className="text-xs font-bold text-slate-500">Total Bill Amount:</p>
-                      <p className="text-lg font-black text-blue-700">Rs. {cartTotal}</p>
+                      <p className="text-lg font-black text-blue-700">{cur()} {cartTotal}</p>
                     </div>
 
                     <button
@@ -320,7 +321,7 @@ export default function OnlineStorePage() {
                   <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                     <div>
                       <span className="text-[9px] text-slate-400 font-bold block uppercase leading-none">Price</span>
-                      <span className="text-sm font-black text-blue-600">Rs. {item.price}</span>
+                      <span className="text-sm font-black text-blue-600">{cur()} {item.price}</span>
                     </div>
 
                     <button
@@ -359,7 +360,7 @@ export default function OnlineStorePage() {
                           <td className="px-4 py-3 font-bold text-slate-800">
                             {p.items.map(i => `${i.name} (x${i.qty})`).join(', ')}
                           </td>
-                          <td className="px-4 py-3 text-center font-bold text-blue-650">Rs. {p.total}</td>
+                          <td className="px-4 py-3 text-center font-bold text-blue-650">{cur()} {p.total}</td>
                           <td className="px-4 py-3 text-center">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                               p.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'

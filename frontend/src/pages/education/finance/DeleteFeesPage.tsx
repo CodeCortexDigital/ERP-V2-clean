@@ -5,6 +5,7 @@ import { Landmark, Trash2, ShieldAlert, CheckSquare, Square, Filter } from 'luci
 import studentService from '@/services/student.service';
 import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
+import { cur } from '@/utils/currency';
 
 interface Invoice {
   id: string;
@@ -261,7 +262,7 @@ export default function DeleteFeesPage() {
                     <td className="py-3 px-5 font-black text-slate-800">{inv.student_name}</td>
                     <td className="py-3 px-5 text-slate-500">{inv.student_id_code}</td>
                     <td className="py-3 px-5 text-slate-600">{inv.class_name}</td>
-                    <td className="py-3 px-5 text-right font-bold text-slate-700">Rs {inv.amount.toLocaleString()}</td>
+                    <td className="py-3 px-5 text-right font-bold text-slate-700">{cur()} {inv.amount.toLocaleString()}</td>
                     <td className="py-3 px-5 text-center">
                       <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
                         inv.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'

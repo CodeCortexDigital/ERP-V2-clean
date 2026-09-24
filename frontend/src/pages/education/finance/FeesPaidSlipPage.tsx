@@ -7,6 +7,7 @@ import financeService from '@/services/finance.service';
 import { extractListData } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import settingsService from '@/services/settings.service';
+import { cur } from '@/utils/currency';
 
 interface Invoice {
   id: string;
@@ -437,17 +438,17 @@ export default function FeesPaidSlipPage() {
 
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Total Amount</p>
-                  <p className="text-slate-800 text-xs font-black">→ Rs {totalAmount}</p>
+                  <p className="text-slate-800 text-xs font-black">→ {cur()} {totalAmount}</p>
                   {(previouslyPaid || 0) > 0 && (
                     <>
                       <p className="text-slate-400">Previously Paid</p>
-                      <p className="text-slate-800 text-xs font-black">→ Rs {previouslyPaid}</p>
+                      <p className="text-slate-800 text-xs font-black">→ {cur()} {previouslyPaid}</p>
                     </>
                   )}
                   <p className="text-slate-400">Deposit Amount</p>
-                  <p className="text-slate-800 text-xs font-black">→ Rs {depositAmount}</p>
+                  <p className="text-slate-800 text-xs font-black">→ {cur()} {depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance</p>
-                  <p className="text-rose-600 text-xs font-black">→ Rs {remainingBalance} {remainingBalance > 0 && '(Partially Paid)'}</p>
+                  <p className="text-rose-600 text-xs font-black">→ {cur()} {remainingBalance} {remainingBalance > 0 && '(Partially Paid)'}</p>
                 </div>
               </div>
 
@@ -477,21 +478,21 @@ export default function FeesPaidSlipPage() {
                     {/* Totals row */}
                     <tr className="font-bold bg-slate-50">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">TOTAL</td>
-                      <td className="py-1 px-3 text-right">Rs {totalAmount}</td>
+                      <td className="py-1 px-3 text-right">{cur()} {totalAmount}</td>
                     </tr>
                     {(previouslyPaid || 0) > 0 && (
                       <tr className="font-bold bg-slate-50">
                         <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">PREVIOUSLY PAID</td>
-                        <td className="py-1 px-3 text-right text-amber-600">Rs {previouslyPaid}</td>
+                        <td className="py-1 px-3 text-right text-amber-600">{cur()} {previouslyPaid}</td>
                       </tr>
                     )}
                     <tr className="font-bold bg-slate-50">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">DEPOSIT</td>
-                      <td className="py-1 px-3 text-right">Rs {depositAmount}</td>
+                      <td className="py-1 px-3 text-right">{cur()} {depositAmount}</td>
                     </tr>
                     <tr className="font-black bg-slate-100">
                       <td colSpan={2} className="py-1 px-3 border-r border-slate-200 text-right uppercase">DUE-ABLE BALANCE</td>
-                      <td className="py-1 px-3 text-right">Rs {remainingBalance}</td>
+                      <td className="py-1 px-3 text-right">{cur()} {remainingBalance}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -592,11 +593,11 @@ export default function FeesPaidSlipPage() {
 
                 <div className="col-span-3 text-[10px] space-y-1.5 font-bold">
                   <p className="text-slate-400">Total Amount:</p>
-                  <p className="text-slate-800 font-black">Rs {totalAmount}</p>
+                  <p className="text-slate-800 font-black">{cur()} {totalAmount}</p>
                   <p className="text-slate-400">Deposit Amount:</p>
-                  <p className="text-slate-800 font-black">Rs {depositAmount}</p>
+                  <p className="text-slate-800 font-black">{cur()} {depositAmount}</p>
                   <p className="text-slate-400">Remaining Balance:</p>
-                  <p className="text-rose-600 font-black">Rs {remainingBalance} {remainingBalance > 0 && '(Partially Paid)'}</p>
+                  <p className="text-rose-600 font-black">{cur()} {remainingBalance} {remainingBalance > 0 && '(Partially Paid)'}</p>
                 </div>
               </div>
 
@@ -748,9 +749,9 @@ export default function FeesPaidSlipPage() {
                               <td className="py-3.5 px-3 font-mono text-slate-655 uppercase tracking-tight">{inv.invoice_number}</td>
                               <td className="py-3.5 px-3">{getInvoiceFeeMonth(inv)}</td>
                               <td className="py-3.5 px-3 uppercase text-[10px] text-slate-500">{inv.invoice_type || 'Tuition'}</td>
-                              <td className="py-3.5 px-3 text-right font-bold">Rs {Number(totalAmt).toLocaleString()}</td>
-                              <td className="py-3.5 px-3 text-right text-emerald-600 font-bold">Rs {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                              <td className="py-3.5 px-3 text-right font-bold text-slate-655">Rs {Number(balance).toLocaleString()}</td>
+                              <td className="py-3.5 px-3 text-right font-bold">{cur()} {Number(totalAmt).toLocaleString()}</td>
+                              <td className="py-3.5 px-3 text-right text-emerald-600 font-bold">{cur()} {Number(inv.paid_amount || 0).toLocaleString()}</td>
+                              <td className="py-3.5 px-3 text-right font-bold text-slate-655">{cur()} {Number(balance).toLocaleString()}</td>
                               <td className="py-3.5 px-3 text-center">
                                 {inv.status === 'paid' || balance <= 0 ? (
                                   <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 border border-emerald-100 text-emerald-600">Paid</span>
@@ -844,7 +845,7 @@ export default function FeesPaidSlipPage() {
                       onClick={() => navigate(`/education/finance/collect-fees?student_id=${activeReceipt.student}`)}
                       className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all print:hidden shadow-sm"
                     >
-                      Collect Remaining (Rs {remainingBalance})
+                      Collect Remaining ({cur()} {remainingBalance})
                     </button>
                   )}
                   <button
@@ -874,27 +875,27 @@ export default function FeesPaidSlipPage() {
                 {/* Total Amount */}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL AMOUNT</span>
-                  <span className="block text-xl font-black text-[#1b3bb6]">Rs {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="block text-xl font-black text-[#1b3bb6]">{cur()} {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
 
                 {/* Previously Paid */}
                 {(previouslyPaid || 0) > 0 && (
                   <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                     <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">PREVIOUSLY PAID</span>
-                    <span className="block text-xl font-black text-amber-600">Rs {previouslyPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="block text-xl font-black text-amber-600">{cur()} {previouslyPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
 
                 {/* Deposit Amount */}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">DEPOSIT AMOUNT</span>
-                  <span className="block text-xl font-black text-[#10B981]">Rs {depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="block text-xl font-black text-[#10B981]">{cur()} {depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
 
                 {/* Remaining Balance */}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-1 shadow-3xs">
                   <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">REMAINING BALANCE</span>
-                  <span className="block text-xl font-black text-[#EF4444]">Rs {remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="block text-xl font-black text-[#EF4444]">{cur()} {remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
 
               </div>
@@ -906,7 +907,7 @@ export default function FeesPaidSlipPage() {
                     <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-700">
                       <th className="py-2 px-3 border-r border-slate-200">Sr. No.</th>
                       <th className="py-2 px-3 border-r border-slate-200">Particulars</th>
-                      <th className="py-2 px-3 text-right">Amount (Rs)</th>
+                      <th className="py-2 px-3 text-right">Amount ({cur()})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -974,9 +975,9 @@ export default function FeesPaidSlipPage() {
                             </td>
                             <td className="py-3.5 px-3">{getInvoiceFeeMonth(inv)}</td>
                             <td className="py-3.5 px-3 uppercase text-[10px] text-slate-500">{inv.invoice_type || 'Tuition'}</td>
-                            <td className="py-3.5 px-3 text-right font-bold">Rs {Number(totalAmt).toLocaleString()}</td>
-                            <td className="py-3.5 px-3 text-right text-emerald-600 font-bold">Rs {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                            <td className="py-3.5 px-3 text-right font-bold text-slate-655">Rs {Number(balance).toLocaleString()}</td>
+                            <td className="py-3.5 px-3 text-right font-bold">{cur()} {Number(totalAmt).toLocaleString()}</td>
+                            <td className="py-3.5 px-3 text-right text-emerald-600 font-bold">{cur()} {Number(inv.paid_amount || 0).toLocaleString()}</td>
+                            <td className="py-3.5 px-3 text-right font-bold text-slate-655">{cur()} {Number(balance).toLocaleString()}</td>
                             <td className="py-3.5 px-3 text-center">
                               {inv.status === 'paid' || balance <= 0 ? (
                                 <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 border border-emerald-100 text-emerald-600">Paid</span>

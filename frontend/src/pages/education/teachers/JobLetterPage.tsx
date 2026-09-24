@@ -6,6 +6,7 @@ import teacherService, { Teacher } from '@/services/teacher.service';
 import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import credentialsService, { passwordLabel, type StaffLogins } from '@/services/credentials.service';
+import { cur } from '@/utils/currency';
 
 export default function JobLetterPage() {
   const navigate = useNavigate();
@@ -298,7 +299,7 @@ export default function JobLetterPage() {
               </div>
               <div>
                 <span className="block text-[8px] font-bold text-slate-400 uppercase">Monthly Salary</span>
-                <span className="font-extrabold text-slate-700">Rs {parseFloat(extras.monthlySalary).toLocaleString() || '45,000'}</span>
+                <span className="font-extrabold text-slate-700">{cur()} {parseFloat(extras.monthlySalary).toLocaleString() || '45,000'}</span>
               </div>
             </div>
 

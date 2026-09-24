@@ -5,6 +5,7 @@ import { Landmark, DollarSign, Users, CalendarDays, Plus, Printer, ArrowLeft, Se
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import ledgerService from '@/services/ledger.service';
+import { cur } from '@/utils/currency';
 
 interface Employee {
   id: string;
@@ -178,7 +179,7 @@ export default function GenerateSalaryPage() {
     const salaryAmount = emp.monthly_salary || 0;
     if (salaryAmount > 0) {
       setBasicSalary(String(salaryAmount));
-      toast.success(`Salary Rs ${salaryAmount.toLocaleString()} loaded for ${emp.full_name}`);
+      toast.success(`Salary ${cur()} ${salaryAmount.toLocaleString()} loaded for ${emp.full_name}`);
     } else {
       setBasicSalary('');
       toast.warning(`No salary record found for ${emp.full_name}. Please enter manually.`);
@@ -272,7 +273,7 @@ export default function GenerateSalaryPage() {
         is_settled: false
       });
 
-      toast.success(`Rs ${amountVal.toLocaleString()} credit/bonus allotted to employee!`);
+      toast.success(`${cur()} ${amountVal.toLocaleString()} credit/bonus allotted to employee!`);
 
       // Reset inputs
       setCreditAmount('');
@@ -608,7 +609,7 @@ export default function GenerateSalaryPage() {
                           >
                             <span>{emp.full_name}</span>
                             <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-full">
-                              {emp.designation} {salaryDisplay > 0 && `| Rs ${salaryDisplay.toLocaleString()}`}
+                              {emp.designation} {salaryDisplay > 0 && `| ${cur()} ${salaryDisplay.toLocaleString()}`}
                             </span>
                           </div>
                         );
@@ -631,7 +632,7 @@ export default function GenerateSalaryPage() {
                           {unpaidSalaries.map((s: any) => (
                             <div key={s.id} className="flex justify-between items-center bg-white px-3.5 py-2.5 rounded-xl border border-slate-100 text-xs">
                               <span className="font-semibold text-slate-700">{s.month}</span>
-                              <span className="font-black text-rose-600">Rs {s.net_salary.toLocaleString()}</span>
+                              <span className="font-black text-rose-600">{cur()} {s.net_salary.toLocaleString()}</span>
                             </div>
                           ))}
                         </div>
@@ -652,7 +653,7 @@ export default function GenerateSalaryPage() {
                                   {c.description && <span className="text-[10px] text-slate-400 font-medium">{c.description}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-black text-emerald-600">Rs {Number(c.amount).toLocaleString()}</span>
+                                  <span className="font-black text-emerald-600">{cur()} {Number(c.amount).toLocaleString()}</span>
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteCredit(c.id)}
@@ -666,7 +667,7 @@ export default function GenerateSalaryPage() {
                           </div>
                           <div className="bg-emerald-50 text-emerald-800 text-[10px] font-bold p-2.5 rounded-lg flex items-center justify-between border border-emerald-100">
                             <span>Total applied to Allowances:</span>
-                            <span>Rs {pendingCredits.reduce((sum, c) => sum + (Number(c.amount) || 0), 0).toLocaleString()}</span>
+                            <span>{cur()} {pendingCredits.reduce((sum, c) => sum + (Number(c.amount) || 0), 0).toLocaleString()}</span>
                           </div>
                         </div>
                       )}
@@ -772,7 +773,7 @@ export default function GenerateSalaryPage() {
           <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex justify-between items-center">
             <span className="text-xs font-bold text-purple-700">Net Salary:</span>
             <span className="text-xl font-black text-purple-700">
-              Rs {calculateNetSalary().toLocaleString()}
+              {cur()} {calculateNetSalary().toLocaleString()}
             </span>
           </div>
 
@@ -879,19 +880,19 @@ function SalarySlipCard({ salary, banks }: { salary: Salary; banks: any[] }) {
           <tbody className="divide-y divide-slate-100">
             <tr>
               <td className="py-2">Basic Salary</td>
-              <td className="py-2 text-right font-semibold">Rs {salary.basic_salary.toLocaleString()}</td>
+              <td className="py-2 text-right font-semibold">{cur()} {salary.basic_salary.toLocaleString()}</td>
             </tr>
             <tr>
               <td className="py-2">Allowances</td>
-              <td className="py-2 text-right font-semibold text-emerald-600">Rs {salary.allowances.toLocaleString()}</td>
+              <td className="py-2 text-right font-semibold text-emerald-600">{cur()} {salary.allowances.toLocaleString()}</td>
             </tr>
             <tr>
               <td className="py-2">Deductions</td>
-              <td className="py-2 text-right font-semibold text-rose-600">Rs {salary.deductions.toLocaleString()}</td>
+              <td className="py-2 text-right font-semibold text-rose-600">{cur()} {salary.deductions.toLocaleString()}</td>
             </tr>
             <tr className="font-bold border-t-2 border-slate-300">
               <td className="py-2 text-purple-700">Net Salary</td>
-              <td className="py-2 text-right text-purple-700 text-lg">Rs {salary.net_salary.toLocaleString()}</td>
+              <td className="py-2 text-right text-purple-700 text-lg">{cur()} {salary.net_salary.toLocaleString()}</td>
             </tr>
           </tbody>
         </table>

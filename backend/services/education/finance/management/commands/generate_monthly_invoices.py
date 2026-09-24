@@ -19,6 +19,7 @@ Business Rules:
   - Skips students who already have an invoice for this month (idempotent)
 """
 
+from services.core.tenants.localization import format_money
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from decimal import Decimal
@@ -122,7 +123,8 @@ class Command(BaseCommand):
             # ── Create Invoice ─────────────────────────────────────────────────
             description_parts = [f"Monthly Fee — {today.strftime('%B %Y')}"]
             if opening_balance > 0:
-                description_parts.append(f"Opening Balance (B/F): PKR {opening_balance:,.2f}")
+                description_parts.append(
+                    f"Opening Balance (B/F): {format_money(opening_balance, getattr(student, 'tenant', None))}")
 
             if not dry_run:
                 Invoice.objects.create(

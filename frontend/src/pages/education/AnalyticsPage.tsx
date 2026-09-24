@@ -10,6 +10,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 import analyticsService from '@/services/analytics.service';
 import api from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { cur } from '@/utils/currency';
 
 type StatusType = 'success' | 'error' | 'info';
 interface StatusMessage {
@@ -1189,7 +1190,7 @@ setTeacherPerformance(rawTeachers);
         </div>
         <div className="bg-green-50 rounded-xl p-4">
           <div className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-600" /></div>
-          <p className="text-2xl font-bold text-green-700">Rs {totalCollected.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-green-700">{cur()} {totalCollected.toLocaleString()}</p>
           <p className="text-xs text-gray-600">Fee Collected</p>
         </div>
         <div className="bg-red-50 rounded-xl p-4">
@@ -1199,7 +1200,7 @@ setTeacherPerformance(rawTeachers);
         </div>
         <div className="bg-yellow-50 rounded-xl p-4">
           <div className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-yellow-600" /></div>
-          <p className="text-2xl font-bold text-yellow-700">Rs {totalPending.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-yellow-700">{cur()} {totalPending.toLocaleString()}</p>
           <p className="text-xs text-gray-600">Pending Fees</p>
         </div>
         <div className="bg-purple-50 rounded-xl p-4">
