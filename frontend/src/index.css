@@ -1,3 +1,5 @@
+@import './styles/dark-theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -26,25 +28,47 @@
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 63.9%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --background: 220 49% 8%;
+  --foreground: 220 30% 93%;
+  --card: 220 44% 12%;
+  --card-foreground: 220 30% 93%;
+  --popover: 220 44% 12%;
+  --popover-foreground: 220 30% 93%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 40% 16%;
+  --secondary-foreground: 220 30% 93%;
+  --muted: 220 40% 16%;
+  --muted-foreground: 219 20% 65%;
+  --accent: 220 40% 16%;
+  --accent-foreground: 220 30% 93%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 219 36% 21%;
+  --input: 219 36% 21%;
+}
+
+/* Dark palette used by styles/dark-theme.css (page < surface < raised). */
+:root {
+  --dk-page: #0b1220;
+  --dk-page-rgb: 11 18 32;
+  --dk-surface: #111a2c;
+  --dk-surface-rgb: 17 26 44;
+  --dk-raised: #18233a;
+  --dk-raised-rgb: 24 35 58;
+  --dk-raised-2: #1f2c46;
+  --dk-border: #223049;
+  --dk-border-strong: #2e3d5a;
+  --dk-text: #e5e9f2;
+  --dk-text-2: #c3cad8;
+  --dk-text-3: #93a0b8;
+
+  /* Theme-aware surfaces for hand-written CSS below */
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+}
+.dark {
+  --surface: var(--dk-surface);
+  --surface-muted: var(--dk-raised);
 }
 
 :root {
@@ -116,7 +140,7 @@ button, .btn, .tab-label, th {
 
 /* 1. Page Title & Section Headings */
 :is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(h1, h2, h3) {
-  color: var(--app-accent-strong) !important;
+  color: var(--app-accent-text) !important;
   font-family: var(--font-display, 'Mulish', sans-serif);
 }
 
@@ -133,7 +157,7 @@ button, .btn, .tab-label, th {
 
 /* 4. Active Text Colors */
 :is(.students-scope, .settings-scope, .employees-scope, .finance-scope, .salary-scope, .attendance-scope, .timetable-scope, .behaviour-scope, .exam-scope, .subjects-scope, .communication-scope, .certificates-scope, .reports-scope, .academic-setup-scope, .dashboard-scope) :is(.text-blue-600, .text-purple-600, .text-indigo-600, .text-teal-600, .text-emerald-600, .text-rose-600, .text-cyan-600, .text-violet-600, .text-sky-600, .text-blue-700, .text-purple-700, .text-indigo-700, .text-teal-700, .text-emerald-700, .text-rose-700, .text-cyan-700, .text-violet-700, .text-sky-700) {
-  color: var(--app-accent-strong) !important;
+  color: var(--app-accent-text) !important;
 }
 
 /* 5. Border Accents */
@@ -153,7 +177,7 @@ table thead {
   position: sticky;
   top: 0;
   z-index: 20;
-  background-color: #f8fafc; /* slate-50 fallback so sticky header is opaque */
+  background-color: var(--surface-muted); /* opaque so rows don't show through */
 }
 table thead th {
   position: sticky;
@@ -172,7 +196,7 @@ table thead th {
   position: sticky;
   top: 0;
   z-index: 15;
-  background-color: #ffffff;
+  background-color: var(--surface);
 }
 
 /* ---- Explicit frozen-header layout helpers (per spec) ---- */
@@ -188,7 +212,7 @@ table thead th {
   z-index: 5;
 }
 .table-wrapper table thead th {
-  background: #f8f9fa;
+  background: var(--surface-muted);
   position: sticky;
   top: 0;
 }
@@ -197,7 +221,7 @@ table thead th {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: white;
+  background: var(--surface);
   padding: 16px 24px;
 }
 
@@ -208,9 +232,12 @@ table thead th {
    surfaces (CTAs, links, focus rings) via --app-accent.
    ============================================================ */
 :root {
-  --app-accent: #4D51B4;
-  --app-accent-strong: #4D51B4;
-  --app-accent-rgb: 77 81 180;
+  /* Defaults (indigo); utils/theme.ts overwrites these from Settings -> Theme */
+  --app-accent: #4f46e5;
+  --app-accent-strong: #4338ca;
+  --app-accent-rgb: 79 70 229;
+  --app-accent-text: #4338ca;
+  --app-accent-light: #eef2ff;
 }
 
 /* Button surfaces keep a dark, legible background so white label text is always readable */
@@ -222,7 +249,7 @@ table thead th {
 /* Text + borders use the legible (dark) variant so they read on white backgrounds */
 .text-purple-700,
 .text-purple-600,
-.text-purple-800 { color: var(--app-accent-strong) !important; }
+.text-purple-800 { color: var(--app-accent-text) !important; }
 
 .border-purple-600,
 .border-purple-200 { border-color: var(--app-accent-strong) !important; }
@@ -231,3 +258,38 @@ table thead th {
 
 .focus\:ring-purple-500:focus,
 .focus\:ring-purple-400:focus { --tw-ring-color: rgb(var(--app-accent-rgb) / 0.5) !important; }
+/* ============================================================
+   APP-WIDE POLISH
+   ============================================================ */
+.dark body { background-color: var(--dk-page); color: var(--dk-text); }
+
+/* Keyboard users always see where focus is (mouse clicks stay clean). */
+:focus-visible {
+  outline: 2px solid rgb(var(--app-accent-rgb) / 0.7);
+  outline-offset: 2px;
+}
+
+::selection { background: rgb(var(--app-accent-rgb) / 0.22); }
+
+/* Slim, theme-aware scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgb(148 163 184 / 0.45) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: rgb(148 163 184 / 0.45); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: rgb(148 163 184 / 0.7); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Brand surface = the chosen accent (header, active nav, primary actions). */
+.bg-brand { background-color: var(--app-accent-strong); color: #fff; }
+.bg-brand-gradient { background-image: linear-gradient(135deg, var(--app-accent-strong), var(--app-accent)); color: #fff; }
+.text-brand { color: var(--app-accent-text); }
+.bg-brand-soft { background-color: var(--app-accent-light); color: var(--app-accent-text); }
+
+/* Short cross-fade when the theme changes (added briefly by the header toggle). */
+html.theme-transition,
+html.theme-transition * {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition, html.theme-transition * { transition: none !important; }
+}

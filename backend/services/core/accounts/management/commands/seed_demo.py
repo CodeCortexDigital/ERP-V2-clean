@@ -57,6 +57,18 @@ def grade_for(pct):
     return "F"
 
 
+DEMO_INSTITUTE = {
+    "institute_name": "CodeCortex Model School",
+    "name": "CodeCortex Model School",
+    "tagline": "Excellence in learning since 2010",
+    "motto": "Excellence in learning since 2010",
+    "phone": "+92 42 3578 1100",
+    "website": "https://codecortex.pk",
+    "address": "12-B Main Boulevard, Gulberg III, Lahore",
+    "country": "Pakistan",
+}
+
+
 class Command(BaseCommand):
     help = "Seed a complete demo school (classes, teachers, students, fees, attendance, exams)."
 
@@ -204,9 +216,10 @@ class Command(BaseCommand):
         # Demo school (shown in portal headers) with the demo logins as members.
         School, Membership = M("core_tenants", "School"), M("core_tenants", "TenantMembership")
         school = School.objects.filter(tenant_code="DMS").first() or School.objects.create(
-            tenant_code="DMS", school_id="DEMO-001", name="CodeCortex Model School", subdomain="demo",
-            settings_json={"institute_name": "CodeCortex Model School",
-                           "tagline": "Excellence in learning since 2010"})
+            tenant_code="DMS", school_id="DEMO-001", name="CodeCortex Model School", subdomain="demo")
+        # Institute profile shown in Settings -> Profile, portal banners and the header.
+        school.settings_json = {**(school.settings_json or {}), **DEMO_INSTITUTE}
+        school.save(update_fields=["settings_json"])
         for email, role in (("admin@code.com", "admin"), ("teacher@code.com", "teacher"),
                             ("parent@code.com", "parent"), ("student@code.com", "student")):
             u = User.objects.filter(email=email).first()

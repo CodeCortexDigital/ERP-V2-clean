@@ -3,38 +3,20 @@ import { Palette, Check, RotateCcw, Monitor, Sun, Moon, ArrowLeftRight, Sparkles
 import { toast } from 'sonner';
 import api from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
-import { useAppStore } from '@/store/appStore';
-import { accentMap, applyGlobalTheme } from '@/utils/theme';
+import { DEFAULT_THEME, readThemeSettings, saveThemeSettings } from '@/utils/theme';
 
 export default function ThemeLanguage() {
   // Theme settings state
-  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('light');
-  const [accentColor, setAccentColor] = useState<string>('blue');
-  const [radius, setRadius] = useState<string>('0.5rem');
-  const [fontFamily, setFontFamily] = useState<string>('roboto');
-  const [placement, setPlacement] = useState<'LTR' | 'RTL'>('LTR');
-  const [sidebarBg, setSidebarBg] = useState<'Light' | 'Dark'>('Light');
-  const [headerBg, setHeaderBg] = useState<string>('Blue');
+  const initial = readThemeSettings();
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(initial.themeMode);
+  const [accentColor, setAccentColor] = useState<string>(initial.accentColor);
+  const [radius, setRadius] = useState<string>(initial.radius);
+  const [fontFamily, setFontFamily] = useState<string>(initial.fontFamily);
+  const [placement, setPlacement] = useState<'LTR' | 'RTL'>(initial.placement === 'RTL' ? 'RTL' : 'LTR');
+  const [sidebarBg, setSidebarBg] = useState<'Light' | 'Dark'>(initial.sidebarBg === 'Light' ? 'Light' : 'Dark');
+  const [headerBg, setHeaderBg] = useState<string>(initial.headerBg);
   const [showResetModal, setShowResetModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('theme_settings');
-    if (saved) {
-      try {
-        const t = JSON.parse(saved);
-        if (t.themeMode) setThemeMode(t.themeMode);
-        if (t.accentColor) setAccentColor(t.accentColor);
-        if (t.radius) setRadius(t.radius);
-        if (t.fontFamily) setFontFamily(t.fontFamily);
-        if (t.placement) setPlacement(t.placement);
-        if (t.sidebarBg) setSidebarBg(t.sidebarBg);
-        if (t.headerBg) setHeaderBg(t.headerBg);
-      } catch (e) {
-        console.log('Error parsing theme settings');
-      }
-    }
-  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -48,12 +30,8 @@ export default function ThemeLanguage() {
       headerBg
     };
     
-    // Save to local storage
-    localStorage.setItem('theme_settings', JSON.stringify(themeObj));
-    
-    // Apply globally
-    applyGlobalTheme();
-    window.dispatchEvent(new Event('theme-changed'));
+    // Save locally and apply to the whole app
+    saveThemeSettings(themeObj);
     
     // Save to backend database
     try {
@@ -69,33 +47,20 @@ export default function ThemeLanguage() {
   };
 
   const confirmReset = () => {
-    setThemeMode('light');
-    setAccentColor('blue');
-    setRadius('0.5rem');
-    setFontFamily('roboto');
+    setThemeMode(DEFAULT_THEME.themeMode);
+    setAccentColor(DEFAULT_THEME.accentColor);
+    setRadius(DEFAULT_THEME.radius);
+    setFontFamily(DEFAULT_THEME.fontFamily);
     setPlacement('LTR');
-    setSidebarBg('Light');
-    setHeaderBg('Blue');
-    
-    const defaultTheme = {
-      themeMode: 'light',
-      accentColor: 'blue',
-      radius: '0.5rem',
-      fontFamily: 'roboto',
-      placement: 'LTR',
-      sidebarBg: 'Light',
-      headerBg: 'Blue'
-    };
-    
-    localStorage.setItem('theme_settings', JSON.stringify(defaultTheme));
-    applyGlobalTheme();
-    window.dispatchEvent(new Event('theme-changed'));
-    
+    setSidebarBg('Dark');
+    setHeaderBg(DEFAULT_THEME.headerBg);
+    saveThemeSettings({ ...DEFAULT_THEME });
     setShowResetModal(false);
-    toast.success('Theme settings reset to professional defaults.');
+    toast.success('Theme reset to the CodeCortex defaults.');
   };
 
   const accentsList = [
+    { id: 'indigo', name: 'CodeCortex Indigo', hex: '#4f46e5', bg: 'bg-indigo-600' },
     { id: 'blue', name: 'Professional Blue', hex: '#2563eb', bg: 'bg-blue-600' },
     { id: 'green', name: 'Emerald Green', hex: '#16a34a', bg: 'bg-green-600' },
     { id: 'purple', name: 'Royal Amethyst', hex: '#9333ea', bg: 'bg-purple-600' },
@@ -103,8 +68,8 @@ export default function ThemeLanguage() {
     { id: 'red', name: 'Rosewood Crimson', hex: '#dc2626', bg: 'bg-red-600' },
     { id: 'coral', name: 'Coral Red', hex: '#e55b4c', bg: 'bg-orange-500' },
     { id: 'magenta', name: 'Classic Magenta', hex: '#d81b60', bg: 'bg-pink-600' },
-    { id: 'turquoise', name: 'Ocean Turquoise', hex: '#00bfa5', bg: 'bg-teal-500' },
-    { id: 'navy', name: 'Charcoal Navy', hex: '#001830', bg: 'bg-slate-900' },
+    { id: 'turquoise', name: 'Ocean Teal', hex: '#0f766e', bg: 'bg-teal-700' },
+    { id: 'navy', name: 'Charcoal Slate', hex: '#1e293b', bg: 'bg-slate-800' },
   ];
 
   const radiiList = [
@@ -122,6 +87,7 @@ export default function ThemeLanguage() {
   ];
 
   const headers = [
+    { id: 'Brand', label: 'Accent', barBg: '' },
     { id: 'Blue', label: 'Blue', barBg: 'bg-blue-500' },
     { id: 'Dark', label: 'Dark', barBg: 'bg-slate-800' },
     { id: 'Green', label: 'Green', barBg: 'bg-emerald-500' },
@@ -132,41 +98,41 @@ export default function ThemeLanguage() {
 
   const presets = [
     {
-      name: 'Classic Emerald',
-      desc: 'Corporate look matching standard education layouts',
+      name: 'CodeCortex Classic',
+      desc: 'Indigo accent, navy sidebar, light workspace (default)',
       themeMode: 'light',
-      accentColor: 'green',
+      accentColor: 'indigo',
       radius: '0.5rem',
+      fontFamily: 'roboto',
+      sidebarBg: 'Dark',
+      headerBg: 'Brand'
+    },
+    {
+      name: 'Midnight',
+      desc: 'Full dark mode, easy on the eyes in the evening',
+      themeMode: 'dark',
+      accentColor: 'indigo',
+      radius: '0.75rem',
+      fontFamily: 'inter',
+      sidebarBg: 'Dark',
+      headerBg: 'Dark'
+    },
+    {
+      name: 'Ocean Teal',
+      desc: 'Calm teal accent with a light sidebar',
+      themeMode: 'light',
+      accentColor: 'turquoise',
+      radius: '0.75rem',
       fontFamily: 'inter',
       sidebarBg: 'Light',
-      headerBg: 'Green'
+      headerBg: 'Brand'
     },
     {
-      name: 'Corporate Dark',
-      desc: 'Dark blue canvas with a modern tech feel',
-      themeMode: 'dark',
-      accentColor: 'blue',
-      radius: '0.5rem',
-      fontFamily: 'outfit',
-      sidebarBg: 'Dark',
-      headerBg: 'Dark'
-    },
-    {
-      name: 'Midnight Amethyst',
-      desc: 'Sleek dark purple accent with softer rounded corners',
-      themeMode: 'dark',
-      accentColor: 'purple',
-      radius: '0.75rem',
-      fontFamily: 'outfit',
-      sidebarBg: 'Dark',
-      headerBg: 'Dark'
-    },
-    {
-      name: 'Minimalist Charcoal',
-      desc: 'Neutral Slate colors with sharp, clean elements',
+      name: 'Minimal White',
+      desc: 'White header and sidebar, blue highlights, sharp corners',
       themeMode: 'light',
-      accentColor: 'navy',
-      radius: '0rem',
+      accentColor: 'blue',
+      radius: '0.25rem',
       fontFamily: 'roboto',
       sidebarBg: 'Light',
       headerBg: 'White'
@@ -184,8 +150,8 @@ export default function ThemeLanguage() {
   };
 
   // Get active accent values for preview rendering
-  const activeAccentHex = accentsList.find(a => a.id === accentColor)?.hex || '#2563eb';
-  const activeHeaderBg = headers.find(h => h.id === headerBg)?.barBg || 'bg-blue-500';
+  const activeAccentHex = accentsList.find(a => a.id === accentColor)?.hex || '#4f46e5';
+  const activeHeaderBg = headers.find(h => h.id === headerBg)?.barBg || '';
 
   return (
     <div className="relative pb-24 font-sans">
@@ -233,7 +199,10 @@ export default function ThemeLanguage() {
               className="border border-slate-200 dark:border-slate-800 overflow-hidden shadow-lg bg-slate-50 dark:bg-slate-950 transition-all duration-300"
             >
               {/* Mock Header */}
-              <div className={`h-11 w-full flex items-center px-4 gap-2 text-white ${headerBg === 'White' ? 'bg-white text-slate-800 border-b border-slate-200 dark:border-slate-800' : activeHeaderBg}`}>
+              <div
+                className={`h-11 w-full flex items-center px-4 gap-2 text-white ${headerBg === 'White' ? 'bg-white text-slate-800 border-b border-slate-200 dark:border-slate-800' : activeHeaderBg}`}
+                style={headerBg === 'Brand' ? { backgroundColor: activeAccentHex } : undefined}
+              >
                 <span className="w-3 h-3 rounded-full bg-red-400/80" />
                 <span className="w-3 h-3 rounded-full bg-yellow-400/80" />
                 <span className="w-3 h-3 rounded-full bg-green-400/80" />
@@ -363,7 +332,7 @@ export default function ThemeLanguage() {
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
                     }`}
                   >
-                    <span className={`w-5 h-5 rounded-full shrink-0 shadow-inner ${a.bg}`} />
+                    <span className="w-5 h-5 rounded-full shrink-0 shadow-inner" style={{ backgroundColor: a.hex }} />
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{a.name}</span>
                     {isSelected && (
                       <span className="absolute top-1 right-1 w-4.5 h-4.5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[9px] shadow-sm">
@@ -464,7 +433,7 @@ export default function ThemeLanguage() {
 
             <div className="space-y-2 mt-4">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Navbar Header Style</label>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                 {headers.map(item => (
                   <button 
                     key={item.id} 
@@ -475,7 +444,7 @@ export default function ThemeLanguage() {
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-750'
                     }`}
                   >
-                    <div className={`w-8 h-2.5 rounded-sm ${item.barBg}`} />
+                    <div className={`w-8 h-2.5 rounded-sm ${item.barBg}`} style={item.id === 'Brand' ? { backgroundColor: activeAccentHex } : undefined} />
                     <span className="text-[9px] font-bold text-slate-500">{item.label}</span>
                     {headerBg === item.id && (
                       <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[7px]">

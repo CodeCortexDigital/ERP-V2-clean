@@ -117,6 +117,13 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading, activity]);
 
+  // Other components can open the assistant: window.dispatchEvent(new Event('open-ai-assistant')).
+  useEffect(() => {
+    const openPanel = () => setOpen(true);
+    window.addEventListener('open-ai-assistant', openPanel);
+    return () => window.removeEventListener('open-ai-assistant', openPanel);
+  }, []);
+
   useEffect(() => {
     if (!open) {
       stopSpeaking();

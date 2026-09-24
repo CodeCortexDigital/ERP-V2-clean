@@ -22,15 +22,9 @@ export default function SettingsPage() {
   const isStudent = role === 'student';
 
   const activeTab = menuItems.find((t) => isSettingsTabActive(t, location.pathname)) || menuItems[0];
-  // Uniform WhatsApp-style color scheme for ALL settings pages.
-  const accent = '#16a34a'; // green-600
-  const accentSoft = 'rgb(22 163 74 / 0.10)';
 
   return (
-    <div
-      className="settings-scope flex h-full bg-slate-50 min-h-screen flex-col"
-      style={{ ['--sa' as string]: '22 163 74' }}
-    >
+    <div className="settings-scope flex h-full bg-slate-50 min-h-screen flex-col">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between">
@@ -43,7 +37,7 @@ export default function SettingsPage() {
               <ArrowLeft className="w-5 h-5 text-slate-600" />
             </button>
             <div className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-green-600" />
+              <Settings className="w-5 h-5 text-brand" />
               <h1 className="text-xl font-bold text-slate-800">General Settings</h1>
             </div>
           </div>
@@ -62,17 +56,11 @@ export default function SettingsPage() {
 
       {/* Themed sub-header */}
       {!isStudent && (
-        <div
-          className="flex items-center gap-3 px-6 py-3 border-b border-black/5"
-          style={{ backgroundColor: accentSoft }}
-        >
-          <div
-            className="w-9 h-9 rounded-lg text-white flex items-center justify-center shadow-sm"
-            style={{ backgroundColor: accent }}
-          >
+        <div className="flex items-center gap-3 px-4 sm:px-6 py-3 border-b border-slate-200 bg-brand-soft">
+          <div className="w-9 h-9 rounded-lg bg-brand flex items-center justify-center shadow-sm">
             <activeTab.icon className="w-4 h-4" />
           </div>
-          <h2 className="text-lg font-bold" style={{ color: accent }}>{activeTab.label}</h2>
+          <h2 className="text-lg font-bold text-brand">{activeTab.label}</h2>
         </div>
       )}
 

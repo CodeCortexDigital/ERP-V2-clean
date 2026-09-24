@@ -43,13 +43,14 @@ export default function SettingsSidebar({ currentPath }: SettingsSidebarProps) {
           <button
             key={t.id}
             onClick={() => navigate(t.path)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+            aria-current={isActive ? 'page' : undefined}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs transition-colors border ${
               isActive
-                ? 'bg-green-600 text-white shadow-md'
-                : 'bg-green-50 text-green-700 hover:bg-green-100'
+                ? 'bg-brand border-transparent shadow-sm font-bold'
+                : 'bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border-slate-200 font-semibold'
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
             {t.label}
           </button>
         );

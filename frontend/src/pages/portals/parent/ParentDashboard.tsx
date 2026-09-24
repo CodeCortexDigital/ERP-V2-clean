@@ -4,16 +4,18 @@ import { Users, ShieldCheck } from 'lucide-react';
 export default function ParentDashboard() {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-xl bg-slate-900 px-6 py-3 text-white shadow">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3.5 shadow-sm">
         <div className="flex items-center gap-3">
-          <Users className="h-5 w-5 text-indigo-400" />
+          <span className="w-9 h-9 rounded-lg bg-brand flex items-center justify-center">
+            <Users className="h-5 w-5" />
+          </span>
           <div>
-            <p className="text-sm font-semibold">Parent & Guardian Monitoring Hub</p>
-            <p className="text-xs text-slate-400">Linked to Student Records — Synchronized Real-Time Overview</p>
+            <p className="text-sm font-bold text-slate-900">Parent Portal</p>
+            <p className="text-xs text-slate-500">Your child's attendance, fees and results in one place.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs bg-indigo-950/80 border border-indigo-800 px-3 py-1 rounded-full text-indigo-200">
-          <ShieldCheck className="h-3.5 w-3.5 text-green-400" /> Authorized Parent Access
+        <div className="self-start sm:self-auto flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full text-emerald-700">
+          <ShieldCheck className="h-3.5 w-3.5" /> Secure parent access
         </div>
       </div>
 

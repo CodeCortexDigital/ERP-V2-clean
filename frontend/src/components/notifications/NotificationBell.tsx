@@ -45,19 +45,19 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={toggleDropdown}
-        className="relative text-gray-600 hover:text-gray-800 focus:outline-none"
+        className="relative p-2 rounded-lg text-current opacity-90 hover:opacity-100 hover:bg-black/10 transition"
         aria-label="Notifications"
       >
-        <Bell className="w-5 h-5" />
+        <Bell className="w-[18px] h-[18px]" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
-            {unreadCount}
+          <span className="absolute top-0.5 right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white ring-2 ring-white/80">
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {dropdownOpen && (
-        <div className="absolute right-0 mt-3 w-80 max-h-96 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+        <div className="absolute right-0 mt-3 w-80 max-h-96 overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-700 shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900">Notifications</p>

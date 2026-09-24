@@ -7,9 +7,10 @@ export interface ModuleTab {
   path: string; // full path used for navigation AND active matching (may include ?query)
   label: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  dark: string;
-  light: string;
-  rgb: string;
+  // Legacy per-tab colours; tabs now all use the theme accent.
+  dark?: string;
+  light?: string;
+  rgb?: string;
   roles?: string[]; // when set, tab is only shown to these roles
 }
 
@@ -17,10 +18,15 @@ interface Props {
   tabs: ModuleTab[];
   scopeClass: string;
   children?: React.ReactNode;
+  /** Keep a tab highlighted on its sub-pages (e.g. /students/edit/5 under "Students"). */
+  matchNested?: boolean;
 }
 
-const isActive = (t: ModuleTab, pathname: string, search: string) => {
+const isActive = (t: ModuleTab, pathname: string, search: string, nestedBase?: string) => {
   const [path, query] = t.path.split('?');
+  if (nestedBase !== undefined && !query) {
+    return path === nestedBase ? pathname === path : pathname.startsWith(path);
+  }
   if (pathname !== path) return false;
   const curParams = new URLSearchParams(search);
   if (!query) {
@@ -34,36 +40,36 @@ const isActive = (t: ModuleTab, pathname: string, search: string) => {
   return true;
 };
 
-export default function ModuleTabsLayout({ tabs, scopeClass, children }: Props) {
+export default function ModuleTabsLayout({ tabs, scopeClass, children, matchNested }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const { role } = useAuth();
 
   const visibleTabs = tabs.filter((t) => !t.roles || (role && t.roles.includes(role)));
-  const activeTab = visibleTabs.find((t) => isActive(t, location.pathname, location.search)) || visibleTabs[0] || tabs[0];
-  const accent = `rgb(${activeTab.rgb})`;
-  const accentSoft = `rgb(${activeTab.rgb} / 0.12)`;
+  const nestedBase = matchNested ? tabs[0]?.path.split('?')[0] : undefined;
+  const activeTab = visibleTabs.find((t) => isActive(t, location.pathname, location.search, nestedBase)) || visibleTabs[0] || tabs[0];
 
   return (
-    <div className={`${scopeClass} min-h-full`} style={{ ['--sa' as string]: activeTab.rgb }}>
+    <div className={`${scopeClass} min-h-full`}>
       {/* Top Tab Bar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-10">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sticky top-0 z-10">
         <div className="flex flex-wrap gap-2">
           {visibleTabs.map((t) => {
             const Icon = t.icon;
-            const active = isActive(t, location.pathname, location.search);
+            const active = isActive(t, location.pathname, location.search, nestedBase);
 
             return (
               <button
                 key={t.id}
                 onClick={() => navigate(t.path)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs transition-all ${
+                aria-current={active ? 'page' : undefined}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs transition-colors border ${
                   active
-                    ? `${t.dark} text-white shadow-md ring-2 ring-black/10 scale-102 font-extrabold`
-                    : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 font-semibold border border-slate-200/60 dark:border-slate-700/60 hover:shadow-xs'
+                    ? 'bg-brand border-transparent shadow-sm font-bold'
+                    : 'bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border-slate-200 font-semibold'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${active ? 'text-white' : ''}`} style={!active ? { color: `rgb(${t.rgb})` } : undefined} />
+                <Icon className={`w-3.5 h-3.5 ${active ? 'text-white' : 'text-slate-400'}`} />
                 {t.label}
               </button>
             );
@@ -72,21 +78,15 @@ export default function ModuleTabsLayout({ tabs, scopeClass, children }: Props) 
       </div>
 
       {/* Themed sub-header */}
-      <div
-        className="flex items-center gap-3 px-6 py-3 border-b border-black/5"
-        style={{ backgroundColor: accentSoft }}
-      >
-        <div
-          className="w-9 h-9 rounded-lg text-white flex items-center justify-center shadow-sm"
-          style={{ backgroundColor: accent }}
-        >
+      <div className="flex items-center gap-3 px-4 sm:px-6 py-3 border-b border-slate-200 bg-brand-soft">
+        <div className="w-9 h-9 rounded-lg bg-brand flex items-center justify-center shadow-sm">
           <activeTab.icon className="w-4 h-4" />
         </div>
-        <h2 className="text-lg font-bold" style={{ color: accent }}>{activeTab.label}</h2>
+        <h2 className="text-lg font-bold text-brand">{activeTab.label}</h2>
       </div>
 
-      {/* Content - light tint matching the active tab */}
-      <div className={`p-6 min-h-full ${activeTab.light}`}>
+      {/* Content */}
+      <div className="p-4 sm:p-6 min-h-full bg-slate-50">
         {children ?? <Outlet />}
       </div>
     </div>

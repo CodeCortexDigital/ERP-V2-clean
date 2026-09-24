@@ -3,29 +3,17 @@ import { persist } from 'zustand/middleware';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-const ACCENT_COLORS = {
-  blue: { light: '221.2 83.2% 53.3%', dark: '217.2 91.2% 59.8%' },
-  green: { light: '142.1 76.2% 36.3%', dark: '142.1 70.6% 45.3%' },
-  purple: { light: '262.1 83.3% 57.8%', dark: '263.4 90% 64.3%' },
-  orange: { light: '24.6 95% 53.1%', dark: '20.5 90.2% 48.2%' },
-  red: { light: '346.8 77.2% 49.8%', dark: '346.8 84.1% 50.2%' },
-};
-
-const applyThemeAndAccent = (theme: ThemeMode, accent: string) => {
-  const root = document.documentElement;
-  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  
-  if (isDark) {
-    root.classList.add('dark');
-  } else {
-    root.classList.remove('dark');
+// Theme values live in localStorage('theme_settings') and are applied by
+// utils/theme.ts (initGlobalTheme listens for 'theme-changed'). The store only
+// mirrors them so components can subscribe.
+const persistTheme = (patch: { themeMode?: ThemeMode; accentColor?: string }) => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('theme_settings') || '{}');
+    localStorage.setItem('theme_settings', JSON.stringify({ ...saved, ...patch }));
+  } catch {
+    /* ignore */
   }
-  
-  const colors = ACCENT_COLORS[accent as keyof typeof ACCENT_COLORS] || ACCENT_COLORS.blue;
-  const hslValue = isDark ? colors.dark : colors.light;
-  
-  root.style.setProperty('--primary', hslValue);
-  root.style.setProperty('--ring', hslValue);
+  window.dispatchEvent(new Event('theme-changed'));
 };
 
 interface AppState {
@@ -46,11 +34,11 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       sidebarCollapsed: false,
       mobileSidebarOpen: false,
       theme: 'light',
-      accentColor: 'green',
+      accentColor: 'indigo',
       globalLoading: false,
       loadingMessage: null,
 
@@ -65,12 +53,12 @@ export const useAppStore = create<AppState>()(
 
       setTheme: (theme) => {
         set({ theme });
-        applyThemeAndAccent(theme, get().accentColor);
+        persistTheme({ themeMode: theme });
       },
 
       setAccentColor: (accentColor) => {
         set({ accentColor });
-        applyThemeAndAccent(get().theme, accentColor);
+        persistTheme({ accentColor });
       },
 
       setGlobalLoading: (loading, message = null) =>
@@ -86,14 +74,6 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-// Trigger initial setup after rehydration
-setTimeout(() => {
-  const state = useAppStore.getState();
-  if (state.theme && state.accentColor) {
-    applyThemeAndAccent(state.theme, state.accentColor);
-  }
-}, 0);
 
 /** @deprecated Use useAppStore — kept for existing imports */
 export const useUIStore = useAppStore;

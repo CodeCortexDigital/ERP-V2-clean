@@ -16,8 +16,10 @@ interface FeeItem {
 }
 
 export default function StudentDashboard() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const navigate = useNavigate();
+  // Parents see this same dashboard for their child (ParentDashboard wraps it).
+  const isParent = role === 'parent';
 
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState<any | null>(null);
@@ -210,7 +212,7 @@ export default function StudentDashboard() {
       {/* Top Breadcrumb Bar */}
       <div className="flex items-center justify-between text-xs font-bold text-slate-400 bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-2">
-          <span className="text-slate-855 font-extrabold text-sm border-r border-slate-200 pr-3.5 mr-1 hover:underline cursor-pointer" onClick={() => navigate('/student')}>Student Portal</span>
+          <span className="text-slate-855 font-extrabold text-sm border-r border-slate-200 pr-3.5 mr-1 hover:underline cursor-pointer" onClick={() => navigate(isParent ? '/parent' : '/student')}>{isParent ? 'Parent Portal' : 'Student Portal'}</span>
           <span>Dashboard</span>
         </div>
         <div className="flex items-center gap-2">
@@ -352,7 +354,9 @@ export default function StudentDashboard() {
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden">
             <div className="space-y-1.5 z-10">
               <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-[9px] font-black uppercase tracking-wider">
-                👋 Welcome {student?.name} at Student Portal.
+                {isParent
+                  ? `👋 Welcome ${user?.full_name || ''} · viewing ${student?.name || 'your child'}'s progress`
+                  : `👋 Welcome ${student?.name || ''} to the Student Portal`}
               </span>
               <h2 className="text-xl font-black">{institute.name || 'Student Dashboard'}</h2>
               {institute.tagline && (

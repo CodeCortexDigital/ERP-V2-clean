@@ -407,8 +407,8 @@ export default function LoginPage() {
           }
         } catch (e) {}
       }
-      setUserId('169081w710230');
-      setPassword('169081w710230');
+      setUserId('169081w712026120');
+      setPassword('169081w712026120');
     } else if (role === 'student') {
       // Find a generated student credential
       const savedStudents = localStorage.getItem('student_login_credentials');
@@ -423,13 +423,13 @@ export default function LoginPage() {
           }
         } catch (e) {}
       }
-      setUserId('169081w710001');
-      setPassword('169081w710001');
+      setUserId('169081w712026120');
+      setPassword('169081w712026120');
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#DEDDF8] flex items-center justify-center p-4 sm:p-8 font-sans">
+    <div className="min-h-screen bg-[#DEDDF8] dark:bg-[#0b1220] flex items-center justify-center p-4 sm:p-8 font-sans">
       <div className="max-w-6xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col lg:flex-row min-h-[620px]">
         
         {/* Left Side: Login Form (Code Cortex theme) */}

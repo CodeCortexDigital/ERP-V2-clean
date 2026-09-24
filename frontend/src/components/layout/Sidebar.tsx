@@ -11,6 +11,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { teacherQuickActions } from '@/config/teacherQuickActions';
+import { readThemeSettings } from '@/utils/theme';
 
 interface SubMenuItem {
   label: string;
@@ -64,30 +65,10 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   const cancelClose = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
   };
-  const [theme, setTheme] = useState({
-    sidebarBg: 'Dark',
-    activeColor: 'Indigo'
-  });
+  const [theme, setTheme] = useState({ sidebarBg: readThemeSettings().sidebarBg });
 
   useEffect(() => {
-    const updateTheme = () => {
-      const saved = localStorage.getItem('theme_settings');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setTheme({
-            sidebarBg: parsed.sidebarBg || 'Dark',
-            activeColor: parsed.activeColor || 'Indigo'
-          });
-        } catch (e) {}
-      } else {
-        setTheme({
-          sidebarBg: 'Dark',
-          activeColor: 'Indigo'
-        });
-      }
-    };
-    updateTheme();
+    const updateTheme = () => setTheme({ sidebarBg: readThemeSettings().sidebarBg });
     window.addEventListener('theme-changed', updateTheme);
     return () => window.removeEventListener('theme-changed', updateTheme);
   }, []);
@@ -202,7 +183,6 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
     { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
-    { id: 'logout', label: 'Log out', icon: <LogOut className="w-4 h-4" />, isLogout: true },
   ];
 
   // Teacher Menu - derived from the SAME permission-filtered quick
@@ -367,26 +347,11 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     ? 'p-4 space-y-3 bg-slate-900 border-b border-slate-800'
     : 'p-4 space-y-3 bg-white border-b border-slate-100';
   const inputClass = isDarkSidebar
-    ? 'w-full bg-slate-800 text-xs text-white pl-8 pr-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-purple-500 transition-colors placeholder:text-slate-500'
-    : 'w-full bg-white text-xs text-slate-700 pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-400';
+    ? 'w-full bg-slate-800 text-xs text-white pl-8 pr-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-[color:var(--app-accent)] transition-colors placeholder:text-slate-500'
+    : 'w-full bg-white text-xs text-slate-700 pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-[color:var(--app-accent)] transition-colors placeholder:text-slate-400';
 
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    'Indigo': { bg: 'bg-indigo-600', text: 'text-white font-bold' },
-    'Coral Red': { bg: 'bg-[#E55B4C]', text: 'text-white font-bold' },
-    'Magenta': { bg: 'bg-[#D81B60]', text: 'text-white font-bold' },
-    'Turquoise': { bg: 'bg-[#00BFA5]', text: 'text-slate-950 font-bold' },
-    'Blue': { bg: 'bg-[#2E73D2]', text: 'text-white font-bold' },
-    'Yellow': { bg: 'bg-[#F59E0B]', text: 'text-slate-950 font-bold' },
-    'Red Orange': { bg: 'bg-[#F97316]', text: 'text-white font-bold' },
-    'Soft Light Purple': { bg: 'bg-[#ECECFE]', text: 'text-purple-700 font-bold' },
-    'Dark Slate Blue': { bg: 'bg-[#4D51B4]', text: 'text-white font-bold' },
-    'Hot Pink': { bg: 'bg-[#EC4899]', text: 'text-white font-bold' },
-    'Bright Orange': { bg: 'bg-[#FF4F00]', text: 'text-white font-bold' },
-    'Green': { bg: 'bg-[#008744]', text: 'text-white font-bold' },
-    'Dark Purple': { bg: 'bg-[#730073]', text: 'text-white font-bold' }
-  };
-
-  const activeStyle = colorMap[theme.activeColor] || { bg: 'bg-indigo-600', text: 'text-white font-bold' };
+  // Active item uses the brand accent from Settings -> Theme.
+  const activeStyle = { bg: 'bg-brand', text: 'text-white font-bold' };
 
   // Self-contained keyframes for entrance/hover motion — no external
   // animation library required, mirrors the approach used on the dashboard.
@@ -426,7 +391,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
 
       {/* Brand header */}
       <div className={`flex items-center gap-2 px-4 py-3.5 border-b ${isDarkSidebar ? 'border-slate-800' : 'border-slate-200'}`}>
-        <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${isDarkSidebar ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>
+        <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 bg-brand`}>
           <GraduationCap className="w-4.5 h-4.5" />
         </div>
         {!isCollapsed && (
@@ -579,7 +544,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                             <button
                               key={`logout-${idx}`}
                               onClick={handleLogout}
-                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 text-left ${isDarkSidebar ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800' : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'}`}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150 text-left ${isDarkSidebar ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
                             >
                               <LogOut className="w-3.5 h-3.5" />
                               <span>Log out</span>
@@ -638,7 +603,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                         <button
                           key={`logout-${idx}`}
                           onClick={handleLogout}
-                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all text-left ${isDarkSidebar ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800' : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'}`}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md transition-all text-left ${isDarkSidebar ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
                         >
                           <LogOut className="w-3.5 h-3.5" />
                           <span>Log out</span>
@@ -666,7 +631,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                       >
                         {/* Active Blue Dot Indicator */}
                         {subActive && (
-                          <span className="absolute -left-[17px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-blue-600 ring-4 ring-white" />
+                          <span className="absolute -left-[17px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-brand ring-4 ring-white" />
                         )}
                         <span className="truncate">{sub.label}</span>
                         {sub.isLocked && <Unlock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 ml-1" />}

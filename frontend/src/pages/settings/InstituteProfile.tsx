@@ -50,8 +50,8 @@ export default function InstituteProfile() {
       const res = await settingsService.getInstituteProfile();
       if (res.data) {
         setData({
-          name: res.data.name || '',
-          targetLine: res.data.description || res.data.motto || '',
+          name: res.data.name || res.data.institute_name || '',
+          targetLine: res.data.description || res.data.motto || res.data.tagline || '',
           phone: res.data.phone || '',
           website: res.data.website || '',
           address: res.data.address || '',

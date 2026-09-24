@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 
 interface StatCardProps {
   title: string;
@@ -11,6 +12,8 @@ interface StatCardProps {
   currency?: string;
   navigateTo?: string;
   onClick?: () => void;
+  /** Full value shown on hover when `value` is abbreviated (e.g. "Rs 2,028,500"). */
+  fullValue?: string;
 }
 
 export default function StatCard({
@@ -22,7 +25,8 @@ export default function StatCard({
   subValue,
   currency,
   navigateTo,
-  onClick
+  onClick,
+  fullValue,
 }: StatCardProps) {
   const navigate = useNavigate();
 
@@ -40,39 +44,42 @@ export default function StatCard({
     <div
       onClick={handleClick}
       className={`
-        ${color} text-white p-5 rounded-2xl shadow-sm flex flex-col justify-between relative overflow-hidden
-        ${isClickable ? 'cursor-pointer hover:scale-[1.02] hover:shadow-xl transition-all duration-200' : ''}
+        group ${color} text-white p-5 rounded-2xl shadow-sm flex flex-col h-full relative overflow-hidden
+        ${isClickable ? 'cursor-pointer hover:shadow-lg transition-shadow duration-200' : ''}
       `}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
+      aria-label={isClickable ? `${title}: ${fullValue || value}. Open details` : undefined}
       onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); } : undefined}
     >
-      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" />
-      <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-white/5" />
+      <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10" />
+      <div className="absolute -bottom-10 -left-8 w-28 h-28 rounded-full bg-white/5" />
 
-      <div className="relative z-10">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-xs font-bold opacity-90">{title}</p>
-            <div className="mt-3">{icon}</div>
-          </div>
-          <span className="text-4xl font-black truncate max-w-[180px]">{value}</span>
-        </div>
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-white/80">{title}</p>
+        <span className="shrink-0 w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">
+          {icon}
+        </span>
       </div>
 
+      <p
+        className="relative z-10 mt-1 text-[1.75rem] leading-tight font-extrabold tracking-tight tabular-nums break-words"
+        title={fullValue}
+      >
+        {value}
+      </p>
+
       {(suffix || subValue !== undefined) && (
-        <div className="flex justify-between items-center text-[11px] font-semibold opacity-90 pt-4 mt-2 border-t border-white/10 relative z-10">
-          <span>{suffix || 'This Month'}</span>
-          <span>{currency ? `${currency} ` : ''}{subValue ?? value}</span>
-        </div>
+        <p className="relative z-10 mt-1 text-xs text-white/75 truncate" title={String(subValue ?? '')}>
+          <span className="font-semibold text-white/90">{suffix || 'This month'}:</span>{' '}
+          {currency ? `${currency} ` : ''}{subValue ?? value}
+        </p>
       )}
 
       {isClickable && (
-        <div className="relative z-10 mt-2 text-[10px] font-medium text-white/60 flex items-center gap-1">
-          <span>Click to view</span>
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+        <div className="relative z-10 mt-auto pt-3 text-[11px] font-medium text-white/60 group-hover:text-white flex items-center gap-0.5 transition-colors">
+          View details
+          <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
         </div>
       )}
     </div>

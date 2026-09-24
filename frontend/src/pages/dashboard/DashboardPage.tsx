@@ -10,7 +10,7 @@ import analyticsService from '@/services/analytics.service';
 import type { ExecutiveDashboardResponse } from '@/services/analytics.service';
 import { extractListData } from '@/services/api';
 import { websocketService } from '@/services/websocket.service';
-import { getCurrencySymbol } from '@/utils/currency';
+import { getCurrencySymbol, formatCompactMoney, formatMoney } from '@/utils/currency';
 import {
   LiveDataBadge,
   StatCard,
@@ -39,9 +39,9 @@ import type {
 // per element: slate for structure, indigo as the one accent, with
 // muted semantic colors (emerald/amber) reserved for status only.
 const STAT_CARD_STYLES = {
-  students: 'bg-gradient-to-br from-indigo-600 to-indigo-800',
+  students: 'bg-brand-gradient',
   employees: 'bg-gradient-to-br from-slate-700 to-slate-900',
-  revenue: 'bg-gradient-to-br from-indigo-700 to-slate-900',
+  revenue: 'bg-brand-gradient',
   profit: 'bg-gradient-to-br from-slate-800 to-slate-950',
 };
 
@@ -498,7 +498,7 @@ export default function DashboardPage() {
       <div className="max-w-[1600px] mx-auto space-y-6 p-4 md:p-6">
 
         {/* Page header */}
-        <div className="relative overflow-hidden rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-white px-5 py-4">
+        <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           {/* Subtle floating school-themed accents — signature touch, kept quiet */}
           <GraduationCap
             className="dash-float pointer-events-none absolute -top-2 right-24 w-9 h-9 text-indigo-200/70 hidden md:block"
@@ -517,7 +517,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
                 {greeting}
-                <Sparkles className="w-4 h-4 text-indigo-400" />
+                <Sparkles className="w-4 h-4 text-brand" />
               </h1>
               <p className="text-sm text-slate-500">{todayLabel} · here's how your school is doing</p>
             </div>
@@ -533,7 +533,8 @@ export default function DashboardPage() {
               value={animatedStudentCount}
               icon={<Users className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.students}
-              subValue={studentCountRaw}
+              suffix="Enrolled"
+              subValue={studentCountRaw.toLocaleString()}
               navigateTo="/education/students"
               onClick={handleStudentsClick}
             />
@@ -544,7 +545,8 @@ export default function DashboardPage() {
               value={animatedEmployeeCount}
               icon={<Briefcase className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.employees}
-              subValue={employeeCountRaw}
+              suffix="On staff"
+              subValue={employeeCountRaw.toLocaleString()}
               navigateTo="/education/teachers"
               onClick={handleTeachersClick}
             />
@@ -552,10 +554,12 @@ export default function DashboardPage() {
           <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '160ms' }}>
             <StatCard
               title="Revenue"
-              value={`${symbol} ${animatedIncome.toLocaleString()}`}
+              value={formatCompactMoney(animatedIncome, symbol)}
+              fullValue={formatMoney(totalIncome, symbol)}
               icon={<DollarSign className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.revenue}
-              subValue={`${symbol} ${thisMonthIncome.toLocaleString()} this month`}
+              suffix="This month"
+              subValue={formatMoney(thisMonthIncome, symbol)}
               navigateTo="/education/finance"
               onClick={handleRevenueClick}
             />
@@ -563,10 +567,12 @@ export default function DashboardPage() {
           <div className="dash-fade-up transition-transform duration-200 hover:-translate-y-1" style={{ animationDelay: '240ms' }}>
             <StatCard
               title="Total Profit"
-              value={`${symbol} ${animatedProfit.toLocaleString()}`}
+              value={formatCompactMoney(animatedProfit, symbol)}
+              fullValue={formatMoney(profitRaw, symbol)}
               icon={<TrendingUp className="w-6 h-6 opacity-90" />}
               color={STAT_CARD_STYLES.profit}
-              subValue={`${symbol} ${(thisMonthIncome - thisMonthExpense).toLocaleString()} this month`}
+              suffix="This month"
+              subValue={formatMoney(thisMonthIncome - thisMonthExpense, symbol)}
               navigateTo="/education/finance/report"
               onClick={handleProfitClick}
             />

@@ -5,18 +5,20 @@ from rest_framework.response import Response
 
 from .models import School, TenantMembership
 from .serializers import SchoolSerializer, TenantMembershipSerializer
-from .utils import set_session_tenant, user_can_access_tenant
+from .utils import resolve_tenant_for_user, set_session_tenant, user_can_access_tenant
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_tenant(request):
-    tenant = getattr(request, 'tenant', None)
-    if not tenant:
-        # Fall back to the first active school so callers (e.g. the teacher
-        # dashboard) still receive institute name/tagline even when the
-        # session tenant isn't resolved for this request.
-        tenant = School.objects.filter(is_active=True).first()
+    # JWT requests usually have no session tenant yet, so use the user's own
+    # (primary) school before falling back to the first active school, which
+    # keeps institute name/tagline available to dashboards.
+    tenant = (
+        getattr(request, 'tenant', None)
+        or resolve_tenant_for_user(request.user)
+        or School.objects.filter(is_active=True).first()
+    )
     if not tenant:
         return Response({'tenant': None})
     return Response({'tenant': SchoolSerializer(tenant).data})
@@ -91,9 +93,12 @@ def create_school(request):
 def tenant_settings(request):
     """GET or update institutional parameters, fee particulars, bank accounts, rules, and grading for active tenant."""
     try:
-        tenant = getattr(request, 'tenant', None)
-        if not tenant:
-            tenant = School.objects.filter(is_active=True).first()
+        # Same resolution as current_tenant, so reads and saves hit the user's school.
+        tenant = (
+            getattr(request, 'tenant', None)
+            or resolve_tenant_for_user(request.user)
+            or School.objects.filter(is_active=True).first()
+        )
 
         if request.method == 'GET':
             if tenant and hasattr(tenant, 'settings_json'):
