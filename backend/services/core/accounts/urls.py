@@ -3,6 +3,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 from . import teacher_views
 from . import views_auth
+from . import credential_views
 from .firebase_views import FirebaseLoginView
 
 urlpatterns = [
@@ -17,6 +18,15 @@ urlpatterns = [
     path('me/', views.get_current_user, name='get_current_user'),
     path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('settings/change-password/', credential_views.change_password, name='change-password-self'),
+
+    # Portal logins issued on admission / job offer letters (admin only)
+    path('credentials/student/<uuid:pk>/', credential_views.student_credential_detail, name='student-credentials'),
+    path('credentials/student/<uuid:pk>/reset/', credential_views.student_credential_reset, name='student-credentials-reset'),
+    path('credentials/teacher/<uuid:pk>/', credential_views.teacher_credential_detail, name='teacher-credentials'),
+    path('credentials/teacher/<uuid:pk>/reset/', credential_views.teacher_credential_reset, name='teacher-credentials-reset'),
+    path('credentials/<str:kind>/', credential_views.credential_list, name='credential-list'),
+    path('credentials/<str:kind>/issue-missing/', credential_views.credential_issue_missing, name='credential-issue-missing'),
     
     # Students
     path('students/', views.student_list, name='student-list'),

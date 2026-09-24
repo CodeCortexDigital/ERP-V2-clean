@@ -4,6 +4,8 @@ from django.dispatch import receiver
 from django.apps import apps
 from django.contrib.auth import get_user_model
 
+from .credentials import issue_credential
+
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
@@ -27,8 +29,8 @@ def sync_student_user(sender, instance, created, **kwargs):
             }
         )
         if user_created:
-            user.set_password('student123')
-            user.save()
+            # Own random password; printed on the admission letter.
+            issue_credential(user)
             logger.info(f"Auto-created Student User for {instance.full_name} ({instance.email})")
 
         # Auto-create/link Parent User account and Profile if guardian info exists
@@ -46,8 +48,7 @@ def sync_student_user(sender, instance, created, **kwargs):
                     }
                 )
                 if parent_created:
-                    parent_user.set_password('parent123')
-                    parent_user.save()
+                    issue_credential(parent_user)
                     logger.info(f"Auto-created Parent User for {parent_user.full_name} ({parent_email})")
                 
                 # Check/create ParentProfile
@@ -88,8 +89,8 @@ def sync_teacher_user(sender, instance, created, **kwargs):
             }
         )
         if user_created:
-            user.set_password('teacher123')
-            user.save()
+            # Own random password; printed on the job offer letter.
+            issue_credential(user)
             logger.info(f"Auto-created Teacher User for {instance.full_name} ({instance.email})")
             
         # Check/create TeacherProfile

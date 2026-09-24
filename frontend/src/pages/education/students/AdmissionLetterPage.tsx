@@ -7,6 +7,7 @@ import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import { useAuth } from '@/contexts/AuthContext';
 import settingsService from '@/services/settings.service';
+import credentialsService, { passwordLabel, type StudentLogins } from '@/services/credentials.service';
 
 export default function AdmissionLetterPage() {
   const navigate = useNavigate();
@@ -18,6 +19,8 @@ export default function AdmissionLetterPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [studentRules, setStudentRules] = useState('');
+  // Real portal logins issued by the server (admins only; students see their username).
+  const [logins, setLogins] = useState<StudentLogins | null>(null);
 
   // Search screen states
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,6 +28,28 @@ export default function AdmissionLetterPage() {
   const [searchedStudent, setSearchedStudent] = useState<any | null>(null);
   const [studentDetails, setStudentDetails] = useState<any>(null);
   const [instituteProfile, setInstituteProfile] = useState<any>({});
+
+  useEffect(() => {
+    setLogins(null);
+    if (!searchedStudent?.id || isStudent) return;
+    let cancelled = false;
+    credentialsService
+      .student(String(searchedStudent.id))
+      .then((data) => { if (!cancelled) setLogins(data); })
+      .catch(() => { /* not an admin, or no account yet: letter shows the username only */ });
+    return () => { cancelled = true; };
+  }, [searchedStudent?.id, isStudent]);
+
+  const resetStudentLogin = async (who: 'student' | 'parent') => {
+    if (!searchedStudent?.id) return;
+    if (!window.confirm(`Issue a new ${who} password? The current one will stop working.`)) return;
+    try {
+      setLogins(await credentialsService.resetStudent(String(searchedStudent.id), who));
+      toast.success(`New ${who} password issued. Print the letter to hand it over.`);
+    } catch {
+      toast.error('Could not reset the password.');
+    }
+  };
 
   useEffect(() => {
     // Load institute profile from API
@@ -87,28 +112,6 @@ export default function AdmissionLetterPage() {
     } catch (e) {
       return dateStr;
     }
-  };
-
-  const getLoginCredentials = (std: any) => {
-    const savedCreds = localStorage.getItem('student_login_credentials');
-    if (savedCreds) {
-      try {
-        const parsed = JSON.parse(savedCreds);
-        if (parsed[std.id]) {
-          return {
-            username: parsed[std.id].username,
-            password: parsed[std.id].password || parsed[std.id].username,
-          };
-        }
-      } catch (e) {}
-    }
-
-    const code = std.student_id || '001';
-    const padded = code.replace(/[^0-9]/g, '').padStart(4, '0');
-    return {
-      username: `169081w71${padded}`,
-      password: `169081w71${padded}`,
-    };
   };
 
   const getExtraDetails = (std: any) => {
@@ -273,7 +276,12 @@ export default function AdmissionLetterPage() {
     window.print();
   };
 
-  const creds = searchedStudent ? getLoginCredentials(searchedStudent) : null;
+  const creds = searchedStudent
+    ? {
+        username: logins?.student.username || searchedStudent.student_id || '',
+        password: passwordLabel(logins?.student),
+      }
+    : null;
   const extras = (studentDetails || searchedStudent) ? getExtraDetails(studentDetails || searchedStudent) : null;
   const currentStatus = getStudentStatus(studentDetails || searchedStudent);
 
@@ -419,6 +427,24 @@ export default function AdmissionLetterPage() {
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-[10px]">
                     <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-100">👤 {creds.username}</span>
                     <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg border border-purple-100">🔒 {creds.password}</span>
+                    {logins && (
+                      <button
+                        type="button"
+                        onClick={() => resetStudentLogin('student')}
+                        className="print:hidden px-3 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      >
+                        Reset student password
+                      </button>
+                    )}
+                    {logins?.parent && (
+                      <button
+                        type="button"
+                        onClick={() => resetStudentLogin('parent')}
+                        className="print:hidden px-3 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      >
+                        Reset parent password
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -485,6 +511,12 @@ export default function AdmissionLetterPage() {
                   <InfoRow label="Discount in Fee" value={extras.discountInFee ? `${extras.discountInFee}%` : ''} />
                   <InfoRow label="Username" value={creds.username} highlight monospace />
                   <InfoRow label="Password" value={creds.password} highlight monospace />
+                  {logins?.parent && (
+                    <>
+                      <InfoRow label="Parent login" value={logins.parent.username} highlight monospace />
+                      <InfoRow label="Parent password" value={passwordLabel(logins.parent)} highlight monospace />
+                    </>
+                  )}
                 </div>
               </div>
 

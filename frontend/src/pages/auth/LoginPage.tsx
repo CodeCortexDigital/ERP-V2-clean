@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { User, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import teacherService from '@/services/teacher.service';
-import { extractListData } from '@/services/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -19,17 +16,13 @@ export default function LoginPage() {
   const { login } = useAuth();
 
   useEffect(() => {
-    const savedStaff = localStorage.getItem('staff_login_credentials');
-    if (!savedStaff) {
-      const defaultStaffCreds = {
-        't-1': {
-          username: 'mr.bilalhassanEMP0010',
-          password: 'staff_EMP0010'
-        }
-      };
-      localStorage.setItem('staff_login_credentials', JSON.stringify(defaultStaffCreds));
+    // Older builds kept fake portal logins in the browser; they are never valid.
+    try {
+      localStorage.removeItem('staff_login_credentials');
+      localStorage.removeItem('student_login_credentials');
+    } catch {
+      /* storage unavailable */
     }
-
   }, []);
 
   const getPortalRoute = (user: any) => {
@@ -44,389 +37,34 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError('');
-
-    // 1. If role is Student -> Validate generated credentials fallback
-    if (selectedRole === 'student') {
-      const isCheck123 = userId === 'check-123' && password === 'check-123';
-      const isStudentGenPattern = password === userId; // Student credentials are ID = Password
-      
-      if (isCheck123 || isStudentGenPattern) {
-        const studentIdVal = isCheck123 ? 'check-123' : userId;
-        let studentEmail = `${studentIdVal.toLowerCase()}@school.edu`;
-        if (studentIdVal.startsWith('169081')) {
-          const numPart = studentIdVal.slice(9);
-          studentEmail = `stu${numPart}@school.test`;
-        }
-
-        const mockUser = {
-          id: isCheck123 ? 'st-1' : studentIdVal,
-          username: userId,
-          email: studentEmail,
-          role: 'student',
-          full_name: isCheck123 ? 'Check Student' : `Student (${studentIdVal})`,
-          portal_path: '/student',
-          student_id: studentIdVal,
-          student: {
-            id: isCheck123 ? 'st-1' : studentIdVal,
-            student_id: studentIdVal,
-            full_name: isCheck123 ? 'Check Student' : `Student (${studentIdVal})`,
-            email: studentEmail
-          }
-        };
-
-        localStorage.setItem('access_token', 'mock-access-token');
-        localStorage.setItem('refresh_token', 'mock-refresh-token');
-        useAuthStore.setState({
-          accessToken: 'mock-access-token',
-          refreshToken: 'mock-refresh-token',
-          user: mockUser as any,
-          role: mockUser.role as any,
-          isAuthenticated: true,
-          loading: false
-        });
-
-        toast.success(`Logged in as Student: ${mockUser.full_name}!`);
-        navigate('/student');
-        setLoading(false);
-        return;
-      }
-
-      const savedCreds = localStorage.getItem('student_login_credentials');
-      if (savedCreds) {
-        try {
-          const parsed = JSON.parse(savedCreds);
-          const matchedStudentId = Object.keys(parsed).find(key => {
-            const cred = parsed[key];
-            return cred.username.toLowerCase() === userId.toLowerCase() && cred.password === password;
-          });
-
-          if (matchedStudentId) {
-            const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-            const student = customStudents.find((s: any) => s.id === matchedStudentId) || {
-              id: matchedStudentId,
-              full_name: userId,
-              student_id: matchedStudentId
-            };
-
-            const mockUser = {
-              id: student.id,
-              username: userId,
-              email: `${student.full_name.toLowerCase().replace(/\s+/g, '')}@school.edu`,
-              role: 'student',
-              full_name: student.full_name,
-              portal_path: '/student'
-            };
-
-            localStorage.setItem('access_token', 'mock-access-token');
-            localStorage.setItem('refresh_token', 'mock-refresh-token');
-            useAuthStore.setState({
-              accessToken: 'mock-access-token',
-              refreshToken: 'mock-refresh-token',
-              user: mockUser as any,
-              role: mockUser.role as any,
-              isAuthenticated: true,
-              loading: false
-            });
-
-            toast.success(`Logged in as Student: ${student.full_name}!`);
-            navigate('/student');
-            setLoading(false);
-            return;
-          }
-        } catch (err) {
-          console.error('Local student login error:', err);
-        }
-      }
-      setError('Invalid student username or password');
-      setLoading(false);
-      return;
-    }
-
-    // 2. If role is Employee -> Validate staff_login_credentials fallback
-    if (selectedRole === 'employee') {
-      const isCheck123 = userId === 'check-123' && password === 'check-123';
-      const idSuffix = password.replace(/^staff_/, '');
-      const isEmployeeGenPattern = password.startsWith('staff_') && userId.toLowerCase().endsWith(idSuffix.toLowerCase());
-      
-      if (isCheck123 || isEmployeeGenPattern) {
-        let staffName = 'Check Employee';
-        let staffId = isCheck123 ? 't-1' : userId;
-        
-        if (isEmployeeGenPattern) {
-          const cleanName = userId.replace(idSuffix, '');
-          const titleCase = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-          const commonSurnames = ['raza', 'noor', 'hassan', 'zahra', 'javed', 'ahmed', 'tariq', 'ali', 'fatima', 'khan'];
-          let matchedName = titleCase;
-          for (const surname of commonSurnames) {
-            if (cleanName.endsWith(surname) && cleanName !== surname) {
-              const base = cleanName.slice(0, cleanName.length - surname.length);
-              matchedName = base.charAt(0).toUpperCase() + base.slice(1) + ' ' + surname.charAt(0).toUpperCase() + surname.slice(1);
-              break;
-            }
-          }
-          staffName = matchedName;
-        }
-
-        const currentEmployeeData = {
-          name: staffName,
-          regNo: isCheck123 ? 'EMP-001' : idSuffix,
-          role: 'Teacher',
-          monthlySalary: 'Rs. 1,000',
-          fatherName: '--',
-          phone: '--',
-          email: `${userId.replace(idSuffix, '')}@school.edu`,
-          address: '--',
-          cnic: '--',
-          education: 'N/A',
-          gender: 'Male',
-          religion: 'Islam',
-          bloodGroup: 'O+',
-          dob: '--',
-          joiningDate: '--',
-          experience: 'N/A'
-        };
-
-        const mockUser = {
-          id: staffId,
-          username: userId,
-          email: `${userId}@school.edu`,
-          role: 'teacher',
-          full_name: staffName,
-          portal_path: '/teacher'
-        };
-
-        localStorage.setItem('current_employee_data', JSON.stringify(currentEmployeeData));
-        localStorage.setItem('access_token', 'mock-access-token');
-        localStorage.setItem('refresh_token', 'mock-refresh-token');
-        useAuthStore.setState({
-          accessToken: 'mock-access-token',
-          refreshToken: 'mock-refresh-token',
-          user: mockUser as any,
-          role: mockUser.role as any,
-          isAuthenticated: true,
-          loading: false
-        });
-
-        toast.success(`Logged in as Employee: ${staffName}!`);
-        navigate('/teacher');
-        setLoading(false);
-        return;
-      }
-
-      const savedCreds = localStorage.getItem('staff_login_credentials');
-      if (savedCreds) {
-        try {
-          const parsed = JSON.parse(savedCreds);
-          const matchedStaffId = Object.keys(parsed).find(key => {
-            const cred = parsed[key];
-            return cred.username.toLowerCase() === userId.toLowerCase() && cred.password === password;
-          });
-
-          if (matchedStaffId) {
-            // Find employee name from localStorage extras
-            const employeesExtra = JSON.parse(localStorage.getItem('employees_extra_info') || '{}');
-            const staffName = employeesExtra[matchedStaffId]?.fullName || userId;
-
-            const mockUser = {
-              id: matchedStaffId,
-              username: userId,
-              email: `${userId}@school.edu`,
-              role: 'teacher',
-              full_name: staffName,
-              portal_path: '/teacher'
-            };
-
-            // Extract employee_id fragments from the username for matching
-            const empIdMatch = userId.match(/EMP[_-]?(\d+)/i);
-            const empIdFromUsername = empIdMatch ? empIdMatch[0] : ''; // e.g. "EMP0010"
-            const empIdDigits = empIdMatch ? empIdMatch[1] : '';      // e.g. "0010"
-            // Also extract the name part before EMP for name matching
-            const namePart = userId.split(/EMP[_-]?\d+/i)[0]?.toLowerCase().replace(/[^a-z]/g, '') || '';
-
-            // Fetch real employee data from API to store for dashboard
-            let currentEmployeeData: any = null;
-            try {
-              const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
-              const allTeachers = extractListData<any>(tRes.data);
-              const matchedTeacher = allTeachers.find((t: any) => {
-                const empId = String(t.employee_id || '').toUpperCase();
-                const empDigits = empId.replace(/[^0-9]/g, '');
-                return (
-                  String(t.id) === String(matchedStaffId) ||
-                  empId === empIdFromUsername.toUpperCase() ||
-                  empId.includes(empIdFromUsername.toUpperCase()) ||
-                  (empIdDigits && empDigits.includes(empIdDigits)) ||
-                  t.full_name?.toLowerCase().replace(/[^a-z]/g, '').includes(namePart)
-                );
-              });
-              if (matchedTeacher) {
-                currentEmployeeData = {
-                  name: matchedTeacher.full_name,
-                  regNo: matchedTeacher.employee_id,
-                  role: matchedTeacher.specializations?.[0] || 'Teacher',
-                  monthlySalary: matchedTeacher.monthly_salary || 'Rs. 1,000',
-                  fatherName: matchedTeacher.father_husband_name || '--',
-                  phone: matchedTeacher.phone || '--',
-                  email: matchedTeacher.email || mockUser.email,
-                  address: matchedTeacher.home_address || matchedTeacher.address || '--',
-                  cnic: matchedTeacher.national_id || '--',
-                  education: matchedTeacher.qualifications?.[0] || matchedTeacher.education || 'N/A',
-                  gender: matchedTeacher.gender || 'Male',
-                  religion: matchedTeacher.religion || 'Islam',
-                  bloodGroup: matchedTeacher.blood_group || 'O+',
-                  dob: matchedTeacher.date_of_birth || '--',
-                  joiningDate: matchedTeacher.joining_date || '--',
-                  experience: matchedTeacher.experience_years ? `${matchedTeacher.experience_years} Years` : 'N/A',
-                  _apiId: matchedTeacher.id // store the real API id for dashboard matching
-                };
-              }
-            } catch (_) {}
-            // Fallback: try employeesExtra by employee_id
-            if (!currentEmployeeData) {
-              let extraInfo: any = null;
-              for (const [, extra] of Object.entries(employeesExtra)) {
-                const e = extra as any;
-                const eId = String(e.employeeId || '').toUpperCase();
-                if (eId === empIdFromUsername.toUpperCase() || (empIdDigits && eId.includes(empIdDigits))) {
-                  extraInfo = e;
-                  break;
-                }
-              }
-              currentEmployeeData = {
-                name: extraInfo?.fullName || staffName,
-                regNo: extraInfo?.employeeId || matchedStaffId,
-                role: extraInfo?.role || 'Teacher',
-                monthlySalary: extraInfo?.monthlySalary || 'Rs. 1,000',
-                fatherName: extraInfo?.fatherName || '--',
-                phone: extraInfo?.phone || '--',
-                email: mockUser.email,
-                address: extraInfo?.homeAddress || '--',
-                cnic: extraInfo?.nationalId || '--',
-                education: extraInfo?.education || 'N/A',
-                gender: extraInfo?.gender || 'Male',
-                religion: extraInfo?.religion || 'Islam',
-                bloodGroup: extraInfo?.bloodGroup || 'O+',
-                dob: extraInfo?.dateOfBirth || '--',
-                joiningDate: extraInfo?.joiningDate || '--',
-                experience: extraInfo?.experience ? `${extraInfo.experience} Years` : 'N/A'
-              };
-            }
-            localStorage.setItem('current_employee_data', JSON.stringify(currentEmployeeData));
-
-            // If we matched a real teacher from API, use its ID for the auth user
-            const realApiId = currentEmployeeData?._apiId;
-            if (realApiId) {
-              mockUser.id = String(realApiId);
-              currentEmployeeData._apiId = undefined; // clean up
-              localStorage.setItem('current_employee_data', JSON.stringify(currentEmployeeData));
-            }
-
-            localStorage.setItem('access_token', 'mock-access-token');
-            localStorage.setItem('refresh_token', 'mock-refresh-token');
-            useAuthStore.setState({
-              accessToken: 'mock-access-token',
-              refreshToken: 'mock-refresh-token',
-              user: mockUser as any,
-              role: mockUser.role as any,
-              isAuthenticated: true,
-              loading: false
-            });
-
-            toast.success(`Logged in as Employee: ${staffName}!`);
-            navigate('/teacher');
-            setLoading(false);
-            return;
-          }
-        } catch (err) {
-          console.error('Local employee login error:', err);
-        }
-      }
-      setError('Invalid employee username or password');
-      setLoading(false);
-      return;
-    }
-
-    // 2.5 If role is Admin -> Validate admin fallback credentials to prevent 401 connection error
-    const normalizedAdminEmail = userId.trim().toLowerCase();
-    if (
-      selectedRole === 'admin' &&
-      ['admin@code.com', 'admin@school.com'].includes(normalizedAdminEmail) &&
-      ['Admin@123', 'admin123'].includes(password)
-    ) {
-      const mockUser = {
-        id: 'admin-1',
-        username: userId,
-        email: userId,
-        role: 'admin',
-        full_name: 'Administrator',
-        portal_path: '/dashboard'
-      };
-      localStorage.setItem('access_token', 'mock-access-token');
-      localStorage.setItem('refresh_token', 'mock-refresh-token');
-      useAuthStore.setState({
-        accessToken: 'mock-access-token',
-        refreshToken: 'mock-refresh-token',
-        user: mockUser as any,
-        role: mockUser.role as any,
-        isAuthenticated: true,
-        loading: false
-      });
-      toast.success('Logged in as Administrator!');
-      navigate('/dashboard');
-      setLoading(false);
-      return;
-    }
-
-    // 3. Fallback to Admin / General login
+    // Every role signs in against the server; it decides the portal from the account.
     try {
-      const authUser = await login(userId, password);
+      const authUser = await login(userId.trim(), password);
       navigate(getPortalRoute(authUser));
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Invalid username or password');
+      const status = err.response?.status;
+      setError(
+        err.response?.data?.error ||
+          (status === 401 ? 'Incorrect username or password.' : err.message) ||
+          'Invalid username or password'
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // The tabs only change the hint; the account itself decides the portal.
   const handleQuickDemo = (role: 'admin' | 'employee' | 'student') => {
     setSelectedRole(role);
-    if (role === 'admin') {
-      setUserId('admin@school.com');
-      setPassword('Admin@123');
-    } else if (role === 'employee') {
-      // Find a generated staff credential
-      const savedStaff = localStorage.getItem('staff_login_credentials');
-      if (savedStaff) {
-        try {
-          const parsed = JSON.parse(savedStaff);
-          const firstKey = Object.keys(parsed)[0];
-          if (firstKey) {
-            setUserId(parsed[firstKey].username);
-            setPassword(parsed[firstKey].password || parsed[firstKey].username);
-            return;
-          }
-        } catch (e) {}
-      }
-      setUserId('169081w712026120');
-      setPassword('169081w712026120');
-    } else if (role === 'student') {
-      // Find a generated student credential
-      const savedStudents = localStorage.getItem('student_login_credentials');
-      if (savedStudents) {
-        try {
-          const parsed = JSON.parse(savedStudents);
-          const firstKey = Object.keys(parsed)[0];
-          if (firstKey) {
-            setUserId(parsed[firstKey].username);
-            setPassword(parsed[firstKey].password || parsed[firstKey].username);
-            return;
-          }
-        } catch (e) {}
-      }
-      setUserId('169081w712026120');
-      setPassword('169081w712026120');
-    }
+    setError('');
   };
+
+  const usernameHint =
+    selectedRole === 'student'
+      ? 'Students: your Student ID. Parents: the email on the admission letter.'
+      : selectedRole === 'employee'
+        ? 'Your Employee ID (from the job offer letter) or email.'
+        : 'Your admin email address.';
 
   return (
     <div className="min-h-screen bg-[#DEDDF8] dark:bg-[#0b1220] flex items-center justify-center p-4 sm:p-8 font-sans">
@@ -537,9 +175,12 @@ export default function LoginPage() {
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
                   required
+                  autoComplete="username"
+                  aria-describedby="username-hint"
                   className="w-full bg-transparent border-none text-xs font-bold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-0 p-0"
                 />
               </div>
+              <p id="username-hint" className="-mt-2 text-[11px] text-slate-400">{usernameHint}</p>
 
               {/* Password */}
               <div className="relative border-b-2 border-slate-200 focus-within:border-[#746BF3] transition-colors py-2 flex items-center gap-2">
@@ -609,7 +250,7 @@ export default function LoginPage() {
           <div className="flex justify-between items-center z-10">
             <span className="text-xs font-bold text-blue-200">Don't have an account?</span>
             <button className="px-4 py-1.5 border border-white/30 rounded-xl text-xs font-black hover:bg-white/10 transition-colors uppercase">
-              Sign Up
+              Contact Admin
             </button>
           </div>
 

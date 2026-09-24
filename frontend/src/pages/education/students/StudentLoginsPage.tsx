@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { GraduationCap, ArrowLeft, RotateCcw, Copy, Printer, ChevronDown, User, Lock, Eye, EyeOff, Save, Mail } from 'lucide-react';
+import { GraduationCap, ArrowLeft, RotateCcw, Copy, Printer, ChevronDown, User, Lock, Eye, EyeOff } from 'lucide-react';
 import studentService from '@/services/student.service';
 import academicService from '@/services/academic.service';
 import { extractListData } from '@/services/api';
+import credentialsService, { passwordLabel, type StudentLogins } from '@/services/credentials.service';
 
 export default function StudentLoginsPage() {
   const navigate = useNavigate();
@@ -13,7 +14,10 @@ export default function StudentLoginsPage() {
   const [loading, setLoading] = useState(true);
   
   // Credentials store
-  const [credentials, setCredentials] = useState<Record<string, { username: string; password?: string }>>({});
+  // Real portal logins from the server, keyed by student record id.
+  const [credentials, setCredentials] = useState<Record<string, StudentLogins>>({});
+  const [issuing, setIssuing] = useState(false);
+  const [progress, setProgress] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
 
   // Filter and search states
@@ -125,36 +129,7 @@ export default function StudentLoginsPage() {
 
       setClasses(uniqueClasses);
 
-      // Load saved credentials from localStorage
-      const savedCreds = localStorage.getItem('student_login_credentials');
-      let loadedCreds: Record<string, { username: string; password?: string }> = {};
-      if (savedCreds) {
-        try {
-          loadedCreds = JSON.parse(savedCreds);
-        } catch (e) {}
-      }
-
-      // Initialize default logins matching Admission Letter credentials format
-      const getLoginCredentials = (studentIdCode: string) => {
-        const code = studentIdCode || '001';
-        const padded = code.replace(/[^0-9]/g, '').padStart(4, '0');
-        return `169081w71${padded}`;
-      };
-
-      const updatedCreds = { ...loadedCreds };
-      finalStudentsList.forEach(s => {
-        const codeVal = getLoginCredentials(s.student_id);
-        const existing = updatedCreds[s.id];
-        // Overwrite if missing or using old format
-        if (!existing || !existing.username.startsWith('169081')) {
-          updatedCreds[s.id] = {
-            username: codeVal,
-            password: codeVal
-          };
-        }
-      });
-      setCredentials(updatedCreds);
-      localStorage.setItem('student_login_credentials', JSON.stringify(updatedCreds));
+      setCredentials(await credentialsService.listStudents());
     } catch (err) {
       console.error('Error fetching data:', err);
       toast.error('Failed to load students login list');
@@ -163,21 +138,33 @@ export default function StudentLoginsPage() {
     }
   };
 
-  const handleSaveCredentials = (studentId: string) => {
-    const cred = credentials[studentId];
-    if (!cred || !cred.username) {
-      toast.error('Username cannot be empty');
-      return;
+  const handleReset = async (studentId: string) => {
+    if (!window.confirm('Issue a new password for this student? The current one will stop working.')) return;
+    try {
+      const fresh = await credentialsService.resetStudent(studentId, 'student');
+      setCredentials((prev) => ({ ...prev, [studentId]: fresh }));
+      setVisiblePasswords((prev) => ({ ...prev, [studentId]: true }));
+      toast.success('New password issued. Print the admission letter to hand it over.');
+    } catch {
+      toast.error('Could not reset the password.');
     }
-    const savedCreds = localStorage.getItem('student_login_credentials');
-    const allCreds = savedCreds ? JSON.parse(savedCreds) : {};
-    allCreds[studentId] = cred;
-    localStorage.setItem('student_login_credentials', JSON.stringify(allCreds));
-    toast.success('Login credentials saved successfully!');
   };
 
-  const handleSendCredentials = (studentId: string) => {
-    toast.info('Credentials notification sent to student / parents!');
+  const missingCount = Object.values(credentials).filter((c) => c.student.status === 'not_issued').length;
+
+  const handleIssueMissing = async () => {
+    setIssuing(true);
+    try {
+      const issued = await credentialsService.issueMissing('students', (done, remaining) =>
+        setProgress(`${done} of ${done + remaining}`));
+      setCredentials(await credentialsService.listStudents());
+      toast.success(`Generated ${issued} login${issued === 1 ? '' : 's'} (students and parents).`);
+    } catch {
+      toast.error('Could not generate logins.');
+    } finally {
+      setIssuing(false);
+      setProgress('');
+    }
   };
 
   const handleExport = (type: string) => {
@@ -316,6 +303,15 @@ export default function StudentLoginsPage() {
           <div className="flex items-center gap-2 pb-2">
             <GraduationCap className="w-5 h-5 text-purple-700" />
             <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Student Login Credentials</h2>
+            {missingCount > 0 && (
+              <button
+                onClick={handleIssueMissing}
+                disabled={issuing}
+                className="ml-2 px-3 py-1.5 rounded-lg bg-brand text-[11px] font-bold disabled:opacity-60"
+              >
+                {issuing ? `Generating… ${progress}` : `Generate ${missingCount} missing login${missingCount === 1 ? '' : 's'}`}
+              </button>
+            )}
           </div>
 
           {/* Actions & Table Search */}
@@ -368,7 +364,8 @@ export default function StudentLoginsPage() {
                 {currentItems.length > 0 ? (
                   currentItems.map((s) => {
                     const sClass = s.class_name || s.current_class_name || s.current_class || 'Grade 1-A';
-                    const cred = credentials[s.id] || { username: '', password: '' };
+                    const login = credentials[s.id]?.student;
+                    const hasPassword = Boolean(login?.password);
                     const isVisible = visiblePasswords[s.id] || false;
 
                     return (
@@ -376,68 +373,50 @@ export default function StudentLoginsPage() {
                         <td className="py-3.5 px-4 font-bold text-slate-500">{s.student_id || s.registration_no || '--'}</td>
                         <td className="py-3.5 px-4 font-bold text-slate-800">{s.full_name || s.name || '--'}</td>
                         <td className="py-3.5 px-4 font-extrabold text-slate-600">{sClass}</td>
-                        
-                        {/* Username input field with User icon prefix */}
+
                         <td className="py-3.5 px-4">
-                          <div className="relative flex items-center max-w-[200px]">
-                            <User className="absolute left-3 w-4 h-4 text-purple-400" />
-                            <input
-                              type="text"
-                              value={cred.username}
-                              onChange={(e) => {
-                                const updated = { ...credentials };
-                                updated[s.id] = { ...cred, username: e.target.value };
-                                setCredentials(updated);
-                              }}
-                              className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
-                            />
-                          </div>
+                          <span className="inline-flex items-center gap-2 font-mono font-semibold text-slate-700">
+                            <User className="w-4 h-4 text-slate-400" />
+                            {login?.username || s.student_id || '--'}
+                          </span>
                         </td>
 
-                        {/* Password input field with Lock icon prefix and Show/Hide button */}
                         <td className="py-3.5 px-4">
-                          <div className="relative flex items-center max-w-[200px]">
-                            <Lock className="absolute left-3 w-4 h-4 text-purple-400" />
-                            <input
-                              type={isVisible ? "text" : "password"}
-                              value={cred.password || ''}
-                              onChange={(e) => {
-                                const updated = { ...credentials };
-                                updated[s.id] = { ...cred, password: e.target.value };
-                                setCredentials(updated);
-                              }}
-                              className="w-full h-9 pl-9 pr-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs font-mono"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = { ...visiblePasswords };
-                                updated[s.id] = !isVisible;
-                                setVisiblePasswords(updated);
-                              }}
-                              className="absolute right-3 text-slate-400 hover:text-slate-600"
-                            >
-                              {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
+                          <span className="inline-flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-slate-400" />
+                            <span className={hasPassword ? 'font-mono font-semibold text-slate-700' : 'text-slate-400 italic'}>
+                              {hasPassword && !isVisible ? '••••••••' : passwordLabel(login)}
+                            </span>
+                            {hasPassword && (
+                              <button
+                                type="button"
+                                onClick={() => setVisiblePasswords((prev) => ({ ...prev, [s.id]: !isVisible }))}
+                                className="text-slate-400 hover:text-slate-600"
+                                aria-label={isVisible ? 'Hide password' : 'Show password'}
+                              >
+                                {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            )}
+                          </span>
                         </td>
 
-                        {/* Actions: Save & Send */}
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleSaveCredentials(s.id)}
-                              className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-2xs"
-                              title="Save Credentials"
+                              onClick={() => handleReset(s.id)}
+                              className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                              title="Issue a new password"
+                              aria-label="Issue a new password"
                             >
-                              <Save className="w-4 h-4" />
+                              <RotateCcw className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleSendCredentials(s.id)}
-                              className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-2xs"
-                              title="Send login info"
+                              onClick={() => navigate(`/education/students/admission-letter?student_id=${s.id}`)}
+                              className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                              title="Open admission letter (print to hand over the login)"
+                              aria-label="Open admission letter"
                             >
-                              <Mail className="w-4 h-4" />
+                              <Printer className="w-4 h-4" />
                             </button>
                           </div>
                         </td>

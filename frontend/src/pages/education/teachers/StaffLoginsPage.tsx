@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { GraduationCap, ArrowLeft, RotateCcw, Copy, Printer, ChevronDown, User, Lock, Eye, EyeOff, Save, Mail } from 'lucide-react';
+import { GraduationCap, ArrowLeft, RotateCcw, Copy, Printer, ChevronDown, User, Lock, Eye, EyeOff } from 'lucide-react';
 import teacherService from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
-import { ensureStaffCredentials, saveStaffCredential } from '@/utils/staffCredentials';
+import credentialsService, { passwordLabel, type StaffLogins } from '@/services/credentials.service';
 
 export default function StaffLoginsPage() {
   const navigate = useNavigate();
@@ -12,7 +12,10 @@ export default function StaffLoginsPage() {
   const [loading, setLoading] = useState(true);
   
   // Credentials store
-  const [credentials, setCredentials] = useState<Record<string, { username: string; password?: string }>>({});
+  // Real portal logins from the server, keyed by teacher record id.
+  const [credentials, setCredentials] = useState<Record<string, StaffLogins>>({});
+  const [issuing, setIssuing] = useState(false);
+  const [progress, setProgress] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
 
   // Filter and search states
@@ -31,17 +34,8 @@ export default function StaffLoginsPage() {
       const res = await teacherService.getAll().catch(() => ({ data: [] }));
       const rawTeachers = extractListData<any>(res.data || []);
 
-      const defaultTeachers = [
-        {}
-      ];
-
-      const combinedList = rawTeachers.length > 0 ? rawTeachers : defaultTeachers;
-      setTeachers(combinedList);
-
-      // Ensure every staff member has a persisted credential (so login works
-      // and the Job Letter shows the exact same username/password).
-      const updatedCreds = ensureStaffCredentials(combinedList);
-      setCredentials(updatedCreds);
+      setTeachers(rawTeachers);
+      setCredentials(await credentialsService.listStaff());
     } catch (err) {
       toast.error('Failed to load staff login list');
     } finally {
@@ -49,18 +43,33 @@ export default function StaffLoginsPage() {
     }
   };
 
-  const handleSaveCredentials = (teacherId: string) => {
-    const cred = credentials[teacherId];
-    if (!cred || !cred.username) {
-      toast.error('Username cannot be empty');
-      return;
+  const handleReset = async (teacherId: string) => {
+    if (!window.confirm('Issue a new password for this staff member? The current one will stop working.')) return;
+    try {
+      const fresh = await credentialsService.resetStaff(teacherId);
+      setCredentials((prev) => ({ ...prev, [teacherId]: fresh }));
+      setVisiblePasswords((prev) => ({ ...prev, [teacherId]: true }));
+      toast.success('New password issued. Print the job offer letter to hand it over.');
+    } catch {
+      toast.error('Could not reset the password.');
     }
-    saveStaffCredential(teacherId, { username: cred.username, password: cred.password || cred.username });
-    toast.success('Login credentials saved successfully!');
   };
 
-  const handleSendCredentials = (teacherId: string) => {
-    toast.info('Credentials notification sent to employee!');
+  const missingCount = Object.values(credentials).filter((c) => c.staff.status === 'not_issued').length;
+
+  const handleIssueMissing = async () => {
+    setIssuing(true);
+    try {
+      const issued = await credentialsService.issueMissing('teachers', (done, remaining) =>
+        setProgress(`${done} of ${done + remaining}`));
+      setCredentials(await credentialsService.listStaff());
+      toast.success(`Generated ${issued} staff login${issued === 1 ? '' : 's'}.`);
+    } catch {
+      toast.error('Could not generate logins.');
+    } finally {
+      setIssuing(false);
+      setProgress('');
+    }
   };
 
   const handleExport = (type: string) => {
@@ -178,6 +187,15 @@ export default function StaffLoginsPage() {
           <div className="flex items-center gap-2 pb-2">
             <GraduationCap className="w-5 h-5 text-purple-700" />
             <h2 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">Staff Login Credentials</h2>
+            {missingCount > 0 && (
+              <button
+                onClick={handleIssueMissing}
+                disabled={issuing}
+                className="ml-2 px-3 py-1.5 rounded-lg bg-brand text-[11px] font-bold disabled:opacity-60"
+              >
+                {issuing ? `Generating… ${progress}` : `Generate ${missingCount} missing login${missingCount === 1 ? '' : 's'}`}
+              </button>
+            )}
           </div>
 
           {/* Actions & Table Search */}
@@ -224,7 +242,8 @@ export default function StaffLoginsPage() {
                 currentItems.map((t, idx) => {
                   const extraRole = t.designation || t.specializations?.[0] || 'Teacher';
 
-                  const cred = credentials[t.id] || { username: '', password: '' };
+                  const login = credentials[t.id]?.staff;
+                  const hasPassword = Boolean(login?.password);
                   const isVisible = visiblePasswords[t.id] || false;
 
                   return (
@@ -232,68 +251,50 @@ export default function StaffLoginsPage() {
                       <td className="py-3.5 px-4 font-bold text-slate-500">{t.employee_id || 'N/A'}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-800">{t.full_name}</td>
                       <td className="py-3.5 px-4 font-extrabold text-slate-600">{extraRole}</td>
-                      
-                      {/* Username input field with User icon prefix */}
+
                       <td className="py-3.5 px-4">
-                        <div className="relative flex items-center max-w-[200px]">
-                          <User className="absolute left-3 w-4 h-4 text-purple-400" />
-                          <input
-                            type="text"
-                            value={cred.username}
-                            onChange={(e) => {
-                              const updated = { ...credentials };
-                              updated[t.id] = { ...cred, username: e.target.value };
-                              setCredentials(updated);
-                            }}
-                            className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
-                          />
-                        </div>
+                        <span className="inline-flex items-center gap-2 font-mono font-semibold text-slate-700">
+                          <User className="w-4 h-4 text-slate-400" />
+                          {login?.username || t.employee_id || '--'}
+                        </span>
                       </td>
 
-                      {/* Password input field with Lock icon prefix and Show/Hide button */}
                       <td className="py-3.5 px-4">
-                        <div className="relative flex items-center max-w-[200px]">
-                          <Lock className="absolute left-3 w-4 h-4 text-purple-400" />
-                          <input
-                            type={isVisible ? "text" : "password"}
-                            value={cred.password || ''}
-                            onChange={(e) => {
-                              const updated = { ...credentials };
-                              updated[t.id] = { ...cred, password: e.target.value };
-                              setCredentials(updated);
-                            }}
-                            className="w-full h-9 pl-9 pr-9 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs font-mono"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = { ...visiblePasswords };
-                              updated[t.id] = !isVisible;
-                              setVisiblePasswords(updated);
-                            }}
-                            className="absolute right-3 text-slate-400 hover:text-slate-600"
-                          >
-                            {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
+                        <span className="inline-flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-slate-400" />
+                          <span className={hasPassword ? 'font-mono font-semibold text-slate-700' : 'text-slate-400 italic'}>
+                            {hasPassword && !isVisible ? '••••••••' : passwordLabel(login)}
+                          </span>
+                          {hasPassword && (
+                            <button
+                              type="button"
+                              onClick={() => setVisiblePasswords((prev) => ({ ...prev, [t.id]: !isVisible }))}
+                              className="text-slate-400 hover:text-slate-600"
+                              aria-label={isVisible ? 'Hide password' : 'Show password'}
+                            >
+                              {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          )}
+                        </span>
                       </td>
 
-                      {/* Actions: Save & Send */}
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => handleSaveCredentials(t.id)}
-                            className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-2xs"
-                            title="Save Credentials"
+                            onClick={() => handleReset(t.id)}
+                            className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="Issue a new password"
+                            aria-label="Issue a new password"
                           >
-                            <Save className="w-4 h-4" />
+                            <RotateCcw className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleSendCredentials(t.id)}
-                            className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-2xs"
-                            title="Send login info"
+                            onClick={() => navigate(`/education/teachers/job-letter?teacher_id=${t.id}`)}
+                            className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="Open job offer letter (print to hand over the login)"
+                            aria-label="Open job offer letter"
                           >
-                            <Mail className="w-4 h-4" />
+                            <Printer className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

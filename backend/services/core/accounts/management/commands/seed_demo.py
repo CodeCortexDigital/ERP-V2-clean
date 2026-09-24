@@ -57,6 +57,12 @@ def grade_for(pct):
     return "F"
 
 
+DEMO_PASSWORDS = {
+    "teacher@code.com": "Teacher@123",
+    "parent@code.com": "Parent@123",
+    "student@code.com": "Student@123",
+}
+
 DEMO_INSTITUTE = {
     "institute_name": "CodeCortex Model School",
     "name": "CodeCortex Model School",
@@ -245,6 +251,13 @@ class Command(BaseCommand):
         if student_user:
             student_user.full_name = "Ali Raza"
             student_user.save(update_fields=["full_name"])
+        # The demo logins keep their documented passwords; record them so the
+        # admission / job offer letters print what actually works.
+        from services.core.accounts.credentials import issue_credential
+        for email, password in DEMO_PASSWORDS.items():
+            u = User.objects.filter(email=email).first()
+            if u:
+                issue_credential(u, password)
 
     # ------------------------------------------------------------------ finance
     def _fees(self, M, st, students, rng):

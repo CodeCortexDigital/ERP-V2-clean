@@ -406,3 +406,18 @@ class TeacherProfile(models.Model):
     def __str__(self):
         return f"{self.user.email} - Teacher"
 
+
+
+class PortalCredential(models.Model):
+    """Portal login issued by the school (admission / job offer letter).
+
+    The generated password is kept so admins can print it on letters until
+    the user changes it; after that only a reset can issue a new one.
+    """
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='portal_credential')
+    initial_password = models.CharField(max_length=64, blank=True)
+    changed_by_user = models.BooleanField(default=False)
+    issued_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.email} - portal login"

@@ -107,9 +107,7 @@ function scheduleReconnect(key: string) {
 }
 
 function openSocket(key: string, endpoint: string, token: string, isReconnect = false) {
-  // No real backend WebSocket in demo mode (mock token) — skip to avoid
-  // endless reconnect noise.
-  if (!token || token === 'mock-access-token') {
+  if (!token) {
     return;
   }
   const url = getEndpointUrl(endpoint, token);

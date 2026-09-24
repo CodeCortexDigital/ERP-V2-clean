@@ -56,7 +56,33 @@ def resolve_tenant_for_user(user) -> School | None:
         .order_by('-is_primary', 'joined_at')
         .first()
     )
-    return membership.school if membership else None
+    if membership:
+        return membership.school
+    return _school_from_records(user)
+
+
+def _school_from_records(user) -> School | None:
+    """Portal users created from a Student/Teacher record have no membership row;
+    use the school on their own record (or their child's, for parents)."""
+    from django.apps import apps
+
+    email = getattr(user, 'email', '')
+    if not email:
+        return None
+    Student = apps.get_model('education_students', 'Student')
+    student = Student.objects.filter(email__iexact=email, tenant__isnull=False).select_related('tenant').first()
+    if student:
+        return student.tenant
+    Teacher = apps.get_model('education_academics', 'Teacher')
+    teacher = Teacher.objects.filter(email__iexact=email, tenant__isnull=False).select_related('tenant').first()
+    if teacher:
+        return teacher.tenant
+    profile = getattr(user, 'parent_profile', None)
+    if profile is not None:
+        child = profile.linked_students.filter(tenant__isnull=False).select_related('tenant').first()
+        if child:
+            return child.tenant
+    return None
 
 
 def set_session_tenant(request, school: School) -> None:

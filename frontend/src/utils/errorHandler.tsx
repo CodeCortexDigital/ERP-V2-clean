@@ -55,10 +55,6 @@ export function setupApiErrorInterceptor(api: AxiosInstance) {
       const status = error.response?.status;
 
       if (status === 401) {
-        const currentToken = useAuthStore.getState().accessToken;
-        if (currentToken === 'mock-access-token') {
-          return Promise.reject(error);
-        }
         useAuthStore.getState().logout();
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
           window.location.href = '/login';

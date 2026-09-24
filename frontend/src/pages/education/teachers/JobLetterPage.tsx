@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Search, Printer, Lock, CheckCircle2, RotateCcw, FileText } from 'lucide-react';
 import teacherService, { Teacher } from '@/services/teacher.service';
 import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
-import { getStaffCredential } from '@/utils/staffCredentials';
+import credentialsService, { passwordLabel, type StaffLogins } from '@/services/credentials.service';
 
 export default function JobLetterPage() {
   const navigate = useNavigate();
@@ -14,6 +14,20 @@ export default function JobLetterPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [employeeRules, setEmployeeRules] = useState('');
+  const [searchParams] = useSearchParams();
+  // Real portal login issued by the server when the employee was added.
+  const [logins, setLogins] = useState<StaffLogins | null>(null);
+
+  useEffect(() => {
+    setLogins(null);
+    if (!selectedTeacher?.id) return;
+    let cancelled = false;
+    credentialsService
+      .staff(String(selectedTeacher.id))
+      .then((data) => { if (!cancelled) setLogins(data); })
+      .catch(() => { /* no access or no account yet: letter shows the employee ID only */ });
+    return () => { cancelled = true; };
+  }, [selectedTeacher?.id]);
 
   useEffect(() => {
     // Fetch canonical rules from backend settings API
@@ -27,10 +41,6 @@ export default function JobLetterPage() {
       setEmployeeRules('<p>Employees are expected to perform their duties diligently and adhere to professional standards at all times.</p>');
     });
   }, []);
-
-  // Use the shared credential source so the Job Letter shows the exact same
-  // username/password that Staff Login stores and the Login page validates.
-  const getLoginCredentials = (teacher: Teacher) => getStaffCredential(teacher);
 
   const getExtraDetails = (teacher: Teacher) => {
     const t = teacher as any;
@@ -60,6 +70,10 @@ export default function JobLetterPage() {
       const fetched = extractListData<Teacher>(tRes.data);
       
       setTeachers(fetched.length > 0 ? fetched : []);
+      // Opened from Staff Logins with ?teacher_id=...: show that letter directly.
+      const wanted = searchParams.get('teacher_id');
+      const match = wanted ? fetched.find((t) => String(t.id) === wanted) : null;
+      if (match) setSelectedTeacher(match);
     } catch (error) {
       console.error('Error fetching employees:', error);
     } finally {
@@ -79,7 +93,12 @@ export default function JobLetterPage() {
     window.print();
   };
 
-  const creds = selectedTeacher ? getLoginCredentials(selectedTeacher) : null;
+  const creds = selectedTeacher
+    ? {
+        username: logins?.staff.username || selectedTeacher.employee_id || '',
+        password: passwordLabel(logins?.staff),
+      }
+    : null;
   const extras = selectedTeacher ? getExtraDetails(selectedTeacher) : null;
 
   return (

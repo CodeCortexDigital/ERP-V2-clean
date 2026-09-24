@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import teacherService, { Teacher } from '@/services/teacher.service';
 import { extractListData } from '@/services/api';
 import api from '@/services/api';
+import credentialsService, { passwordLabel, type StaffLogins } from '@/services/credentials.service';
 
 interface AttendanceStats {
   present: number;
@@ -33,6 +34,12 @@ export default function TeacherProfilePage() {
   const navigate = useNavigate();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logins, setLogins] = useState<StaffLogins | null>(null);
+
+  useEffect(() => {
+    if (!teacher?.id) return;
+    credentialsService.staff(String(teacher.id)).then(setLogins).catch(() => setLogins(null));
+  }, [teacher?.id]);
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({
     present: 0, leave: 0, absent: 0, total: 0, todayStatus: null, yesterdayStatus: null
   });
@@ -148,15 +155,6 @@ export default function TeacherProfilePage() {
     }
   };
 
-  const getLoginCredentials = (t: any) => {
-    const code = t.employee_id || '250822';
-    const num = code.replace(/\D/g, '') || '22';
-    return {
-      username: `169081bsUDN${num.slice(-2)}`,
-      password: `159081bsUDR${num.slice(-2)}`
-    };
-  };
-
   const handlePrint = () => {
     window.print();
   };
@@ -171,7 +169,11 @@ export default function TeacherProfilePage() {
 
   if (!teacher) return null;
 
-  const creds = getLoginCredentials(teacher);
+  // Real portal login (admins see the issued password; others see the username).
+  const creds = {
+    username: logins?.staff.username || teacher.employee_id || '--',
+    password: passwordLabel(logins?.staff),
+  };
 
   return (
     <div className="space-y-6 bg-slate-50 min-h-screen p-2 text-slate-800 pb-12">

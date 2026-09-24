@@ -75,6 +75,16 @@ To stop, run **`stop-demo.bat`** (or close the two server windows); **`restart-d
 6. **Student → assistant:** *"My attendance"*. Then ask *"finance summary"*: students can't see school-wide data.
 7. **Any role → moon icon (top right):** switch to dark mode. **Settings → Theme** changes the accent colour, header and sidebar style, fonts and corner roundness for the whole app.
 
+**Portal logins for students, parents and staff.** Adding a student or employee creates their portal account on the server with its own random password (for example `kqmz-4827`). Usernames are the IDs people already have:
+
+| Who | Username | Where the login is printed |
+|-----|----------|----------------------------|
+| Student | Student ID (e.g. `DS-2026061`) | Admission letter |
+| Parent | The parent email on the admission letter | Admission letter |
+| Staff | Employee ID (e.g. `EMP-001`) | Job offer letter |
+
+Admins see the logins under **Students → Portal Logins** and **Employees → Portal Logins**, where they can issue a new password (the old one stops working) or open the letter to print. Once someone changes their own password, the letter shows "Changed by user" instead. Accounts created before this existed show a **Generate missing logins** button.
+
 **Without API keys** the assistant runs in *quick-answer mode* (keyword matching over the same live data and role rules), and lesson plans use a standard template. Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to the backend environment to switch both to full AI. No other change is needed. Face-recognition attendance needs DeepFace/OpenCV and is not part of the demo.
 
 > Ports 8009 and 5179 are used so the demo doesn't clash with other local dev servers on 8000/5173.
