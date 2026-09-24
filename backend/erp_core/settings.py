@@ -160,7 +160,27 @@ else:
         f"host={DATABASES['default']['HOST']} port={DATABASES['default']['PORT']} name={DATABASES['default']['NAME']}",
         file=_sys.stderr,
     )
-    if _use_pgbouncer:
+    # Emergency fallback: if DB_HOST names a database that no longer exists (e.g. an expired
+    # Render free Postgres) and no DATABASE_URL is set, start on a local SQLite file instead of
+    # crash-looping. Data in that file is NOT durable on Render. Disable with DB_SQLITE_FALLBACK=0.
+    if (
+        not _database_url
+        and os.environ.get('DB_SQLITE_FALLBACK', '1').lower() not in ('0', 'false', 'no')
+        and DATABASES['default']['HOST'] not in ('', '127.0.0.1', 'localhost')
+    ):
+        import socket as _socket
+
+        try:
+            _socket.getaddrinfo(DATABASES['default']['HOST'], None)
+        except _socket.gaierror:
+            print(
+                f"[settings] WARNING: database host {DATABASES['default']['HOST']} does not exist. "
+                "Falling back to a temporary SQLite database; data will be lost on restart. "
+                "Set DATABASE_URL to a real PostgreSQL database.",
+                file=_sys.stderr,
+            )
+            DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
+    if _use_pgbouncer and 'postgresql' in DATABASES['default']['ENGINE']:
         DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
         DATABASES['default']['CONN_MAX_AGE'] = 0
     _stmt_timeout = os.environ.get('DB_STATEMENT_TIMEOUT_MS', '30000')
