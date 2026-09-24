@@ -237,7 +237,33 @@ def _calculate_attendance_trends():
 
     trend_percentage = this_week_rate - last_week_rate
 
+    # Last 6 calendar months, oldest first (drives the attendance trend chart).
+    monthly_data = []
+    month_start = today.replace(day=1)
+    starts = []
+    for _ in range(6):
+        starts.append(month_start)
+        month_start = (month_start - timedelta(days=1)).replace(day=1)
+    for start in reversed(starts):
+        end = (start + timedelta(days=32)).replace(day=1)
+        m = AttendanceRecord.objects.filter(date__gte=start, date__lt=end).exclude(status='holiday').aggregate(
+            total=Count('id'),
+            present=Count('id', filter=Q(status='present')),
+            absent=Count('id', filter=Q(status='absent')),
+            late=Count('id', filter=Q(status='late')),
+        )
+        if not m['total']:
+            continue
+        monthly_data.append({
+            'month': start.strftime('%b'),
+            'present': m['present'],
+            'absent': m['absent'],
+            'late': m['late'],
+            'percentage': round((m['present'] + m['late']) / m['total'] * 100, 1),
+        })
+
     return {
+        'monthly_data': monthly_data,
         'this_week_rate': round(this_week_rate, 1),
         'last_week_rate': round(last_week_rate, 1),
         'trend_percentage': round(trend_percentage, 1),

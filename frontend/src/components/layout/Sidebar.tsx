@@ -418,7 +418,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     </div>
   );
 
-  const portalLabel = isTeacher ? 'Teacher Portal' : isStudent ? 'Student Portal' : 'Admin Portal';
+  const portalLabel = isTeacher ? 'Teacher Portal' : isStudent ? 'Student Portal' : isParent ? 'Parent Portal' : 'Admin Portal';
 
   return (
     <aside className={`flex flex-col h-full transition-all duration-300 z-40 ${containerClass} ${isCollapsed ? 'w-20' : 'w-64'}`}>

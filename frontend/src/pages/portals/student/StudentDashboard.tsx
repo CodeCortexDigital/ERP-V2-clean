@@ -7,6 +7,7 @@ import attendanceService from '@/services/attendance.service';
 import { Calendar, Clock, DollarSign, BookOpen, User, RefreshCw, UserCheck, AlertCircle, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import tenantService from '@/services/tenant.service';
 
 interface FeeItem {
   amount: number;
@@ -30,6 +31,17 @@ export default function StudentDashboard() {
   // Clock state
   const [currentTime, setCurrentTime] = useState('');
   const [currentDateStr, setCurrentDateStr] = useState('');
+  const [institute, setInstitute] = useState({ name: '', tagline: '' });
+
+  useEffect(() => {
+    tenantService.current().then((tenant) => {
+      if (!tenant) return;
+      setInstitute({
+        name: tenant.settings_json?.institute_name || tenant.name || '',
+        tagline: tenant.settings_json?.tagline || '',
+      });
+    });
+  }, []);
 
   useEffect(() => {
     fetchStudentData();
@@ -342,8 +354,10 @@ export default function StudentDashboard() {
               <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-[9px] font-black uppercase tracking-wider">
                 👋 Welcome {student?.name} at Student Portal.
               </span>
-              <h2 className="text-xl font-black">Your Institute Name Here</h2>
-              <p className="text-[10px] text-blue-150 font-bold uppercase tracking-wider">Your targetline goes here</p>
+              <h2 className="text-xl font-black">{institute.name || 'Student Dashboard'}</h2>
+              {institute.tagline && (
+                <p className="text-[10px] text-blue-150 font-bold uppercase tracking-wider">{institute.tagline}</p>
+              )}
             </div>
             
             <div className="z-10 text-right md:text-right mt-4 md:mt-0 bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">

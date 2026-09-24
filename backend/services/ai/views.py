@@ -22,7 +22,8 @@ import time
 
 from asgiref.sync import sync_to_async
 from django.http import StreamingHttpResponse
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, renderer_classes
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 
 from .agent import run_agent
@@ -177,8 +178,20 @@ def ai_chat(request):
     return Response(done)
 
 
+class EventStreamRenderer(BaseRenderer):
+    """Lets DRF accept `Accept: text/event-stream`. Only error responses go
+    through it (as JSON); the stream itself is a StreamingHttpResponse."""
+    media_type = "text/event-stream"
+    format = "sse"
+    charset = "utf-8"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return json.dumps(data, default=str).encode("utf-8")
+
+
 @api_view(["POST"])
 @permission_classes([HasAIRole])
+@renderer_classes([JSONRenderer, EventStreamRenderer])
 def ai_chat_stream(request):
     try:
         ctx, conversation, history = _prepare(request)

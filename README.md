@@ -46,6 +46,38 @@ See [docs/README.md](docs/README.md) for the full feature breakdown.
 └── .github/workflows/       # CI/CD, security & backup pipelines
 ```
 
+## Run the demo locally (no API keys needed)
+
+On Windows, double-click **`demo.bat`** in the project root (or run it from a terminal). It:
+
+1. Creates the Python environment and installs packages (first run only).
+2. Sets up a local SQLite database and fills it with a demo school, **CodeCortex Model School** (first run only, 10–15 minutes, so do it before the meeting; later runs start in seconds): 6 classes, 6 teachers, 120 students, 3 months of fees with payments, 30 school days of attendance, exams with results, homework, behaviour records and payroll.
+3. Starts the backend on **http://localhost:8001** and the frontend on **http://localhost:5179** in two windows, then opens the login page.
+
+Close the two server windows to stop. To rebuild the demo data from scratch: `cd backend` then `.venv\Scripts\python manage.py seed_demo --reset`.
+
+**Demo logins**
+
+| Role | Email | Password | What they see |
+|------|-------|----------|---------------|
+| Admin | `admin@code.com` | `Admin@123` | Whole school: dashboard, fees, attendance, analytics |
+| Teacher | `teacher@code.com` | `Teacher@123` | Ayesha Khan, Grade 8 class teacher, teaches Mathematics |
+| Parent | `parent@code.com` | `Parent@123` | Kashif Raza, parent of Ali (Grade 8) and Fatima (Grade 6) |
+| Student | `student@code.com` | `Student@123` | Ali Raza, Grade 8 |
+
+**Suggested walkthrough (about 10 minutes)**
+
+1. **Admin → Dashboard:** live totals (students, staff, fee collection, today's attendance).
+2. **Admin → AI assistant** (purple button, bottom right): ask *"Fee defaulters & finance summary"*, then *"How many students are absent today?"*.
+3. **Admin → Reports (Analytics):** click **Run AI Risk Scan**. The ML models score every student for dropout and fee-default risk; the at-risk list and charts update.
+4. **Teacher → Lesson Planner:** pick a class and subject, enter a topic, generate a lesson plan draft.
+5. **Parent → Dashboard:** the child's attendance and fee history; ask the assistant *"My fees & dues"*. It only ever shows this family's data.
+6. **Student → assistant:** *"My attendance"*. Then ask *"finance summary"*: students can't see school-wide data.
+
+**Without API keys** the assistant runs in *quick-answer mode* (keyword matching over the same live data and role rules), and lesson plans use a standard template. Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to the backend environment to switch both to full AI. No other change is needed. Face-recognition attendance needs DeepFace/OpenCV and is not part of the demo.
+
+> Ports 8001 and 5179 are used so the demo doesn't clash with other local dev servers on 8000/5173.
+
 ## Quick Start
 
 ### Prerequisites

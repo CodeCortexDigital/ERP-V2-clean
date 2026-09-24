@@ -46,11 +46,11 @@ def _fmt_search(d):
 def _fmt_finance(fin, dfl):
     return (
         f"💰 **Financial & Fee Overview**\n"
-        f"  - Total Billed: Rs {fin['total_billed']:,}\n"
-        f"  - Total Fee Collected: Rs {fin['total_collected']:,}\n"
-        f"  - Total Outstanding Due: Rs {fin['total_outstanding']:,}\n\n"
+        f"  - Total Billed: Rs {fin['total_billed']:,.0f}\n"
+        f"  - Total Fee Collected: Rs {fin['total_collected']:,.0f}\n"
+        f"  - Total Outstanding Due: Rs {fin['total_outstanding']:,.0f}\n\n"
         f"⚠️ **Fee Defaulters ({dfl['count']}):**\n"
-        + _bullets(dfl["defaulters"][:10], lambda r: f"{r['name']} ({r['class']}): Rs {r['amount_due']:,} due",
+        + _bullets(dfl["defaulters"][:10], lambda r: f"{r['name']} ({r['class']}): Rs {r['amount_due']:,.0f} due",
                    "No fee defaulters found. All student fees are clear!")
     )
 
@@ -79,7 +79,7 @@ def _fmt_student(d):
         f"  - Guardian: {p['guardian_name']} | Phone: {p['phone']}"
     )
     if "outstanding_balance" in d:
-        text += f"\n  - Outstanding Fee Balance: Rs {d['outstanding_balance']:,}"
+        text += f"\n  - Outstanding Fee Balance: Rs {d['outstanding_balance']:,.0f}"
     return text
 
 
@@ -100,8 +100,8 @@ def _fmt_self(name, d):
         return (f"Attendance ({d['scope']}): {d['present']}/{d['total_records']} present "
                 f"({d['attendance_percentage']}%). Absent: {d['absent']}.")
     if name == "my_fees":
-        return f"Your fee summary — Total due: Rs {d['outstanding_balance']:,}\n" + _bullets(
-            d["unpaid_invoices"], lambda i: f"{i['invoice_number']}: Rs {i['amount_due']:,} due {i['due_date']} ({i['status']})",
+        return f"Your fee summary — Total due: Rs {d['outstanding_balance']:,.0f}\n" + _bullets(
+            d["unpaid_invoices"], lambda i: f"{i['invoice_number']}: Rs {i['amount_due']:,.0f} due {i['due_date']} ({i['status']})",
             "No unpaid invoices.")
     if name == "my_exams":
         return f"Exams ({d['count']}):\n" + _bullets(

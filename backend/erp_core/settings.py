@@ -415,6 +415,15 @@ CELERY_ENABLE_UTC = True
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TRACK_STARTED = True
+# Run tasks inline when asked to, or when the Redis broker can't be reached
+# (local dev without Redis) — otherwise every task send blocks on reconnects.
+_eager_env = os.environ.get('CELERY_TASK_ALWAYS_EAGER', '').lower()
+if _eager_env:
+    CELERY_TASK_ALWAYS_EAGER = _eager_env in ('1', 'true', 'yes')
+else:
+    CELERY_TASK_ALWAYS_EAGER = CELERY_BROKER_URL.startswith('redis://') and not _redis_available(CELERY_BROKER_URL)
+if CELERY_TASK_ALWAYS_EAGER:
+    CELERY_RESULT_BACKEND = 'cache+memory://'
 
 try:
     from celery.schedules import crontab

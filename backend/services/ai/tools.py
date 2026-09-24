@@ -13,6 +13,7 @@ the caller's school and `ctx.scope_classes` restricts teachers to their classes.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -90,6 +91,10 @@ def _limit(value, default: int, maximum: int) -> int:
         return max(1, min(int(value), maximum))
     except (TypeError, ValueError):
         return default
+
+
+def _natural_key(text: str):
+    return [int(p) if p.isdigit() else p.lower() for p in re.split(r"(\d+)", text or "")]
 
 
 def _str(desc):
@@ -181,6 +186,7 @@ def student_strength_by_class(ctx: AIContext) -> dict:
         .order_by("current_class__name")
     )
     rows = [{"class": r["current_class__name"] or "Unassigned", "count": r["count"]} for r in qs]
+    rows.sort(key=lambda r: _natural_key(r["class"]))  # Grade 5 before Grade 10
     return {
         "strength": rows,
         "total_students": sum(r["count"] for r in rows),

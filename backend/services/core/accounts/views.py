@@ -30,10 +30,25 @@ def _get_student_for_user(user):
         return None
 
     Student = apps.get_model('education_students', 'Student')
-    return (
+    student = (
         Student.objects.select_related('current_class', 'current_section')
         .filter(email__iexact=user.email, is_active=True)
         .first()
+    )
+    if student is None:
+        # Parents see their first linked child by default.
+        children = _get_children_for_user(user)
+        student = children[0] if children else None
+    return student
+
+
+def _get_children_for_user(user):
+    profile = getattr(user, 'parent_profile', None)
+    if profile is None:
+        return []
+    return list(
+        profile.linked_students.select_related('current_class', 'current_section')
+        .filter(is_active=True).order_by('full_name')
     )
 
 
@@ -142,6 +157,8 @@ def login_view(request):
         }
         if student_obj:
             payload['user']['student'] = _serialize_student(student_obj)
+        if role == 'parent':
+            payload['user']['children'] = [_serialize_student(s) for s in _get_children_for_user(user)]
         if tenant:
             payload['tenant'] = SchoolSerializer(tenant).data
         return Response(payload)
@@ -190,6 +207,7 @@ def get_current_user(request):
         'role': role,
         'portal_path': '/student' if role == 'student' else '/teacher' if role == 'teacher' else '/parent' if role == 'parent' else '/dashboard',
         'student': _serialize_student(student_obj),
+        **({'children': [_serialize_student(s) for s in _get_children_for_user(user)]} if role == 'parent' else {}),
     })
 
     

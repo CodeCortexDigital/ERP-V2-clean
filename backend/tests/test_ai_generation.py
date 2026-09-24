@@ -53,9 +53,12 @@ def subject():
 
 @pytest.mark.django_db
 class TestLessonPlan:
-    def test_needs_provider(self, admin):
+    def test_template_without_provider(self, admin):
         res = _client(admin).post("/api/v1/ai/lesson-plan/", {"subject": "Bio", "grade": "8", "topic": "Cells"}, format="json")
-        assert res.status_code == 503
+        assert res.status_code == 200
+        body = res.json()
+        assert body["source"] == "template" and "Cells" in body["homework"]
+        assert not AIUsage.objects.exists()
 
     def test_generates_plan_and_records_usage(self, admin):
         llm = _llm(dict(PLAN))

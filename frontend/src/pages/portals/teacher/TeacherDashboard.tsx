@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import AiAssistant from '@/components/AiAssistant';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCanAccess } from '@/hooks/usePermissions';
@@ -45,8 +44,8 @@ export default function TeacherDashboard() {
 
   const [currentTime, setCurrentTime] = useState('');
   const [currentDateStr, setCurrentDateStr] = useState('');
-  const [instituteName, setInstituteName] = useState('Your Institute Name Here');
-  const [instituteTagline, setInstituteTagline] = useState('Your tagline goes here');
+  const [instituteName, setInstituteName] = useState('Teacher Dashboard');
+  const [instituteTagline, setInstituteTagline] = useState('');
 
   const fetchTenant = async () => {
     const tenant = await tenantService.current().catch(() => null);
@@ -54,7 +53,7 @@ export default function TeacherDashboard() {
     const settings = (tenant?.settings_json || {}) as
       | { institute_name?: string; tagline?: string }
       | undefined;
-    setInstituteName(settings?.institute_name || tenant.name || 'Your Institute Name Here');
+    setInstituteName(settings?.institute_name || tenant.name || 'Teacher Dashboard');
     setInstituteTagline(settings?.tagline || '');
   };
 
@@ -697,7 +696,6 @@ export default function TeacherDashboard() {
           </div>
         </div>
       </Modal>
-      <AiAssistant mode="teacher" />
     </div>
   );
 }

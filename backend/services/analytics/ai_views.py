@@ -18,7 +18,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from services.ai.context import AIContext
-from services.ai.generation import generate_lesson_plan, generate_quiz as llm_generate_quiz
+from services.ai.generation import generate_lesson_plan, generate_quiz as llm_generate_quiz, template_lesson_plan
 from services.ai.llm import LLMError, get_llm_client
 from services.ai.permissions import HasAIRole, IsAIAdmin, IsAIEducator
 from services.ai.quota import AIQuotaExceeded, check_rate_limit, check_token_budget, feature_enabled, record_usage
@@ -43,8 +43,12 @@ except ImportError:
     RISK_ML_AVAILABLE = False
 
 try:
-    from attendance.face_recognizer import extract_embedding_from_image, match_embeddings
-    FACE_ML_AVAILABLE = True
+    from attendance.face_recognizer import (
+        DEEPFACE_AVAILABLE, OPENCV_AVAILABLE, extract_embedding_from_image, match_embeddings,
+    )
+    # Without DeepFace/OpenCV the recognizer hashes the student id instead of
+    # reading the photo, which is not real recognition.
+    FACE_ML_AVAILABLE = DEEPFACE_AVAILABLE and OPENCV_AVAILABLE
 except ImportError:
     logger.info("Face recognition packages not installed; face endpoints disabled")
     FACE_ML_AVAILABLE = False
@@ -101,6 +105,10 @@ def ai_lesson_plan(request):
     except (TypeError, ValueError):
         duration = 40
 
+    if get_llm_client() is None:
+        # No AI provider yet: hand back a standard lesson structure, labelled as such.
+        return Response(template_lesson_plan(subject=subject, grade=grade, topic=topic,
+                                             objectives=objectives, duration=duration))
     ready, error = _llm_for(request, 'ai_lesson_plans')
     if error:
         return error
@@ -113,7 +121,7 @@ def ai_lesson_plan(request):
         return Response({'error': 'Lesson plan generation failed. Please try again.'},
                         status=status.HTTP_502_BAD_GATEWAY)
     record_usage(ctx, 'ai_lesson_plans', llm.provider, model, usage)
-    return Response(plan, status=status.HTTP_200_OK)
+    return Response({**plan, "source": "ai"}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAIAdmin])

@@ -24,9 +24,9 @@ def get_student_feature_row(student) -> dict:
     exam_avg = ExamResult.objects.filter(student=student).aggregate(Avg('percentage'))['percentage__avg'] or 75.0
     
     # 3. Unpaid Invoices Balance
-    total_invoiced = Invoice.objects.filter(student=student).aggregate(Sum('amount'))['amount__sum'] or 0.0
-    total_paid = Invoice.objects.filter(student=student).aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0.0
-    balance = float(total_invoiced - total_paid)
+    total_invoiced = float(Invoice.objects.filter(student=student).aggregate(Sum('amount'))['amount__sum'] or 0.0)
+    total_paid = float(Invoice.objects.filter(student=student).aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0.0)
+    balance = total_invoiced - total_paid
     
     return {
         "attendance_rate": float(att_rate),

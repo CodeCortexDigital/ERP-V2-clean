@@ -5,7 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';  // Default import
 import { useAuth } from '@/contexts/AuthContext';
 import { useUIStore } from '@/store/uiStore';
 import { initGlobalTheme } from '@/utils/theme';
-import AiAssistant from '@/components/AiAssistant';
+import AiAssistant, { type ChatMode } from '@/components/AiAssistant';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -13,7 +13,10 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+  // One assistant for every portal; its welcome text and suggestions follow the role.
+  const assistantMode: ChatMode =
+    role === 'teacher' || role === 'parent' || role === 'student' ? role : 'admin';
   const { sidebarCollapsed } = useUIStore();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -76,7 +79,7 @@ export function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      <AiAssistant />
+      <AiAssistant key={assistantMode} mode={assistantMode} />
     </div>
   );
 }

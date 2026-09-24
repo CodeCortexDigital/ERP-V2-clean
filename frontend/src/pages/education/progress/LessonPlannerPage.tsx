@@ -90,7 +90,11 @@ export default function LessonPlannerPage() {
         setNotes(noteParts.join('\n'))
       }
 
-      toast.success('Lesson plan drafted — review and edit before saving.')
+      toast.success(
+        data.source === 'template'
+          ? 'Lesson plan template filled in — review and edit before saving.'
+          : 'Lesson plan drafted by AI — review and edit before saving.'
+      )
     } catch (err: any) {
       console.error('AI Lesson Generation failed:', err)
       toast.error(err?.response?.data?.error || 'AI Lesson Generation failed. Please try again.')

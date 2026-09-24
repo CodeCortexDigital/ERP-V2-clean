@@ -162,7 +162,7 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
     } catch (err) {
       if (controller.signal.aborted) {
         patchLast((m) => ({ ...m, content: (m.content ? `${m.content}\n\n` : '') + '_(stopped)_' }));
-      } else if (err instanceof AiRequestError) {
+      } else if (err instanceof AiRequestError && err.explained) {
         patchLast((m) => ({ ...m, content: err.message }));
       } else if (!gotEvent) {
         // Streaming unavailable (e.g. a proxy blocks it) — fall back to a plain request.
@@ -354,9 +354,9 @@ export default function AiAssistant({ mode = 'admin' }: { mode?: ChatMode }) {
           </div>
 
           {offline && (
-            <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 text-[11px] text-amber-700 border-b border-amber-100">
-              <AlertCircle size={13} className="shrink-0" />
-              <span>Basic mode — AI answers are unavailable, showing quick lookups instead.</span>
+            <div className="flex items-center gap-2 bg-slate-50 px-4 py-1.5 text-[10px] text-slate-500 border-b border-slate-100">
+              <AlertCircle size={12} className="shrink-0" />
+              <span>Quick-answer mode — try the suggested questions for best results.</span>
             </div>
           )}
 

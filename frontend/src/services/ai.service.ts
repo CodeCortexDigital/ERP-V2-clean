@@ -33,7 +33,8 @@ export type AiStreamEvent =
   | { type: 'error'; message: string };
 
 export class AiRequestError extends Error {
-  constructor(message: string, public status: number) {
+  /** `explained`: the server sent a user-facing reason (limits, permissions…). */
+  constructor(message: string, public status: number, public explained = false) {
     super(message);
   }
 }
@@ -68,10 +69,15 @@ export async function streamAiMessage(
   });
   if (!res.ok || !res.body) {
     let detail = 'The assistant is unavailable right now.';
+    let explained = false;
     try {
-      detail = (await res.json()).error || detail;
+      const body = await res.json();
+      if (body?.error && res.status < 500) {
+        detail = body.error;
+        explained = true;
+      }
     } catch { /* not JSON */ }
-    throw new AiRequestError(detail, res.status);
+    throw new AiRequestError(detail, res.status, explained);
   }
 
   const reader = res.body.getReader();

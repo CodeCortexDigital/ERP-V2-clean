@@ -4,14 +4,8 @@ export default function WelcomeBanner() {
       <div className="space-y-1 z-10">
         <h3 className="font-bold text-rose-500 text-sm">Welcome to Admin Dashboard</h3>
         <p className="text-xs text-slate-600 font-medium">
-          Your Account is not Verified yet! <br className="hidden sm:inline"/>
-          Please Verify your email address.{' '}
-          <button
-            onClick={() => alert('Verification email sent!')}
-            className="text-blue-600 font-bold hover:underline"
-          >
-            Verify now!
-          </button>
+          Students, fees, attendance and staff at a glance. <br className="hidden sm:inline"/>
+          Ask the AI assistant (bottom right) for quick answers about your school.
         </p>
       </div>
       <div className="w-32 h-24 flex-shrink-0 relative hidden sm:flex items-center justify-center">

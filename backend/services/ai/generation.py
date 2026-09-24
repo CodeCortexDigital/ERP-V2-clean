@@ -60,6 +60,33 @@ def generate_lesson_plan(llm: LLMClient, *, subject: str, grade: str, topic: str
     return plan, usage, model
 
 
+def template_lesson_plan(*, subject: str, grade: str, topic: str, objectives: list[str],
+                         duration: int = 40) -> dict:
+    """Standard lesson structure used when no AI provider is configured.
+    Marked with source="template" so the UI can say it isn't AI-written."""
+    intro = max(5, duration // 8)
+    teach = max(10, duration * 3 // 8)
+    practice = max(10, duration // 4)
+    wrap = max(5, duration - intro - teach - practice)
+    goals = [o for o in objectives if o] or [f"Explain the key ideas of {topic}", f"Apply {topic} to simple examples"]
+    return {
+        "source": "template",
+        "duration_minutes": duration,
+        "learning_objectives": goals,
+        "materials_needed": [f"{subject} textbook ({grade})", "Whiteboard and markers", f"Worksheet on {topic}"],
+        "introduction": f"Start with a quick question linking {topic} to what students already know, then share today's objectives.",
+        "main_activities": [
+            f"{teach} min - Explain {topic} with worked examples on the board",
+            f"{practice} min - Students practise with the worksheet while the teacher checks work",
+            f"{wrap} min - Review answers together and clear up mistakes",
+        ],
+        "group_work": f"In pairs, students solve one {topic} problem and explain their answer to the class.",
+        "differentiation": "Give step-by-step hints to students who need support; set an extension question for fast finishers.",
+        "assessment": [f"Explain {topic} in your own words.", f"Solve one new question on {topic}."],
+        "homework": f"Complete the textbook exercise on {topic}.",
+    }
+
+
 def generate_quiz(llm: LLMClient, *, subject: str, topic: str, difficulty: str, count: int,
                   grade: str = "") -> tuple[dict, Usage, str]:
     prompt = (

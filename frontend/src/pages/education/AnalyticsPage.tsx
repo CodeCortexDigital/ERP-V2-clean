@@ -77,6 +77,7 @@ export default function AnalyticsPage() {
   const [attendanceTrends, setAttendanceTrends] = useState<AttendanceTrend[]>([]);
   const [feeTrends, setFeeTrends] = useState<FeeTrend[]>([]);
   const [atRiskStudents, setAtRiskStudents] = useState<AtRiskStudent[]>([]);
+  const [currentTotalStudents, setCurrentTotalStudents] = useState(0);
   const [aiInsights, setAiInsights] = useState<AiInsight[]>([]);
   const [studentGrowth, setStudentGrowth] = useState<StudentGrowthPoint[]>([]);
   const [teacherPerformance, setTeacherPerformance] = useState<TeacherPerformanceItem[]>([]);
@@ -222,7 +223,9 @@ setAttendanceTrends(rawAttendance);
 
       // 3. Student Growth
       const rawGrowth = data.student_growth?.monthly_growth || [];
-      setStudentGrowth(rawGrowth.length > 0 ? rawGrowth.map((g: any) => ({ month: g.month, count: Number(g.student_count || 0) })) : []);
+      // API returns newest month first; charts read oldest -> newest.
+      setStudentGrowth([...rawGrowth].reverse().map((g: any) => ({ month: g.month, count: Number(g.student_count || 0) })));
+      setCurrentTotalStudents(Number(data.student_growth?.current_total ?? 0));
 
       // 4. Teacher Performance
       const rawTeachers = data.teacher_metrics?.teacher_ratings || [];
@@ -262,7 +265,7 @@ setTeacherPerformance(rawTeachers);
     toast.info(`Automated fee reminders are not connected yet. Please send ${studentName}'s reminder from the Finance module.`);
   };
 
-  const totalStudents = studentGrowth.length > 0 ? studentGrowth[studentGrowth.length - 1].count : atRiskStudents.length;
+  const totalStudents = currentTotalStudents || (studentGrowth.length > 0 ? studentGrowth[studentGrowth.length - 1].count : 0);
   const totalCollected = feeTrends.reduce((sum, t) => sum + (t.collected || 0), 0);
   const totalPending = feeTrends.reduce((sum, t) => sum + (t.pending || 0), 0);
   const attendanceRate = attendanceTrends[attendanceTrends.length - 1]?.percentage || 0;
@@ -1186,7 +1189,7 @@ setTeacherPerformance(rawTeachers);
         </div>
         <div className="bg-green-50 rounded-xl p-4">
           <div className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-green-600" /></div>
-          <p className="text-2xl font-bold text-green-700">₹{totalCollected.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-green-700">Rs {totalCollected.toLocaleString()}</p>
           <p className="text-xs text-gray-600">Fee Collected</p>
         </div>
         <div className="bg-red-50 rounded-xl p-4">
@@ -1196,7 +1199,7 @@ setTeacherPerformance(rawTeachers);
         </div>
         <div className="bg-yellow-50 rounded-xl p-4">
           <div className="flex items-center gap-2"><DollarSign className="w-5 h-5 text-yellow-600" /></div>
-          <p className="text-2xl font-bold text-yellow-700">₹{totalPending.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-yellow-700">Rs {totalPending.toLocaleString()}</p>
           <p className="text-xs text-gray-600">Pending Fees</p>
         </div>
         <div className="bg-purple-50 rounded-xl p-4">

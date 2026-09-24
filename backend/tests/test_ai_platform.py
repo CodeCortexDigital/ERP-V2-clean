@@ -274,6 +274,19 @@ class TestChatEndpoints:
         assert "token" in types
         assert events[-1]["reply"] == "Collected it all"
 
+    def test_stream_accepts_browser_accept_header(self, settings):
+        # Browsers send Accept: text/event-stream; DRF must not answer 406.
+        client = _client(UserFactory(is_superuser=True))
+        res = client.post("/api/v1/ai/chat/stream/", {"message": "finance summary"}, format="json",
+                          HTTP_ACCEPT="text/event-stream")
+        assert res.status_code == 200
+        assert "Total Billed" in async_to_sync(_collect)(res)
+        # Errors still come back as readable JSON under the same header.
+        settings.AI_RATE_LIMIT = 1
+        err = client.post("/api/v1/ai/chat/stream/", {"message": "hi"}, format="json",
+                          HTTP_ACCEPT="text/event-stream")
+        assert err.status_code == 429 and "limit" in json.loads(err.content)["error"]
+
     def test_rate_limit(self, settings):
         settings.AI_RATE_LIMIT = 2
         client = _client(UserFactory(is_superuser=True))
