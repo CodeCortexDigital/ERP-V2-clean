@@ -140,6 +140,19 @@ else:
             },
         }
     }
+    # A single DATABASE_URL (e.g. Render's "Internal Database URL") overrides the DB_* values.
+    _database_url = os.environ.get('DATABASE_URL', '').strip()
+    if _database_url:
+        from urllib.parse import unquote, urlparse
+
+        _u = urlparse(_database_url)
+        DATABASES['default'].update({
+            'NAME': unquote(_u.path.lstrip('/')) or DATABASES['default']['NAME'],
+            'USER': unquote(_u.username or '') or DATABASES['default']['USER'],
+            'PASSWORD': unquote(_u.password or ''),
+            'HOST': _u.hostname or DATABASES['default']['HOST'],
+            'PORT': str(_u.port or 5432),
+        })
     if _use_pgbouncer:
         DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
         DATABASES['default']['CONN_MAX_AGE'] = 0
