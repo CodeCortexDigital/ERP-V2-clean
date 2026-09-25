@@ -15,8 +15,9 @@ import { Modal } from '@/components/ui/Modal';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import EnrollmentAndSchedule from '@/components/students/EnrollmentAndSchedule';
 import { ReportCardView } from '@/components/gradebook/ReportCardView';
+import CommunicationHistory from '@/components/students/CommunicationHistory';
 
-type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades';
+type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades' | 'communication';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof User }> = [
   { id: 'overview', label: 'Overview', icon: User },
@@ -25,6 +26,7 @@ const TABS: Array<{ id: TabId; label: string; icon: typeof User }> = [
   { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
   { id: 'billing', label: 'Billing', icon: Wallet },
   { id: 'grades', label: 'Grades', icon: GraduationCap },
+  { id: 'communication', label: 'Communication', icon: Mail },
 ];
 
 const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : '—');
@@ -148,6 +150,7 @@ export default function StudentProfilePage() {
       {tab === 'health' && <HealthTab data={data} studentId={id} reload={load} />}
       {tab === 'attendance' && <AttendanceCalendar studentId={String(data.student.id)} />}
       {tab === 'billing' && <BillingTab data={data} />}
+      {tab === 'communication' && <CommunicationHistory studentId={String(data.student.id)} />}
       {tab === 'grades' && (
         <div className="space-y-4">
           <ReportCardView studentId={String(data.student.id)} staff={data.can_edit} />

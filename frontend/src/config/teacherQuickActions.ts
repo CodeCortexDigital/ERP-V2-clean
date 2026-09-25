@@ -42,7 +42,7 @@ export const teacherQuickActions: QuickAction[] = [
   { id: 'students', label: 'My Students', icon: Users, module: 'students', action: 'view', href: '/education/students', color: 'bg-emerald-600' },
   { id: 'lesson-planner', label: 'Lesson Planner', icon: BookOpen, module: 'academic-setup', action: 'view', href: '/education/progress/lesson-planner', color: 'bg-sky-600' },
   { id: 'progress', label: 'Progress / Coverage', icon: PieChart, module: 'reports', action: 'view', href: '/education/progress', color: 'bg-cyan-600' },
-  { id: 'communication', label: 'Messaging', icon: MessageSquare, module: 'communication', action: 'send', href: '/education/communication', color: 'bg-rose-600' },
+  { id: 'communication', label: 'WhatsApp & SMS', icon: MessageSquare, module: 'communication', action: 'send', href: '/education/communication', color: 'bg-rose-600' },
   { id: 'salary', label: 'Salary Slips', icon: DollarSign, module: 'salary', action: 'view', href: '/education/salary/slips', color: 'bg-green-600' },
 ];
 

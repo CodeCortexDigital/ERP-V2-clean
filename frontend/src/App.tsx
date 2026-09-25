@@ -125,6 +125,9 @@ import GradebookPage from '@/pages/education/gradebook/GradebookPage'
 import ReportCardsPage from '@/pages/education/gradebook/ReportCardsPage'
 import StandardsPage from '@/pages/education/gradebook/StandardsPage'
 import GradingScalesPage from '@/pages/education/gradebook/GradingScalesPage'
+import MessagesPage from '@/pages/messages/MessagesPage'
+import AnnouncementsPage from '@/pages/messages/AnnouncementsPage'
+import SmsPage from '@/pages/messages/SmsPage'
 
 // Behaviour
 import BehaviourPage from './pages/education/behaviour/BehaviourPage'
@@ -227,6 +230,9 @@ function App() {
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><DashboardPage /></RoleBasedRoute>} />
+                <Route path="messages" element={<MessagesPage />} />
+                <Route path="announcements" element={<AnnouncementsPage />} />
+                <Route path="education/communication/sms" element={<RoleBasedRoute allowedRoles={['admin']}><SmsPage /></RoleBasedRoute>} />
                 <Route path="admin/audit-logs" element={<RoleBasedRoute allowedRoles={['admin']}><AuditLogViewer /></RoleBasedRoute>} />
                 
                 {/* ============================================================

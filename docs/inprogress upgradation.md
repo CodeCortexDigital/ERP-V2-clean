@@ -11,8 +11,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | ✅ Done |
 |  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | ✅ Done |
 |  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | ✅ Done |
-|  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | ⏳ Next |
-|  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | Not started |
+|  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | ✅ Done |
+|  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | ⏳ Next |
 |  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | Not started |
 | **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | Not started |
 | **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | Not started |
@@ -431,6 +431,71 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the demo parent's grades card and report cards opened, and correctly said "not released" because their children are not in Grade 5.
   - No page errors. The demo database was restored afterwards.
 - Fixed on the way: the report card preview now refreshes right after a release.
+
+### Phase 7: Communication ✅
+
+**What a school can now do**
+- **Messages**: two-way, private conversations for every role (sidebar → Messages; an envelope in the header shows unread messages).
+  - **Parents** can write to the office and the teachers of their own children's classes. Each teacher is shown with the child they teach.
+  - **Teachers** can write to the office, other teachers, and the parents of students they teach.
+  - **The office** can write to every teacher and parent.
+  - Students can read and reply in conversations they are part of, but cannot start new ones.
+  - A conversation can be about one student.
+  - Messages can carry an attachment (PDF, JPG or PNG, checked for type and size).
+  - Unread counts appear per conversation and in the header.
+  - Every new message also sends an **email and a portal notice** to the others in the conversation.
+  - The inbox refreshes itself; Ctrl + Enter sends.
+- **Announcements** (sidebar → Announcements). Staff post to:
+  - everyone, all parents, all staff, all students, **chosen classes** or **grade levels** (for classes and grades, choose parents and/or students).
+  - Delivery: the **portal**, plus **email** (including guardians without a login who are marked "Receives school messages") and **SMS**.
+  - The office can **pin** an announcement and **schedule** it for later. The command `send_scheduled_announcements` sends due ones, and they are also sent the next time anyone opens the list.
+  - Staff see delivered, read, email and text counts.
+  - Teachers can only announce to their own classes; families only see announcements sent to them.
+- **SMS that really sends** (Communication → SMS):
+  - the school's Twilio account (SID, auth token, sending number, country code for local numbers such as 0300… → +92300…);
+  - the auth token is never shown again;
+  - send to a list of numbers, with a result per number;
+  - every text is logged.
+  - The old "SMS Gateway" tab only **pretended** to send ("SMS queued") and is replaced.
+- **Communication history** (new tab on the student page): conversations about the student, announcements that reached their family, attendance alerts, and WhatsApp/SMS messages, newest first.
+- The existing WhatsApp tools stay as they are. The teacher shortcut to them is renamed "WhatsApp & SMS" so it isn't confused with Messages.
+
+**Fixes found on the way**
+- There were **no email settings**, so every email tried a mail server on the same computer with no timeout.
+  - Email is now configured from `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` and `EMAIL_TIMEOUT` (15 s).
+  - Without a mail server it prints to the console.
+  - This also makes fee reminders, attendance alerts, admissions and report-card emails dependable.
+- Sending an announcement to the whole school took over a minute and was cut off. Emails and texts now go out **in the background** over one mail connection, so posting is instant (246 recipients in the demo).
+
+**Built**
+- Backend (`backend/services/education/communication/`):
+  - models `Conversation`, `ConversationParticipant`, `ChatMessage`, `Announcement`, `AnnouncementReceipt` and `SmsConfig` (migration `0005`);
+  - new `inbox.py`: the contacts rules, conversations, replies, unread counts, announcements with audience targeting and delivery, Twilio SMS, and student history;
+  - `urls.py`, mounted at `/api/v1/auth/communication/`;
+  - the management command `send_scheduled_announcements`;
+  - email settings in `erp_core/settings.py`.
+- Frontend:
+  - `services/messaging.service.ts`
+  - `pages/messages/MessagesPage.tsx`, `AnnouncementsPage.tsx` and `SmsPage.tsx`
+  - `components/notifications/MessagesBadge.tsx`
+  - `components/students/CommunicationHistory.tsx`
+  - sidebar items for every role, translated into 23 languages
+- Tests: `backend/tests/test_messaging.py` has 6 new tests:
+  - a parent's contacts are only their child's teachers and the office, and writing to someone else is refused;
+  - a full conversation with emails, unread counts, a reply, outsiders refused, and history;
+  - a class announcement reaches only that class's parents and guardians by portal and email, teachers are limited to their own classes, parents can't announce, and read counts work;
+  - a scheduled announcement waits;
+  - Twilio SMS: refused until set up, token never returned, local number converted, message logged, and admin only;
+  - phone number formats.
+- Passing: these tests and the isolation tests (14 passed).
+- Browser check on the demo school:
+  - the demo parent saw the office and their children's 6 teachers, and wrote to Ayesha Khan;
+  - she saw "1 unread" in the header and replied;
+  - the parent's inbox showed her reply;
+  - an announcement to everyone reached 246 people instantly, and the parent saw it;
+  - the SMS page loaded.
+  - No page errors. The demo database was restored afterwards.
+- **To send real email**: set `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` on Render (for example your Google Workspace, SendGrid or Mailgun SMTP details).
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

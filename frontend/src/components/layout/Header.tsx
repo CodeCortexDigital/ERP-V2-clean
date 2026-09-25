@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/store/uiStore';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import MessagesBadge from '@/components/notifications/MessagesBadge';
 import tenantService from '@/services/tenant.service';
 import { readThemeSettings, saveThemeSettings, isDarkMode } from '@/utils/theme';
 import { useTranslation } from 'react-i18next';
@@ -156,6 +157,8 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
           onChange={setUserLanguage}
           buttonClassName={iconBtn}
         />
+
+        <MessagesBadge className={iconBtn} />
 
         <div className={isWhite ? 'text-slate-500' : 'text-white'}>
           <NotificationBell />

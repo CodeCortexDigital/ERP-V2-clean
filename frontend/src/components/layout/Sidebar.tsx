@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,7 +30,14 @@ interface MenuItem {
   isLocked?: boolean;
   isLogout?: boolean;
   subItems?: SubMenuItem[];
+  /** Shown to every signed-in role (not filtered by module permissions). */
+  always?: boolean;
 }
+
+const COMMS: MenuItem[] = [
+  { id: 'messages', label: 'Messages', icon: <Mail className="w-4 h-4" />, href: '/messages', always: true },
+  { id: 'announcements', label: 'Announcements', icon: <Megaphone className="w-4 h-4" />, href: '/announcements', always: true },
+];
 
 export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onClose?: () => void }) {
   const location = useLocation();
@@ -117,7 +124,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   const filterByPermissions = (items: MenuItem[]): MenuItem[] => {
     if (isAdmin) return items;
     return items
-      .filter((item) => canView((item as any).module || item.id))
+      .filter((item) => item.always || canView((item as any).module || item.id))
       .map((item) => {
         if (!item.subItems) return item;
         const subItems = item.subItems.filter((sub) => {
@@ -186,6 +193,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'examination', label: 'Examination', icon: <Edit className="w-4 h-4" />, href: '/education/exams' },
     { id: 'behaviour', label: 'Behaviour & Skills', icon: <Eye className="w-4 h-4" />, href: '/education/behaviour?tab=rate-behaviour' },
     { id: 'accounts', label: 'Finance', icon: <Wallet className="w-4 h-4" />, href: '/education/accounts/chart-of-accounts' },
+    ...COMMS,
     { id: 'communication', label: 'Communication', icon: <MessageSquare className="w-4 h-4" />, href: '/education/communication' },
     { id: 'academic-setup', label: 'Academic Setup', icon: <GraduationCap className="w-4 h-4" />, href: '/education/academic-setup' },
     { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
@@ -217,6 +225,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
         icon: <q.icon className="w-4 h-4" />,
         href: q.href,
       })),
+    ...COMMS,
     {
       id: 'settings',
       label: 'Account Settings',
@@ -286,6 +295,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       icon: <Award className="w-4 h-4" />,
       href: '/student/certificates'
     },
+    ...COMMS,
     {
       id: 'notifications',
       label: 'Notifications',
