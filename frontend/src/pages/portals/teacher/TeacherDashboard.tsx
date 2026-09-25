@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import MyDayPanel from '@/components/teacher/MyDayPanel';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCanAccess } from '@/hooks/usePermissions';
@@ -470,6 +471,9 @@ export default function TeacherDashboard() {
               <p className="text-[9px] text-indigo-200 font-bold uppercase tracking-wider mt-0.5">{currentDateStr}</p>
             </div>
           </div>
+
+          {/* Everything that needs the teacher today (lessons, registers, marking, meetings, notes, follow-ups). */}
+          <MyDayPanel />
 
           {/* KPI Stat Cards — only shown if the role can view the related module */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

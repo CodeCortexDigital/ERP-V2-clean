@@ -218,6 +218,8 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       icon: <LayoutDashboard className="w-4 h-4" />,
       href: '/teacher',
     },
+    { id: 'my-classes', label: 'My Classes', icon: <GraduationCap className="w-4 h-4" />, href: '/teacher/classes', always: true },
+    { id: 'class-reports', label: 'Class Reports', icon: <ClipboardList className="w-4 h-4" />, href: '/teacher/reports', always: true },
     ...teacherQuickActions
       .filter((q) => canView(q.module))
       .map((q) => ({

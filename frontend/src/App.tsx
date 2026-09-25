@@ -182,6 +182,9 @@ import ParentFeesPage from './pages/portals/parent/ParentFeesPage'
 import ParentApplicationsPage from './pages/portals/parent/ParentApplicationsPage'
 import FamilyUpdatesPage from './pages/education/students/FamilyUpdatesPage'
 import TeacherDashboard from './pages/portals/teacher/TeacherDashboard'
+import MyClassesPage from './pages/portals/teacher/MyClassesPage'
+import ClassRosterPage from './pages/portals/teacher/ClassRosterPage'
+import ClassReportsPage from './pages/portals/teacher/ClassReportsPage'
 import StudentDashboard from './pages/portals/student/StudentDashboard'
 import StudentPortalLayout from './pages/portals/student/StudentPortalLayout'
 import StudentAttendancePage from './pages/portals/student/StudentAttendancePage'
@@ -513,6 +516,9 @@ function App() {
                 
                 <Route path="teacher" element={<TeacherDashboard />} />
                 <Route path="teacher/students" element={<StudentsListPage />} />
+                <Route path="teacher/classes" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><MyClassesPage /></RoleBasedRoute>} />
+                <Route path="teacher/classes/:id" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><ClassRosterPage /></RoleBasedRoute>} />
+                <Route path="teacher/reports" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><ClassReportsPage /></RoleBasedRoute>} />
                 
                 <Route path="student" element={<StudentPortalLayout />}>
                   <Route index element={<StudentDashboard />} />

@@ -16,8 +16,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | ✅ Done |
 | **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | ✅ Done |
 | **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | ✅ Done |
-| **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | ⏳ Next |
-| **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | Not started |
+| **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | ✅ Done |
+| **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | ⏳ Next |
 | **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | Not started |
 | **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | Not started |
 | **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | Not started |
@@ -718,6 +718,51 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the admin saw it under Family Updates and approved it, and the parent then saw the new address marked Updated;
   - Fees, Applications, Attendance (switching child), Assignments, Progress, Documents and Behaviour all opened under `/parent`;
   - the parent was kept out of the office page.
+  - No page errors. The demo database was restored afterwards.
+
+
+
+### Phase 12: Teacher Workspace ✅
+
+**What a school can now do**
+- **My day** at the top of the Teacher Portal dashboard. It shows everything that needs the teacher today:
+  - **today's lessons** from the timetable, in order, with room and class. The lesson happening now is highlighted, and each lesson shows whether its register is done (a past lesson without one shows in red);
+  - **daily registers** for the teacher's classes: marked out of total, absent and late. Registers still to take come first, the homeroom first among them. "Take register" opens that class's register;
+  - **work to mark**: gradebook work that is due or past due and not fully marked (e.g. "Quiz 3 · 1/3"), and homework handed in but not marked yet;
+  - **absence notes from parents** for today, for the teacher's classes only;
+  - **meetings today** booked by parents, with who, about which child, and their note;
+  - **behaviour follow-ups** that are due or overdue;
+  - **due this week** (unpublished work is marked "not published"), unread messages, and the next 7 days of the calendar.
+- **My Classes** (sidebar → My Classes): a card for each class the teacher teaches, with subjects, number of students, today's register, attendance, class average, missing work, open incidents, and how many students need attention. The homeroom class is marked.
+- **Class roster** (open a class):
+  - one row per student: attendance, days absent and late, the grade in each of the teacher's subjects, missing work, merits and incidents;
+  - a **"needs attention"** flag with the reasons: attendance below 90%, average below 50%, 3 or more missing pieces of work, or 2 or more incidents this term;
+  - sort by name, attention, attendance or average; show only students who need attention;
+  - each name opens the student's record; buttons open the register, the gradebook and the behaviour log.
+- **Class Reports** (sidebar → Class Reports):
+  - everyone who needs attention across all the teacher's classes, and why;
+  - grades by class and subject: average, highest, lowest and how many of each letter grade;
+  - attendance by class: rate, days absent, late arrivals;
+  - a print button.
+- Teachers see only their own classes. The office sees every class on the same pages. Parents and students are kept out.
+
+**Built**
+- Backend: new `services/education/academics/workspace.py` and `workspace_urls.py`, mounted at `/api/v1/auth/workspace/` (`today/`, `classes/`, `classes/<id>/`, `report/`).
+- Frontend:
+  - `services/workspace.service.ts`;
+  - `components/teacher/MyDayPanel.tsx` on the teacher dashboard;
+  - `pages/portals/teacher/MyClassesPage.tsx`, `ClassRosterPage.tsx` and `ClassReportsPage.tsx`;
+  - routes `/teacher/classes`, `/teacher/classes/:id` and `/teacher/reports`;
+  - sidebar items My Classes and Class Reports, translated into 23 languages.
+- Tests: `backend/tests/test_workspace.py` has 2 new tests:
+  - my day: lessons in order with register status, the daily register, work and homework to mark, work due, booked meetings, absence notes and follow-ups (only for the teacher's own classes), and no workspace for parents;
+  - classes, roster and report: the attention flags and their reasons (missing work counts as zero in the average), other teachers' classes refused, the office seeing every class, and the grade spread.
+- Passing: these tests plus the portal, parent portal, school separation and calendar tests (22 passed).
+- Browser check on the demo school:
+  - Ayesha Khan saw her six lessons for the day with rooms, her six registers, and nothing left to mark;
+  - My Classes showed Grades 5 to 10; the Grade 5 roster (20 students) sorted by attention showed 3 students with low attendance;
+  - Class Reports listed 11 students who need attention and attendance for 6 classes;
+  - the admin saw all 6 classes, and the demo parent was sent back to the Parent Portal.
   - No page errors. The demo database was restored afterwards.
 
 
