@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import tenantService from '@/services/tenant.service';
 import { cur } from '@/utils/currency';
+import PortalOverview from '@/components/portal/PortalOverview';
 
 interface FeeItem {
   amount: number;
@@ -226,6 +227,9 @@ export default function StudentDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Parents get the overview at the top of the Parent Portal instead. */}
+      {!isParent && <div className="max-w-7xl mx-auto"><PortalOverview /></div>}
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         

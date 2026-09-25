@@ -16,6 +16,7 @@ DIRECT = [
     'education_students.StudentHealth',
     'education_students.Immunization',
     'education_students.Enrollment',
+    'education_students.StudentDocument',
     'education_academics.SchoolClass',
     'education_academics.Section',
     'education_academics.Teacher',

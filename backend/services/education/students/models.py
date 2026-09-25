@@ -309,3 +309,31 @@ class Enrollment(TenantScopedModel):
 
     class Meta:
         ordering = ['-start_date', '-created_at']
+
+
+class StudentDocument(TenantScopedModel):
+    """A file kept on a student's record: report, certificate, medical note, consent form and so on.
+
+    Staff choose whether families can see it; files a family uploads are always visible to them and to staff.
+    """
+    CATEGORIES = [
+        ('report', 'Report'), ('certificate', 'Certificate'), ('medical', 'Medical'), ('identity', 'Identity'),
+        ('letter', 'Letter'), ('consent', 'Consent form'), ('assignment', 'Schoolwork'), ('other', 'Other'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='documents')
+    title = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, choices=CATEGORIES, default='other')
+    file = models.FileField(upload_to='student-documents/%Y/%m/')
+    original_name = models.CharField(max_length=255, blank=True, default='')
+    content_type = models.CharField(max_length=100, blank=True, default='')
+    size = models.PositiveIntegerField(default=0)
+    visible_to_family = models.BooleanField(default=True)
+    from_family = models.BooleanField(default=False)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='+')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']

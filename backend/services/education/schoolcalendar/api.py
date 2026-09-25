@@ -67,8 +67,8 @@ def _event_payload(e: CalendarEvent, can_edit=False) -> dict:
             'closes_school': e.closes_school, 'remind_days_before': e.remind_days_before, 'editable': can_edit}
 
 
-def feed_for(user, start: date, end: date) -> list[dict]:
-    """Everything on the calendar for this user between two dates."""
+def feed_for(user, start: date, end: date, student=None) -> list[dict]:
+    """Everything on the calendar for this user between two dates (optionally only what concerns one student)."""
     from services.education.academics.models import Term
     from services.education.exams.models import Exam
     from services.education.gradebook.models import Assignment
@@ -85,6 +85,10 @@ def feed_for(user, start: date, end: date) -> list[dict]:
         levels = set()
     else:
         kids, class_ids, levels = [], None, set()
+    if student is not None:
+        kids = [student]
+        class_ids = {str(student.current_class_id)} if student.current_class_id else set()
+        levels = {student.current_class.grade_level} if student.current_class_id and student.current_class.grade_level is not None else set()
 
     for e in CalendarEvent.objects.filter(start_date__lte=end, end_date__gte=start):
         if _event_visible(e, role, class_ids or set(), levels):

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
   AlertCircle, AlertTriangle, ArrowLeft, Ban, CalendarCheck, CheckCircle2, Edit, GraduationCap, HeartPulse,
   History, Home, Loader2, Mail, MapPin, Phone, Plus, Printer, Receipt, ShieldAlert, Star, Syringe, Trash2,
-  User, Users, Wallet,
+  FileText, User, Users, Wallet,
 } from 'lucide-react';
 import householdService, {
   RELATIONSHIPS, type Guardian, type GuardianLink, type Health, type Immunization, type LinkFlags,
@@ -18,9 +18,10 @@ import { ReportCardView } from '@/components/gradebook/ReportCardView';
 import CommunicationHistory from '@/components/students/CommunicationHistory';
 import BehaviourHistory from '@/components/behaviour/BehaviourHistory';
 import IncidentPanel from '@/components/behaviour/IncidentPanel';
+import DocumentsPanel from '@/components/portal/DocumentsPanel';
 import type { Incident } from '@/services/discipline.service';
 
-type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades' | 'behaviour' | 'communication';
+type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades' | 'behaviour' | 'communication' | 'documents';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof User }> = [
   { id: 'overview', label: 'Overview', icon: User },
@@ -31,6 +32,7 @@ const TABS: Array<{ id: TabId; label: string; icon: typeof User }> = [
   { id: 'grades', label: 'Grades', icon: GraduationCap },
   { id: 'behaviour', label: 'Behaviour', icon: Star },
   { id: 'communication', label: 'Communication', icon: Mail },
+  { id: 'documents', label: 'Documents', icon: FileText },
 ];
 
 const fmtDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : '—');
@@ -38,7 +40,7 @@ const card = 'bg-white rounded-xl border border-slate-200 shadow-sm';
 const input = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--app-accent)]';
 const label = 'block text-xs font-semibold text-slate-600 mb-1';
 
-/** Tabbed student record: overview, family, health, attendance, billing and grades. */
+/** Tabbed student record: overview, family, health, attendance, billing, grades, behaviour, communication and documents. */
 export default function StudentProfilePage() {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -156,6 +158,7 @@ export default function StudentProfilePage() {
       {tab === 'billing' && <BillingTab data={data} />}
       {tab === 'behaviour' && <BehaviourTab studentId={String(data.student.id)} />}
       {tab === 'communication' && <CommunicationHistory studentId={String(data.student.id)} />}
+      {tab === 'documents' && <DocumentsPanel studentId={String(data.student.id)} />}
       {tab === 'grades' && (
         <div className="space-y-4">
           <ReportCardView studentId={String(data.student.id)} staff={data.can_edit} />

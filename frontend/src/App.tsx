@@ -184,7 +184,9 @@ import StudentResultsPage from './pages/portals/student/StudentResultsPage'
 import StudentTimetablePage from './pages/portals/student/StudentTimetablePage'
 import StudentFeesPage from './pages/portals/student/StudentFeesPage'
 import StudentNotificationsPage from './pages/portals/student/StudentNotificationsPage'
-import StudentHomeworkPage from './pages/portals/student/StudentHomeworkPage'
+import StudentAssignmentsPage from './pages/portals/student/StudentAssignmentsPage'
+import PortalProgressPage from './pages/portals/student/StudentProgressPage'
+import StudentDocumentsPage from './pages/portals/student/StudentDocumentsPage'
 import StudentBehaviourPage from './pages/portals/student/StudentBehaviourPage'
 import StudentCertificatesPage from './pages/portals/student/StudentCertificatesPage'
 import PortalStudentProfilePage from './pages/portals/student/StudentProfilePage'
@@ -507,7 +509,10 @@ function App() {
                   <Route path="results" element={<StudentResultsPage />} />
                   <Route path="timetable" element={<StudentTimetablePage />} />
                   <Route path="fees" element={<StudentFeesPage />} />
-                  <Route path="homework" element={<StudentHomeworkPage />} />
+                  <Route path="homework" element={<StudentAssignmentsPage />} />
+                  <Route path="assignments" element={<StudentAssignmentsPage />} />
+                  <Route path="progress" element={<PortalProgressPage />} />
+                  <Route path="documents" element={<StudentDocumentsPage />} />
                   <Route path="behaviour" element={<StudentBehaviourPage />} />
                   <Route path="certificates" element={<StudentCertificatesPage />} />
                   <Route path="profile" element={<PortalStudentProfilePage />} />

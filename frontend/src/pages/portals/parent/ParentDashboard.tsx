@@ -4,6 +4,7 @@ import ReenrollmentCard from '@/components/admissions/ReenrollmentCard';
 import FamilyBillingCard from '@/components/finance/FamilyBillingCard';
 import ReportAbsenceCard from '@/components/attendance/ReportAbsenceCard';
 import GradesPortalCard from '@/components/gradebook/GradesPortalCard';
+import PortalOverview from '@/components/portal/PortalOverview';
 
 export default function ParentDashboard() {
   return (
@@ -15,7 +16,7 @@ export default function ParentDashboard() {
           </span>
           <div>
             <p className="text-sm font-bold text-slate-900">Parent Portal</p>
-            <p className="text-xs text-slate-500">Your child's attendance, fees and results in one place.</p>
+            <p className="text-xs text-slate-500">Each child's attendance, grades, work, fees, messages and documents in one place.</p>
           </div>
         </div>
         <div className="self-start sm:self-auto flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full text-emerald-700">
@@ -23,6 +24,7 @@ export default function ParentDashboard() {
         </div>
       </div>
 
+      <PortalOverview />
       <ReenrollmentCard />
       <GradesPortalCard />
       <ReportAbsenceCard />

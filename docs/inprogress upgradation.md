@@ -14,8 +14,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | ✅ Done |
 |  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | ✅ Done |
 |  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | ✅ Done |
-| **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | ⏳ Next |
-| **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | Not started |
+| **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | ✅ Done |
+| **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | ⏳ Next |
 | **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | Not started |
 | **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | Not started |
 | **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | Not started |
@@ -608,6 +608,69 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the admin's report, categories page and Fatima's Behaviour tab showed them;
   - the demo parent saw the merit, the incident and the detention in the portal.
   - No page errors. The demo database was restored afterwards.
+
+
+### Phase 10: Student Portal ✅
+
+**What a school can now do**
+- **One overview for each student** at the top of the Student Portal and the Parent Portal dashboard. It shows:
+  - **alerts** at the top: attendance below 90%, missing work, overdue work, overdue fees, and "the report card is ready";
+  - **attendance** for this term (or the last 90 days if no term is set up), with absences, late arrivals and today's mark;
+  - **grades** for the current term (average and number of subjects; only published work counts);
+  - **work due** in the next two weeks and anything overdue or missing;
+  - **fees**: balance, next due date and last payment;
+  - **messages**: unread messages and new announcements;
+  - **behaviour**: points, merits and incidents (staff-only records stay hidden);
+  - **documents**: how many there are and the latest one;
+  - **coming up**: the next two weeks of the calendar for that child only (events, exams, due dates, fees, meetings).
+  - Every tile opens the full page.
+- **Several children**: a parent switches between children with one tap. The choice is remembered, and every portal page follows it.
+- **Assignments** (sidebar → Assignments; the old Homework link opens the same page):
+  - gradebook assignments and class homework together;
+  - status for each piece: Upcoming, Due today, Overdue, Missing, Submitted, Marked or Excused;
+  - the mark, the teacher's comment, and homework attachments to download;
+  - filters: All, To do, Overdue / missing, Marked, and by subject.
+- **Academic progress** (sidebar → Progress):
+  - each term's average, attendance, absences, late arrivals, merits and incidents;
+  - grades for every subject, term by term;
+  - attendance by month for the last six months;
+  - a line saying whether the average went up or down on the term before;
+  - report cards open from here once the school releases them.
+- **Documents** (sidebar → Documents, and a new **Documents** tab on the student page for staff):
+  - the office and the student's teachers upload files (reports, certificates, medical notes, letters, consent forms and more) and choose whether the family can see each one;
+  - families are told by portal notice when a file is shared with them;
+  - families can **send a document to the school** (e.g. a doctor's note): the office and the class teachers are told, and it is marked "From family";
+  - only the office or the person who uploaded a file can remove it; families can't change the school's files;
+  - released report cards and issued certificates are listed in the same place;
+  - allowed files: PDF up to 5 MB; images, Word and Excel up to 10 MB.
+- Families and students only ever see their own children or themselves. Teachers see students in their own classes.
+
+**Built**
+- Backend:
+  - model `StudentDocument` (migration `education_students` `0014`), registered for school separation;
+  - new `students/portal.py` and `portal_urls.py`, mounted at `/api/v1/auth/portal/`. They provide the children list, the overview, assignments (with homework attachments), progress, and documents (list, upload, download, share or hide, remove);
+  - `schoolcalendar/api.py`: `feed_for` can now show one child's calendar only.
+- Frontend:
+  - `services/portal.service.ts`;
+  - `components/portal/ChildPicker.tsx`, `PortalOverview.tsx` and `DocumentsPanel.tsx`;
+  - `pages/portals/student/StudentAssignmentsPage.tsx`, `StudentProgressPage.tsx` and `StudentDocumentsPage.tsx`. The old `StudentHomeworkPage.tsx` was removed;
+  - the overview on the student and parent dashboards, and a Documents tab on the staff student page;
+  - sidebar items Assignments, Progress and Documents for students, translated into 23 languages.
+- Tests: `backend/tests/test_portal.py` has 5 new tests:
+  - a parent sees only their children and a student only themself; teachers only their classes;
+  - the overview brings attendance, grades, work, fees, alerts and the child's own calendar together;
+  - assignment and homework status, marks, comments, hidden drafts, and attachments;
+  - progress by term and subject, and report cards only after release;
+  - documents: sharing and hiding, family uploads, notices, downloads, file-type checks, and who may change or remove files.
+- Passing: these tests plus the calendar, school separation and behaviour tests (22 passed).
+- Browser check on the demo school:
+  - the admin added a shared letter and a staff-only note to Ali Raza's record;
+  - the demo parent saw the overview with its alerts, switched between Ali and Fatima, and opened Assignments and Progress;
+  - the parent saw only the shared letter, downloaded it, and sent a doctor's note, which the admin then saw marked "From family";
+  - the teacher saw the Documents tab, and the student login showed the new menu items and overview.
+  - No page errors. The demo database was restored afterwards.
+- **Not yet**: parents reach Assignments, Progress and Documents from the overview tiles; the parent sidebar gets its own items in Phase 11 (Parent Portal).
+
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

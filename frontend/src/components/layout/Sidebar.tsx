@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -268,10 +268,18 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       href: '/student/results'
     },
     {
-      id: 'homework',
-      label: 'Homework',
+      id: 'assignments',
+      label: 'Assignments',
       icon: <BookOpen className="w-4 h-4" />,
-      href: '/student/homework'
+      href: '/student/assignments',
+      always: true
+    },
+    {
+      id: 'progress',
+      label: 'Progress',
+      icon: <TrendingUp className="w-4 h-4" />,
+      href: '/student/progress',
+      always: true
     },
     {
       id: 'timetable',
@@ -290,6 +298,13 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       label: 'Fees',
       icon: <Wallet className="w-4 h-4" />,
       href: '/student/fees'
+    },
+    {
+      id: 'documents',
+      label: 'Documents',
+      icon: <FileText className="w-4 h-4" />,
+      href: '/student/documents',
+      always: true
     },
     {
       id: 'certificates',
