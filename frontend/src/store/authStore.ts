@@ -59,6 +59,8 @@ interface AuthState {
   login: (userId: string, password: string) => Promise<AuthUser>;
   demoLogin: (name?: string) => Promise<AuthUser>;
   googleLogin: (token: string) => Promise<AuthUser>;
+  /** Finish a school single sign-on (Microsoft) with the one-time code the server sent back. */
+  ssoLogin: (code: string) => Promise<AuthUser>;
   /** Sign in from a server payload that already holds tokens (school signup). */
   startSession: (data: { access: string; refresh: string; user: AuthUser }) => AuthUser;
   logout: () => void;
@@ -147,6 +149,11 @@ export const useAuthStore = create<AuthState>()(
 
       googleLogin: async (token) => {
         const response = await authService.googleLogin(token);
+        return get().startSession(response.data as { access: string; refresh: string; user: AuthUser });
+      },
+
+      ssoLogin: async (code) => {
+        const response = await api.post('/auth/integrations/sso/exchange/', { code });
         return get().startSession(response.data as { access: string; refresh: string; user: AuthUser });
       },
 

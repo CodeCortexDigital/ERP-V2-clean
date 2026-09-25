@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'services.education.transport',
     'services.education.inventory',
     'services.education.cafeteria',
+    'services.education.integrations',
     'services.analytics',
     'services.ai',
 ]
@@ -361,8 +362,13 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() in ('1', 'true', 'yes')
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '15'))
-EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or (
+# Each school can send through its own mail server (Settings → Integrations → School email); everything else
+# uses the choice below.
+FALLBACK_EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or (
     'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST else 'django.core.mail.backends.console.EmailBackend')
+EMAIL_BACKEND = 'services.education.integrations.email_backend.TenantEmailBackend'
+# Where the web app lives, for sign-in redirects (comma separated), e.g. https://erp.example.com
+FRONTEND_ORIGINS = os.environ.get('FRONTEND_ORIGINS', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@school.local')
 
 MEDIA_ROOT = BASE_DIR / 'media'

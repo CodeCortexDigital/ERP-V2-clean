@@ -21,8 +21,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | ✅ Done |
 | **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | ✅ Done |
 | **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | ✅ Done |
-| **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | ⏳ Next |
-| **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | Not started |
+| **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | ✅ Done |
+| **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | ⏳ Next |
 | **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | Not started |
 | **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | Later |
 | **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | Later |
@@ -43,12 +43,16 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - communication `0005`;
   - calendar `0001`;
   - behaviour `0003`–`0004`;
-  - library `0001`, transport `0001`, inventory `0001` and cafeteria `0001`.
+  - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`.
 - [ ] **New Python package**: `segno` (library QR labels) is in `requirements.txt`. Check that Render installs it.
 - [ ] **Daily cron jobs on Render**:
   - `python manage.py send_scheduled_announcements`;
   - `python manage.py send_calendar_reminders`;
   - `python manage.py send_library_reminders`.
+- [ ] **App addresses** on Render:
+  - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
+  - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
+- [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Email** on Render: `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
 - [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
 - [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
@@ -1046,6 +1050,69 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the demo parent saw both children, the purchases and the week's menu, asked for a $1,000 top-up (invoice made, "Waiting for payment") and set a $300 daily limit;
   - the report showed $310 in sales and one meal-plan meal.
   - No page errors. The demo database was restored afterwards.
+
+
+
+### Phase 17: Integrations ✅
+
+**What a school can now do**
+- **One Integrations page** (sidebar → Integrations, office only) showing every outside service and whether it's on.
+  - **Already available**, each with a link to where it's set up: Google sign-in (for every account), calendar feeds for Google / Apple / Outlook (Phase 8), SMS through Twilio (Phase 7), and online payments (Stripe, JazzCash, Easypaisa; Phase 3).
+  - Three new connections, described below.
+- **Sign in with Microsoft 365 / Entra ID**:
+  - the school registers an app in the Microsoft Entra admin centre, following the steps shown (the redirect address has a Copy button), then enters the client ID, directory (tenant) ID, client secret and the school's email domain(s);
+  - the login page now has **Continue with Microsoft**: people type their school email, the matching school is found from its domain, and Microsoft asks them to sign in;
+  - back in the app they land in their own portal. This works for office staff, teachers, students and parents who already have an account at that school with the same email; nobody gets a new account this way;
+  - the app checks that the reply is for the school's own app, was made for this sign-in, hasn't expired, and comes from the school's directory;
+  - a school address with no account here is told to ask the office;
+  - two schools can't claim the same email domain.
+- **Google Classroom** (read only):
+  - the school connects its Google account once (**Connect Google Classroom**) and sees its active courses;
+  - link each course to a class here;
+  - **Compare rosters** shows, by email, who is in both, who is only in Classroom (and which class they're in here, or "not a student here"), and who is only in the class (including students with no email on record), plus the Classroom teachers;
+  - nothing is changed in Classroom.
+- **School email**:
+  - send the school's notices, reminders and receipts from its **own address and mail server** (Google Workspace, Microsoft 365, SendGrid, Mailgun or any SMTP server), with the school's name as the sender;
+  - **Send test** shows the mail server's answer (for example a wrong password or unknown server), and the last problem is kept on the card;
+  - schools without their own server keep using the system's email.
+- **Secrets are safe**:
+  - client secrets, email passwords and Google access are **stored encrypted**;
+  - they're never shown again ("saved; leave blank to keep");
+  - **Turn off and forget** or **Disconnect** wipes them.
+- **Sign-in can only return to the school app**: the addresses it may send people back to are on a fixed list (`FRONTEND_ORIGINS`, plus localhost while developing), so a sign-in can't be redirected to another site. The one-time sign-in code works once, within 2 minutes.
+
+**Fixes found on the way**
+- **Staff who are not teachers could not sign in at all.** An account whose only link to the school is a staff or accountant membership (bus attendants from Phase 14, cafeteria cashiers from Phase 16, office helpers) was refused with "not assigned to a valid portal role". Such accounts now get the **staff** role; parent, teacher, student and admin still come first.
+
+**Built**
+- Backend: new app `backend/services/education/integrations/` (label `education_integrations`):
+  - models `Integration` and `ClassroomLink` (migration `0001`), registered for school separation;
+  - `secrets.py`: Fernet encryption with a key derived from `SECRET_KEY`;
+  - `email_backend.py`: the system email backend now picks the current school's own mail server when it has one, and otherwise falls back to the old setting (`FALLBACK_EMAIL_BACKEND`);
+  - `api.py` and `urls.py`, mounted at `/api/v1/auth/integrations/`: the hub, settings, test email, Microsoft start / callback / one-time code exchange, and Google Classroom connect / callback / courses / link / compare;
+  - new settings `FRONTEND_ORIGINS` and `PUBLIC_API_URL`;
+  - `accounts/decorators.py`: the staff role.
+- Frontend:
+  - `services/integrations.service.ts` and `pages/settings/IntegrationsPage.tsx`;
+  - the login page's **Continue with Microsoft** and its return, via `ssoLogin` in the auth store;
+  - Integrations in the admin menu;
+  - new sign-in text in 23 languages.
+- Tests (Microsoft, Google and the mail server replaced with fakes):
+  - `backend/tests/test_integrations.py` has 4 new tests:
+    - the hub and settings: secrets never returned, encrypted at rest, kept when left blank, and wiped on disconnect; Microsoft's required fields; domain clashes between schools; office only;
+    - school email: the school's server, port, security and sender; mail inside the school goes through it and other mail uses the default; the test button reports the server's error;
+    - Microsoft sign-in: unknown domains and foreign addresses refused; the handoff with the school's app and the email hint; replies for another sign-in or organisation, and tampered links, refused; sign-in and a one-use code; people with no account at this school refused; students allowed;
+    - Google Classroom: connecting (long-term access kept encrypted), courses across pages, linking, and the roster comparison.
+  - `backend/tests/test_staff_role.py` has 1 new test: staff and accountant memberships give the staff role; inactive memberships don't; other roles win.
+- Passing: these tests plus auth, permissions, school separation, transport and cafeteria (55 passed).
+- Browser check on the demo school (fake Microsoft and Google app details; the handoff to Microsoft and Google was intercepted):
+  - the admin opened Integrations, saw what's already available, and turned on Microsoft sign-in for `code.com` (the secret showed as "saved");
+  - school email with a made-up server was saved, and **Send test** reported the server couldn't be found;
+  - **Connect Google Classroom** handed over to Google asking for 3 read-only permissions with long-term access;
+  - on the login page, **Continue with Microsoft** refused a gmail.com address and handed `parent@code.com` to Microsoft with the school's app and the email filled in;
+  - returning with an error showed it (and cleaned up the address bar), and an old code showed "This sign-in has expired".
+  - No page errors. The demo database was restored afterwards.
+- **Not in this phase**: Microsoft Teams or OneDrive, pushing grades back to Classroom, and district SSO (Clever / ClassLink) and rostering (OneRoster). They're on the later roadmap (72–77).
 
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 

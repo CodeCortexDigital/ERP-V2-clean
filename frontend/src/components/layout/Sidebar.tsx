@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes, UtensilsCrossed
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes, UtensilsCrossed, Plug
 } from 'lucide-react';
 import cafeteriaService from '@/services/cafeteria.service';
 import transportService from '@/services/transport.service';
@@ -217,6 +217,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'transport', label: 'Transport', icon: <Bus className="w-4 h-4" />, href: '/education/transport' },
     { id: 'inventory', label: 'Inventory', icon: <Boxes className="w-4 h-4" />, href: '/education/inventory' },
     { id: 'cafeteria', label: 'Cafeteria', icon: <UtensilsCrossed className="w-4 h-4" />, href: '/education/cafeteria' },
+    { id: 'integrations', label: 'Integrations', icon: <Plug className="w-4 h-4" />, href: '/settings/integrations' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
     // Platform owner only: every school on this installation.
     ...(user?.is_superuser

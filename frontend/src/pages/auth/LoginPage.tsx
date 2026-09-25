@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   User, Lock, Eye, EyeOff, ShieldCheck, GraduationCap, Briefcase, AlertCircle, ArrowRight, Loader2, School,
 } from 'lucide-react';
 import AuthShell, { GoogleMark } from '@/components/auth/AuthShell';
 import schoolService from '@/services/school.service';
+import api from '@/services/api';
 import { useTranslation } from 'react-i18next';
 
 type LoginRole = 'admin' | 'employee' | 'student';
@@ -25,9 +26,16 @@ const HINTS: Record<LoginRole, { placeholder: string; hint: string }> = {
 
 const REMEMBER_KEY = 'login_remembered_username';
 
+function MicrosoftMark() {
+  return (
+    <svg aria-hidden viewBox="0 0 21 21" className="w-4 h-4"><rect x="1" y="1" width="9" height="9" fill="#f25022" /><rect x="11" y="1" width="9" height="9" fill="#7fba00" /><rect x="1" y="11" width="9" height="9" fill="#00a4ef" /><rect x="11" y="11" width="9" height="9" fill="#ffb900" /></svg>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, googleLogin } = useAuth();
+  const { login, googleLogin, ssoLogin } = useAuth();
+  const [params, setParams] = useSearchParams();
   const { t } = useTranslation();
   const [role, setRole] = useState<LoginRole>('admin');
   const [userId, setUserId] = useState('');
@@ -37,6 +45,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [msOpen, setMsOpen] = useState(false);
+  const [msEmail, setMsEmail] = useState('');
+  const [msLoading, setMsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -57,6 +68,33 @@ export default function LoginPage() {
 
   const goToPortal = (authUser: any) =>
     navigate(authUser?.portal_path || (authUser?.role === 'student' ? '/student' : '/dashboard'));
+
+  // Coming back from "Sign in with Microsoft": swap the one-time code for a session, or show why it failed.
+  useEffect(() => {
+    const code = params.get('sso');
+    const ssoError = params.get('sso_error');
+    if (!code && !ssoError) return;
+    setParams({}, { replace: true });
+    if (ssoError) { setError(ssoError); return; }
+    setMsLoading(true);
+    ssoLogin(code!).then(goToPortal).catch((err: any) => setError(err?.response?.data?.error || t('auth.errorMicrosoft')))
+      .finally(() => setMsLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleMicrosoft = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const email = (msEmail || (userId.includes('@') ? userId : '')).trim();
+    if (!email.includes('@')) { setMsOpen(true); return; }
+    setError('');
+    setMsLoading(true);
+    try {
+      const r = await api.post<{ url: string }>('/auth/integrations/microsoft/start/', { email, origin: window.location.origin });
+      window.location.assign(r.data.url);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || t('auth.errorMicrosoft'));
+      setMsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,17 +246,31 @@ export default function LoginPage() {
         </button>
       </form>
 
-      {googleEnabled && (
-        <>
-          <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" /> {t('common.or')} <span className="h-px flex-1 bg-slate-200" />
-          </div>
+      <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
+        <span className="h-px flex-1 bg-slate-200" /> {t('common.or')} <span className="h-px flex-1 bg-slate-200" />
+      </div>
+      <div className="space-y-2">
+        {googleEnabled && (
           <button type="button" onClick={handleGoogle} disabled={googleLoading} className="auth-secondary-btn">
             {googleLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleMark />}
             {t('auth.continueGoogle')}
           </button>
-        </>
-      )}
+        )}
+        {!msOpen ? (
+          <button type="button" onClick={() => handleMicrosoft()} disabled={msLoading} className="auth-secondary-btn">
+            {msLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MicrosoftMark />}
+            {t('auth.continueMicrosoft')}
+          </button>
+        ) : (
+          <form onSubmit={handleMicrosoft} className="flex gap-2">
+            <input type="email" autoFocus required aria-label={t('auth.microsoftEmail')} placeholder={t('auth.microsoftEmail')} value={msEmail}
+              onChange={(e) => setMsEmail(e.target.value)} className="flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm" />
+            <button type="submit" disabled={msLoading} className="auth-secondary-btn !w-auto px-4">
+              {msLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MicrosoftMark />} {t('auth.microsoftContinue')}
+            </button>
+          </form>
+        )}
+      </div>
 
       <div className="mt-8 rounded-xl border border-slate-200 bg-white p-4 text-sm">
         <p className="flex items-center gap-2 font-semibold text-slate-800">

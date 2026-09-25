@@ -49,6 +49,11 @@ def get_user_role(user):
     except Exception:
         pass
 
+    # School staff who are not teachers (office helpers, bus crew, cafeteria cashiers, accountants): their only
+    # link to the school is a staff membership. Without this they could not sign in at all.
+    if TenantMembership.objects.filter(user=user, role__in=('staff', 'accountant'), is_active=True).exists():
+        return 'staff'
+
     return None
 
 

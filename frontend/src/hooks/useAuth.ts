@@ -9,6 +9,7 @@ export function useAuth() {
   const login = useAuthStore((s) => s.login);
   const demoLogin = useAuthStore((s) => s.demoLogin);
   const googleLogin = useAuthStore((s) => s.googleLogin);
+  const ssoLogin = useAuthStore((s) => s.ssoLogin);
   const logout = useAuthStore((s) => s.logout);
   const hydrate = useAuthStore((s) => s.hydrate);
 
@@ -21,6 +22,7 @@ export function useAuth() {
     login,
     demoLogin,
     googleLogin,
+    ssoLogin,
     logout,
     hydrate,
   };

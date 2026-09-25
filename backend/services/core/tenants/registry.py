@@ -94,6 +94,8 @@ DIRECT = [
     'education_cafeteria.Account',
     'education_cafeteria.Transaction',
     'education_cafeteria.TopUpRequest',
+    'education_integrations.Integration',
+    'education_integrations.ClassroomLink',
     'education_gradebook.GradingScale',
     'education_gradebook.Category',
     'education_gradebook.Standard',

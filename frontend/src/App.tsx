@@ -121,6 +121,7 @@ import ApplyPage, { ApplicationStatusPage } from '@/pages/public/ApplyPage'
 import FamilyBillingPage from '@/pages/education/finance/FamilyBillingPage'
 import PaymentPlansPage from '@/pages/education/finance/PaymentPlansPage'
 import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
+import IntegrationsPage from '@/pages/settings/IntegrationsPage'
 import LessonAttendancePage from '@/pages/education/attendance/LessonAttendancePage'
 import AbsenceReportsPage from '@/pages/education/attendance/AbsenceReportsPage'
 import SchoolYearsPage from '@/pages/education/academic-years/SchoolYearsPage'
@@ -575,6 +576,7 @@ function App() {
                 {/* ============================================================
                     SETTINGS ROUTES
                     ============================================================ */}
+                <Route path="settings/integrations" element={<RoleBasedRoute allowedRoles={['admin']}><IntegrationsPage /></RoleBasedRoute>} />
                 <Route path="settings/*" element={<SettingsPage />} />
                 <Route path="platform/schools" element={<RoleBasedRoute allowedRoles={['admin']}><PlatformSchoolsPage /></RoleBasedRoute>} />
                 {/* Legacy aliases: fee/settings moved to Fees top tabs */}
