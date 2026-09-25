@@ -114,6 +114,9 @@ import StudentProgressPage from './pages/education/progress/StudentProgressPage'
 import AdmissionsPage from './pages/education/AdmissionsPage'
 import NewApplicationPage from '@/pages/education/admissions/NewApplicationPage'
 import ApplyPage, { ApplicationStatusPage } from '@/pages/public/ApplyPage'
+import FamilyBillingPage from '@/pages/education/finance/FamilyBillingPage'
+import PaymentPlansPage from '@/pages/education/finance/PaymentPlansPage'
+import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
 
 // Behaviour
 import BehaviourPage from './pages/education/behaviour/BehaviourPage'
@@ -377,6 +380,9 @@ function App() {
                   <Route path="generate-invoices" element={<GenerateFeesInvoicePage />} />
                   <Route path="invoices" element={<InvoicesPage />} />
                   <Route path="collect-fees" element={<CollectFeesPage />} />
+                  <Route path="families" element={<FamilyBillingPage />} />
+                  <Route path="payment-plans" element={<PaymentPlansPage />} />
+                  <Route path="online-payments" element={<OnlinePaymentsPage />} />
                   <Route path="fees-paid-slip" element={<FeesPaidSlipPage />} />
                   <Route path="fees-defaulters" element={<FeesDefaultersPage />} />
                   <Route path="report" element={<FeesReportPage />} />

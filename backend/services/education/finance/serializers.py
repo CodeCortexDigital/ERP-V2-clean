@@ -187,11 +187,37 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class PaymentGatewayConfigSerializer(serializers.ModelSerializer):
     provider_display = serializers.CharField(source='get_provider_display', read_only=True)
+    # Secrets are never sent back; the screen only shows whether one is saved.
+    has_api_key = serializers.SerializerMethodField()
+    has_api_secret = serializers.SerializerMethodField()
+    has_webhook_secret = serializers.SerializerMethodField()
 
     class Meta:
         model = PaymentGatewayConfig
-        fields = '__all__'
+        exclude = ('tenant',)
         read_only_fields = ('created_at', 'updated_at')
+        extra_kwargs = {
+            'merchant_id': {'required': False, 'allow_blank': True},
+            'api_key': {'write_only': True, 'required': False},
+            'api_secret': {'write_only': True, 'required': False},
+            'webhook_secret': {'write_only': True, 'required': False},
+        }
+
+    def get_has_api_key(self, obj):
+        return bool(obj.api_key)
+
+    def get_has_api_secret(self, obj):
+        return bool(obj.api_secret)
+
+    def get_has_webhook_secret(self, obj):
+        return bool(obj.webhook_secret)
+
+    def update(self, instance, validated_data):
+        # An empty secret on edit means "keep the saved one".
+        for key in ('api_key', 'api_secret', 'webhook_secret'):
+            if not validated_data.get(key):
+                validated_data.pop(key, None)
+        return super().update(instance, validated_data)
 
 
 class PaymentTransactionSerializer(serializers.ModelSerializer):

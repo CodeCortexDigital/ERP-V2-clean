@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from services.core.tenants.models import TenantMembership
-from services.education.students.models import Guardian, Household, StudentGuardian
+from services.education.students.models import Guardian, Household, Student, StudentGuardian
 from tests.conftest import ClassFactory, SchoolFactory, StudentFactory, UserFactory
 
 
@@ -112,3 +112,31 @@ def test_households_are_isolated_between_schools(school):
     assert 'Secret' not in str(body)
     hidden = Household.all_objects.get(tenant=other)
     assert _client(admin).get(f'/api/v1/students/households/{hidden.id}/').status_code == 404
+
+
+@pytest.mark.django_db
+def test_siblings_sharing_a_parent_login_share_a_household(school):
+    from services.core.accounts.models import ParentProfile
+    from services.education.students.households import merge_households_sharing_a_parent_login
+
+    parent = ParentProfile.objects.create(user=UserFactory(email='kashif@example.com'))
+    a = StudentFactory(tenant=school, full_name='Ali Raza', father_name='Kashif Raza', mother_name='', guardian_name='')
+    b = StudentFactory(tenant=school, full_name='Fatima Raza', father_name='Kashif Raza', mother_name='', guardian_name='')
+    a.refresh_from_db(); b.refresh_from_db()
+    assert a.household_id != b.household_id  # no national ID to match on
+    parent.linked_students.add(a, b)
+    assert merge_households_sharing_a_parent_login() == 1
+    a.refresh_from_db(); b.refresh_from_db()
+    assert a.household_id == b.household_id
+    assert Guardian.all_objects.filter(household_id=a.household_id).count() == 1  # the father, once
+    assert StudentGuardian.all_objects.filter(student__in=[a, b]).count() == 2
+
+    # A new sibling linked to the same parent login joins the family automatically.
+    c = StudentFactory(tenant=school, full_name='Zain Raza', father_name='', mother_name='', guardian_name='')
+    parent.linked_students.add(c)
+    Student.all_objects.filter(pk=c.pk).update(father_name='Kashif Raza', household=None)
+    c.refresh_from_db()
+    from services.education.students.households import ensure_household
+    from services.core.tenants.context import use_tenant
+    with use_tenant(school):
+        assert ensure_household(c).pk == a.household_id

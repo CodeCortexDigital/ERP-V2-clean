@@ -7,8 +7,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | ----: | --- | --- | --- | --- | --- | --- |
 |  **1** | **Student & Household Records** | One flat student form with `father_*`, `mother_*`, caste, orphan status, B-Form, family income | **Household-based student management** | Student profile, household/family, multiple guardians, custody details, pickup permissions, billing parent, communication parent, health information, allergies, immunizations, student profile tabs | 🔴 **1 — First** | ✅ Done |
 |  **2** | **Admissions**                  | Office staff manually enters student application                                               | **Online admissions workflow**         | Public application form → application review → approve/reject → enrollment → document upload → e-signatures → yearly re-enrollment                                                                   | 🔴 **2**         | ✅ Done |
-|  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | ⏳ Next |
-|  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | Not started |
+|  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | ✅ Done |
+|  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | ⏳ Next |
 |  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | Not started |
 |  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | Not started |
 |  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | Not started |
@@ -138,6 +138,98 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the demo parent answered "Returning" for both children and signed.
   - No page errors. The test data was removed afterwards.
 - Fixed during testing: the web client strips responses that contain `"success": true`, so the enrol reply came back empty. The admissions endpoints no longer send that key.
+
+### Phase 3: Fees / Billing ✅
+
+**What a school can now do**
+- **Family accounts** (Fees → Family Accounts): one billing account per household, covering every child's invoices together.
+  - Shows the amount outstanding and any credit held, with search and a filter for families who owe.
+  - School-wide totals for outstanding and credit.
+- **Family statement** for any date range:
+  - lists every invoice, payment, refund and credit, with a running balance;
+  - shows who is billed (guardians marked "Receives invoices");
+  - can be printed, or **emailed to the billing parents** with one click.
+- **Record a family payment** once:
+  - it pays the oldest invoices first, across all the children;
+  - anything extra is kept as **account credit**.
+- **Account credit**:
+  - give credit with a reason (for example a sibling discount or fee waiver);
+  - **apply credit** to open invoices;
+  - credit from overpayments and refunds is tracked automatically.
+- **Refunds** on any payment, up to the amount not yet refunded:
+  - back to the original method (card payments are refunded through Stripe automatically), in cash, by bank transfer, or kept as account credit;
+  - the invoice reopens by the refunded amount.
+- **Payment plans** (Fees → Payment Plans):
+  - split an unpaid invoice into 2–24 installments, weekly, every two weeks, monthly or quarterly;
+  - the original invoice is closed with a note, so the family is **never billed twice**;
+  - save reusable plans such as "Termly: 3 payments".
+- **Online payments** (Fees → Online Payments):
+  - **Stripe** for cards, Apple Pay and Google Pay in the school's own currency (135+ currencies, including zero-decimal ones like KRW and JPY);
+  - **JazzCash / Easypaisa** for Pakistan;
+  - step-by-step setup with the webhook address to copy;
+  - keys are never shown again after saving.
+- **Parents pay online**:
+  - the parent dashboard and the student Fees page show a **Family account** card with the amount due, credit and statement;
+  - each open invoice has a **Pay online** button that goes to Stripe Checkout and back;
+  - the payment is recorded on the invoice automatically when Stripe confirms it.
+- **Fee reminders** now go to the guardians marked "Receives invoices", instead of only the student's email.
+- The Pakistani flow is kept: monthly challans, paid slips, balance brought forward, JazzCash and Easypaisa all still work.
+
+**Safety and correctness fixes found on the way**
+- Payment gateway settings, including secret keys, could be read by **any signed-in user**, students too.
+  - Now only finance staff can see or change them.
+  - Secrets are write-only.
+  - Leaving a secret empty when editing keeps the saved one.
+- **"Pay online" never worked before**: the payment-detail route caught `/payments/session/` first. The route order is fixed.
+- Any signed-in user could start a payment for **any invoice** in the school. Now only invoices the user may see can be paid.
+- Payment webhooks ran with no school selected, so confirmations could not find the invoice. Stripe events are now matched to the right school and checked with that school's own webhook secret. Replayed events never pay twice.
+- Online payments were always charged in PKR. They now use the school's currency.
+- The old "create installments" left the original invoice open, so **families were billed twice**. It is replaced by the payment-plan action above.
+- A payment provider could be set up only once across **all** schools. It is now once per school.
+
+**Phase 1 improvement made here**
+- Children linked to the same parent login are now kept in one household.
+  - This covers families without a CNIC on file, for example the demo parent's Ali and Fatima Raza.
+  - Migration `students/0011` merged the households that had been split.
+  - New siblings join automatically.
+
+**Built**
+- Backend (`backend/services/education/finance/`):
+  - models `AccountCredit` and `Refund`, with `recalculate_invoice()`, which sets paid = payments − refunds;
+  - a payment method "account credit", the provider "stripe", and weekly and every-two-weeks plans;
+  - migration `0015`;
+  - new `billing.py`, which holds accounts, statements, allocation, credit, refunds, payment plans, billing contacts and the API;
+  - new `payments/stripe_gateway.py`, for Checkout, signed webhooks and refunds, using Stripe's REST API with no extra package;
+  - fixes in `payments/gateways.py`, `views.py`, `serializers.py` and `urls.py`.
+- Frontend:
+  - `services/billing.service.ts`
+  - `pages/education/finance/FamilyBillingPage.tsx`
+  - `PaymentPlansPage.tsx`
+  - `OnlinePaymentsPage.tsx`
+  - `components/finance/FamilyBillingCard.tsx`, on the parent dashboard and the student Fees page
+  - three new Fees tabs
+- Tests: `backend/tests/test_billing.py` has 7 new tests, covering:
+  - a family payment split oldest first, with the extra kept as credit;
+  - credit applied to a new invoice;
+  - refunds (cash and to credit) and the statement maths;
+  - goodwill credit rules;
+  - secrets never returned;
+  - the Stripe session amount and currency, and a signed webhook that is rejected with a wrong signature, paid with the right one, and not paid twice on replay;
+  - a parent unable to pay another family's invoice;
+  - a payment plan that does not double-bill;
+  - currency minor units.
+- `test_households.py` gained the parent-login grouping test.
+- Passing: the Phase 1–3 tests, the finance, isolation and permission tests (59 passed in one run), and the household tests.
+- Browser check on the demo school:
+  - 58 families owing listed;
+  - a family payment of the due amount plus 500 paid everything and kept 500 as credit;
+  - a 100 refund to credit reopened the invoice by 100, and the statement stayed consistent;
+  - Stripe was switched on;
+  - a 3-installment plan was created;
+  - the demo parent saw their family account and a "Pay online" button, which reached Stripe; the fake test key gave a clear error message.
+  - No page errors. The demo database was restored afterwards.
+
+**To take card payments for real**: in Fees → Online Payments, paste the school's Stripe secret key and webhook signing secret. In Stripe, add the webhook address shown on that screen.
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

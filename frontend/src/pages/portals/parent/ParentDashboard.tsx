@@ -1,6 +1,7 @@
 import StudentDashboard from '../student/StudentDashboard';
 import { Users, ShieldCheck } from 'lucide-react';
 import ReenrollmentCard from '@/components/admissions/ReenrollmentCard';
+import FamilyBillingCard from '@/components/finance/FamilyBillingCard';
 
 export default function ParentDashboard() {
   return (
@@ -21,6 +22,7 @@ export default function ParentDashboard() {
       </div>
 
       <ReenrollmentCard />
+      <FamilyBillingCard />
 
       <StudentDashboard />
     </div>

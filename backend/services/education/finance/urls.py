@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import billing, views
 
 urlpatterns = [
     path('settings/', views.FinanceSettingsView.as_view(), name='finance-settings'),
@@ -8,10 +8,22 @@ urlpatterns = [
     path('invoices/', views.InvoiceListCreateView.as_view(), name='invoice-list'),
     path('invoices/bulk-delete/', views.bulk_delete_invoices, name='bulk-delete-invoices'),
     path('invoices/<str:id>/', views.InvoiceDetailView.as_view(), name='invoice-detail'),
-    path('payments/', views.PaymentListCreateView.as_view(), name='payment-list'),
-    path('payments/<str:id>/', views.PaymentDetailView.as_view(), name='payment-detail'),
+    # Family billing: statements, family payments, credit, refunds
+    path('families/', billing.family_accounts, name='family-accounts'),
+    path('families/mine/', billing.my_family_accounts, name='family-accounts-mine'),
+    path('families/<str:kind>/<str:pk>/statement/', billing.family_statement, name='family-statement'),
+    path('families/<str:kind>/<str:pk>/payments/', billing.family_payment, name='family-payment'),
+    path('families/<str:kind>/<str:pk>/credit/', billing.family_credit, name='family-credit'),
+    path('families/<str:kind>/<str:pk>/apply-credit/', billing.family_apply_credit, name='family-apply-credit'),
+    path('families/<str:kind>/<str:pk>/email-statement/', billing.email_statement, name='family-email-statement'),
+    path('invoices/<str:invoice_id>/payment-plan/', billing.invoice_payment_plan, name='invoice-payment-plan'),
+    path('payments/providers/', billing.payment_providers, name='payment-providers'),
+    # Before 'payments/<id>/' so these are reachable.
     path('payments/session/', views.InvoicePaymentSessionView.as_view(), name='payment-session'),
     path('payments/webhook/<str:provider>/', views.PaymentGatewayWebhookView.as_view(), name='payment-webhook'),
+    path('payments/<str:payment_id>/refund/', billing.refund_payment_view, name='payment-refund'),
+    path('payments/', views.PaymentListCreateView.as_view(), name='payment-list'),
+    path('payments/<str:id>/', views.PaymentDetailView.as_view(), name='payment-detail'),
     path('payment-gateways/', views.PaymentGatewayConfigListCreateView.as_view(), name='payment-gateway-list'),
     path('payment-gateways/<str:id>/', views.PaymentGatewayConfigDetailView.as_view(), name='payment-gateway-detail'),
     path('payment-transactions/', views.PaymentTransactionListView.as_view(), name='payment-transaction-list'),

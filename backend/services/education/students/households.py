@@ -74,6 +74,12 @@ def ensure_household(student: Student) -> Household | None:
                     household = sibling.household
                     break
         if household is None:
+            # Siblings who share a parent portal login belong together too.
+            sibling = (Student.objects.filter(parents__in=student.parents.all(), household__isnull=False)
+                       .exclude(pk=student.pk).select_related('household').first())
+            if sibling:
+                household = sibling.household
+        if household is None:
             surname = _split(people[0][1])[1] or _clean(people[0][1])
             household = Household.objects.create(
                 tenant_id=student.tenant_id,
@@ -102,6 +108,58 @@ def ensure_household(student: Student) -> Household | None:
                           'receives_billing': priority == 1, 'priority': priority},
             )
     return household
+
+
+def merge_households(keep: Household, others) -> Household:
+    """Move students, guardians and credit from ``others`` into ``keep``; drop duplicate guardians."""
+    from django.apps import apps
+
+    AccountCredit = apps.get_model('education_finance', 'AccountCredit')
+    with transaction.atomic():
+        for other in others:
+            if other.pk == keep.pk:
+                continue
+            Student.objects.filter(household=other).update(household=keep)
+            AccountCredit.objects.filter(household=other).update(household=keep)
+            for g in list(other.guardians.all()):
+                twin = keep.guardians.filter(relationship=g.relationship, first_name__iexact=g.first_name,
+                                             last_name__iexact=g.last_name).first()
+                if twin is None:
+                    g.household = keep
+                    g.save(update_fields=['household'])
+                    continue
+                for link in g.student_links.all():
+                    if twin.student_links.filter(student_id=link.student_id).exists():
+                        link.delete()
+                    else:
+                        link.guardian = twin
+                        link.save(update_fields=['guardian'])
+                if not twin.email and g.email:
+                    twin.email = g.email
+                if not twin.mobile_phone and g.mobile_phone:
+                    twin.mobile_phone = g.mobile_phone
+                twin.save()
+                g.delete()
+            other.delete()
+    return keep
+
+
+def merge_households_sharing_a_parent_login() -> int:
+    """One-off repair: children linked to the same parent login end up in one household."""
+    from django.apps import apps
+
+    from services.core.tenants.context import use_tenant
+
+    ParentProfile = apps.get_model('core_accounts', 'ParentProfile')
+    merged = 0
+    with use_tenant(None):  # a maintenance task across all schools
+        for profile in ParentProfile.objects.all():
+            ids = {pk for pk in profile.linked_students.values_list('household_id', flat=True) if pk}
+            if len(ids) > 1:
+                homes = sorted(Household.all_objects.filter(pk__in=ids), key=lambda h: h.created_at)
+                merge_households(homes[0], homes[1:])
+                merged += len(homes) - 1
+    return merged
 
 
 # ---------------------------------------------------------------------------

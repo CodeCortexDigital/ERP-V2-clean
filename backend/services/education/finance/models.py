@@ -271,6 +271,7 @@ class Payment(models.Model):
         ('credit_card', 'Credit Card'),
         ('cheque', 'Cheque'),
         ('online', 'Online Payment'),
+        ('account_credit', 'Account credit'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -301,33 +302,100 @@ class Payment(models.Model):
         
         super().save(*args, **kwargs)
         
-        # Update invoice paid amount using correct total_amount
-        from django.db.models import Sum
-        from django.utils import timezone
-        total_paid = self.invoice.payments.aggregate(total=Sum('amount'))['total'] or 0
-        self.invoice.paid_amount = total_paid
-        
-        # Update invoice status based on correct total_amount and due date
-        if total_paid >= self.invoice.total_amount:
-            self.invoice.status = 'paid'
-        elif total_paid > 0:
-            if self.invoice.due_date < timezone.now().date():
-                self.invoice.status = 'overdue'
-            else:
-                self.invoice.status = 'partial'
-        else:
-            if self.invoice.due_date < timezone.now().date():
-                self.invoice.status = 'overdue'
-            else:
-                self.invoice.status = 'issued'
-        
-        self.invoice.save()
+        recalculate_invoice(self.invoice)
     
     def __str__(self):
         return f"Payment for {self.invoice.invoice_number} - ${self.amount}"
     
     class Meta:
         ordering = ['-payment_date']
+
+
+def recalculate_invoice(invoice):
+    """Set paid_amount (payments minus refunds) and the matching status on an invoice."""
+    from django.db.models import Sum
+
+    if invoice.status in ('cancelled', 'carried_forward'):
+        return invoice
+    paid = invoice.payments.aggregate(total=Sum('amount'))['total'] or 0
+    refunded = Refund.objects.filter(payment__invoice=invoice).aggregate(total=Sum('amount'))['total'] or 0
+    total_paid = paid - refunded
+    invoice.paid_amount = total_paid
+    overdue = invoice.due_date < timezone.now().date()
+    if total_paid >= invoice.total_amount:
+        invoice.status = 'paid'
+    elif total_paid > 0:
+        invoice.status = 'overdue' if overdue else 'partial'
+    else:
+        invoice.status = 'overdue' if overdue else 'issued'
+    invoice.save()
+    return invoice
+
+
+class Refund(models.Model):
+    """Money given back on a payment: to the card, in cash or bank transfer, or kept as account credit."""
+    METHODS = [
+        ('original', 'Back to the original payment method'),
+        ('cash', 'Cash'),
+        ('bank_transfer', 'Bank transfer'),
+        ('account_credit', 'Kept as account credit'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='refunds')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    method = models.CharField(max_length=20, choices=METHODS, default='original')
+    reason = models.TextField(blank=True, default='')
+    gateway_reference = models.CharField(max_length=128, blank=True, default='')
+    created_by = models.ForeignKey('core_accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        from django.db.models import Sum
+
+        if self.amount <= 0:
+            raise ValueError('The refund amount must be greater than zero.')
+        already = Refund.objects.filter(payment=self.payment).exclude(pk=self.pk).aggregate(t=Sum('amount'))['t'] or 0
+        if self.amount + already > self.payment.amount:
+            raise ValueError(f'You can refund at most {self.payment.amount - already} on this payment.')
+        super().save(*args, **kwargs)
+        recalculate_invoice(self.payment.invoice)
+
+
+class AccountCredit(models.Model):
+    """Credit held for a family (or a student without a household).
+
+    Positive rows add credit (overpayment, goodwill, refund kept as credit);
+    negative rows use it (applied to an invoice). The balance is the sum.
+    """
+    KINDS = [
+        ('overpayment', 'Overpayment'),
+        ('goodwill', 'Credit given by the school'),
+        ('refund', 'Refund kept as credit'),
+        ('applied', 'Applied to an invoice'),
+        ('adjustment', 'Adjustment'),
+    ]
+
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    household = models.ForeignKey('education_students.Household', on_delete=models.CASCADE, null=True, blank=True,
+                                  related_name='credits')
+    student = models.ForeignKey('education_students.Student', on_delete=models.CASCADE, null=True, blank=True,
+                                related_name='account_credits')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    kind = models.CharField(max_length=20, choices=KINDS)
+    note = models.CharField(max_length=255, blank=True, default='')
+    invoice = models.ForeignKey(Invoice, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_by = models.ForeignKey('core_accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class PaymentGatewayConfig(models.Model):
@@ -337,6 +405,7 @@ class PaymentGatewayConfig(models.Model):
     GATEWAY_PROVIDERS = [
         ('jazzcash', 'JazzCash'),
         ('easypaisa', 'Easypaisa'),
+        ('stripe', 'Stripe (cards, Apple Pay, Google Pay)'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -356,7 +425,8 @@ class PaymentGatewayConfig(models.Model):
         return self.name or f"{self.get_provider_display()} Configuration"
 
     class Meta:
-        unique_together = ('provider', 'merchant_id')
+        # One configuration per provider and merchant account within each school.
+        unique_together = ('tenant', 'provider', 'merchant_id')
         ordering = ['provider']
 
 
@@ -401,6 +471,8 @@ class InstallmentPlan(models.Model):
     number_of_installments = models.PositiveIntegerField()
     installment_amount = models.DecimalField(max_digits=10, decimal_places=2)
     frequency = models.CharField(max_length=20, choices=[
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Every two weeks'),
         ('monthly', 'Monthly'),
         ('quarterly', 'Quarterly'),
         ('yearly', 'Yearly')

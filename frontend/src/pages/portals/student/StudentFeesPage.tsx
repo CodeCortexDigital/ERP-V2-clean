@@ -6,6 +6,7 @@ import studentService from '@/services/student.service';
 import { useAuth } from '@/contexts/AuthContext';
 import authService from '@/services/auth.service';
 import api from '@/services/api';
+import FamilyBillingCard from '@/components/finance/FamilyBillingCard';
 
 type Fee = { id: string; amount: number; month: string; status: string; issueDate?: string };
 
@@ -114,6 +115,8 @@ export default function StudentFeesPage() {
           <ArrowLeft size={13} /> Dashboard
         </Link>
       </div>
+
+      <FamilyBillingCard />
 
       <div className="grid grid-cols-3 gap-3">
         {[['Total', totals.total, 'text-slate-700'], ['Paid', totals.paid, 'text-emerald-600'], ['Due', totals.due, 'text-rose-600']].map(

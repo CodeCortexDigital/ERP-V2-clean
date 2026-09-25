@@ -39,6 +39,7 @@ from .serializers import (
     PaymentTransactionSerializer,
 )
 from django.apps import apps
+from .billing import FinanceStaff
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -391,13 +392,14 @@ def finance_summary(request):
     })
 
 class PaymentGatewayConfigListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    # Holds payment secrets: finance staff only (secrets are write-only in the serializer).
+    permission_classes = [FinanceStaff]
     queryset = PaymentGatewayConfig.objects.all()
     serializer_class = PaymentGatewayConfigSerializer
 
 
 class PaymentGatewayConfigDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FinanceStaff]
     queryset = PaymentGatewayConfig.objects.all()
     serializer_class = PaymentGatewayConfigSerializer
     lookup_field = 'id'
@@ -437,12 +439,22 @@ class InvoicePaymentSessionView(APIView):
             return Response({'error': 'Invoice ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            invoice = Invoice.objects.get(id=invoice_id)
+            from services.core.accounts.decorators import filter_invoices_for_user
+
+            invoice = filter_invoices_for_user(request.user, Invoice.objects.all()).get(id=invoice_id)
+            origin = request.headers.get('Origin') or ''
+            return_to = str(request.data.get('return_url') or '').strip()
+            if not (origin and return_to.startswith(origin)):
+                return_to = origin or 'http://localhost'
+            joiner = '&' if '?' in return_to else '?'
             transaction, checkout_url = generate_payment_session(
                 invoice,
                 provider=provider,
                 customer_name=customer_name,
                 customer_phone=customer_phone,
+                success_url=f'{return_to}{joiner}payment=success',
+                cancel_url=f'{return_to}{joiner}payment=cancelled',
+                customer_email=getattr(request.user, 'email', '') or '',
             )
 
             return Response({
@@ -465,7 +477,21 @@ class InvoicePaymentSessionView(APIView):
 class PaymentGatewayWebhookView(APIView):
     permission_classes = [AllowAny]
 
+    authentication_classes = []
+
     def post(self, request, provider):
+        if provider.lower() == 'stripe':
+            from .payments.gateways import handle_stripe_webhook
+
+            ok, message = handle_stripe_webhook(request.body, request.headers.get('Stripe-Signature', ''))
+            return Response({'message': message}, status=status.HTTP_200_OK if ok else status.HTTP_400_BAD_REQUEST)
+
+        from services.core.tenants.context import use_tenant
+
+        with use_tenant(None):
+            return self._legacy(request, provider)
+
+    def _legacy(self, request, provider):
         payload = request.data
         headers = {k: v for k, v in request.headers.items()}
 
@@ -1288,8 +1314,11 @@ def send_fee_reminder(request, invoice_id):
     try:
         invoice = Invoice.objects.select_related('student').get(id=invoice_id)
         
-        if not invoice.student.email:
-            return Response({'error': 'Student email not available'}, status=400)
+        from .billing import billing_emails
+
+        recipients = billing_emails(invoice.student)
+        if not recipients:
+            return Response({'error': 'No email address for this family. Add one to a guardian marked "Receives invoices".'}, status=400)
         
         days_overdue = 0
         if invoice.due_date < timezone.now().date():
@@ -1318,25 +1347,25 @@ def send_fee_reminder(request, invoice_id):
             subject=subject,
             body=text_content,
             from_email=from_email,
-            to=[invoice.student.email]
+            to=recipients
         )
         email.attach_alternative(html_content, "text/html")
         email.send()
-        
+
         # Log the communication
         TransactionLog.objects.create(
             model_name='Invoice',
             object_id=invoice.id,
             action='email_reminder_sent',
             user=request.user,
-            details=f"Fee reminder sent to {invoice.student.email} for invoice {invoice.invoice_number}",
+            details=f"Fee reminder sent to {', '.join(recipients)} for invoice {invoice.invoice_number}",
             old_value={},
             new_value={'email_sent': True}
         )
         
         return Response({
             'message': 'Fee reminder sent successfully',
-            'recipient': invoice.student.email,
+            'recipient': ', '.join(recipients),
             'invoice_number': invoice.invoice_number
         })
         

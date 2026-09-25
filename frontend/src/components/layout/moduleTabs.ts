@@ -4,7 +4,7 @@ import {
   ClipboardList, CalendarClock, Clock, DoorOpen, Plus, Grid, UserCog, Plane,
   Star, Award, Eye, BookOpen, Library, FilePlus, Edit, ClipboardEdit, Calendar,
   GraduationCap, MessageSquare, FileSignature, BarChart2, ListChecks, FileBarChart, Users2, Video,
-  Tag, Landmark, SlidersHorizontal
+  Tag, Landmark, SlidersHorizontal, CalendarRange, Globe
 } from 'lucide-react';
 import type { ModuleTab } from './ModuleTabsLayout';
 
@@ -20,6 +20,9 @@ export const accountsTabs: ModuleTab[] = [
 export const feesTabs: ModuleTab[] = [
   { id: 'invoices', path: '/education/fees/invoices', label: 'Invoices', icon: FileText, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'collect-fees', path: '/education/fees/collect-fees', label: 'Fee Collection', icon: CreditCard, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'families', path: '/education/fees/families', label: 'Family Accounts', icon: Users2, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'payment-plans', path: '/education/fees/payment-plans', label: 'Payment Plans', icon: CalendarRange, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'online-payments', path: '/education/fees/online-payments', label: 'Online Payments', icon: Globe, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'generate-invoices', path: '/education/fees/generate-invoices', label: 'Generate Invoices', icon: Receipt, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'fees-paid-slip', path: '/education/fees/fees-paid-slip', label: 'Paid Slips', icon: Printer, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'fees-defaulters', path: '/education/fees/fees-defaulters', label: 'Fee Defaulters', icon: AlertTriangle, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
