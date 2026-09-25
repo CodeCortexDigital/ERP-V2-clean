@@ -10,8 +10,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | ✅ Done |
 |  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | ✅ Done |
 |  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | ✅ Done |
-|  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | ⏳ Next |
-|  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | Not started |
+|  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | ✅ Done |
+|  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | ⏳ Next |
 |  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | Not started |
 |  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | Not started |
 | **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | Not started |
@@ -303,31 +303,6 @@ Each phase is marked done only after it passes its backend tests and a browser c
 - Note for local running: the demo backend started by `demo.bat` had to be restarted to pick up the new routes.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### Phase 5: Academics / Classes ✅
 
 **What a school can now do**
@@ -384,6 +359,78 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - a course was set to Science / AP;
   - Iqra Abbasi's Overview showed "Grade 5 · A · 2026-2027 · Enrolled" and her Friday timetable.
   - No page errors. The demo database was restored afterwards.
+
+
+
+
+
+### Phase 6: Gradebook ✅
+
+**What a school can now do**
+- **Gradebook** (new menu item, also a teacher quick action). Choose class and subject, section and term, and get a spreadsheet of students × assignments:
+  - type a score and press Tab;
+  - shortcuts: **M** = missing (counts as 0), **EX** = excused (not counted), **INC** = incomplete, a number then **L** = late;
+  - missing, excused and late cells are coloured;
+  - each student's **running grade** (letter, percent, and how many are missing) updates as you type;
+  - export to CSV.
+- **Weighted categories** per class-subject:
+  - one click adds a common set (Homework 20, Quizzes 20, Tests 40, Projects 10, Participation 10), or build your own;
+  - the total is shown, and **drop the N lowest** scores per category.
+  - If a category has no graded work yet, the weights re-scale over the categories in use.
+- **Assignments**:
+  - title, category, points, due date, term, for every section or one section, instructions;
+  - "counts toward grade" (off for practice work), and "students and parents can see it".
+- **Exams feed the gradebook**. "Add an exam" brings an exam from the Examination module in, with its marks, placed in the term that contains the exam date. Marks entered or changed later in Examination stay in sync. The Pakistani exam → award list → marksheet flow keeps working.
+- **Grading scales** (Gradebook → Grading Scales):
+  - US A–F with plus/minus and GPA points (A 93+ = 4.0 … F), standards levels 4–1, or the school's existing grade scale, which is picked up automatically as the default;
+  - edit grades, minimum percents and GPA points; choose the default; set the passing mark.
+- **Standards-based grading** (Gradebook → Standards):
+  - list the standards for each subject (code + "what the student can do");
+  - rate every student per term: 4 Exceeds, 3 Meets, 2 Approaching, 1 Beginning.
+- **Report cards** (Gradebook → Report Cards), for each term:
+  - subject grades with category breakdown, standards ratings, **teacher comments** per subject, a **homeroom comment**, attendance for the term, and **unweighted and weighted GPA** (Honors +0.5, AP/IB +1.0, weighted by course credits);
+  - preview any student, write comments in place, print;
+  - **release to families** per class or for all classes; parents get an in-app notice;
+  - "Hide again" undoes a release.
+- **Transcripts**: every school year from enrollment history, with each course's term grades, final grade, and credits attempted and earned (credits only for a pass), the year's GPA, **cumulative GPA** and total credits. Printable.
+- **Families and students**: a **Grades** card on the parent dashboard and the student Results page shows each subject's current grade, and opens to the published assignments and scores (missing work flagged). Report cards and transcripts are there once released.
+- The student page's Grades tab now shows the report card, with staff comments, a term selector and the transcript, above the exam results.
+
+**Safety**
+- Teachers can only open and grade the classes they teach; admins can open all.
+- Only admins change grading scales and release report cards.
+- Families only see report cards that have been released, and only published assignments.
+- Each school's gradebook is separate. The isolation sweep covers the new list endpoints: 8 passed.
+
+**Built**
+- Backend: a new app, `backend/services/education/gradebook/`:
+  - models `GradingScale`, `GradeBand`, `Category`, `Assignment`, `Score`, `Standard`, `StandardRating`, `ReportComment` and `ReportCardRelease` (migration `0001`);
+  - `calc.py`, the grade engine: categories, drop lowest, missing and excused, weighting, letter and GPA bands, credit-weighted GPA;
+  - `api.py` and `urls.py`, mounted at `/api/v1/auth/gradebook/`;
+  - `signals.py`, the exam-mark sync.
+- Frontend:
+  - `services/gradebook.service.ts`
+  - `pages/education/gradebook/GradebookPage.tsx`, `ReportCardsPage.tsx`, `StandardsPage.tsx` and `GradingScalesPage.tsx`
+  - `components/gradebook/ReportCardView.tsx`, which also holds the transcript
+  - `components/gradebook/GradesPortalCard.tsx`
+  - the Gradebook menu item in 23 languages, a teacher quick action and the module tabs
+- Tests: `backend/tests/test_gradebook.py` has 5 new tests:
+  - weighted categories with drop-lowest, excused ignored, missing as zero, and re-scaled weights;
+  - an exam import placed in the right term, then kept in sync when the mark changes, and refused twice;
+  - report card maths, including unweighted and weighted GPA, a standards rating, a comment, release (a parent is refused before release and sees it after), and the transcript with credits;
+  - teachers limited to their classes;
+  - GPA maths.
+- Browser check on the demo school:
+  - semesters were created;
+  - Grade 5 · Mathematics: the common categories added up to 100%;
+  - "Fractions quiz" /20: 18 showed A− (90%), and M showed F with "1 missing";
+  - an existing unit test was added from Examination;
+  - Ahmed Aslam's report card showed Mathematics A− 90% (Quizzes 90%), GPA 3.7, attendance, and a homeroom comment;
+  - Grade 5 was released;
+  - the default scale is US A–F;
+  - the demo parent's grades card and report cards opened, and correctly said "not released" because their children are not in Grade 5.
+  - No page errors. The demo database was restored afterwards.
+- Fixed on the way: the report card preview now refreshes right after a release.
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

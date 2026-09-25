@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'services.education.admissions',
     'services.education.communication',
     'services.education.behaviour',
+    'services.education.gradebook',
     'services.analytics',
     'services.ai',
 ]

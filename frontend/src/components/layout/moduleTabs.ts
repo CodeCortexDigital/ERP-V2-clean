@@ -115,6 +115,14 @@ export const academicSetupTabs: ModuleTab[] = [
   { id: 'live-class', path: '/education/academic-setup/live-class', label: 'Live Class', icon: Video, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
 ];
 
+// ============================ GRADEBOOK ============================
+export const gradebookTabs: ModuleTab[] = [
+  { id: 'gradebook', path: '/education/gradebook', label: 'Gradebook', icon: ClipboardList, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'standards', path: '/education/gradebook/standards', label: 'Standards', icon: ListChecks, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'report-cards', path: '/education/gradebook/report-cards', label: 'Report Cards', icon: FileSignature, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'scales', path: '/education/gradebook/scales', label: 'Grading Scales', icon: SlidersHorizontal, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+];
+
 // ============================ COMMUNICATION ============================
 export const communicationTabs: ModuleTab[] = [
   { id: 'whatsapp', path: '/education/communication?tab=whatsapp', label: 'WhatsApp', icon: MessageSquare, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },

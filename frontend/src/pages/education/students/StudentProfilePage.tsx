@@ -14,6 +14,7 @@ import { formatMoney } from '@/utils/currency';
 import { Modal } from '@/components/ui/Modal';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import EnrollmentAndSchedule from '@/components/students/EnrollmentAndSchedule';
+import { ReportCardView } from '@/components/gradebook/ReportCardView';
 
 type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades';
 
@@ -147,7 +148,12 @@ export default function StudentProfilePage() {
       {tab === 'health' && <HealthTab data={data} studentId={id} reload={load} />}
       {tab === 'attendance' && <AttendanceCalendar studentId={String(data.student.id)} />}
       {tab === 'billing' && <BillingTab data={data} />}
-      {tab === 'grades' && <GradesTab data={data} />}
+      {tab === 'grades' && (
+        <div className="space-y-4">
+          <ReportCardView studentId={String(data.student.id)} staff={data.can_edit} />
+          <GradesTab data={data} />
+        </div>
+      )}
     </div>
   );
 }

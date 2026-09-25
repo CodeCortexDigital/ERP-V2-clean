@@ -53,6 +53,13 @@ DIRECT = [
     'education_communication.MessageTemplate',
     'education_communication.AutoTrigger',
     'education_communication.WhatsAppConfig',
+    'education_gradebook.GradingScale',
+    'education_gradebook.Category',
+    'education_gradebook.Standard',
+    'education_gradebook.Assignment',
+    'education_gradebook.StandardRating',
+    'education_gradebook.ReportComment',
+    'education_gradebook.ReportCardRelease',
     'ai.AIConversation',
     'ai.AIUsage',
 ]
@@ -102,6 +109,8 @@ THROUGH_PARENT = {
     'analytics.AcademicPrediction': 'student__tenant',
     'analytics.Recommendation': 'student__tenant',
     'ai.AIMessage': 'conversation__tenant',
+    'education_gradebook.GradeBand': 'scale__tenant',
+    'education_gradebook.Score': 'assignment__tenant',
 }
 
 # Codes that must be unique within a school (not across all schools).

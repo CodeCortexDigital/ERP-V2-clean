@@ -3,7 +3,7 @@ import { Toaster } from 'sonner'
 import { useEffect, memo } from 'react'
 import Layout from '@/components/layout/Layout';
 import ModuleTabsLayout from './components/layout/ModuleTabsLayout';
-import { accountsTabs, feesTabs, salaryTabs, attendanceTabs, timetableTabs, behaviourTabs, examTabs, subjectsTabs, communicationTabs, certificatesTabs, reportsTabs, academicSetupTabs } from './components/layout/moduleTabs';
+import { gradebookTabs, accountsTabs, feesTabs, salaryTabs, attendanceTabs, timetableTabs, behaviourTabs, examTabs, subjectsTabs, communicationTabs, certificatesTabs, reportsTabs, academicSetupTabs } from './components/layout/moduleTabs';
 import ProtectedRoute from './components/ProtectedRoute'
 import { RoleBasedRoute } from './components/auth/RoleBasedRoute'
 import { CanAccess } from './components/auth/CanAccess'
@@ -121,6 +121,10 @@ import LessonAttendancePage from '@/pages/education/attendance/LessonAttendanceP
 import AbsenceReportsPage from '@/pages/education/attendance/AbsenceReportsPage'
 import SchoolYearsPage from '@/pages/education/academic-years/SchoolYearsPage'
 import CourseCatalogPage from '@/pages/education/subjects/CourseCatalogPage'
+import GradebookPage from '@/pages/education/gradebook/GradebookPage'
+import ReportCardsPage from '@/pages/education/gradebook/ReportCardsPage'
+import StandardsPage from '@/pages/education/gradebook/StandardsPage'
+import GradingScalesPage from '@/pages/education/gradebook/GradingScalesPage'
 
 // Behaviour
 import BehaviourPage from './pages/education/behaviour/BehaviourPage'
@@ -332,6 +336,14 @@ function App() {
                   <Route path="live-class" element={<LiveClassPage />} />
                 </Route>
                 
+                {/* Gradebook */}
+                <Route path="education/gradebook" element={<RoleBasedRoute allowedRoles={['admin', 'teacher']}><ModuleTabsLayout tabs={gradebookTabs} scopeClass="gradebook-scope" /></RoleBasedRoute>}>
+                  <Route index element={<GradebookPage />} />
+                  <Route path="standards" element={<StandardsPage />} />
+                  <Route path="report-cards" element={<ReportCardsPage />} />
+                  <Route path="scales" element={<RoleBasedRoute allowedRoles={['admin']}><GradingScalesPage /></RoleBasedRoute>} />
+                </Route>
+
                 {/* Curriculum */}
                 <Route path="education/curriculum" element={<CurriculumManagementPage />} />
                 <Route path="education/curriculum/topics" element={<TopicBreakdownPage />} />

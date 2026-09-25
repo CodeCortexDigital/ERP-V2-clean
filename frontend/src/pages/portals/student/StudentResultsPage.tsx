@@ -4,6 +4,7 @@ import { Award, ArrowLeft, Loader2 } from 'lucide-react';
 import examService from '@/services/exam.service';
 import studentService from '@/services/student.service';
 import { useAuth } from '@/contexts/AuthContext';
+import GradesPortalCard from '@/components/gradebook/GradesPortalCard';
 
 type Result = {
   id: string;
@@ -109,6 +110,8 @@ export default function StudentResultsPage() {
           <ArrowLeft size={13} /> Dashboard
         </Link>
       </div>
+
+      <GradesPortalCard />
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-slate-400">
