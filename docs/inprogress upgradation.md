@@ -19,8 +19,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | ✅ Done |
 | **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | ✅ Done |
 | **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | ✅ Done |
-| **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | ⏳ Next |
-| **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | Not started |
+| **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | ✅ Done |
+| **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | ⏳ Next |
 | **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | Not started |
 | **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | Not started |
 | **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | Not started |
@@ -900,6 +900,64 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the office board showed "1 on · 2 expected", and the report made 2 transport invoices for the month.
   - No page errors. The demo database was restored afterwards.
 - **Later**: live GPS tracking of the bus needs a driver app, planned with the mobile apps in phase 42–43.
+
+
+
+### Phase 15: Inventory ✅
+
+**What a school can now do**
+- **An inventory module** (sidebar → Inventory) with four tabs: Stock, Purchases, Suppliers & Categories, and Report.
+- **Items**:
+  - name, code (automatic `ITM-0001`, or the school's own), unit (pieces, boxes, packs, reams, sets, pairs, kg, litres, metres), category, store room / shelf, and the usual supplier;
+  - the **reorder level** (warn at) and the usual order quantity;
+  - the cost of one unit, and a **sale price** for things sold to students such as uniforms and books;
+  - opening stock when the item is added;
+  - search by name, code or shelf, and filter by category or **Low stock**;
+  - the stock list shows quantity, reorder level and value, with the total stock value.
+- **Stock in and out** (**In / out** on any item):
+  - in: received (at a unit cost), returned to store, or a stock count that found more;
+  - out: **issued** to a department, classroom or person (required), **sold to a student**, damaged / lost, or a stock count that found less;
+  - you can't take out more than is in stock;
+  - every change is kept in the item's **history**, with who did it, the balance after, and any reference or note.
+- **Average cost**: receiving at a new price updates the item's average cost, so stock value stays right.
+- **Selling to students**: choose the student and the quantity; the page shows what the family will be billed. The sale creates an **invoice** on the student's account (e.g. "School shop: 2 × School shirt size 10"), so it appears in Fees, the family account and "Pay online" like any other charge.
+- **Low-stock alerts**: when an item falls to its reorder level, the office gets **one** notice ("A4 paper is down to 8 reams, reorder at 10"). It resets once the item is restocked.
+- **Purchase orders**:
+  - make an order for a supplier with items, quantities and costs;
+  - the stages are Draft → **Mark as sent** → **Receive into stock** (all at once, or partly as deliveries arrive) with the supplier's bill number;
+  - received goods go into stock at the order's cost;
+  - you can't receive more than was ordered, change a sent order's items, or cancel once goods have arrived.
+- **Reorder list**: low items grouped by their usual supplier, with a suggested quantity that allows for what's already on order. **Make an order** turns it into a draft purchase order in one click.
+- **Suppliers** (contact, phone, email, address, tax number such as NTN or VAT, notes) and **categories**. A supplier with orders is kept and can be marked inactive.
+- **Report**:
+  - items, stock value, running low, open orders, and sales to students;
+  - value by category, the most used items, what was issued to each department, and purchases by supplier, over the last 30 / 90 / 180 / 365 days;
+  - the latest stock movements;
+  - a **CSV** of the whole stock list for audits and stock counts.
+- Only the office manages inventory. Each school's inventory is separate.
+- The old "Online Store" page was a browser-only demo: its products and purchases were kept only in the browser and never reached the school's records. Its address now opens Inventory; uniforms and books are sold from real stock there.
+
+**Built**
+- Backend: new app `backend/services/education/inventory/` (label `education_inventory`):
+  - models `Category`, `Supplier`, `Item`, `Movement`, `PurchaseOrder` and `PurchaseLine` (migration `0001`), all registered for school separation;
+  - `api.py` and `urls.py`, mounted at `/api/v1/auth/inventory/`. Every stock change goes through one function (`record`), which locks the item, keeps the average cost and sends the low-stock alert.
+- Frontend:
+  - `services/inventory.service.ts`;
+  - `pages/education/inventory/` (Stock, Purchases, Suppliers & Categories, Report);
+  - Inventory in the admin menu, translated into 23 languages;
+  - `pages/education/OnlineStorePage.tsx` was removed and `/education/store` now opens Inventory.
+- Tests: `backend/tests/test_inventory.py` has 3 new tests:
+  - items and movements: average cost, issuing needs a recipient, no taking more than there is, one low-stock alert and its reset, the history, duplicate codes, protecting items with history, office only, other schools, and the CSV;
+  - selling to a student creates the family's invoice for the right amount;
+  - purchase orders: draft → sent → part and full delivery, too much refused, no cancelling after delivery, the reorder list with suggestions, and the report.
+- Passing: these tests plus the school separation tests (11 passed).
+- Browser check on the demo school:
+  - the admin added a supplier, two categories, A4 paper and a school shirt with a sale price;
+  - issuing 7 reams to the Science department made the paper **Low stock**;
+  - selling 2 shirts to Ali Raza showed "The family is billed $3,000" and created invoice INV-2026-09-0361;
+  - **Make an order** from the reorder list produced PO-2026-0001 for 50 reams, which was marked sent and received with bill INV-7788, bringing the paper to 58 reams;
+  - the CSV downloaded, and the report showed the stock value, the sale and "Science dept $7,000".
+  - No page errors. The demo database was restored afterwards.
 
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 

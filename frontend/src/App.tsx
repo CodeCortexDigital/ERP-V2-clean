@@ -88,7 +88,11 @@ import ResourceManagementPage from './pages/education/curriculum/ResourceManagem
 // Homework & Store
 import HomeworkManagementPage from './pages/education/assignments/HomeworkManagementPage'
 import AssignmentGradingPage from './pages/education/homework/AssignmentGradingPage'
-import OnlineStorePage from './pages/education/OnlineStorePage'
+import InventoryStockPage from './pages/education/inventory/InventoryStockPage'
+import InventoryPurchasesPage from './pages/education/inventory/InventoryPurchasesPage'
+import InventorySuppliersPage from './pages/education/inventory/InventorySuppliersPage'
+import InventoryReportPage from './pages/education/inventory/InventoryReportPage'
+import { Boxes, ShoppingCart as PurchasesIcon, Factory, BarChart2 } from 'lucide-react'
 
 // Timetable
 import TimetableManagement from './pages/education/timetable/TimetableManagement'
@@ -240,6 +244,13 @@ const transportTabs = [
   { id: 'riders', path: '/education/transport/riders', label: 'Students', icon: RidersIcon },
   { id: 'fleet', path: '/education/transport/fleet', label: 'Fleet & Crew', icon: Truck },
   { id: 'report', path: '/education/transport/report', label: 'Report & Billing', icon: ReportIcon },
+]
+
+const inventoryTabs = [
+  { id: 'stock', path: '/education/inventory', label: 'Stock', icon: Boxes },
+  { id: 'purchases', path: '/education/inventory/purchases', label: 'Purchases', icon: PurchasesIcon },
+  { id: 'suppliers', path: '/education/inventory/suppliers', label: 'Suppliers & Categories', icon: Factory },
+  { id: 'report', path: '/education/inventory/report', label: 'Report', icon: BarChart2 },
 ]
 
 function App() {
@@ -404,7 +415,14 @@ function App() {
                 {/* Homework & Store */}
                 <Route path="education/homework" element={<HomeworkManagementPage />} />
                 <Route path="education/homework/grade/:id" element={<AssignmentGradingPage />} />
-                <Route path="education/store" element={<CanAccess module="store" redirect><OnlineStorePage /></CanAccess>} />
+                {/* Inventory (the old browser-only "online store" page now opens the real stock) */}
+                <Route path="education/store" element={<Navigate to="/education/inventory" replace />} />
+                <Route path="education/inventory" element={<RoleBasedRoute allowedRoles={['admin']}><ModuleTabsLayout tabs={inventoryTabs} scopeClass="inventory-scope" /></RoleBasedRoute>}>
+                  <Route index element={<InventoryStockPage />} />
+                  <Route path="purchases" element={<InventoryPurchasesPage />} />
+                  <Route path="suppliers" element={<InventorySuppliersPage />} />
+                  <Route path="report" element={<InventoryReportPage />} />
+                </Route>
                 
                 {/* Timetable */}
                 <Route path="education/timetable" element={<CanAccess module="timetable" redirect><ModuleTabsLayout tabs={timetableTabs} scopeClass="timetable-scope" /></CanAccess>}>

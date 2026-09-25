@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes
 } from 'lucide-react';
 import transportService from '@/services/transport.service';
 import { useUIStore } from '@/store/uiStore';
@@ -208,6 +208,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
     { id: 'library', label: 'Library', icon: <Library className="w-4 h-4" />, href: '/education/library' },
     { id: 'transport', label: 'Transport', icon: <Bus className="w-4 h-4" />, href: '/education/transport' },
+    { id: 'inventory', label: 'Inventory', icon: <Boxes className="w-4 h-4" />, href: '/education/inventory' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
     // Platform owner only: every school on this installation.
     ...(user?.is_superuser

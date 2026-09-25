@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'services.education.schoolcalendar',
     'services.education.library',
     'services.education.transport',
+    'services.education.inventory',
     'services.analytics',
     'services.ai',
 ]
