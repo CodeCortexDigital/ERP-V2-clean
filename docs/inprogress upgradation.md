@@ -17,8 +17,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | ✅ Done |
 | **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | ✅ Done |
 | **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | ✅ Done |
-| **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | ⏳ Next |
-| **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | Not started |
+| **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | ✅ Done |
+| **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | ⏳ Next |
 | **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | Not started |
 | **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | Not started |
 | **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | Not started |
@@ -764,6 +764,82 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - Class Reports listed 11 students who need attention and attendance for 6 classes;
   - the admin saw all 6 classes, and the demo parent was sent back to the Parent Portal.
   - No page errors. The demo database was restored afterwards.
+
+
+
+### Phase 13: Library ✅
+
+**What a school can now do**
+- **A library module** (sidebar → Library) with five tabs: Desk, Catalogue, Members, Loans & Reservations, and Report & Rules.
+- **Catalogue**:
+  - add books with title, authors, ISBN, subject, shelf mark, publisher, year, edition, language and reading level, and say how many copies there are;
+  - every copy gets its own barcode (`LIB-000001`, `LIB-000002`, …);
+  - search by title, author, ISBN, shelf mark or barcode, and filter by subject;
+  - a book's page shows each copy (on the shelf, on loan to whom and until when, held, lost, damaged or withdrawn), the reservation queue and how often it has been borrowed;
+  - add copies, mark copies damaged, lost or withdrawn, or put them back on the shelf;
+  - a book that was ever borrowed stays in the records (withdraw its copies instead of deleting it).
+- **Barcodes and QR codes**: **Print labels** gives a sheet with the title, shelf mark, a barcode and a QR code for each copy. Members get printable **library cards** (`C-000001`) the same way.
+- **The desk**:
+  - scan a library card (or type a name or student number) to open the borrower, with books out, overdue books, fines and whether they are blocked;
+  - scan books to lend them: the due date is set automatically, and a scanner that types the barcode and presses Enter works straight away;
+  - scan returned books: late days and any fine are worked out;
+  - if someone reserved the book, the desk shows **"Put aside for …"** and that family is told it is ready to collect;
+  - renew or return from the borrower's list.
+- **Rules** (Report & Rules):
+  - loan days and the number of books at a time, separately for students and staff;
+  - how many renewals are allowed;
+  - how long a reserved book is kept;
+  - a fine per day late (0 means no fines);
+  - no new loans while a book is overdue.
+  - The desk explains every refusal: "already on loan to …", "held for …", "the limit is 3", "has an overdue book", "blocked: …".
+- **Members**: every student and staff member can have a card, made the first time they are needed. A member's record shows books on loan, history and fines. The office can **block borrowing** with a reason and print cards for many members at once.
+- **Loans & Reservations**:
+  - lists: on loan, **overdue**, fines to settle, returned, and the reservation queue;
+  - renew, return and **mark lost** (the copy's price becomes the fine);
+  - fines are marked paid or waived.
+- **Reservations**: when every copy is out, a student, a parent (for any of their children) or a teacher reserves the book and gets a place in the queue. The first returned copy is held for them for the set number of days. If they don't collect it, it goes to the next person or back on the shelf.
+- **Reminders** by portal notice and email, to the student and their parents, or to the member of staff:
+  - the day before a book is due;
+  - every 3 days while it is overdue;
+  - when a reserved book is ready.
+  - Run the command `send_library_reminders` once a day; it also releases holds nobody collected.
+- **In the portals** (Library in the student, parent and teacher menus):
+  - search the catalogue (with an "on the shelf now" filter) and reserve;
+  - see books on loan with due dates, renew, see and cancel reservations, and see past reading;
+  - parents switch between children.
+- **Library report**: titles, copies, on loan, overdue, loans and readers in the last 90 days, waiting reservations, fines to collect, the most borrowed books, top readers, loans by subject and by month.
+- Each school has its own library. Only the office runs the desk; everyone else only sees their own card.
+
+**Built**
+- Backend: new app `backend/services/education/library/` (label `education_library`):
+  - models `LibrarySettings`, `Book`, `BookCopy`, `Member`, `Loan` and `Reservation` (migration `0001`), all registered for school separation;
+  - `api.py` and `urls.py`, mounted at `/api/v1/auth/library/`;
+  - the management command `send_library_reminders`;
+  - new dependency `segno` (pure Python, no other dependencies) for QR codes. Labels still work without it.
+- Frontend:
+  - `services/library.service.ts`;
+  - `components/library/Barcode.tsx`, a Code 128 barcode drawn in the browser with no extra package, with its own unit tests;
+  - `pages/education/library/` (Desk, Catalogue, Members, Loans & Reservations, Report & Rules, Labels);
+  - `pages/portals/MyLibraryPage.tsx` for students, parents and teachers;
+  - Library in every menu, translated into 23 languages.
+- Tests: `backend/tests/test_library.py` has 4 new tests:
+  - catalogue and copies: barcodes, search by every field, labels with QR codes, office-only changes, and nothing from another school;
+  - issue, return and renew with limits, overdue blocking, fines (paid or waived), lost copies, blocked members, and the report;
+  - reservations: the queue, holds for the right person, the family told, collecting, holds expiring, cancelling only your own, and parents acting only for their own children;
+  - reminders: due tomorrow once a day, overdue every 3 days.
+- Plus `frontend/src/components/library/Barcode.test.ts`: the symbol table, check symbol and widths.
+- Passing: these tests plus the school separation, workspace and parent portal tests (17 passed), and the frontend tests.
+- Browser check on the demo school:
+  - the admin added two books, printed a label (barcode and QR), and lent the only copy of one book to Ali Raza by typing his student number and scanning the barcode;
+  - the demo parent saw Ali's loan and reserved the same book for Fatima;
+  - when Ali's copy was returned, the desk said "Put aside for Fatima Raza", and the parent saw it ready to collect;
+  - the teacher saw her own library card, and the report showed the loans;
+  - the parent was kept out of the desk.
+  - No page errors. The demo database was restored afterwards.
+- **On Render**:
+  - `segno` is in `requirements.txt`;
+  - add a daily cron job for `python manage.py send_library_reminders`.
+- **Still to try**: scanning the printed labels with the school's own barcode scanner.
 
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 

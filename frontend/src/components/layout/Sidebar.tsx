@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -200,6 +200,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'academic-setup', label: 'Academic Setup', icon: <GraduationCap className="w-4 h-4" />, href: '/education/academic-setup' },
     { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
     { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
+    { id: 'library', label: 'Library', icon: <Library className="w-4 h-4" />, href: '/education/library' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
     // Platform owner only: every school on this installation.
     ...(user?.is_superuser
@@ -220,6 +221,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     },
     { id: 'my-classes', label: 'My Classes', icon: <GraduationCap className="w-4 h-4" />, href: '/teacher/classes', always: true },
     { id: 'class-reports', label: 'Class Reports', icon: <ClipboardList className="w-4 h-4" />, href: '/teacher/reports', always: true },
+    { id: 'library', label: 'Library', icon: <Library className="w-4 h-4" />, href: '/library', always: true },
     ...teacherQuickActions
       .filter((q) => canView(q.module))
       .map((q) => ({
@@ -314,6 +316,13 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       icon: <Award className="w-4 h-4" />,
       href: '/student/certificates'
     },
+    {
+      id: 'library',
+      label: 'Library',
+      icon: <Library className="w-4 h-4" />,
+      href: '/student/library',
+      always: true
+    },
     ...COMMS,
     {
       id: 'notifications',
@@ -345,6 +354,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     P('fees', 'Fees & Billing', <Wallet className="w-4 h-4" />, '/parent/fees'),
     P('documents', 'Documents', <FileText className="w-4 h-4" />, '/parent/documents'),
     P('applications', 'Applications', <ClipboardList className="w-4 h-4" />, '/parent/applications'),
+    P('library', 'Library', <Library className="w-4 h-4" />, '/parent/library'),
     ...COMMS,
     P('notifications', 'Notifications', <MessageSquare className="w-4 h-4" />, '/parent/notifications'),
     {

@@ -182,6 +182,14 @@ import ParentFeesPage from './pages/portals/parent/ParentFeesPage'
 import ParentApplicationsPage from './pages/portals/parent/ParentApplicationsPage'
 import FamilyUpdatesPage from './pages/education/students/FamilyUpdatesPage'
 import TeacherDashboard from './pages/portals/teacher/TeacherDashboard'
+import LibraryDeskPage from './pages/education/library/LibraryDeskPage'
+import LibraryCataloguePage from './pages/education/library/LibraryCataloguePage'
+import LibraryMembersPage from './pages/education/library/LibraryMembersPage'
+import LibraryLoansPage from './pages/education/library/LibraryLoansPage'
+import LibraryReportPage from './pages/education/library/LibraryReportPage'
+import LibraryLabelsPage from './pages/education/library/LibraryLabelsPage'
+import MyLibraryPage from './pages/portals/MyLibraryPage'
+import { BookOpen as LibIcon, ScanLine, Users as MembersIcon, ListChecks, BarChart3 } from 'lucide-react'
 import MyClassesPage from './pages/portals/teacher/MyClassesPage'
 import ClassRosterPage from './pages/portals/teacher/ClassRosterPage'
 import ClassReportsPage from './pages/portals/teacher/ClassReportsPage'
@@ -210,6 +218,14 @@ import CursorFollower from './components/common/CursorFollower'
 
 const AppToaster = memo(() => <Toaster position="top-right" />)
 AppToaster.displayName = 'AppToaster'
+
+const libraryTabs = [
+  { id: 'desk', path: '/education/library', label: 'Desk', icon: ScanLine },
+  { id: 'catalogue', path: '/education/library/catalogue', label: 'Catalogue', icon: LibIcon },
+  { id: 'members', path: '/education/library/members', label: 'Members', icon: MembersIcon },
+  { id: 'loans', path: '/education/library/loans', label: 'Loans & Reservations', icon: ListChecks },
+  { id: 'report', path: '/education/library/report', label: 'Report & Rules', icon: BarChart3 },
+]
 
 function App() {
   useEffect(() => {
@@ -484,6 +500,16 @@ function App() {
                   <Route path="templates" element={<CertificatesPage />} />
                 </Route>
                 <Route path="education/live-class" element={<LiveClassPage />} />
+                {/* Library (the office runs the desk) */}
+                <Route path="education/library/labels" element={<RoleBasedRoute allowedRoles={['admin']}><LibraryLabelsPage /></RoleBasedRoute>} />
+                <Route path="education/library" element={<RoleBasedRoute allowedRoles={['admin']}><ModuleTabsLayout tabs={libraryTabs} scopeClass="library-scope" /></RoleBasedRoute>}>
+                  <Route index element={<LibraryDeskPage />} />
+                  <Route path="catalogue" element={<LibraryCataloguePage />} />
+                  <Route path="members" element={<LibraryMembersPage />} />
+                  <Route path="loans" element={<LibraryLoansPage />} />
+                  <Route path="report" element={<LibraryReportPage />} />
+                </Route>
+                <Route path="library" element={<MyLibraryPage />} />
                 <Route path="education/live-class/room" element={<LiveRoomPage />} />
                 
                 {/* ============================================================
@@ -510,6 +536,7 @@ function App() {
                 <Route path="parent/assignments" element={<StudentAssignmentsPage />} />
                 <Route path="parent/behaviour" element={<StudentBehaviourPage />} />
                 <Route path="parent/documents" element={<StudentDocumentsPage />} />
+                <Route path="parent/library" element={<MyLibraryPage />} />
                 <Route path="parent/fees" element={<ParentFeesPage />} />
                 <Route path="parent/applications" element={<ParentApplicationsPage />} />
                 <Route path="parent/notifications" element={<StudentNotificationsPage />} />
@@ -530,6 +557,7 @@ function App() {
                   <Route path="assignments" element={<StudentAssignmentsPage />} />
                   <Route path="progress" element={<PortalProgressPage />} />
                   <Route path="documents" element={<StudentDocumentsPage />} />
+                  <Route path="library" element={<MyLibraryPage />} />
                   <Route path="behaviour" element={<StudentBehaviourPage />} />
                   <Route path="certificates" element={<StudentCertificatesPage />} />
                   <Route path="profile" element={<PortalStudentProfilePage />} />

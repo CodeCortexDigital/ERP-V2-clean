@@ -33,3 +33,4 @@ anthropic>=1.8
 # Firebase / Google OAuth
 firebase-admin>=6.5
 google-auth>=2.30
+segno>=1.6  # QR codes on library labels (pure Python)
