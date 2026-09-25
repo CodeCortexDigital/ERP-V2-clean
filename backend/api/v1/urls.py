@@ -156,6 +156,7 @@ urlpatterns = [
     path('auth/library/', include('services.education.library.urls')),
     path('auth/transport/', include('services.education.transport.urls')),
     path('auth/inventory/', include('services.education.inventory.urls')),
+    path('auth/cafeteria/', include('services.education.cafeteria.urls')),
     path('auth/admissions/', include('services.education.admissions.urls')),
     path('auth/analytics/', include('services.analytics.urls')),
     

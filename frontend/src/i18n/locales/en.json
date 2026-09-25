@@ -51,7 +51,7 @@
     "settings": "Settings",
     "all_schools": "All Schools",
     "my_profile": "My Profile",
-    "homework": "Homework", "assignments": "Assignments", "progress": "Progress", "documents": "Documents", "my_family": "My Family", "fees_billing": "Fees & Billing", "applications": "Applications", "my_classes": "My Classes", "class_reports": "Class Reports", "library": "Library", "transport": "Transport", "bus_duty": "Bus Duty", "inventory": "Inventory",
+    "homework": "Homework", "assignments": "Assignments", "progress": "Progress", "documents": "Documents", "my_family": "My Family", "fees_billing": "Fees & Billing", "applications": "Applications", "my_classes": "My Classes", "class_reports": "Class Reports", "library": "Library", "transport": "Transport", "bus_duty": "Bus Duty", "inventory": "Inventory", "cafeteria": "Cafeteria", "cafeteria_till": "Cafeteria Till",
     "my_timetable": "My Timetable",
     "notifications": "Notifications",
     "mark_attendance": "Mark Attendance",

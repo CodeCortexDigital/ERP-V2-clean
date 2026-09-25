@@ -199,6 +199,11 @@ import TransportRidersPage from './pages/education/transport/TransportRidersPage
 import TransportFleetPage from './pages/education/transport/TransportFleetPage'
 import TransportReportPage from './pages/education/transport/TransportReportPage'
 import MyTransportPage from './pages/portals/MyTransportPage'
+import CafeteriaTillPage from './pages/education/cafeteria/CafeteriaTillPage'
+import CafeteriaMenuPage from './pages/education/cafeteria/CafeteriaMenuPage'
+import CafeteriaAccountsPage from './pages/education/cafeteria/CafeteriaAccountsPage'
+import MyCafeteriaPage from './pages/portals/MyCafeteriaPage'
+import { UtensilsCrossed, CalendarRange, Wallet as WalletIcon } from 'lucide-react'
 import { Bus, Route as RouteIcon, Users2 as RidersIcon, Truck, PieChart as ReportIcon } from 'lucide-react'
 import { BookOpen as LibIcon, ScanLine, Users as MembersIcon, ListChecks, BarChart3 } from 'lucide-react'
 import MyClassesPage from './pages/portals/teacher/MyClassesPage'
@@ -251,6 +256,12 @@ const inventoryTabs = [
   { id: 'purchases', path: '/education/inventory/purchases', label: 'Purchases', icon: PurchasesIcon },
   { id: 'suppliers', path: '/education/inventory/suppliers', label: 'Suppliers & Categories', icon: Factory },
   { id: 'report', path: '/education/inventory/report', label: 'Report', icon: BarChart2 },
+]
+
+const cafeteriaTabs = [
+  { id: 'till', path: '/education/cafeteria', label: 'Till', icon: UtensilsCrossed },
+  { id: 'menu', path: '/education/cafeteria/menu', label: 'Menu & Food', icon: CalendarRange },
+  { id: 'accounts', path: '/education/cafeteria/accounts', label: 'Accounts, Plans & Report', icon: WalletIcon },
 ]
 
 function App() {
@@ -552,6 +563,13 @@ function App() {
                   <Route path="report" element={<TransportReportPage />} />
                 </Route>
                 <Route path="transport/duty" element={<TransportTodayPage crew />} />
+                {/* Cafeteria (the office, or cafeteria staff at the till) */}
+                <Route path="education/cafeteria" element={<RoleBasedRoute allowedRoles={['admin']}><ModuleTabsLayout tabs={cafeteriaTabs} scopeClass="cafeteria-scope" /></RoleBasedRoute>}>
+                  <Route index element={<CafeteriaTillPage />} />
+                  <Route path="menu" element={<CafeteriaMenuPage />} />
+                  <Route path="accounts" element={<CafeteriaAccountsPage />} />
+                </Route>
+                <Route path="cafeteria/till" element={<CafeteriaTillPage standalone />} />
                 <Route path="education/live-class/room" element={<LiveRoomPage />} />
                 
                 {/* ============================================================
@@ -580,6 +598,7 @@ function App() {
                 <Route path="parent/documents" element={<StudentDocumentsPage />} />
                 <Route path="parent/library" element={<MyLibraryPage />} />
                 <Route path="parent/transport" element={<MyTransportPage />} />
+                <Route path="parent/cafeteria" element={<MyCafeteriaPage />} />
                 <Route path="parent/fees" element={<ParentFeesPage />} />
                 <Route path="parent/applications" element={<ParentApplicationsPage />} />
                 <Route path="parent/notifications" element={<StudentNotificationsPage />} />
@@ -602,6 +621,7 @@ function App() {
                   <Route path="documents" element={<StudentDocumentsPage />} />
                   <Route path="library" element={<MyLibraryPage />} />
                   <Route path="transport" element={<MyTransportPage />} />
+                  <Route path="cafeteria" element={<MyCafeteriaPage />} />
                   <Route path="behaviour" element={<StudentBehaviourPage />} />
                   <Route path="certificates" element={<StudentCertificatesPage />} />
                   <Route path="profile" element={<PortalStudentProfilePage />} />

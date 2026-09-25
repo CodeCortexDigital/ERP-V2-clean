@@ -5,8 +5,9 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes, UtensilsCrossed
 } from 'lucide-react';
+import cafeteriaService from '@/services/cafeteria.service';
 import transportService from '@/services/transport.service';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -97,6 +98,12 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   useEffect(() => {
     if (!role || ['admin', 'parent', 'student'].includes(role)) return;
     transportService.routes().then((r) => setOnBusDuty(r.length > 0)).catch(() => setOnBusDuty(false));
+  }, [role]);
+  // Cafeteria staff (a staff login at this school) get the till; the server decides who may use it.
+  const [atTill, setAtTill] = useState(false);
+  useEffect(() => {
+    if (!role || ['admin', 'parent', 'student', 'teacher'].includes(role)) return;
+    cafeteriaService.find('').then(() => setAtTill(true)).catch(() => setAtTill(false));
   }, [role]);
 
   // Admin always sees the full menu; other roles are filtered by permissions.
@@ -209,6 +216,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'library', label: 'Library', icon: <Library className="w-4 h-4" />, href: '/education/library' },
     { id: 'transport', label: 'Transport', icon: <Bus className="w-4 h-4" />, href: '/education/transport' },
     { id: 'inventory', label: 'Inventory', icon: <Boxes className="w-4 h-4" />, href: '/education/inventory' },
+    { id: 'cafeteria', label: 'Cafeteria', icon: <UtensilsCrossed className="w-4 h-4" />, href: '/education/cafeteria' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
     // Platform owner only: every school on this installation.
     ...(user?.is_superuser
@@ -338,6 +346,13 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       href: '/student/transport',
       always: true
     },
+    {
+      id: 'cafeteria',
+      label: 'Cafeteria',
+      icon: <UtensilsCrossed className="w-4 h-4" />,
+      href: '/student/cafeteria',
+      always: true
+    },
     ...COMMS,
     {
       id: 'notifications',
@@ -371,6 +386,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     P('applications', 'Applications', <ClipboardList className="w-4 h-4" />, '/parent/applications'),
     P('library', 'Library', <Library className="w-4 h-4" />, '/parent/library'),
     P('transport', 'Transport', <Bus className="w-4 h-4" />, '/parent/transport'),
+    P('cafeteria', 'Cafeteria', <UtensilsCrossed className="w-4 h-4" />, '/parent/cafeteria'),
     ...COMMS,
     P('notifications', 'Notifications', <MessageSquare className="w-4 h-4" />, '/parent/notifications'),
     {
@@ -391,6 +407,10 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   if (onBusDuty && !isAdmin && !isParent && !isStudent) {
     const duty: MenuItem = { id: 'bus-duty', label: 'Bus Duty', icon: <Bus className="w-4 h-4" />, href: '/transport/duty', always: true };
     menuItems = [menuItems[0], duty, ...menuItems.slice(1)];
+  }
+  if (atTill && !isAdmin && !isParent && !isStudent) {
+    const till: MenuItem = { id: 'cafeteria-till', label: 'Cafeteria Till', icon: <UtensilsCrossed className="w-4 h-4" />, href: '/cafeteria/till', always: true };
+    menuItems = [menuItems[0], till, ...menuItems.slice(1)];
   }
   menuItems = filterByPermissions(menuItems);
 

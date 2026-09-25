@@ -20,8 +20,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | ✅ Done |
 | **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | ✅ Done |
 | **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | ✅ Done |
-| **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | ⏳ Next |
-| **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | Not started |
+| **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | ✅ Done |
+| **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | ⏳ Next |
 | **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | Not started |
 | **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | Not started |
 | **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | Later |
@@ -43,7 +43,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - communication `0005`;
   - calendar `0001`;
   - behaviour `0003`–`0004`;
-  - library `0001`, transport `0001` and inventory `0001`.
+  - library `0001`, transport `0001`, inventory `0001` and cafeteria `0001`.
 - [ ] **New Python package**: `segno` (library QR labels) is in `requirements.txt`. Check that Render installs it.
 - [ ] **Daily cron jobs on Render**:
   - `python manage.py send_scheduled_announcements`;
@@ -985,6 +985,66 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - selling 2 shirts to Ali Raza showed "The family is billed $3,000" and created invoice INV-2026-09-0361;
   - **Make an order** from the reorder list produced PO-2026-0001 for 50 reams, which was marked sent and received with bill INV-7788, bringing the paper to 58 reams;
   - the CSV downloaded, and the report showed the stock value, the sale and "Science dept $7,000".
+  - No page errors. The demo database was restored afterwards .
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Phase 16: Cafeteria ✅
+
+**What a school can now do**
+- **A cafeteria module** (sidebar → Cafeteria) with three tabs: Till, Menu & Food, and Accounts, Plans & Report.
+- **Food and drinks**: name, category (meal, snack, drink, fruit, dessert), price, **allergens** (nuts, milk, egg, gluten, and so on), vegetarian, halal, and on sale or not.
+- **Weekly menu**: a grid of breakfast, lunch and snack for Monday–Friday. Click a slot to choose what's served; move between weeks; **Copy to next week**. Families see the week's menu with prices and allergens.
+- **Student accounts** (prepaid): each student has a cafeteria balance, opened automatically the first time they are topped up or served. The office sees every balance, what was spent today and each student's meal plan, with a **Low** filter. From a student's account it can add cash, correct a balance (with a reason), pause the account, and refund a purchase.
+- **The till** (works on a tablet at the counter):
+  - type a name or scan the student number;
+  - it shows the **balance**, what's **left of today's limit**, the student's **meal plan** (and whether today's meal was already had), and any **allergies** and dietary needs (in red when severe) from the student's health record;
+  - tap food to build the order, then **Charge**, or **Meal plan** for students on one;
+  - the sale is refused when there isn't enough money, the daily limit would be passed, the account is paused, or the meal plan meal was already had today;
+  - **Allergy check**: if a food's allergens match the student's recorded allergies (e.g. "Peanut cookie: nuts" for a peanut allergy), the till stops with a warning; **Sell anyway** is possible but is written on the transaction;
+  - cash top-ups at the till, and a list of sales "just now".
+- **Meal plans** (e.g. "Lunch every school day" at a monthly fee): add and remove students. The till serves them without charging, once per day per meal. **Bill the month** makes one invoice per student, never twice for the same month.
+- **Families** (Cafeteria in the parent and student menus): each child's balance, spent today against the limit, meal plan, recent purchases and top-ups, and this week's menu. Parents can:
+  - **Top up**: this makes an invoice ("Cafeteria top-up for Fatima Raza"); once it's paid (at the office or with **Pay online**), the money is added automatically and the family is told;
+  - set a **daily limit** for each child.
+- **Low-balance alert**: the family is told once when a balance falls to the school's level, and again only after it has been topped up above it.
+- **Rules**: a daily limit for everyone, the low-balance level, and how far below zero a student may go (0 = never).
+- **Report**:
+  - sales, number of purchases, meal-plan meals, money held in accounts, low balances and balances below zero;
+  - best sellers and sales by day.
+- Only the office and cafeteria staff (a staff login at the school) use the till. Cafeteria staff see **Cafeteria Till** in their menu. Families only see their own children. Each school's cafeteria is separate.
+
+**Built**
+- Backend: new app `backend/services/education/cafeteria/` (label `education_cafeteria`):
+  - models `CafeteriaSettings`, `FoodItem`, `MenuDay`, `MealPlan`, `MealPlanMember`, `Account`, `Transaction` and `TopUpRequest` (migration `0001`), all registered for school separation;
+  - `api.py` and `urls.py`, mounted at `/api/v1/auth/cafeteria/`. Every balance change goes through one function (`post`), which locks the account and handles the low-balance alert;
+  - `signals.py` adds a paid top-up invoice's amount to the balance, exactly once.
+- Frontend:
+  - `services/cafeteria.service.ts`;
+  - `pages/education/cafeteria/` (Till, Menu & Food, Accounts, Plans & Report);
+  - `pages/portals/MyCafeteriaPage.tsx`;
+  - Cafeteria in the admin, parent and student menus, and Cafeteria Till for cafeteria staff, translated into 23 languages.
+- Tests: `backend/tests/test_cafeteria.py` has 3 new tests:
+  - the till: search, not enough money, charging, the allergy stop and a recorded override, one low-balance notice, the family's daily limit, refunds only once, office-only corrections, paused accounts, and who may use the till;
+  - the menu and meal plans: the weekly menu for families, copying a week, joining a plan once, one plan meal a day, no plan refused, billing the month once, and the report;
+  - family top-ups: the invoice, the money added when it's paid (and never twice), the family told, and families limited to their own children.
+- Passing: these tests plus the billing and school separation tests (18 passed).
+- Browser check on the demo school (the demo child Fatima Raza was given a peanut allergy for the test):
+  - the admin added three foods, set Monday's lunch, and created a lunch plan for Ali Raza;
+  - at the till, Fatima showed "Allergies: Peanuts (severe)"; she was topped up with $500, a peanut cookie was stopped with an allergy warning, and biryani and juice were charged ($310, balance $190);
+  - Ali had his lunch on the meal plan;
+  - the demo parent saw both children, the purchases and the week's menu, asked for a $1,000 top-up (invoice made, "Waiting for payment") and set a $300 daily limit;
+  - the report showed $310 in sales and one meal-plan meal.
   - No page errors. The demo database was restored afterwards.
 
 
