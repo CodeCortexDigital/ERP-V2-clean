@@ -13,6 +13,7 @@ import householdService, {
 import { formatMoney } from '@/utils/currency';
 import { Modal } from '@/components/ui/Modal';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
+import EnrollmentAndSchedule from '@/components/students/EnrollmentAndSchedule';
 
 type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades';
 
@@ -242,6 +243,8 @@ function OverviewTab({ data, onTab }: { data: StudentProfile; onTab: (t: TabId) 
           )}
         </section>
       </div>
+
+      <EnrollmentAndSchedule data={data} />
     </div>
   );
 }

@@ -27,6 +27,29 @@ def update_last_activity_on_save(sender, instance, created, **kwargs):
         # Using update to avoid recursion trigger on post_save
         Student.objects.filter(pk=instance.pk).update(last_activity=timezone.now())
 
+@receiver(pre_save, sender=Student)
+def remember_enrollment_fields(sender, instance, raw=False, **kwargs):
+    """Keep the class, section and status before the save, to record enrollment history."""
+    if raw:
+        return
+    old = Student.all_objects.filter(pk=instance.pk).values('current_class_id', 'current_section_id', 'is_active').first()
+    instance._enrollment_before = old
+
+
+@receiver(post_save, sender=Student)
+def record_enrollment_history(sender, instance, created, raw=False, **kwargs):
+    """Open, close or change the student's enrollment when their class, section or status changes."""
+    if raw or instance.deleted_at:
+        return
+    before = getattr(instance, '_enrollment_before', None)
+    try:
+        from .enrollment import sync_enrollment
+
+        sync_enrollment(instance, before)
+    except Exception:
+        logger.exception('Could not record enrollment history for student %s', instance.pk)
+
+
 @receiver(post_save, sender=Student)
 def create_household_from_parent_fields(sender, instance, raw=False, **kwargs):
     """Students entered through the classic form (father/mother fields) get a

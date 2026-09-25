@@ -106,8 +106,10 @@ export const subjectsTabs: ModuleTab[] = [
 
 // ============================ ACADEMIC SETUP (Classes + Subjects + Homework) ============================
 export const academicSetupTabs: ModuleTab[] = [
+  { id: 'years', path: '/education/academic-setup/years', label: 'School Years & Terms', icon: CalendarRange, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'classes', path: '/education/academic-setup/classes', label: 'Classes', icon: GraduationCap, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'subjects', path: '/education/academic-setup/subjects', label: 'Subjects', icon: BookOpen, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'courses', path: '/education/academic-setup/courses', label: 'Course Catalog', icon: Library, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'assign-subjects', path: '/education/academic-setup/subjects/assign', label: 'Assign Subjects', icon: GraduationCap, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'homework', path: '/education/academic-setup/homework', label: 'Homework', icon: FileText, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'live-class', path: '/education/academic-setup/live-class', label: 'Live Class', icon: Video, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },

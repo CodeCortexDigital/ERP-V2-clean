@@ -119,6 +119,7 @@ export interface StudentProfile {
     invoices: Array<{ id: string; number: string; due_date: string | null; amount: number; paid: number; balance: number; status: string; description: string }>;
   };
   results: Array<{ exam: string; date: string; obtained: number; percentage: number; grade: string; passed: boolean }>;
+  enrollments: Array<{ id: string; academic_year: string; class_name: string; section: string; start_date: string; end_date: string | null; status: string; status_label: string; note: string }>;
   can_edit: boolean;
 }
 

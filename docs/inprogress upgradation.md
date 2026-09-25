@@ -9,8 +9,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **2** | **Admissions**                  | Office staff manually enters student application                                               | **Online admissions workflow**         | Public application form → application review → approve/reject → enrollment → document upload → e-signatures → yearly re-enrollment                                                                   | 🔴 **2**         | ✅ Done |
 |  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | ✅ Done |
 |  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | ✅ Done |
-|  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | ⏳ Next |
-|  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | Not started |
+|  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | ✅ Done |
+|  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | ⏳ Next |
 |  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | Not started |
 |  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | Not started |
 |  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | Not started |
@@ -301,6 +301,89 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the attendance mode was switched and saved.
   - No page errors. The demo database was restored afterwards.
 - Note for local running: the demo backend started by `demo.bat` had to be restarted to pick up the new routes.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Phase 5: Academics / Classes ✅
+
+**What a school can now do**
+- **School years & terms** (Academic Setup → School Years & Terms):
+  - add school years with first and last days, and choose the current year;
+  - split a year into **2 semesters, 3 trimesters, 3 terms or 4 quarters** in one click, or add terms by hand;
+  - dates are checked: a term must sit inside its year, and terms cannot overlap;
+  - the current term is highlighted. The gradebook and report cards in Phase 6 use these grading periods.
+- **Grade levels and homeroom teachers** for every class: Pre-K, Kindergarten, Grade 1–12.
+  - Grade levels put classes in order and decide promotions.
+  - Existing classes were filled in automatically from their names ("Grade 5", "Class 3", "Year 10", "KG", "Nursery").
+- **Start a new school year** ("Start this year" on next year's card):
+  - a preview shows every student's move, one grade up and keeping their section name where it exists;
+  - it shows who **graduates** (the top grade) and who needs attention (no grade level or no next grade);
+  - tick students who **repeat the year**;
+  - then, in one step: the new year becomes current, students move up, graduates are marked, and enrollment history is written.
+- **Course catalog** (Academic Setup → Course Catalog), for every subject:
+  - **department**;
+  - **level**: Standard, Honors, Advanced, AP, IB, Support;
+  - **credits**, for example 1.0 or 0.5;
+  - **elective** and **offered this year**.
+  - Changes save as you go. Transcripts and GPA (Phase 6) use these.
+- **Enrollment history** on the student's Overview tab:
+  - every class and section the student has been in, per school year, with dates and how each ended: Enrolled, Promoted, Repeated, Moved, Left, Graduated;
+  - it is recorded automatically whenever a student is admitted, moved to another class or section (including the existing Promote Students page), leaves, or rolls over;
+  - existing students were given their current enrollment once.
+- **Class schedule** on the student's Overview tab: the week's lessons from the timetable (time, subject, teacher, room), opening on today.
+- The Pakistani flow is kept: classes are reused every year as before, and the Promote Students page still works (it now also writes history).
+
+**Built**
+- Backend:
+  - `Term` model;
+  - grade level and homeroom teacher on classes;
+  - course fields on subjects;
+  - `Enrollment` model, in the students app;
+  - migrations `academics/0025–0026` and `students/0012–0013`, which include the one-off grade-level guess and the enrollment backfill;
+  - new `academics/structure.py`: years, terms, term generation, current term, rollover preview and run, student schedule;
+  - `students/enrollment.py` plus the pre/post-save signals that keep history in step;
+  - the student profile now includes the enrollment history.
+- Frontend:
+  - `pages/education/academic-years/SchoolYearsPage.tsx`, which replaces the old "coming soon" placeholder;
+  - `pages/education/subjects/CourseCatalogPage.tsx`;
+  - `components/students/EnrollmentAndSchedule.tsx`;
+  - two new Academic Setup tabs.
+- Tests: `backend/tests/test_academic_structure.py` has 4 new tests:
+  - generated semesters cover the year exactly, out-of-year and overlapping terms are refused, and teachers cannot change them;
+  - history follows class changes and leaving;
+  - the rollover preview, then a run with one student repeating, one promoted keeping section A, and one graduating, with the new year made current;
+  - isolation between schools.
+- Browser check on the demo school:
+  - the current year was split into semesters, and the current one is marked "Now";
+  - a homeroom teacher was set;
+  - 2027-2028 was added, and its rollover preview showed 100 students moving up and 20 graduating from Grade 10;
+  - a course was set to Science / AP;
+  - Iqra Abbasi's Overview showed "Grade 5 · A · 2026-2027 · Enrolled" and her Friday timetable.
+  - No page errors. The demo database was restored afterwards.
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

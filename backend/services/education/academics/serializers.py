@@ -27,12 +27,14 @@ class SchoolClassSerializer(serializers.ModelSerializer):
     sections = SectionSerializer(many=True, read_only=True)
     tuition_fee = serializers.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     classroom_name = serializers.CharField(source='classroom.name', read_only=True)
+    homeroom_teacher_name = serializers.CharField(source='homeroom_teacher.full_name', read_only=True, default='')
     student_count = serializers.SerializerMethodField()
     available_seats = serializers.SerializerMethodField()
 
     class Meta:
         model = SchoolClass
         fields = ['id', 'tenant', 'name', 'code', 'academic_year', 'teacher_name',
+                  'grade_level', 'homeroom_teacher', 'homeroom_teacher_name',
                   'classroom', 'classroom_name', 'max_students', 'student_count',
                   'available_seats', 'tuition_fee', 'description', 'is_active',
                   'created_at', 'sections']

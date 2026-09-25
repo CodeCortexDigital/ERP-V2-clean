@@ -496,5 +496,12 @@ def student_profile(request, id):
              'grade': r.grade, 'passed': r.is_pass}
             for r in results
         ],
+        'enrollments': _enrollment_history(student),
         'can_edit': is_admin(request.user),
     })
+
+
+def _enrollment_history(student):
+    from .enrollment import history
+
+    return history(student)

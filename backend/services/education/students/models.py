@@ -284,3 +284,28 @@ class Immunization(TenantScopedModel):
 
     class Meta:
         ordering = ['vaccine', 'date_given']
+
+class Enrollment(TenantScopedModel):
+    """Which class and section a student was in, from when to when, and how it ended."""
+    STATUSES = [
+        ('enrolled', 'Enrolled'), ('promoted', 'Promoted'), ('repeated', 'Repeated the year'),
+        ('transferred', 'Moved to another class'), ('withdrawn', 'Left the school'), ('graduated', 'Graduated'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='enrollments')
+    academic_year = models.ForeignKey('education_academics.AcademicYear', on_delete=models.SET_NULL, null=True,
+                                      blank=True, related_name='enrollments')
+    school_class = models.ForeignKey('education_academics.SchoolClass', on_delete=models.SET_NULL, null=True,
+                                     blank=True, related_name='enrollments')
+    section = models.ForeignKey('education_academics.Section', on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='enrollments')
+    class_name = models.CharField(max_length=80, blank=True, default='', help_text='Kept if the class is deleted')
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=12, choices=STATUSES, default='enrolled')
+    note = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-start_date', '-created_at']

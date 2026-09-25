@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from . import views
+from . import structure, views
 from services.education.academics.views import AllTimetableEntriesView
 
 router = DefaultRouter()
@@ -11,6 +11,15 @@ urlpatterns = [
     path('timetable-entries/all/', AllTimetableEntriesView.as_view(), name='timetable-entry-all'),
     # LEVEL 1: BASIC STRUCTURE
     path('academic-years/', views.AcademicYearListCreateView.as_view(), name='academic-year-list'),
+    # School years, terms, rollover and student schedules
+    path('years/', structure.years, name='school-years'),
+    path('years/<str:year_id>/', structure.year_detail, name='school-year-detail'),
+    path('years/<str:year_id>/generate-terms/', structure.generate_terms, name='school-year-generate-terms'),
+    path('years/<str:year_id>/rollover/', structure.rollover, name='school-year-rollover'),
+    path('terms/', structure.terms, name='terms'),
+    path('terms/current/', structure.term_now, name='term-current'),
+    path('terms/<str:term_id>/', structure.term_detail, name='term-detail'),
+    path('students/<str:student_id>/schedule/', structure.student_schedule, name='student-schedule'),
     path('classes/', views.SchoolClassListCreateView.as_view(), name='class-list'),
     path('classes/<str:id>/', views.SchoolClassDetailView.as_view(), name='class-detail'),
     path('classes/<str:class_id>/sections/', views.ClassSectionsView.as_view(), name='class-sections'),

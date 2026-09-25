@@ -119,6 +119,8 @@ import PaymentPlansPage from '@/pages/education/finance/PaymentPlansPage'
 import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
 import LessonAttendancePage from '@/pages/education/attendance/LessonAttendancePage'
 import AbsenceReportsPage from '@/pages/education/attendance/AbsenceReportsPage'
+import SchoolYearsPage from '@/pages/education/academic-years/SchoolYearsPage'
+import CourseCatalogPage from '@/pages/education/subjects/CourseCatalogPage'
 
 // Behaviour
 import BehaviourPage from './pages/education/behaviour/BehaviourPage'
@@ -324,6 +326,8 @@ function App() {
                   <Route path="classes/view/:id" element={<ClassDetailPage />} />
                   <Route path="subjects" element={<SubjectsPage />} />
                   <Route path="subjects/assign" element={<AssignSubjectsPage />} />
+                  <Route path="years" element={<SchoolYearsPage />} />
+                  <Route path="courses" element={<CourseCatalogPage />} />
                   <Route path="homework" element={<HomeworkManagementPage />} />
                   <Route path="live-class" element={<LiveClassPage />} />
                 </Route>

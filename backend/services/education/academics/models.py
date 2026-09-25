@@ -12,12 +12,35 @@ class AcademicYear(models.Model):
     end_date = models.DateField()
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return self.name
-    
+
     class Meta:
         ordering = ['-start_date']
+
+
+class Term(models.Model):
+    """A grading period inside a school year: term, semester, trimester or quarter."""
+    KINDS = [('term', 'Term'), ('semester', 'Semester'), ('trimester', 'Trimester'), ('quarter', 'Quarter')]
+
+    tenant = models.ForeignKey('core_tenants.School', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='+', db_index=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='terms')
+    name = models.CharField(max_length=50)
+    kind = models.CharField(max_length=10, choices=KINDS, default='term')
+    order = models.PositiveSmallIntegerField(default=1)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['academic_year', 'order', 'start_date']
+        constraints = [models.UniqueConstraint(fields=['academic_year', 'name'], name='uniq_term_name_per_year')]
+
+    def __str__(self):
+        return f'{self.name} ({self.academic_year})'
 
 
 
@@ -36,6 +59,10 @@ class SchoolClass(SchoolAliasMixin, models.Model):
     code = models.CharField(max_length=20)
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=True, blank=True)
     teacher_name = models.CharField(max_length=200, blank=True)
+    # -1 = Pre-K, 0 = Kindergarten, 1..12 = Grade/Year/Class 1..12. Orders classes and drives promotion.
+    grade_level = models.SmallIntegerField(null=True, blank=True)
+    homeroom_teacher = models.ForeignKey('Teacher', on_delete=models.SET_NULL, null=True, blank=True,
+                                         related_name='homeroom_classes')
     classroom = models.ForeignKey('Classroom', on_delete=models.SET_NULL, null=True, blank=True, related_name='classes')
     max_students = models.PositiveIntegerField(default=30)
     tuition_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -95,6 +122,15 @@ class Subject(models.Model):
     code = models.CharField(max_length=20)
     credits = models.IntegerField(default=3)
     description = models.TextField(blank=True)
+    # Course catalog (used for transcripts and GPA in secondary schools).
+    department = models.CharField(max_length=60, blank=True, default='')
+    level = models.CharField(max_length=12, blank=True, default='standard', choices=[
+        ('standard', 'Standard'), ('honors', 'Honors'), ('advanced', 'Advanced'),
+        ('ap', 'AP'), ('ib', 'IB'), ('remedial', 'Support / remedial')])
+    credit_value = models.DecimalField(max_digits=4, decimal_places=2, default=1,
+                                       help_text='Credits earned for passing the course, e.g. 1.0 or 0.5')
+    is_elective = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
