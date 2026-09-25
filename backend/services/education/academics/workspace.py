@@ -87,7 +87,7 @@ def today(request):
     if role not in ('teacher', 'admin'):
         return Response({'error': 'The workspace is for school staff.'}, status=403)
     now = timezone.localtime()
-    day = now.date()
+    day = timezone.localdate()
     school_day = is_school_day(day)
     weekday = day.strftime('%A').lower()
 

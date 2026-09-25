@@ -211,7 +211,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     ...COMMS,
     { id: 'communication', label: 'Communication', icon: <MessageSquare className="w-4 h-4" />, href: '/education/communication' },
     { id: 'academic-setup', label: 'Academic Setup', icon: <GraduationCap className="w-4 h-4" />, href: '/education/academic-setup' },
-    { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
+    { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: isAdmin ? '/education/analytics/insights' : '/education/analytics' },
     { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
     { id: 'library', label: 'Library', icon: <Library className="w-4 h-4" />, href: '/education/library' },
     { id: 'transport', label: 'Transport', icon: <Bus className="w-4 h-4" />, href: '/education/transport' },

@@ -22,8 +22,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | ✅ Done |
 | **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | ✅ Done |
 | **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | ✅ Done |
-| **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | ⏳ Next |
-| **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | Not started |
+| **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | ✅ Done |
+| **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | ⏳ Next |
 | **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | Later |
 | **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | Later |
 | **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | Later |
@@ -1113,6 +1113,63 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - returning with an error showed it (and cleaned up the address bar), and an old code showed "This sign-in has expired".
   - No page errors. The demo database was restored afterwards.
 - **Not in this phase**: Microsoft Teams or OneDrive, pushing grades back to Classroom, and district SSO (Clever / ClassLink) and rostering (OneRoster). They're on the later roadmap (72–77).
+
+
+
+### Phase 18: Reports & Analytics ✅
+
+**What a school can now do**
+- **Six new school reports**, the first tabs under Reports (the sidebar's Reports now opens them for the office): Overview, Enrolment, Attendance Trends, Finance, Academics and Teachers. The existing report tabs are still there.
+- **One date range at the top** applies to everything below it: Last 30 days, Last 90 days, This year so far, Last 12 months, or any two dates. Changing it keeps the charts on screen, dimmed, until the new numbers arrive.
+- **Every number is compared** with the period of the same length just before, shown as a change in green or red with an arrow (for example "−0.3 pts vs previous period").
+- **Overview**:
+  - students on roll, new students, attendance, fees collected, collection rate (collected ÷ billed), overdue fees (and all that's owed), and behaviour incidents;
+  - charts: fees billed and collected by month, attendance by month, students on roll by month, and attendance by class.
+- **Enrolment**:
+  - on roll, joined and left in the period, and the share of applications that enrolled;
+  - students on roll month by month for a year, joiners and leavers by month, students by class, the admissions funnel (applied → accepted → enrolled), and gender.
+- **Attendance Trends**:
+  - the rate with its change, days absent (and excused), late arrivals, and how many students are often absent (below 90% with 10+ days recorded);
+  - the rate by month, by class (lowest first) and by day of the week, and a list of the students often absent, each linking to their record.
+- **Finance**:
+  - billed, collected, collection rate, owed now and overdue;
+  - billed vs collected for 12 months;
+  - **what's owed, by how late** (not due, 1–30, 31–60, 61–90, over 90 days);
+  - billed by fee type (tuition, transport, …) and how families paid;
+  - the students who owe the most;
+  - income and expenses for the period (fees collected, other income, expenses from the ledger, net).
+  - "Billed" counts only this period's charges, not balances brought forward, so nothing is counted twice; refunds are taken off what was collected.
+- **Academics** (current term): average by class and by subject (lowest first), the spread of letter grades, and every student who needs attention with the reason (the same rules as the teacher workspace).
+- **Teachers**: each teacher's classes, students, lessons a week, work due in the period, how much of it is marked, behaviour records logged, and their classes' attendance.
+- **Charts are easy to read and check**:
+  - hovering or keyboard focus shows the exact values;
+  - every chart has **Show table**;
+  - two-series charts have a legend;
+  - the colours were checked for colour-blind readers and contrast, in light and dark mode.
+- **CSV** of each report's main table (enrolment by month, students often absent, billed vs collected by month, averages by class, teachers).
+- Office only. Every figure is for the signed-in school only.
+
+**Fixes found on the way**
+- The teacher's "My day" (Phase 12) could show the wrong day's lessons around midnight, because the day was read from the clock differently from the rest of the app. It now uses the school's local date everywhere.
+
+**Built**
+- Backend: new app `backend/services/education/insights/` (label `education_insights`, no tables). `api.py` and `urls.py`, mounted at `/api/v1/auth/insights/` (`overview`, `enrolment`, `attendance`, `finance`, `academics`, `teachers`); each takes `?from=&to=` and `?export=csv`.
+- Frontend:
+  - `components/insights/Charts.tsx`: small SVG charts with no extra package (column, line, bar list and stat tile), each with hover, a table view, and light and dark colours;
+  - `pages/education/insights/SchoolReportsPage.tsx`;
+  - the new tabs in `moduleTabs.ts` and their routes.
+- Tests: `backend/tests/test_insights.py` has 3 new tests (exact numbers on a small school, plus another school's data that must never appear):
+  - the overview and enrolment, including a CSV, and office only;
+  - attendance: counts, by class, students often absent, and a custom date range; finance: billed, collected (after a refund), owed, overdue and by how late, by fee type and method, the ledger, and the list of who owes the most;
+  - academics and teachers.
+- Passing: these tests plus the school separation and teacher workspace tests.
+- Browser check on the demo school (read only):
+  - the Overview showed 120 students on roll, 94.4% attendance, $2M collected at a 71.2% collection rate and $821.5K overdue, with the four charts;
+  - the column and line tooltips showed "Sep $2.9M Billed · $2M Collected" and "Aug 95%";
+  - **Show table** listed 12 months;
+  - all five other reports loaded (e.g. 11 students often absent; owed by how late; the teachers' table), and the Teachers CSV downloaded;
+  - dark mode was checked.
+  - No page errors.
 
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 

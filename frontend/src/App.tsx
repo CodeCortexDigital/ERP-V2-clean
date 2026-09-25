@@ -122,6 +122,7 @@ import FamilyBillingPage from '@/pages/education/finance/FamilyBillingPage'
 import PaymentPlansPage from '@/pages/education/finance/PaymentPlansPage'
 import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
 import IntegrationsPage from '@/pages/settings/IntegrationsPage'
+import SchoolReportsPage from '@/pages/education/insights/SchoolReportsPage'
 import LessonAttendancePage from '@/pages/education/attendance/LessonAttendancePage'
 import AbsenceReportsPage from '@/pages/education/attendance/AbsenceReportsPage'
 import SchoolYearsPage from '@/pages/education/academic-years/SchoolYearsPage'
@@ -531,6 +532,12 @@ function App() {
                 <Route path="communication/sms-templates" element={<CanAccess module="communication" redirect><CommunicationPage /></CanAccess>} />
                 <Route path="education/analytics" element={<CanAccess module="reports" redirect><ModuleTabsLayout tabs={reportsTabs} scopeClass="reports-scope" /></CanAccess>}>
                   <Route index element={<AnalyticsPage />} />
+                  <Route path="insights" element={<RoleBasedRoute allowedRoles={['admin']}><SchoolReportsPage view="overview" /></RoleBasedRoute>} />
+                  <Route path="insights/enrolment" element={<RoleBasedRoute allowedRoles={['admin']}><SchoolReportsPage view="enrolment" /></RoleBasedRoute>} />
+                  <Route path="insights/attendance" element={<RoleBasedRoute allowedRoles={['admin']}><SchoolReportsPage view="attendance" /></RoleBasedRoute>} />
+                  <Route path="insights/finance" element={<RoleBasedRoute allowedRoles={['admin']}><SchoolReportsPage view="finance" /></RoleBasedRoute>} />
+                  <Route path="insights/academics" element={<RoleBasedRoute allowedRoles={['admin']}><SchoolReportsPage view="academics" /></RoleBasedRoute>} />
+                  <Route path="insights/teachers" element={<RoleBasedRoute allowedRoles={['admin']}><SchoolReportsPage view="teachers" /></RoleBasedRoute>} />
                   <Route path="attendance-student" element={<AnalyticsPage />} />
                   <Route path="attendance-staff" element={<AnalyticsPage />} />
                   <Route path="fees" element={<AnalyticsPage />} />
