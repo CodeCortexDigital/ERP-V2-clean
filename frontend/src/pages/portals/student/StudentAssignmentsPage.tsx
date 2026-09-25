@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, BookOpen, ClipboardList, Loader2, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import portal, { WorkItem } from '@/services/portal.service';
-import ChildPicker, { usePortalChild } from '@/components/portal/ChildPicker';
+import ChildPicker, { usePortalChild, usePortalHome } from '@/components/portal/ChildPicker';
 
 const STATUS: Record<WorkItem['status'], [string, string]> = {
   overdue: ['Overdue', 'bg-rose-100 text-rose-700'],
@@ -25,6 +25,7 @@ const fmt = (d?: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateSt
 
 /** Gradebook assignments and class homework for a student, with status, marks and teacher comments. */
 export default function StudentAssignmentsPage() {
+  const home = usePortalHome();
   const { kids, id, setId, loading: kidsLoading } = usePortalChild();
   const [items, setItems] = useState<WorkItem[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
@@ -67,7 +68,7 @@ export default function StudentAssignmentsPage() {
           <BookOpen size={16} className="text-blue-600" /> Assignments & homework
         </h3>
         <ChildPicker kids={kids} id={id} onChange={setId} />
-        <Link to="/student" className="text-[11px] font-bold text-blue-600 flex items-center gap-1"><ArrowLeft size={13} /> Dashboard</Link>
+        <Link to={home} className="text-[11px] font-bold text-blue-600 flex items-center gap-1"><ArrowLeft size={13} /> Dashboard</Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

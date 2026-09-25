@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react';
 import portal, { PortalStudent } from '@/services/portal.service';
+import { useAuth } from '@/hooks/useAuth';
 
 const KEY = 'portal.child';
 
 function remembered(): string {
   try { return localStorage.getItem(KEY) || ''; } catch { return ''; }
+}
+
+/** Make this child the one every portal page opens on. */
+export function rememberChild(id: string) {
+  try { localStorage.setItem(KEY, id); } catch { /* private mode */ }
+}
+
+/** Where "Dashboard" goes: the Parent Portal for parents, the Student Portal otherwise. */
+export function usePortalHome(): string {
+  const { role } = useAuth();
+  return role === 'parent' ? '/parent' : '/student';
 }
 
 /** The students this account can see (a student sees themself; a parent sees each child), and the one picked. */
@@ -26,7 +38,7 @@ export function usePortalChild() {
 
   const setId = (v: string) => {
     setIdState(v);
-    try { localStorage.setItem(KEY, v); } catch { /* private mode */ }
+    rememberChild(v);
   };
   return { kids, id, setId, loading, child: kids.find((k) => k.id === id) || null };
 }

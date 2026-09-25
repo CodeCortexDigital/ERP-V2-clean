@@ -17,6 +17,7 @@ DIRECT = [
     'education_students.Immunization',
     'education_students.Enrollment',
     'education_students.StudentDocument',
+    'education_students.ContactChangeRequest',
     'education_academics.SchoolClass',
     'education_academics.Section',
     'education_academics.Teacher',

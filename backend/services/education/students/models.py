@@ -337,3 +337,27 @@ class StudentDocument(TenantScopedModel):
 
     class Meta:
         ordering = ['-uploaded_at']
+
+
+class ContactChangeRequest(TenantScopedModel):
+    """A family asks the office to update household or guardian contact details; the office approves or declines."""
+    STATUSES = [('pending', 'Waiting for the office'), ('approved', 'Updated'), ('declined', 'Declined')]
+    HOUSEHOLD_FIELDS = ('address', 'city', 'state', 'postal_code', 'country', 'phone', 'email', 'preferred_language')
+    GUARDIAN_FIELDS = ('first_name', 'last_name', 'email', 'mobile_phone', 'home_phone', 'work_phone', 'occupation',
+                       'employer', 'address', 'preferred_language')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    household = models.ForeignKey(Household, on_delete=models.CASCADE, null=True, blank=True, related_name='change_requests')
+    guardian = models.ForeignKey(Guardian, on_delete=models.CASCADE, null=True, blank=True, related_name='change_requests')
+    # {field: {"from": old, "to": new}}
+    changes = models.JSONField(default=dict)
+    note = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=10, choices=STATUSES, default='pending')
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    review_note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import portal, { Overview } from '@/services/portal.service';
 import { formatMoney } from '@/utils/currency';
-import ChildPicker, { usePortalChild } from './ChildPicker';
+import ChildPicker, { usePortalChild, usePortalHome } from './ChildPicker';
 
 const card = 'bg-white rounded-xl border border-slate-200 shadow-sm p-4';
 const fmt = (d?: string | null) => (d ? new Date(`${d.slice(0, 10)}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '');
@@ -27,6 +27,7 @@ function Tile({ to, icon: Icon, title, children }: { to: string; icon: typeof In
 /** One-screen summary of a student's school life: alerts, attendance, grades, work, fees, messages, calendar, behaviour and documents. */
 export default function PortalOverview() {
   const { kids, id, setId, loading: kidsLoading } = usePortalChild();
+  const home = usePortalHome();
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
 
@@ -63,26 +64,26 @@ export default function PortalOverview() {
           )}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Tile to="/student/attendance" icon={CalendarCheck} title="Attendance">
+            <Tile to={`${home}/attendance`} icon={CalendarCheck} title="Attendance">
               <p className="text-2xl font-black text-slate-900">{data.attendance.rate != null ? `${data.attendance.rate}%` : '—'}</p>
               <p className="text-xs text-slate-500">
                 {data.attendance.absent + data.attendance.excused} absent · {data.attendance.late} late {data.attendance.period}
                 {data.attendance.today ? <> · today <b className="capitalize">{data.attendance.today.replace('_', ' ')}</b></> : null}
               </p>
             </Tile>
-            <Tile to="/student/progress" icon={GraduationCap} title={data.grades.term ? `Grades · ${data.grades.term.name}` : 'Grades'}>
+            <Tile to={`${home}/progress`} icon={GraduationCap} title={data.grades.term ? `Grades · ${data.grades.term.name}` : 'Grades'}>
               <p className="text-2xl font-black text-slate-900">{data.grades.average != null ? `${data.grades.average}%` : '—'}</p>
               <p className="text-xs text-slate-500">
                 {data.grades.subjects.length} subject(s){data.grades.missing ? <span className="text-rose-600 font-semibold"> · {data.grades.missing} missing</span> : null}
               </p>
             </Tile>
-            <Tile to="/student/assignments" icon={BookOpen} title="Work due">
+            <Tile to={`${home}/assignments`} icon={BookOpen} title="Work due">
               <p className="text-2xl font-black text-slate-900">{data.assignments.due_count}</p>
               <p className="text-xs text-slate-500">
                 next 2 weeks{data.assignments.overdue_count ? <span className="text-rose-600 font-semibold"> · {data.assignments.overdue_count} overdue</span> : null}
               </p>
             </Tile>
-            <Tile to="/student/fees" icon={Wallet} title="Fees">
+            <Tile to={`${home}/fees`} icon={Wallet} title="Fees">
               <p className={`text-2xl font-black ${data.fees.overdue_invoices ? 'text-rose-600' : 'text-slate-900'}`}>{formatMoney(data.fees.balance)}</p>
               <p className="text-xs text-slate-500">
                 {data.fees.next_due ? `next due ${fmt(data.fees.next_due.due_date)}` : 'nothing due'}
@@ -93,14 +94,14 @@ export default function PortalOverview() {
               <p className="text-2xl font-black text-slate-900">{data.messages.unread}</p>
               <p className="text-xs text-slate-500">unread · {data.messages.announcements} new announcement(s)</p>
             </Tile>
-            <Tile to="/student/behaviour" icon={Star} title="Behaviour">
+            <Tile to={`${home}/behaviour`} icon={Star} title="Behaviour">
               <p className="text-2xl font-black text-slate-900">{data.behaviour.points} pts</p>
               <p className="text-xs text-slate-500">{data.behaviour.merits} merits · {data.behaviour.incidents} incidents</p>
             </Tile>
-            <Tile to="/student/progress" icon={TrendingUp} title="Progress">
+            <Tile to={`${home}/progress`} icon={TrendingUp} title="Progress">
               <p className="text-sm font-semibold text-slate-700 mt-1">Term by term grades, attendance and behaviour</p>
             </Tile>
-            <Tile to="/student/documents" icon={FileText} title="Documents">
+            <Tile to={`${home}/documents`} icon={FileText} title="Documents">
               <p className="text-2xl font-black text-slate-900">{data.documents.count}</p>
               <p className="text-xs text-slate-500 truncate">{data.documents.latest[0] ? `latest: ${data.documents.latest[0].title}` : 'no documents yet'}</p>
             </Tile>

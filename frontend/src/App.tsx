@@ -176,6 +176,11 @@ import RulesRegulations from './pages/settings/RulesRegulations'
 // PORTAL IMPORTS
 // ============================================================
 import ParentDashboard from './pages/portals/parent/ParentDashboard'
+import FamilyPage from './pages/portals/parent/FamilyPage'
+import ParentAttendancePage from './pages/portals/parent/ParentAttendancePage'
+import ParentFeesPage from './pages/portals/parent/ParentFeesPage'
+import ParentApplicationsPage from './pages/portals/parent/ParentApplicationsPage'
+import FamilyUpdatesPage from './pages/education/students/FamilyUpdatesPage'
 import TeacherDashboard from './pages/portals/teacher/TeacherDashboard'
 import StudentDashboard from './pages/portals/student/StudentDashboard'
 import StudentPortalLayout from './pages/portals/student/StudentPortalLayout'
@@ -253,6 +258,7 @@ function App() {
                   <Route index element={<StudentsListPage />} />
                   <Route path="add" element={<AddStudentPage />} />
                   <Route path="families" element={<FamiliesPage />} />
+                  <Route path="family-updates" element={<RoleBasedRoute allowedRoles={['admin']}><FamilyUpdatesPage /></RoleBasedRoute>} />
                   <Route path="status" element={<ActiveInactivePage />} />
                   <Route path="admission-letter" element={<AdmissionLetterPage />} />
                   <Route path="id-cards" element={<StudentIdCardsPage />} />
@@ -494,11 +500,16 @@ function App() {
                     PORTAL ROUTES
                     ============================================================ */}
                 <Route path="parent" element={<ParentDashboard />} />
-                <Route path="parent/children" element={<ParentDashboard />} />
-                <Route path="parent/attendance" element={<ParentDashboard />} />
-                <Route path="parent/results" element={<ParentDashboard />} />
-                <Route path="parent/fees" element={<ParentDashboard />} />
-                <Route path="parent/notifications" element={<ParentDashboard />} />
+                <Route path="parent/children" element={<FamilyPage />} />
+                <Route path="parent/attendance" element={<ParentAttendancePage />} />
+                <Route path="parent/results" element={<PortalProgressPage />} />
+                <Route path="parent/progress" element={<PortalProgressPage />} />
+                <Route path="parent/assignments" element={<StudentAssignmentsPage />} />
+                <Route path="parent/behaviour" element={<StudentBehaviourPage />} />
+                <Route path="parent/documents" element={<StudentDocumentsPage />} />
+                <Route path="parent/fees" element={<ParentFeesPage />} />
+                <Route path="parent/applications" element={<ParentApplicationsPage />} />
+                <Route path="parent/notifications" element={<StudentNotificationsPage />} />
                 
                 <Route path="teacher" element={<TeacherDashboard />} />
                 <Route path="teacher/students" element={<StudentsListPage />} />

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileText, Loader2, TrendingDown, TrendingUp } from 'lucide-react';
 import portal, { Progress } from '@/services/portal.service';
-import ChildPicker, { usePortalChild } from '@/components/portal/ChildPicker';
+import ChildPicker, { usePortalChild, usePortalHome } from '@/components/portal/ChildPicker';
 import { Modal } from '@/components/ui/Modal';
 import { ReportCardView } from '@/components/gradebook/ReportCardView';
 
@@ -13,6 +13,7 @@ const tone = (v: number | null | undefined) =>
 
 /** Academic progress over time: each term's average, attendance and behaviour, grades per subject, and attendance by month. */
 export default function StudentProgressPage() {
+  const home = usePortalHome();
   const { kids, id, setId, loading: kidsLoading } = usePortalChild();
   const [data, setData] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export default function StudentProgressPage() {
             <FileText size={13} /> Report cards
           </button>
         )}
-        <Link to="/student" className="text-[11px] font-bold text-blue-600 flex items-center gap-1"><ArrowLeft size={13} /> Dashboard</Link>
+        <Link to={home} className="text-[11px] font-bold text-blue-600 flex items-center gap-1"><ArrowLeft size={13} /> Dashboard</Link>
       </div>
 
       {loading ? (

@@ -331,7 +331,34 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     }
   ];
 
-  let menuItems = isTeacher ? teacherMenuItems : isStudent ? studentMenuItems : adminMenuItems;
+  // Parent Menu - one account for the whole family; pages switch between children.
+  const P = (id: string, label: string, icon: React.ReactNode, href: string): MenuItem => ({ id, label, icon, href, always: true });
+  const parentMenuItems: MenuItem[] = [
+    P('dashboard', 'Dashboard', <LayoutDashboard className="w-4 h-4" />, '/parent'),
+    P('my-family', 'My Family', <Users className="w-4 h-4" />, '/parent/children'),
+    P('attendance', 'Attendance', <Calendar className="w-4 h-4" />, '/parent/attendance'),
+    P('assignments', 'Assignments', <BookOpen className="w-4 h-4" />, '/parent/assignments'),
+    P('progress', 'Progress', <TrendingUp className="w-4 h-4" />, '/parent/progress'),
+    P('behaviour', 'Behaviour & Skills', <Star className="w-4 h-4" />, '/parent/behaviour'),
+    P('fees', 'Fees & Billing', <Wallet className="w-4 h-4" />, '/parent/fees'),
+    P('documents', 'Documents', <FileText className="w-4 h-4" />, '/parent/documents'),
+    P('applications', 'Applications', <ClipboardList className="w-4 h-4" />, '/parent/applications'),
+    ...COMMS,
+    P('notifications', 'Notifications', <MessageSquare className="w-4 h-4" />, '/parent/notifications'),
+    {
+      id: 'settings',
+      label: 'Account Settings',
+      icon: <Settings className="w-4 h-4" />,
+      always: true,
+      subItems: [
+        { label: 'Account Settings', href: '/settings/account' },
+        { label: '──────────', href: '#', isDivider: true },
+        { label: 'Log out', href: '#logout', isLogout: true }
+      ]
+    }
+  ];
+
+  let menuItems = isTeacher ? teacherMenuItems : isStudent ? studentMenuItems : isParent ? parentMenuItems : adminMenuItems;
   menuItems = filterByPermissions(menuItems);
 
   // Auto-expand settings when on settings page
@@ -496,6 +523,8 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
               <NavLink
                 key={item.id}
                 to={item.href || '#'}
+                // A portal's dashboard (/parent, /student) must not light up on every page under it.
+                end={item.id === 'dashboard'}
                 onClick={isMobile && onClose ? onClose : undefined}
                 className={({ isActive }) => `
                   sb-fade-in relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold

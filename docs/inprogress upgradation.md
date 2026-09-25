@@ -15,8 +15,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | ✅ Done |
 |  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | ✅ Done |
 | **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | ✅ Done |
-| **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | ⏳ Next |
-| **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | Not started |
+| **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | ✅ Done |
+| **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | ⏳ Next |
 | **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | Not started |
 | **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | Not started |
 | **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | Not started |
@@ -669,7 +669,56 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the parent saw only the shared letter, downloaded it, and sent a doctor's note, which the admin then saw marked "From family";
   - the teacher saw the Documents tab, and the student login showed the new menu items and overview.
   - No page errors. The demo database was restored afterwards.
-- **Not yet**: parents reach Assignments, Progress and Documents from the overview tiles; the parent sidebar gets its own items in Phase 11 (Parent Portal).
+- Parents got their own menu for these pages in Phase 11.
+
+
+
+### Phase 11: Parent Portal ✅
+
+**What a school can now do**
+- **A menu of their own for parents**, instead of a cut-down office menu: Dashboard, My Family, Attendance, Assignments, Progress, Behaviour & Skills, Fees & Billing, Documents, Applications, Messages, Announcements, Calendar, Meetings and Notifications. It is translated into 23 languages.
+- **One account, every child.** Pages that show one child have a switch at the top. The chosen child is remembered from page to page.
+- **My Family** (sidebar → My Family):
+  - a card for each child with class, today's attendance mark, warnings (low attendance, overdue work, overdue fees, open incidents), attendance, average, work due and balance. Each number opens that child's page;
+  - the family's totals: number of children, family balance, work due;
+  - the household address and phone, and every parent and guardian with what they may do for each child (main contact, may or may not collect, emergency contact, gets invoices);
+  - **Update address** and **Update** for a guardian's details (phones, email, work, address, language).
+- **Contact changes go through the office.** A parent's change is **not saved straight away**:
+  - the office gets a notice and sees it under Students → **Family Updates**: what is on file now and what the family asked for;
+  - **Approve & update** saves it; **Decline** needs no reason but can include a note. Either way the parent is told;
+  - the parent sees each request as Waiting for the office, Updated or Declined, with the office's note;
+  - custody and pickup permissions can only be changed by the office; unknown fields are ignored; an invalid email is refused.
+- **Applications** (sidebar → Applications):
+  - every admission application made with the parent's email (as the applicant or one of the guardians), or that became one of their children;
+  - the status, each step with its date, the interview date, the decision note sent to the family, and how many documents are on file. Internal staff notes are never shown;
+  - the family's re-enrolment answers for every campaign, plus the open re-enrolment card;
+  - **Apply for a brother or sister** opens the school's online form when the school has it switched on.
+- **Attendance** for each child: the attendance calendar, plus "Report an absence".
+- **Fees & Billing**: what each child owes and what is overdue, the family total, and the family account with the statement and "Pay online".
+- Assignments, Progress, Documents and Behaviour now have parent addresses (`/parent/...`), and "Dashboard" takes parents back to the Parent Portal.
+
+**Fixes found on the way**
+- In the Student and Parent portals, "Dashboard" stayed highlighted in the sidebar on every page. Now only the page you are on is highlighted.
+
+**Built**
+- Backend (`backend/services/education/students/`):
+  - model `ContactChangeRequest` (migration `0015`), registered for school separation;
+  - new `family.py`: the family page, change requests, the office list and review, and the family's applications. Mounted under `/api/v1/auth/portal/` (`family/`, `family/changes/`, `family/applications/`, `family-updates/`).
+- Frontend:
+  - `pages/portals/parent/FamilyPage.tsx`, `ParentApplicationsPage.tsx`, `ParentAttendancePage.tsx` and `ParentFeesPage.tsx`;
+  - `pages/education/students/FamilyUpdatesPage.tsx` and the Family Updates tab (office only);
+  - the parent menu in `Sidebar.tsx`, the `/parent/...` routes, and new functions in `portal.service.ts`.
+- Tests: `backend/tests/test_parent_portal.py` has 3 new tests:
+  - the family page shows each child's numbers, the household and guardians with their permissions, and nothing from other families;
+  - change requests: only real changes are kept, nothing is saved before approval, other families' records are refused, the office approves or declines, and both sides are told;
+  - the family's applications, by applicant or guardian email; internal notes hidden; re-enrolment answers; the sibling link only when the online form is open.
+- Passing: these tests plus the Phase 10 portal, admissions and school separation tests (20 passed).
+- Browser check on the demo school:
+  - the demo parent saw the new menu and both children side by side, and asked for a new household address;
+  - the admin saw it under Family Updates and approved it, and the parent then saw the new address marked Updated;
+  - Fees, Applications, Attendance (switching child), Assignments, Progress, Documents and Behaviour all opened under `/parent`;
+  - the parent was kept out of the office page.
+  - No page errors. The demo database was restored afterwards.
 
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 

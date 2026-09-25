@@ -41,7 +41,49 @@ export interface DocumentList {
   report_cards: Array<{ term_id: string; term: string; year: string }>; certificates: Array<{ id: string; template: string; issue_date: string }>;
 }
 
+export interface ChildSummary extends PortalStudent {
+  today: string | null; attendance_rate: number | null; absences: number; average: number | null; missing: number;
+  due_count: number; overdue_count: number; next_due: string | null; balance: number; overdue_fees: number;
+  open_incidents: number; alerts: string[];
+}
+export interface FamilyGuardian {
+  id: string; name: string; relationship: string; relationship_label: string; email: string; mobile_phone: string;
+  home_phone: string; work_phone: string; occupation: string; employer: string; address: string; preferred_language: string;
+  is_me: boolean; children: Array<{ name: string; primary: boolean; pickup: boolean; emergency: boolean; billing: boolean }>;
+}
+export interface FamilyHousehold {
+  id: string; name: string; address: string; city: string; state: string; postal_code: string; country: string;
+  phone: string; email: string; preferred_language: string; guardians: FamilyGuardian[]; children: string[];
+}
+export interface ChangeRequest {
+  id: string; target: string; household_id: string | null; guardian_id: string | null;
+  changes: Record<string, { from: string; to: string }>; note: string; status: 'pending' | 'approved' | 'declined';
+  status_label: string; review_note: string; requested_by: string; created_at: string; reviewed_at: string | null;
+}
+export interface Family {
+  term: { id: string; name: string } | null; children: ChildSummary[];
+  totals: { balance: number; overdue_fees: number; due_count: number; overdue_count: number };
+  households: FamilyHousehold[]; requests: ChangeRequest[]; fields: { household: string[]; guardian: string[] };
+}
+export interface FamilyApplications {
+  applications: Array<{
+    id: string; application_no: string; student: string; applying_for: string; academic_year: string; status: string;
+    status_label: string; source: string; submitted_at: string; decided_at: string | null; decision_note: string;
+    interview_date: string | null; documents: number; steps: Array<{ status: string; label: string; at: string }>;
+  }>;
+  reenrollment: Array<{ id: string; student: string; campaign: string; academic_year: string; open: boolean; closes_on: string | null; intent: string; responded_at: string | null }>;
+  apply_url: string | null;
+}
+
 const portal = {
+  family: async () => (await api.get<Family>(`${base}/family/`)).data,
+  requestChange: async (body: { household_id?: string; guardian_id?: string; changes: Record<string, string>; note?: string }) =>
+    (await api.post<ChangeRequest>(`${base}/family/changes/`, body)).data,
+  applications: async () => (await api.get<FamilyApplications>(`${base}/family/applications/`)).data,
+  familyUpdates: async (status = '') =>
+    (await api.get<{ pending: number; results: ChangeRequest[] }>(`${base}/family-updates/`, { params: status ? { status } : {} })).data,
+  reviewUpdate: async (id: string, approve: boolean, note = '') =>
+    (await api.post<ChangeRequest>(`${base}/family-updates/${id}/review/`, { approve, note })).data,
   children: async () => (await api.get<PortalStudent[]>(`${base}/children/`)).data,
   overview: async (id: string) => (await api.get<Overview>(`${base}/${id}/overview/`)).data,
   assignments: async (id: string) =>
