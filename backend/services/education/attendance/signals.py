@@ -19,37 +19,8 @@ def _run_attendance_automation(instance: AttendanceRecord):
     try:
         from services.education.students.models import Student
         from services.education.communication.models import AutoTrigger, Message
-        from services.core.user_notifications.utils import create_user_notification
 
         student = Student.objects.get(id=instance.student_id)
-
-        # Notify parents when a student is absent
-        if instance.status == 'absent':
-            title = f"Attendance Alert: {student.full_name}"
-            message = f"{student.full_name} was marked absent on {instance.date}. Please check the attendance record."
-            for parent_profile in student.parents.all():
-                parent_user = getattr(parent_profile, 'user', None)
-                if parent_user:
-                    create_user_notification(parent_user, title, message, 'attendance')
-
-            # Auto WhatsApp message to the student's own number
-            if student.phone:
-                try:
-                    from services.communication.whatsapp.tasks import send_whatsapp_message
-                    absence_msg = Message.objects.create(
-                        student=student,
-                        sender='ERP System',
-                        recipient=student.full_name,
-                        recipient_phone=student.phone,
-                        subject='Absence Notice',
-                        message=f"{student.full_name}, you missed today's classes.",
-                        template_name='attendance_absent',
-                        channel='whatsapp',
-                    )
-                    send_whatsapp_message.delay(str(absence_msg.id))
-                except Exception as exc:
-                    print(f"WhatsApp student absence notify error: {exc}")
-
         # Calculate attendance rate for student
         attendance_records = AttendanceRecord.objects.filter(student=student)
         total = attendance_records.count()
@@ -85,6 +56,22 @@ def _run_attendance_automation(instance: AttendanceRecord):
 @receiver(post_save, sender=AttendanceRecord)
 def attendance_automation(sender, instance, created, **kwargs):
     """Trigger automation when attendance is marked"""
+    if instance.status in ('absent', 'late'):
+        # Family alerts (email / in-app) once the whole change is committed, so an
+        # absence recorded as excused in the same request is never reported as unexcused.
+        pk = instance.pk
+
+        def _alert():
+            try:
+                from .register import alert_for_record
+
+                record = AttendanceRecord.objects.select_related('student__tenant').filter(pk=pk).first()
+                if record:
+                    alert_for_record(record)
+            except Exception as exc:
+                print(f"Attendance alert error: {exc}")
+
+        transaction.on_commit(_alert)
     if not created:
         return
 

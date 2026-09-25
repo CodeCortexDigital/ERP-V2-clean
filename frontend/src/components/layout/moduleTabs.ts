@@ -46,6 +46,8 @@ export const salaryTabs: ModuleTab[] = [
 // ============================ ATTENDANCE (query-based) ============================
 export const attendanceTabs: ModuleTab[] = [
   { id: 'students', path: '/education/attendance', label: 'Student Marking', icon: Users, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'lessons', path: '/education/attendance/lessons', label: 'Lesson Attendance', icon: ListChecks, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'absence-reports', path: '/education/attendance/absence-reports', label: 'Absence Reports', icon: ClipboardEdit, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'staff', path: '/education/attendance?type=staff', label: 'Staff Marking', icon: UserCheck, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'class-report', path: '/education/attendance?tab=class-report', label: 'Class Summary', icon: CalendarDays, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'student-report', path: '/education/attendance?tab=student-report', label: 'Student Report', icon: ClipboardList, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },

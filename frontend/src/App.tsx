@@ -117,6 +117,8 @@ import ApplyPage, { ApplicationStatusPage } from '@/pages/public/ApplyPage'
 import FamilyBillingPage from '@/pages/education/finance/FamilyBillingPage'
 import PaymentPlansPage from '@/pages/education/finance/PaymentPlansPage'
 import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
+import LessonAttendancePage from '@/pages/education/attendance/LessonAttendancePage'
+import AbsenceReportsPage from '@/pages/education/attendance/AbsenceReportsPage'
 
 // Behaviour
 import BehaviourPage from './pages/education/behaviour/BehaviourPage'
@@ -293,6 +295,12 @@ function App() {
                   <Route index element={<AttendancePage />} />
                 </Route>
                 <Route path="education/attendance/mark" element={<CanAccess module="attendance" action="mark" redirect><TeacherMarkAttendance /></CanAccess>} />
+                <Route path="education/attendance/lessons" element={<ModuleTabsLayout tabs={attendanceTabs} scopeClass="attendance-scope" />}>
+                  <Route index element={<CanAccess module="attendance" action="mark" redirect><LessonAttendancePage /></CanAccess>} />
+                </Route>
+                <Route path="education/attendance/absence-reports" element={<ModuleTabsLayout tabs={attendanceTabs} scopeClass="attendance-scope" />}>
+                  <Route index element={<RoleBasedRoute allowedRoles={['admin']}><AbsenceReportsPage /></RoleBasedRoute>} />
+                </Route>
                 
                 {/* Academics */}
                 <Route path="education/academics" element={<AcademicsPage />} />

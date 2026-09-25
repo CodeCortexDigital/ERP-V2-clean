@@ -8,8 +8,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **1** | **Student & Household Records** | One flat student form with `father_*`, `mother_*`, caste, orphan status, B-Form, family income | **Household-based student management** | Student profile, household/family, multiple guardians, custody details, pickup permissions, billing parent, communication parent, health information, allergies, immunizations, student profile tabs | 🔴 **1 — First** | ✅ Done |
 |  **2** | **Admissions**                  | Office staff manually enters student application                                               | **Online admissions workflow**         | Public application form → application review → approve/reject → enrollment → document upload → e-signatures → yearly re-enrollment                                                                   | 🔴 **2**         | ✅ Done |
 |  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | ✅ Done |
-|  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | ⏳ Next |
-|  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | Not started |
+|  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | ✅ Done |
+|  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | ⏳ Next |
 |  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | Not started |
 |  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | Not started |
 |  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | Not started |
@@ -230,6 +230,77 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - No page errors. The demo database was restored afterwards.
 
 **To take card payments for real**: in Fees → Online Payments, paste the school's Stripe secret key and webhook signing secret. In Stripe, add the webhook address shown on that screen.
+
+### Phase 4: Attendance ✅
+
+**What a school can now do**
+- **Attendance codes**, US style:
+  - Present;
+  - Absent, **excused or unexcused**;
+  - **Tardy** with **minutes late**, excused or unexcused;
+  - **Early dismissal**;
+  - No school.
+- Every code can carry a **reason**: illness, medical appointment, family, religious observance, school activity, transport, other.
+- **Lesson (period) attendance** (Attendance → Lesson Attendance):
+  - teachers pick a class, section and date; the day's lessons come from the timetable, or from the school's periods;
+  - they mark Present, Tardy (with minutes), Absent or Excused per student, with a note;
+  - a tick shows which lessons are already done;
+  - teachers can only take attendance for their own classes, and never for future dates.
+- **Two ways to run attendance** (Attendance → Absence Reports → settings):
+  - **Once a day** (homeroom register, as before). Lesson marks are extra detail.
+  - **Every lesson**. The daily code is worked out automatically:
+    - absent from every lesson = Absent;
+    - late to the first lesson = Tardy;
+    - left partway through = Early dismissal.
+- **Automatic family alerts**. Guardians marked "Receives school messages" and linked parent accounts are told by **email and in the parent portal**:
+  - when a student is **absent without an excuse**;
+  - when a student **arrives late without an excuse** (with the minutes);
+  - with a **frequent-absence warning** after a set number of unexcused absences in 30 days (default 3; 0 turns it off).
+  - Each alert is sent once. Excused absences never send an alert.
+- **Parents report absences** in the parent portal ("Report an absence"): child, absent / arriving late / leaving early, dates, reason and note. They can see whether each report is waiting, approved or declined.
+- **The office reviews reports** (Attendance → Absence Reports):
+  - "Excuse" marks every school day in the range as excused, with the reason;
+  - "Decline" sends a note to the parent;
+  - office-entered reports are approved at once.
+- **Attendance history** on the student page, which replaces the old 30-day list:
+  - the Attendance tab shows a **month calendar** with colour codes (P, T, TE, A, AE, ED);
+  - totals for the school year: attendance %, present, absent excused / unexcused, tardy, early dismissal;
+  - the family's absence reports and every alert sent, with the addresses it went to;
+  - the office can click any school day to change its code, excuse it, or add a reason and note.
+- The Pakistani daily register (Attendance → Student Marking) works exactly as before. Absences marked there now also alert the family.
+
+**Fixes found on the way**
+- The attendance **analytics, patterns, alerts, trends and at-risk** endpoints were never reachable, because the `<id>/` route caught them first. The screens that call them now work.
+- The old absence alert ran only when a record was first created, told only linked parent accounts, and sent a WhatsApp to the **student's own phone**. It is replaced by the guardian alerts above.
+- Records that were already "Excused" are flagged as excused absences (migration `0009`).
+
+**Built**
+- Backend (`backend/services/education/attendance/`):
+  - new fields on the daily record: excused flag, reason, minutes late, and the early-dismissal code;
+  - new models `PeriodAttendance`, `AbsenceReport` and `AttendanceNotice`;
+  - new `register.py`, which holds the settings, alerts, lesson roster and save, the daily roll-up, absence reports and review, the office day editor, and the student calendar;
+  - alerts fire once the whole change is saved, so an absence entered as excused is never reported as unexcused;
+  - `urls.py` reordered.
+- Frontend:
+  - `services/attendanceRegister.service.ts`
+  - `pages/education/attendance/LessonAttendancePage.tsx`
+  - `AbsenceReportsPage.tsx`, which includes the settings
+  - `components/attendance/AttendanceCalendar.tsx`, on the student page
+  - `ReportAbsenceCard.tsx`, on the parent dashboard
+  - two new Attendance tabs and a teacher quick action
+- Tests: `backend/tests/test_attendance_codes.py` has 4 new tests:
+  - an unexcused absence emails the family once, while an excused one sends nothing, and a tardy includes the minutes;
+  - the frequent-absence warning;
+  - a parent reports, a stranger is refused, the office excuses it, the day is excused with its reason, and the calendar shows it;
+  - lesson attendance rolls up to a Tardy day with the minutes, future dates are refused, and outsiders are refused.
+- Passing: these tests, the 12 existing attendance tests, and the isolation tests, which now also sweep the newly reachable analytics endpoints (8 passed).
+- Browser check on the demo school:
+  - the calendar showed 22 school days, and one was set to Tardy (12 min, transport);
+  - the lesson screen showed Grade 10's 6 lessons from the timetable, and period 1 was saved for 20 students;
+  - the demo parent reported a dentist appointment, and the office excused it;
+  - the attendance mode was switched and saved.
+  - No page errors. The demo database was restored afterwards.
+- Note for local running: the demo backend started by `demo.bat` had to be restarted to pick up the new routes.
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

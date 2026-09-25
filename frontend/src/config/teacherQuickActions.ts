@@ -31,6 +31,7 @@ export interface QuickAction {
 // sees the actions their role is authorized for.
 export const teacherQuickActions: QuickAction[] = [
   { id: 'attendance', label: 'Mark Attendance', icon: CheckSquare, module: 'attendance', action: 'mark', href: '/education/attendance/mark', color: 'bg-blue-600' },
+  { id: 'lesson-attendance', label: 'Lesson Attendance', icon: ClipboardList, module: 'attendance', action: 'mark', href: '/education/attendance/lessons', color: 'bg-sky-600' },
   { id: 'attendance-report', label: 'Attendance Reports', icon: FileText, module: 'attendance', action: 'report', href: '/education/attendance', color: 'bg-indigo-600' },
   { id: 'behaviour', label: 'Rate Behaviour', icon: UserCheck, module: 'behaviour', action: 'add', href: '/education/behaviour?tab=rate-behaviour', color: 'bg-purple-600' },
   { id: 'exams', label: 'Exam Marks', icon: Award, module: 'exams', action: 'enter', href: '/education/exams?tab=marks', color: 'bg-amber-600' },

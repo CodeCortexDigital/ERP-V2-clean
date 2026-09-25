@@ -34,7 +34,7 @@ def default_status_for_date(d: date) -> str:
 
 def normalize_status_for_date(d: date, status: str | None) -> str:
     status = (status or default_status_for_date(d)).lower()
-    allowed = {'present', 'absent', 'late', 'excused', 'holiday'}
+    allowed = {'present', 'absent', 'late', 'excused', 'holiday', 'early_dismissal'}
     if status not in allowed:
         return default_status_for_date(d)
     return status

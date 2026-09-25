@@ -12,6 +12,7 @@ import householdService, {
 } from '@/services/household.service';
 import { formatMoney } from '@/utils/currency';
 import { Modal } from '@/components/ui/Modal';
+import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 
 type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades';
 
@@ -143,7 +144,7 @@ export default function StudentProfilePage() {
       {tab === 'overview' && <OverviewTab data={data} onTab={(t) => setParams({ tab: t })} />}
       {tab === 'family' && <FamilyTab data={data} studentId={id} reload={load} />}
       {tab === 'health' && <HealthTab data={data} studentId={id} reload={load} />}
-      {tab === 'attendance' && <AttendanceTab data={data} />}
+      {tab === 'attendance' && <AttendanceCalendar studentId={String(data.student.id)} />}
       {tab === 'billing' && <BillingTab data={data} />}
       {tab === 'grades' && <GradesTab data={data} />}
     </div>
@@ -625,39 +626,6 @@ function HealthTab({ data, studentId, reload }: { data: StudentProfile; studentI
 // ---------------------------------------------------------------------------
 // Attendance, billing and grades
 // ---------------------------------------------------------------------------
-
-const STATUS_STYLE: Record<string, string> = {
-  present: 'bg-emerald-100 text-emerald-700', absent: 'bg-rose-100 text-rose-700',
-  late: 'bg-amber-100 text-amber-800', excused: 'bg-sky-100 text-sky-700',
-};
-const STATUS_LABEL: Record<string, string> = { present: 'Present', absent: 'Absent', late: 'Tardy', excused: 'Excused' };
-
-function AttendanceTab({ data }: { data: StudentProfile }) {
-  const a = data.attendance;
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Stat label="Rate" value={a.rate == null ? '—' : `${a.rate}%`} />
-        <Stat label="Present" value={String(a.present)} />
-        <Stat label="Absent" value={String(a.absent)} />
-        <Stat label="Tardy" value={String(a.late)} />
-        <Stat label="Excused" value={String(a.excused)} />
-      </div>
-      <section className={`${card} p-5`}>
-        <h2 className="font-bold text-sm mb-3">Last 30 school days</h2>
-        {a.recent.length === 0 ? <p className="text-sm text-slate-500">No attendance recorded yet.</p> : (
-          <ul className="flex flex-wrap gap-2">
-            {a.recent.map((r) => (
-              <li key={r.date} className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold ${STATUS_STYLE[r.status] || 'bg-slate-100'}`} title={STATUS_LABEL[r.status] || r.status}>
-                {new Date(r.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {STATUS_LABEL[r.status] || r.status}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-}
 
 function BillingTab({ data }: { data: StudentProfile }) {
   const b = data.billing;
