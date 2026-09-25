@@ -22,8 +22,15 @@ def is_weekend(d: date) -> bool:
 
 
 def is_school_day(d: date) -> bool:
-    """Monday–Friday are school days; Saturday and Sunday are not."""
-    return not is_weekend(d)
+    """Monday–Friday are school days, unless the school calendar marks a holiday or closure."""
+    if is_weekend(d):
+        return False
+    try:
+        from services.education.schoolcalendar.api import school_closed_on
+
+        return not school_closed_on(d)
+    except Exception:  # no school selected (e.g. a maintenance command)
+        return True
 
 
 def default_status_for_date(d: date) -> str:

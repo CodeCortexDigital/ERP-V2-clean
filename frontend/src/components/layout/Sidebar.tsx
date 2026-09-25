@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +37,8 @@ interface MenuItem {
 const COMMS: MenuItem[] = [
   { id: 'messages', label: 'Messages', icon: <Mail className="w-4 h-4" />, href: '/messages', always: true },
   { id: 'announcements', label: 'Announcements', icon: <Megaphone className="w-4 h-4" />, href: '/announcements', always: true },
+  { id: 'calendar', label: 'Calendar', icon: <CalendarDays className="w-4 h-4" />, href: '/calendar', always: true },
+  { id: 'meetings', label: 'Meetings', icon: <Handshake className="w-4 h-4" />, href: '/meetings', always: true },
 ];
 
 export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onClose?: () => void }) {

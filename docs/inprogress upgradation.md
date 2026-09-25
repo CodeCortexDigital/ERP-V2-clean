@@ -12,8 +12,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | ✅ Done |
 |  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | ✅ Done |
 |  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | ✅ Done |
-|  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | ⏳ Next |
-|  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | Not started |
+|  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | ✅ Done |
+|  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | ⏳ Next |
 | **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | Not started |
 | **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | Not started |
 | **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | Not started |
@@ -496,6 +496,56 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the SMS page loaded.
   - No page errors. The demo database was restored afterwards.
 - **To send real email**: set `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` on Render (for example your Google Workspace, SendGrid or Mailgun SMTP details).
+
+
+### Phase 8: Calendar & Events ✅
+
+**What a school can now do**
+- **One school calendar** for every role (sidebar → Calendar), with a month grid and a list view. It brings together:
+  - school events, holidays, trips, sports, meetings and deadlines added by staff;
+  - **term start and end dates** from School Years;
+  - **exams** from Examination (the office sees one entry per exam type per day, e.g. "Unit Test exams (36 papers)"; teachers and families see each paper for their classes);
+  - **homework and assignment due dates** from the Gradebook (families only see published ones);
+  - **fee due dates** for a family's own children;
+  - their own **parent-teacher meetings**.
+- **Who sees an event**: everyone, families, staff only, chosen classes, or grade levels.
+  - Families only see what is for them and their children's classes.
+  - Teachers can add events for their own classes; the office can add anything.
+  - Only the person who added an event, or the office, can change or delete it.
+- **Holidays close the school**: an event marked "School is closed" (every holiday is) counts as no school, so attendance treats those days like weekends.
+- **Reminders**: an event can remind its audience on the day, 1, 2 or 3 days, or a week before, by portal notice and email. Run the command `send_calendar_reminders` once a day.
+- **Parent-teacher meetings** (sidebar → Meetings):
+  - a teacher offers times for a day (e.g. 15:00–17:00 in 15-minute meetings, with a room or video link), and the same time is never offered twice;
+  - families see open times from **their own children's teachers only**, choose the child it's about, add a note, and book;
+  - two families can't book the same time;
+  - the teacher gets an email when a time is booked; either side can cancel and the other is told;
+  - both get a reminder the day before.
+- **Add to my phone calendar**: every user gets a private link that Google Calendar, Apple Calendar or Outlook can subscribe to. It shows the same items they see in the app and keeps itself up to date.
+
+**Built**
+- Backend: new app `backend/services/education/schoolcalendar/` (label `education_calendar`):
+  - models `CalendarEvent` and `MeetingSlot` (migration `0001`), registered for school separation;
+  - `api.py`: the combined feed, events, meeting times, booking and cancelling, the private iCal link, and reminders;
+  - `urls.py`, mounted at `/api/v1/auth/calendar/`;
+  - the management command `send_calendar_reminders`;
+  - `attendance/calendar.py`: `is_school_day` now respects school closures.
+- Frontend:
+  - `services/calendar.service.ts`
+  - `pages/calendar/CalendarPage.tsx` and `MeetingsPage.tsx`
+  - sidebar items Calendar and Meetings for every role, translated into 23 languages
+- Tests: `backend/tests/test_calendar.py` has 4 new tests:
+  - events reach only the right people, teachers are limited to their classes, and holidays close the school for attendance;
+  - the feed includes exams, published assignments, fee due dates and term dates for the right people only;
+  - meeting booking from start to finish (offering times, no duplicates, only your child's teachers, double booking refused, email, reminders, cancelling and removing);
+  - event reminders go to the right class only, once, and the iCal link works while a tampered link is refused.
+- Passing: these tests plus the isolation and attendance tests (26 passed).
+- Browser check on the demo school:
+  - the admin added a holiday and a science fair;
+  - Ayesha Khan offered four meeting times;
+  - the demo parent saw both events and booked 15:00 about Fatima Raza;
+  - the teacher saw the booking with the parent's note.
+  - No page errors. The demo database was restored afterwards.
+- **On Render**: add a daily cron job that runs `python manage.py send_calendar_reminders` (next to `send_scheduled_announcements`).
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

@@ -56,6 +56,8 @@ DIRECT = [
     'education_communication.Conversation',
     'education_communication.Announcement',
     'education_communication.SmsConfig',
+    'education_calendar.CalendarEvent',
+    'education_calendar.MeetingSlot',
     'education_gradebook.GradingScale',
     'education_gradebook.Category',
     'education_gradebook.Standard',
