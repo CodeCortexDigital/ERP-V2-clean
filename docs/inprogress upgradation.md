@@ -28,6 +28,34 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | Later |
 | **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | Later |
 
+## After phase 22: deployment checklist
+
+These are done once, after all 22 modules are finished. Each phase adds to this list.
+
+- [ ] **Push** `main` to GitHub so Render and Vercel redeploy. Nothing after Phase 1 has been pushed yet.
+- [ ] **Migrate** on Render: `python manage.py migrate`. The new migrations:
+  - students `0009`–`0015`;
+  - admissions `0003`;
+  - finance `0015`;
+  - attendance `0009`;
+  - academics `0025`–`0026`;
+  - gradebook `0001`;
+  - communication `0005`;
+  - calendar `0001`;
+  - behaviour `0003`–`0004`;
+  - library `0001`, transport `0001` and inventory `0001`.
+- [ ] **New Python package**: `segno` (library QR labels) is in `requirements.txt`. Check that Render installs it.
+- [ ] **Daily cron jobs on Render**:
+  - `python manage.py send_scheduled_announcements`;
+  - `python manage.py send_calendar_reminders`;
+  - `python manage.py send_library_reminders`.
+- [ ] **Email** on Render: `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
+- [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
+- [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
+- [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
+- [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
+
 ## Progress log
 
 ### Phase 1: Student & Household Records ✅
