@@ -113,6 +113,7 @@ import StudentProgressPage from './pages/education/progress/StudentProgressPage'
 // Admissions
 import AdmissionsPage from './pages/education/AdmissionsPage'
 import NewApplicationPage from '@/pages/education/admissions/NewApplicationPage'
+import ApplyPage, { ApplicationStatusPage } from '@/pages/public/ApplyPage'
 
 // Behaviour
 import BehaviourPage from './pages/education/behaviour/BehaviourPage'
@@ -210,6 +211,8 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/signup" element={<SignupPage />} />
+              <Route path="/apply/status" element={<ApplicationStatusPage />} />
+              <Route path="/apply/:slug" element={<ApplyPage />} />
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><DashboardPage /></RoleBasedRoute>} />

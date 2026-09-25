@@ -1,5 +1,6 @@
 import StudentDashboard from '../student/StudentDashboard';
 import { Users, ShieldCheck } from 'lucide-react';
+import ReenrollmentCard from '@/components/admissions/ReenrollmentCard';
 
 export default function ParentDashboard() {
   return (
@@ -18,6 +19,8 @@ export default function ParentDashboard() {
           <ShieldCheck className="h-3.5 w-3.5" /> Secure parent access
         </div>
       </div>
+
+      <ReenrollmentCard />
 
       <StudentDashboard />
     </div>

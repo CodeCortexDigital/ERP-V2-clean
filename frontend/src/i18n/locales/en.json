@@ -35,7 +35,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "students": "Students",
+    "admissions": "Admissions", "students": "Students",
     "attendance": "Attendance",
     "fees": "Fees",
     "employees": "Employees",

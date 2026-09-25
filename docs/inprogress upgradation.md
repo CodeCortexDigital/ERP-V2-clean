@@ -6,8 +6,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  Phase | Module                          | Current Pakistani-Style System                                                                 | Upgrade to International Standard      | Key Features to Implement                                                                                                                                                                            | Priority         | Status |
 | ----: | --- | --- | --- | --- | --- | --- |
 |  **1** | **Student & Household Records** | One flat student form with `father_*`, `mother_*`, caste, orphan status, B-Form, family income | **Household-based student management** | Student profile, household/family, multiple guardians, custody details, pickup permissions, billing parent, communication parent, health information, allergies, immunizations, student profile tabs | 🔴 **1 — First** | ✅ Done |
-|  **2** | **Admissions**                  | Office staff manually enters student application                                               | **Online admissions workflow**         | Public application form → application review → approve/reject → enrollment → document upload → e-signatures → yearly re-enrollment                                                                   | 🔴 **2**         | ⏳ Next |
-|  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | Not started |
+|  **2** | **Admissions**                  | Office staff manually enters student application                                               | **Online admissions workflow**         | Public application form → application review → approve/reject → enrollment → document upload → e-signatures → yearly re-enrollment                                                                   | 🔴 **2**         | ✅ Done |
+|  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | ⏳ Next |
 |  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | Not started |
 |  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | Not started |
 |  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | Not started |
@@ -68,6 +68,76 @@ Each phase is marked done only after it passes its backend tests and a browser c
 
 
 
+##############################################################################################################################################################
+### Phase 2: Admissions ✅
+
+**What a school can now do**
+- Turn on **online applications** (Admissions → Online form settings) and share a public link such as `/apply/<school>`. Families apply from a phone or computer with no account.
+- The form has five steps:
+  1. Student.
+  2. Parents and guardians: up to four, each with custody, pickup and billing choices.
+  3. Previous school and health: allergies, medical and learning-support needs.
+  4. **Document upload**: PDF, JPG or PNG, checked for type and size.
+  5. **Review and e-signature**: typed full name, agreement to the declaration and privacy notice, optional photo consent. The time and IP address are recorded.
+- The family gets an **application number and tracking code**, by email too, and can **check the status online** at `/apply/status`.
+- The school sets:
+  - the school year;
+  - the welcome text;
+  - the list of documents to upload;
+  - the declaration families sign;
+  - an email address that is told about each new application.
+- **Review pipeline** with counts:
+  - statuses: New → In review → Accepted / Waitlisted / Declined → Enrolled, plus Withdrawn;
+  - search, and a filter by source (online or office).
+- Each application has:
+  - a decision panel with an optional note, which is emailed to the family for accept, waitlist or decline;
+  - interview or assessment date, notes and rating;
+  - documents, where staff can upload and remove files;
+  - a full **history** of every change and note, and who made it.
+- **Enrol in one click**: choose the class and section. This creates the student, their **household, guardians (with permissions) and health notes** from the application, then opens the new student's record.
+- **Re-enrolment**: start a campaign ("Returning for 2027–28?") for all current students.
+  - Parents see a card in the parent portal and answer Returning, Undecided or Not returning, signing with their name.
+  - The office sees live counts, can filter, and can record an answer given by phone.
+  - The office can close and reopen the campaign.
+- Office staff can still enter walk-in or paper applications through the same form (Admissions → New application).
+- **Admissions** is now in the admin menu, translated into all 23 languages.
+
+**Safety**
+- Only school admins can see or change applications. Before this, any signed-in user could.
+- The public form works only when the school has turned it on. It is rate-limited per IP.
+- Status can only be checked with both the application number and its secret tracking code.
+- Enrolling requires an accepted application and can happen only once.
+- Each school only sees its own applications and campaigns. Application numbers are unique across all schools.
+
+**Built**
+- Backend (`backend/services/education/admissions/`):
+  - new fields for international addresses, a guardians list, medical and learning-support needs, source, tracking code, signature and consents;
+  - new models `ApplicationDocument`, `ApplicationEvent`, `ReEnrollmentCampaign` and `ReEnrollmentResponse`;
+  - migration `0003`, which gives every existing application its own tracking code;
+  - `views.py` rewritten; new routes in `urls.py`.
+- Frontend:
+  - `services/admission.service.ts`
+  - `components/admissions/ApplicationForm.tsx`, shared by the public and office forms
+  - `pages/public/ApplyPage.tsx`, the public form and status page
+  - `pages/education/AdmissionsPage.tsx`, rewritten as the pipeline, re-enrolment and settings
+  - `NewApplicationPage.tsx`
+  - the re-enrolment card on the parent dashboard
+  - an Admissions item in the sidebar
+- Tests: `backend/tests/test_admissions.py` has 4 new tests:
+  - the form stays closed until the school opens it;
+  - the full online flow, from submission through status check, review and enrolment into a household with guardians and health;
+  - admin-only access;
+  - settings and re-enrolment, including a parent answering and a stranger being refused.
+- Passing: these tests, the Phase 1 tests and the isolation tests.
+- Browser check:
+  - the admin opened admissions;
+  - a family applied on a phone-sized screen with two parents, a medical note, a document and a signature;
+  - the status page showed "New";
+  - the admin started a review, accepted, and enrolled, landing on the student's Family tab with both parents;
+  - the admin started re-enrolment for 123 students;
+  - the demo parent answered "Returning" for both children and signed.
+  - No page errors. The test data was removed afterwards.
+- Fixed during testing: the web client strips responses that contain `"success": true`, so the enrol reply came back empty. The admissions endpoints no longer send that key.
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
