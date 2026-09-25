@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { BookMarked, BookOpen, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import library, { Book, errorText, MemberDetail } from '@/services/library.service';
@@ -10,7 +11,8 @@ const fmt = (d?: string | null) => (d ? new Date(`${d.slice(0, 10)}T00:00:00`).t
 export default function MyLibraryPage() {
   const [cards, setCards] = useState<MemberDetail[] | null>(null);
   const [who, setWho] = useState('');
-  const [q, setQ] = useState('');
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(() => params.get('q') || '');
   const [available, setAvailable] = useState(false);
   const [books, setBooks] = useState<Book[] | null>(null);
 

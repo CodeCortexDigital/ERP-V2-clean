@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { BookPlus, Loader2, Printer, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import library, { Book, errorText } from '@/services/library.service';
@@ -129,7 +129,8 @@ function BookDetail({ id, onChanged, onRemoved }: { id: string; onChanged: () =>
 
 /** Office: the catalogue. Search, add books with numbered copies, change copies and print their labels. */
 export default function LibraryCataloguePage() {
-  const [q, setQ] = useState('');
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(() => params.get('q') || '');
   const [subject, setSubject] = useState('');
   const [data, setData] = useState<{ results: Book[]; subjects: string[] } | null>(null);
   const [adding, setAdding] = useState(false);

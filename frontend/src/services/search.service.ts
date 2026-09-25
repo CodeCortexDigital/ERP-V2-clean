@@ -1,14 +1,21 @@
-import api, { extractListData } from './api';
+// Global search: one box for the whole school; the server returns only what the signed-in person may see.
+import api from './api';
 
-export type SearchResult = {
-  type: 'student' | 'teacher' | 'class';
-  id: string;
-  label: string; // may contain <mark> highlights
-  subLabel?: string;
-};
+export interface SearchHit { type: string; id: string; title: string; subtitle: string; url: string }
+export interface SearchGroup { type: string; label: string; count: number; more: boolean; results: SearchHit[] }
+export interface SearchResponse { query: string; groups: SearchGroup[]; total: number }
 
-export async function search(q: string, page = 1, page_size = 10): Promise<{ results: SearchResult[]; count: number }> {
-  const res = await api.get(`/v1/search/?q=${encodeURIComponent(q)}&page=${page}&page_size=${page_size}`);
-  const data = res.data as { results: SearchResult[]; count: number };
-  return data || { results: [], count: 0 };
+export async function search(q: string, opts: { type?: string; limit?: number } = {}): Promise<SearchResponse> {
+  const res = await api.get<SearchResponse>('/search/', { params: { q, ...(opts.type ? { type: opts.type } : {}), ...(opts.limit ? { limit: opts.limit } : {}) } });
+  return res.data || { query: q, groups: [], total: 0 };
+}
+
+const RECENT_KEY = 'search.recent';
+export function recentSearches(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').slice(0, 6); } catch { return []; }
+}
+export function rememberSearch(q: string) {
+  const v = q.trim();
+  if (v.length < 2) return;
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([v, ...recentSearches().filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 6))); } catch { /* private mode */ }
 }

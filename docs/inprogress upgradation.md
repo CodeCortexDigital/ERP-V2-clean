@@ -1,6 +1,6 @@
 # Upgrade to international standard: progress
 
-We are working through phases 1 to 19 in order. Phases 20 to 22 come later.
+Phases 1 to 19 are done. Phases 20 to 22 (Regionalization, Privacy & Security, UI/UX & Navigation) come later.
 Each phase is marked done only after it passes its backend tests and a browser check. The notes for each finished phase are under **Progress log** below the table.
 
 |  Phase | Module                          | Current Pakistani-Style System                                                                 | Upgrade to International Standard      | Key Features to Implement                                                                                                                                                                            | Priority         | Status |
@@ -23,7 +23,7 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | ✅ Done |
 | **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | ✅ Done |
 | **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | ✅ Done |
-| **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | ⏳ Next |
+| **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | ✅ Done |
 | **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | Later |
 | **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | Later |
 | **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | Later |
@@ -1169,6 +1169,59 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - **Show table** listed 12 months;
   - all five other reports loaded (e.g. 11 students often absent; owed by how late; the teachers' table), and the Teachers CSV downloaded;
   - dark mode was checked.
+  - No page errors.
+
+
+
+### Phase 19: Global Search ✅
+
+**What a school can now do**
+- **Search from anywhere**: a **Search** button in the top bar, or press **Ctrl K** (⌘ K on a Mac) or **/**, opens one search box over any page.
+  - Type 2 or more letters to see results grouped by kind, best match first (exact, then starts with, then contains);
+  - **↑ ↓** moves, **Enter** opens, **Esc** closes;
+  - recent searches are remembered on the device;
+  - **See all results** opens a full results page with a filter for each kind of record.
+- **What the office can find**:
+  - students, by name, student number, email, phone or father's name;
+  - parents & guardians, by name, email, phone or ID (a result opens the child's Family tab);
+  - staff, by name, employee number, email or phone;
+  - classes (a result opens the class roster);
+  - **invoices** by number or student (a result opens the invoice list filtered to it);
+  - **applications** by number, name or email (a result opens that application);
+  - library books by title, author, ISBN or **copy barcode**;
+  - transport routes and vehicles (including registration numbers);
+  - inventory items (by name or code) and suppliers.
+- **Pages too**: typing "collect", "absence", "report cards", "bus" or "top up" offers the matching page ("Go to"), different for each role.
+- **Everyone sees only what they may**:
+  - teachers find only the students and classes they teach, plus the library;
+  - parents find only their own children and the library (which opens their library page);
+  - students find themselves and the library;
+  - nobody sees another school's records.
+
+**Fixes found on the way**
+- **The old search showed every student to anyone signed in**, including parents and students, with names and phone numbers, and it was only reachable through an unused component with a broken address. It has been replaced by the search above, which checks the person's role.
+- The invoice list's search now also matches invoice numbers.
+- The library catalogue, the portal library, the inventory stock list and admissions now open on a search or record passed in the address (`?q=` / `?open=`), so search results land in the right place.
+
+**Built**
+- Backend: `backend/services/core/search/views.py` rewritten (still `/api/v1/search/?q=`, plus `&type=` and `&limit=`). It groups results, ranks them, gives each the address that opens it, and limits everything by role. It works the same on SQLite and Postgres.
+- Frontend:
+  - `services/search.service.ts` rewritten;
+  - `components/search/CommandPalette.tsx` (the search box and its keyboard shortcuts);
+  - `pages/SearchPage.tsx` (`/search`);
+  - `config/searchPages.ts` (the pages each role can jump to);
+  - a Search button in `Header.tsx`;
+  - the old unused `components/SearchBar.tsx` was removed.
+- Tests: `backend/tests/test_global_search.py` has 2 new tests:
+  - the office finds every kind of record, ranked; exact codes come first (student number, invoice number, barcode, item code, phone); one kind at a time; short searches return nothing; another school never appears;
+  - teachers see only their class's students and classes; parents only their own child (with their own page addresses and no other family's phone numbers); people with no role find nothing.
+- Passing: these tests plus the school separation and permissions tests (36 passed), and the frontend tests.
+- Browser check on the demo school (read only):
+  - Ctrl K and "raza" showed students, parents & guardians and invoices, and **Enter** opened the first student;
+  - typing an invoice number and pressing **Enter** opened the invoice list showing just that invoice;
+  - "collect" offered "Collect fees"; **/** opened the box and **Esc** closed it;
+  - **See all results** for "ali" showed Students 21, Parents & guardians 17, Staff 1 and Invoices 30;
+  - the demo parent's "ali" found only their own child Ali Raza, and the teacher found 5 students in her classes and no invoices.
   - No page errors.
 
 

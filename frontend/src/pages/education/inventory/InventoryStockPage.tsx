@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Download, Loader2, PackagePlus, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
@@ -93,7 +94,8 @@ function MoveForm({ item, onDone }: { item: InvItem; onDone: () => void }) {
 
 /** Office: the stock list with low-stock warnings; add items, record stock in and out, see each item's history. */
 export default function InventoryStockPage() {
-  const [q, setQ] = useState('');
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(() => params.get('q') || '');
   const [cat, setCat] = useState('');
   const [onlyLow, setOnlyLow] = useState(false);
   const [data, setData] = useState<{ results: InvItem[]; low_count: number; value: number } | null>(null);

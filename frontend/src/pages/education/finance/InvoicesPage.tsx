@@ -44,7 +44,8 @@ export default function InvoicesPage() {
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
   // Filters state
-  const [searchStudent, setSearchStudent] = useState('');
+  // A search result opens this page with ?q=<invoice number or name>.
+  const [searchStudent, setSearchStudent] = useState(() => new URLSearchParams(window.location.search).get('q') || '');
   const [selectedClass, setSelectedClass] = useState('');
   const [searchParent, setSearchParent] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all, paid, partial, pending, defaulters
@@ -299,7 +300,8 @@ export default function InvoicesPage() {
         const sQuery = searchStudent.toLowerCase();
         const matchesName = studentName.toLowerCase().includes(sQuery);
         const matchesId = studentId.toLowerCase().includes(sQuery);
-        if (!matchesName && !matchesId) return false;
+        const matchesNumber = String(inv.invoice_number || '').toLowerCase().includes(sQuery);
+        if (!matchesName && !matchesId && !matchesNumber) return false;
       }
 
       // Match Class filter

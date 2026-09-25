@@ -123,6 +123,7 @@ import PaymentPlansPage from '@/pages/education/finance/PaymentPlansPage'
 import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
 import IntegrationsPage from '@/pages/settings/IntegrationsPage'
 import SchoolReportsPage from '@/pages/education/insights/SchoolReportsPage'
+import SearchPage from '@/pages/SearchPage'
 import LessonAttendancePage from '@/pages/education/attendance/LessonAttendancePage'
 import AbsenceReportsPage from '@/pages/education/attendance/AbsenceReportsPage'
 import SchoolYearsPage from '@/pages/education/academic-years/SchoolYearsPage'
@@ -562,6 +563,7 @@ function App() {
                   <Route path="report" element={<LibraryReportPage />} />
                 </Route>
                 <Route path="library" element={<MyLibraryPage />} />
+                <Route path="search" element={<SearchPage />} />
                 {/* Transport (the office sets it up; drivers and attendants run their routes under Bus duty) */}
                 <Route path="education/transport" element={<RoleBasedRoute allowedRoles={['admin']}><ModuleTabsLayout tabs={transportTabs} scopeClass="transport-scope" /></RoleBasedRoute>}>
                   <Route index element={<TransportTodayPage />} />

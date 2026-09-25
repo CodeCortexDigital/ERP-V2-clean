@@ -86,7 +86,7 @@ function ApplicationsTab() {
   const [rows, setRows] = useState<Application[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('open'));
 
   const load = useCallback(async () => {
     setLoading(true);

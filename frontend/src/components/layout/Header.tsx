@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Menu, Maximize2, Minimize2, ChevronDown, GraduationCap, LogOut, User, Sun, Moon, Settings,
+  Menu, Maximize2, Minimize2, ChevronDown, GraduationCap, LogOut, User, Sun, Moon, Settings, Search,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/store/uiStore';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import CommandPalette, { useSearchShortcut } from '@/components/search/CommandPalette';
 import MessagesBadge from '@/components/notifications/MessagesBadge';
 import tenantService from '@/services/tenant.service';
 import { readThemeSettings, saveThemeSettings, isDarkMode } from '@/utils/theme';
@@ -37,6 +38,9 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  useSearchShortcut(openSearch);
   const [headerStyle, setHeaderStyle] = useState(() => readThemeSettings().headerBg);
   const [dark, setDark] = useState(() => isDarkMode(readThemeSettings().themeMode));
   const [schoolName, setSchoolName] = useState(cachedSchoolName);
@@ -140,8 +144,14 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
         </div>
       </div>
 
-      {/* Right: theme, notifications, account */}
+      {/* Right: search, theme, notifications, account */}
       <div className="flex items-center gap-1 sm:gap-2">
+        <button onClick={openSearch} className={`${iconBtn} md:w-auto md:px-3 md:gap-2 inline-flex items-center`} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
+          <Search className="w-[18px] h-[18px]" />
+          <span className="hidden md:inline text-xs font-semibold opacity-80">Search</span>
+          <kbd className="hidden lg:inline text-[10px] font-sans opacity-60 border border-current/30 rounded px-1">Ctrl K</kbd>
+        </button>
+        {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
         <button
           onClick={toggleDark}
           className={iconBtn}
