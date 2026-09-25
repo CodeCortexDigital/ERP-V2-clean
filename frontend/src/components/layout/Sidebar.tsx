@@ -15,6 +15,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { teacherQuickActions } from '@/config/teacherQuickActions';
 import { readThemeSettings } from '@/utils/theme';
 import { useTranslation } from 'react-i18next';
+import { useRegion } from '@/utils/region';
 
 interface SubMenuItem {
   label: string;
@@ -50,8 +51,10 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   const { t } = useTranslation();
   // Menu labels translate by their English text ("Academic Setup" -> nav.academic_setup);
   // labels without a translation yet stay in English.
+  const { label: regionLabel } = useRegion();
+  // Translated, then worded for the school's region (e.g. "Date Sheet" → "Exam Schedule" for a US school).
   const tl = (label: string) =>
-    t(`nav.${label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`, { defaultValue: label });
+    regionLabel(t(`nav.${label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`, { defaultValue: label }));
   const { user, role, logout } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');

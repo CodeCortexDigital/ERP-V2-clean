@@ -13,6 +13,15 @@ export interface SchoolLocale {
   language: string; // school default, e.g. en, ar
   direction: 'ltr' | 'rtl';
   timezone: string;
+  // Region style (Phase 20)
+  region: 'pk' | 'intl' | 'uk' | 'us';
+  region_label: string;
+  date_format: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
+  date_locale: string;
+  week_start: 0 | 1 | 6;
+  hidden_fields: string[];
+  payment_methods: { code: string; label: string }[];
+  terms: Record<string, string>;
 }
 
 export interface LocaleOptions {
@@ -28,6 +37,14 @@ const DEFAULT_LOCALE: SchoolLocale = {
   language: 'en',
   direction: 'ltr',
   timezone: 'Asia/Karachi',
+  region: 'pk',
+  region_label: 'Pakistan',
+  date_format: 'DD/MM/YYYY',
+  date_locale: 'en-GB',
+  week_start: 1,
+  hidden_fields: [],
+  payment_methods: [],
+  terms: {},
 };
 
 interface LocaleState {
@@ -48,7 +65,7 @@ export const useLocaleStore = create<LocaleState>()(
       userLanguage: null,
 
       setSchoolLocale: (locale) => {
-        set({ school: { ...get().school, ...locale } });
+        set({ school: { ...DEFAULT_LOCALE, ...get().school, ...locale } });
         applyLanguage(get().effectiveLanguage());
       },
 

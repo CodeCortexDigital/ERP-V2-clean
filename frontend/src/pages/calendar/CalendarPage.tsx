@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRegion } from '@/utils/region';
 import { toast } from 'sonner';
 import { CalendarDays, ChevronLeft, ChevronRight, Link2, Loader2, MapPin, Plus, Trash2, X } from 'lucide-react';
 import calendar, { type CalendarItem } from '@/services/calendar.service';
@@ -31,8 +32,10 @@ export default function CalendarPage() {
   const [form, setForm] = useState<(typeof blank & { id?: string }) | null>(null);
   const [classes, setClasses] = useState<ClassWithSections[]>([]);
 
-  // The grid runs Monday to Sunday and covers whole weeks.
-  const gridStart = useMemo(() => { const d = new Date(month); d.setDate(1 - ((d.getDay() + 6) % 7)); return d; }, [month]);
+  // The grid covers whole weeks, starting on the school's first day of the week (Sunday, Monday or Saturday).
+  const { weekStart } = useRegion();
+  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => WEEKDAYS[(i + weekStart + 6) % 7]), [weekStart]);
+  const gridStart = useMemo(() => { const d = new Date(month); d.setDate(1 - ((d.getDay() - weekStart + 7) % 7)); return d; }, [month, weekStart]);
   const days = useMemo(() => Array.from({ length: 42 }, (_, i) => { const d = new Date(gridStart); d.setDate(d.getDate() + i); return d; }), [gridStart]);
   const load = useCallback(() => {
     setItems(null);
@@ -109,7 +112,7 @@ export default function CalendarPage() {
       {view === 'month' ? (
         <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
           <div className="grid grid-cols-7 min-w-[720px] text-xs">
-            {WEEKDAYS.map((w) => <div key={w} className="px-2 py-1.5 font-semibold text-slate-500 border-b border-slate-200">{w}</div>)}
+            {weekdays.map((w) => <div key={w} className="px-2 py-1.5 font-semibold text-slate-500 border-b border-slate-200">{w}</div>)}
             {days.map((d) => {
               const key = iso(d);
               const list = onDay(key);

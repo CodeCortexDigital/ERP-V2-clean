@@ -107,6 +107,8 @@ def create_school_with_admin(*, school_name, admin_email, admin_name, password=N
                 'city': city.strip(),
                 'phone': phone.strip(),
                 'currency': currency_code,
+                # A new school billing in rupees starts Pakistan-style; any other currency starts International.
+                'region': 'pk' if currency_code == 'PKR' else 'intl',
                 'language': language_code,
                 'timezone': (timezone or DEFAULT_TIMEZONE)[:64],
                 'onboarding': {'created_via': 'google' if firebase_uid else 'signup'},
@@ -182,7 +184,7 @@ def signup_config(request):
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def school_locale_view(request):
-    """GET: the school's currency/language (+ choices). PUT (school admin): change them."""
+    """GET: the school's currency, language and region style (+ choices). PUT (school admin): change them."""
     from services.core.accounts.decorators import is_admin
 
     tenant = getattr(request, 'tenant', None)
@@ -207,10 +209,44 @@ def school_locale_view(request):
             errors['language'] = 'Choose a supported language.'
     if request.data.get('timezone'):
         updates['timezone'] = str(request.data['timezone'])[:64]
+    if 'region' in request.data:
+        from .localization import REGIONS, normalize_region
+
+        code = normalize_region(request.data.get('region'))
+        if not code:
+            errors['region'] = 'Choose Pakistan, International, United Kingdom or United States.'
+        else:
+            updates['region'] = code
+            # A new region brings its own date format and week start, unless those are given too.
+            updates['date_format'] = None
+            updates['week_start'] = None
+            if str(request.data.get('apply_defaults', '')).lower() in ('1', 'true', 'yes', 'on'):
+                r = REGIONS[code]
+                if r['currency'] and 'currency' not in request.data:
+                    updates['currency'] = r['currency']
+                if r['timezone'] and not request.data.get('timezone'):
+                    updates['timezone'] = r['timezone']
+    if request.data.get('date_format'):
+        from .localization import DATE_FORMATS
+
+        if request.data['date_format'] in DATE_FORMATS:
+            updates['date_format'] = request.data['date_format']
+        else:
+            errors['date_format'] = 'Choose DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD.'
+    if request.data.get('week_start') not in (None, ''):
+        try:
+            ws = int(request.data['week_start'])
+        except (TypeError, ValueError):
+            ws = -1
+        if ws in (0, 1, 6):
+            updates['week_start'] = ws
+        else:
+            errors['week_start'] = 'The week starts on Sunday (0), Monday (1) or Saturday (6).'
     if errors:
         return Response({'error': next(iter(errors.values())), 'fields': errors}, status=status.HTTP_400_BAD_REQUEST)
     with use_tenant(None):
-        tenant.settings_json = {**(tenant.settings_json or {}), **updates}
+        merged = {**(tenant.settings_json or {}), **updates}
+        tenant.settings_json = {k: v for k, v in merged.items() if v is not None}
         tenant.save(update_fields=['settings_json', 'updated_at'])
     return Response({'locale': school_locale(tenant)})
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRegion } from '@/utils/region';
 import { useNavigate } from 'react-router-dom';
 import { 
   GraduationCap, Plus, Settings, Download, Laptop, RotateCcw, Check, ArrowLeft, ChevronDown, ChevronRight
@@ -25,6 +26,7 @@ const getNextSequence = (lastId: string): string => {
 };
 
 export default function AddStudentPage() {
+  const { isHidden } = useRegion();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
@@ -611,13 +613,15 @@ export default function AddStudentPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">STUDENT BIRTH FORM ID / NIC</label>
-                <Input placeholder="Student Birth Form ID / NIC" value={formData.birth_form_id} onChange={(e) => handleChange('birth_form_id', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
+                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">{isHidden('cast') ? 'BIRTH CERTIFICATE NO. / ID' : 'STUDENT BIRTH FORM ID / NIC'}</label>
+                <Input placeholder={isHidden('cast') ? 'Birth certificate no. / ID' : 'Student Birth Form ID / NIC'} value={formData.birth_form_id} onChange={(e) => handleChange('birth_form_id', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
               </div>
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CAST</label>
-                <Input placeholder="Cast" value={formData.cast} onChange={(e) => handleChange('cast', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
-              </div>
+              {!isHidden('cast') && (
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CAST</label>
+                  <Input placeholder="Cast" value={formData.cast} onChange={(e) => handleChange('cast', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
+                </div>
+              )}
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PREVIOUS SCHOOL</label>
                 <Input placeholder="Previous School" value={formData.previous_school} onChange={(e) => handleChange('previous_school', e.target.value)} className="text-xs h-11 rounded-xl border-slate-200" />
@@ -633,18 +637,22 @@ export default function AddStudentPage() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ORPHAN STUDENT</label>
-                <select value={formData.orphan_student} onChange={(e) => handleChange('orphan_student', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                  <option value="">Select</option><option value="No">No</option><option value="Yes">Yes</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OSC</label>
-                <select value={formData.osc} onChange={(e) => handleChange('osc', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                  <option value="">Select</option>
-                </select>
-              </div>
+              {!isHidden('orphan_student') && (
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ORPHAN STUDENT</label>
+                  <select value={formData.orphan_student} onChange={(e) => handleChange('orphan_student', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
+                    <option value="">Select</option><option value="No">No</option><option value="Yes">Yes</option>
+                  </select>
+                </div>
+              )}
+              {!isHidden('osc') && (
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OSC</label>
+                  <select value={formData.osc} onChange={(e) => handleChange('osc', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
+                    <option value="">Select</option>
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">RELIGION</label>
                 <select value={formData.religion} onChange={(e) => handleChange('religion', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">

@@ -19,6 +19,7 @@ import CommunicationHistory from '@/components/students/CommunicationHistory';
 import BehaviourHistory from '@/components/behaviour/BehaviourHistory';
 import IncidentPanel from '@/components/behaviour/IncidentPanel';
 import DocumentsPanel from '@/components/portal/DocumentsPanel';
+import { useRegion } from '@/utils/region';
 import type { Incident } from '@/services/discipline.service';
 
 type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades' | 'behaviour' | 'communication' | 'documents';
@@ -193,12 +194,13 @@ function Field({ label: text, value }: { label: string; value?: string | number 
 }
 
 function OverviewTab({ data, onTab }: { data: StudentProfile; onTab: (t: TabId) => void }) {
+  const { isHidden } = useRegion();
   const s = data.student;
   const primary = data.guardians.find((g) => g.is_primary) || data.guardians[0];
   const lastResult = data.results[0];
   // Region-specific fields are only shown when the school filled them in.
   const extra: Array<[string, string]> = ([
-    ['Religion', s.religion], ['Birth certificate / B-Form', s.birth_form_id], ['Caste', s.cast],
+    ['Religion', s.religion], [isHidden('cast') ? 'Birth certificate' : 'Birth certificate / B-Form', s.birth_form_id], ...(isHidden('cast') ? [] : [['Caste', s.cast]]),
     ['Previous school', s.previous_school], ['Previous ID', s.previous_id], ['Identification mark', s.identification_mark],
     ['Fee discount', s.discount_in_fee],
   ] as Array<[string, string]>).filter(([, v]) => v && String(v).trim());

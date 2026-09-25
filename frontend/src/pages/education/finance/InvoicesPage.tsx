@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useRegion } from '@/utils/region';
 import api, { extractListData } from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import financeService, { Invoice } from '@/services/finance.service';
@@ -45,6 +46,7 @@ export default function InvoicesPage() {
 
   // Filters state
   // A search result opens this page with ?q=<invoice number or name>.
+  const { paymentOptions: regionPayments } = useRegion();
   const [searchStudent, setSearchStudent] = useState(() => new URLSearchParams(window.location.search).get('q') || '');
   const [selectedClass, setSelectedClass] = useState('');
   const [searchParent, setSearchParent] = useState('');
@@ -1007,10 +1009,7 @@ export default function InvoicesPage() {
                   onChange={(e) => setReceiveMethod(e.target.value)}
                   className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-3xs cursor-pointer"
                 >
-                  <option value="cash">Cash Payment</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="online">Online Payment</option>
-                  <option value="cheque">Cheque</option>
+                  {regionPayments.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
 

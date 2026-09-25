@@ -97,6 +97,72 @@ DEFAULT_LANGUAGE = 'en'
 DEFAULT_TIMEZONE = 'Asia/Karachi'
 
 
+# ---------------------------------------------------------------------------
+# Region style: how the school talks and writes dates (Pakistan-style or international), which Pakistan-only
+# fields its forms ask for, and which payment methods it offers. Stored as settings_json['region'].
+# ---------------------------------------------------------------------------
+
+REGIONS = {
+    'pk': {'label': 'Pakistan', 'currency': 'PKR', 'timezone': 'Asia/Karachi', 'date_format': 'DD/MM/YYYY',
+           'week_start': 1, 'hidden_fields': [],
+           'payment_methods': ['cash', 'bank_transfer', 'jazzcash', 'easypaisa', 'cheque', 'card']},
+    'intl': {'label': 'International', 'currency': None, 'timezone': None, 'date_format': 'DD/MM/YYYY',
+             'week_start': 1, 'hidden_fields': ['cast', 'orphan_student', 'osc'],
+             'payment_methods': ['card', 'bank_transfer', 'cash', 'cheque']},
+    'uk': {'label': 'United Kingdom', 'currency': 'GBP', 'timezone': 'Europe/London', 'date_format': 'DD/MM/YYYY',
+           'week_start': 1, 'hidden_fields': ['cast', 'orphan_student', 'osc'],
+           'payment_methods': ['card', 'direct_debit', 'bank_transfer', 'cash']},
+    'us': {'label': 'United States', 'currency': 'USD', 'timezone': 'America/New_York', 'date_format': 'MM/DD/YYYY',
+           'week_start': 0, 'hidden_fields': ['cast', 'orphan_student', 'osc'],
+           'payment_methods': ['card', 'ach', 'check', 'cash']},
+}
+DATE_FORMATS = {'DD/MM/YYYY': 'en-GB', 'MM/DD/YYYY': 'en-US', 'YYYY-MM-DD': 'sv-SE'}
+PAYMENT_METHOD_LABELS = {
+    'cash': 'Cash', 'bank_transfer': 'Bank transfer', 'jazzcash': 'JazzCash', 'easypaisa': 'Easypaisa', 'cheque': 'Cheque',
+    'check': 'Check', 'card': 'Card', 'ach': 'ACH bank transfer', 'direct_debit': 'Direct Debit',
+}
+# The words each region uses. Keys name the Pakistani wording the app was written with.
+TERMS = {
+    'challan':          {'pk': 'Challan', 'intl': 'Invoice', 'uk': 'Invoice', 'us': 'Invoice'},
+    'date_sheet':       {'pk': 'Date Sheet', 'intl': 'Exam Timetable', 'uk': 'Exam Timetable', 'us': 'Exam Schedule'},
+    'award_list':       {'pk': 'Award List', 'intl': 'Mark Sheet', 'uk': 'Mark Sheet', 'us': 'Grade Sheet'},
+    'result_card':      {'pk': 'Result Card', 'intl': 'Report Card', 'uk': 'Report Card', 'us': 'Report Card'},
+    'paid_slips':       {'pk': 'Paid Slips', 'intl': 'Receipts', 'uk': 'Receipts', 'us': 'Receipts'},
+    'fee_defaulters':   {'pk': 'Fee Defaulters', 'intl': 'Overdue Accounts', 'uk': 'Overdue Accounts', 'us': 'Past-due Accounts'},
+    'fee_particulars':  {'pk': 'Fee Particulars', 'intl': 'Fee Items', 'uk': 'Fee Items', 'us': 'Fee Items'},
+    'admission_letter': {'pk': 'Admission Letter', 'intl': 'Offer Letter', 'uk': 'Offer Letter', 'us': 'Acceptance Letter'},
+    'b_form':           {'pk': 'B-Form', 'intl': 'Birth Certificate No.', 'uk': 'Birth Certificate No.', 'us': 'Birth Certificate No.'},
+    'cnic':             {'pk': 'CNIC', 'intl': 'National ID', 'uk': 'ID Number', 'us': 'ID Number'},
+    'cheque':           {'pk': 'Cheque', 'intl': 'Cheque', 'uk': 'Cheque', 'us': 'Check'},
+    'timetable':        {'pk': 'Timetable', 'intl': 'Timetable', 'uk': 'Timetable', 'us': 'Schedule'},
+    'enrolment':        {'pk': 'Enrolment', 'intl': 'Enrolment', 'uk': 'Enrolment', 'us': 'Enrollment'},
+    'principal':        {'pk': 'Principal', 'intl': 'Principal', 'uk': 'Head Teacher', 'us': 'Principal'},
+}
+
+
+def default_region(settings: dict) -> str:
+    """Schools that never chose keep the Pakistan-style wording they always had (new schools choose at signup)."""
+    return 'pk'
+
+
+def normalize_region(code) -> str | None:
+    code = (code or '').strip().lower()
+    return code if code in REGIONS else None
+
+
+def region_settings(settings: dict) -> dict:
+    region = normalize_region(settings.get('region')) or default_region(settings)
+    r = REGIONS[region]
+    date_format = settings.get('date_format') if settings.get('date_format') in DATE_FORMATS else r['date_format']
+    week_start = settings.get('week_start') if settings.get('week_start') in (0, 1, 6) else r['week_start']
+    return {
+        'region': region, 'region_label': r['label'], 'date_format': date_format, 'date_locale': DATE_FORMATS[date_format],
+        'week_start': week_start, 'hidden_fields': list(r['hidden_fields']),
+        'payment_methods': [{'code': m, 'label': PAYMENT_METHOD_LABELS[m]} for m in r['payment_methods']],
+        'terms': {k: v[region] for k, v in TERMS.items()},
+    }
+
+
 def normalize_currency(code) -> str | None:
     code = (code or '').strip().upper()
     return code if code in CURRENCIES else None
@@ -121,6 +187,7 @@ def school_locale(school) -> dict:
         'language': language,
         'direction': LANGUAGES[language][2],
         'timezone': s.get('timezone') or DEFAULT_TIMEZONE,
+        **region_settings(s),
     }
 
 
@@ -142,4 +209,8 @@ def options() -> dict:
             {'code': c, 'name': n, 'native_name': nn, 'direction': dr} for c, (n, nn, dr) in LANGUAGES.items()
         ],
         'defaults': {'currency': DEFAULT_CURRENCY, 'language': DEFAULT_LANGUAGE, 'timezone': DEFAULT_TIMEZONE},
+        'regions': [{'code': c, 'label': r['label'], 'currency': r['currency'], 'timezone': r['timezone'],
+                     'date_format': r['date_format'], 'week_start': r['week_start'],
+                     'terms': {k: v[c] for k, v in TERMS.items()}} for c, r in REGIONS.items()],
+        'date_formats': list(DATE_FORMATS),
     }

@@ -40,7 +40,10 @@ const isActive = (t: ModuleTab, pathname: string, search: string, nestedBase?: s
   return true;
 };
 
+import { useRegion } from '@/utils/region';
+
 export default function ModuleTabsLayout({ tabs, scopeClass, children, matchNested }: Props) {
+  const { label: regionLabel } = useRegion();
   const location = useLocation();
   const navigate = useNavigate();
   const { role } = useAuth();
@@ -70,7 +73,7 @@ export default function ModuleTabsLayout({ tabs, scopeClass, children, matchNest
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${active ? 'text-white' : 'text-slate-400'}`} />
-                {t.label}
+                {regionLabel(t.label)}
               </button>
             );
           })}
@@ -82,7 +85,7 @@ export default function ModuleTabsLayout({ tabs, scopeClass, children, matchNest
         <div className="w-9 h-9 rounded-lg bg-brand flex items-center justify-center shadow-sm">
           <activeTab.icon className="w-4 h-4" />
         </div>
-        <h2 className="text-lg font-bold text-brand">{activeTab.label}</h2>
+        <h2 className="text-lg font-bold text-brand">{regionLabel(activeTab.label)}</h2>
       </div>
 
       {/* Content */}

@@ -22,6 +22,9 @@ export interface SignupConfig {
   currencies: { code: string; symbol: string; name: string; decimals: number }[];
   languages: { code: string; name: string; native_name: string; direction: 'ltr' | 'rtl' }[];
   defaults: { currency: string; language: string; timezone: string };
+  regions?: { code: 'pk' | 'intl' | 'uk' | 'us'; label: string; currency: string | null; timezone: string | null;
+    date_format: string; week_start: number; terms: Record<string, string> }[];
+  date_formats?: string[];
 }
 
 export interface SessionPayload {
@@ -56,7 +59,8 @@ export const schoolService = {
   signupConfig: async () => (await api.get<SignupConfig>('/tenants/signup/config/')).data,
 
   /** Change the school's currency / default language (school admin). */
-  updateLocale: async (patch: { currency?: string; language?: string; timezone?: string }) =>
+  updateLocale: async (patch: { currency?: string; language?: string; timezone?: string; region?: string; apply_defaults?: boolean;
+    date_format?: string; week_start?: number }) =>
     (await api.put('/tenants/locale/', patch)).data,
 
   signup: async (payload: SignupPayload) => (await api.post<SessionPayload>('/tenants/signup/', payload)).data,

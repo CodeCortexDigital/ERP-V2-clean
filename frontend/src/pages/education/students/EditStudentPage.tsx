@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRegion } from '@/utils/region';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   GraduationCap, ArrowLeft, RotateCcw, Check, Upload, Trash2, FileText, ChevronDown, ChevronRight, User, X
@@ -14,6 +15,7 @@ interface UploadedDoc {
 }
 
 export default function EditStudentPage() {
+  const { isHidden } = useRegion();
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -780,10 +782,12 @@ const handleSubmit = async (e: React.FormEvent) => {
               <input type="text" value={formData.birth_form_id} onChange={(e) => handleChange('birth_form_id', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Birth certificate number" />
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CAST</label>
-              <input type="text" value={formData.cast} onChange={(e) => handleChange('cast', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Cast/Community" />
-            </div>
+            {!isHidden('cast') && (
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">CAST</label>
+                <input type="text" value={formData.cast} onChange={(e) => handleChange('cast', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Cast/Community" />
+              </div>
+            )}
 
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">PREVIOUS SCHOOL</label>
@@ -800,19 +804,23 @@ const handleSubmit = async (e: React.FormEvent) => {
               <input type="text" value={formData.additional_note} onChange={(e) => handleChange('additional_note', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="Any additional notes" />
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ORPHAN STUDENT</label>
-              <select value={formData.orphan_student} onChange={(e) => handleChange('orphan_student', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
-                <option value="">Select</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
-            </div>
+            {!isHidden('orphan_student') && (
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">ORPHAN STUDENT</label>
+                <select value={formData.orphan_student} onChange={(e) => handleChange('orphan_student', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs">
+                  <option value="">Select</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            )}
 
-            <div>
-              <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OSC</label>
-              <input type="text" value={formData.osc} onChange={(e) => handleChange('osc', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="OSC number" />
-            </div>
+            {!isHidden('osc') && (
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">OSC</label>
+                <input type="text" value={formData.osc} onChange={(e) => handleChange('osc', e.target.value)} className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs" placeholder="OSC number" />
+              </div>
+            )}
 
             <div>
               <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">RELIGION</label>

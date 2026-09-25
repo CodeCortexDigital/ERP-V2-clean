@@ -1,6 +1,6 @@
 # Upgrade to international standard: progress
 
-Phases 1 to 19 are done. Phases 20 to 22 (Regionalization, Privacy & Security, UI/UX & Navigation) come later.
+Phases 1 to 20 are done. Phase 21 (Privacy & Security) is next, then Phase 22 (UI/UX & Navigation).
 Each phase is marked done only after it passes its backend tests and a browser check. The notes for each finished phase are under **Progress log** below the table.
 
 |  Phase | Module                          | Current Pakistani-Style System                                                                 | Upgrade to International Standard      | Key Features to Implement                                                                                                                                                                            | Priority         | Status |
@@ -24,15 +24,15 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | ✅ Done |
 | **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | ✅ Done |
 | **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | ✅ Done |
-| **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | Later |
-| **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | Later |
+| **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | ✅ Done |
+| **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | ⏳ Next |
 | **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | Later |
 
 ## After phase 22: deployment checklist
 
 These are done once, after all 22 modules are finished. Each phase adds to this list.
 
-- [ ] **Push** `main` to GitHub so Render and Vercel redeploy. Nothing after Phase 1 has been pushed yet.
+- [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026 (up to Phase 19, `9fcf1dc`).
 - [ ] **Migrate** on Render: `python manage.py migrate`. The new migrations:
   - students `0009`–`0015`;
   - admissions `0003`;
@@ -1222,6 +1222,47 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - "collect" offered "Collect fees"; **/** opened the box and **Esc** closed it;
   - **See all results** for "ali" showed Students 21, Parents & guardians 17, Staff 1 and Invoices 30;
   - the demo parent's "ali" found only their own child Ali Raza, and the teacher found 5 students in her classes and no invoices.
+  - No page errors.
+
+
+### Phase 20: Regionalization ✅
+
+**What a school can now do**
+- **Choose a region style** in **Settings → Language & currency → Region style**: **Pakistan**, **International**, **United Kingdom** or **United States**.
+  - A preview shows the wording before saving;
+  - when switching, the school can also switch its currency and time zone to the region's (for example USD and New York); the tick box can be cleared to keep them;
+  - the date format (DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD) and the first day of the week (Monday, Sunday or Saturday) can be set separately.
+- **Wording follows the region** in the menu, the module tabs and page headings. For a US school:
+  - Challan → Invoice, Date Sheet → Exam Schedule, Award List → Grade Sheet, Result Card → Report Card;
+  - Paid Slips → Receipts, Fee Defaulters → Past-due Accounts, Admission Letter → Acceptance Letter;
+  - Timetable → Schedule, Cheque → Check, Enrolment → Enrollment;
+  - UK schools get Head Teacher and Exam Timetable, and International schools get neutral terms.
+  - Translated menus (other languages) are left as they are.
+- **Dates** across the app are written in the school's format (26/09/2026 or 9/26/2026), and the **school calendar** starts the week on the school's chosen day.
+- **Forms**: outside Pakistan, the student forms and profile no longer ask for caste, orphan status or OSC, and "B-Form" reads "Birth certificate no. / ID". Anything already recorded is kept.
+- **Payment methods** offered when receiving a payment follow the region:
+  - Pakistan: cash, bank transfer, JazzCash/Easypaisa (online) and cheque;
+  - US: card, ACH bank transfer, check, cash and online.
+- **Existing schools are unchanged** until they choose. New schools start as Pakistan when they sign up with PKR, and International otherwise.
+
+**Built**
+- Backend:
+  - `services/core/tenants/localization.py`: the four regions with their wording, date format, week start, Pakistan-only fields and payment methods; the school's locale now includes these;
+  - `services/core/tenants/signup.py`: the locale endpoint (`/api/v1/tenants/locale/`) accepts `region` (with `apply_defaults`), `date_format` and `week_start`, admins only, and checks the values; new schools get a region from their currency.
+- Frontend:
+  - `utils/region.ts`: `useRegion()` (wording, hidden fields, payment options, week start) and the date formatting that follows the school;
+  - the locale store holds the region;
+  - the region is applied in the sidebar, module tabs, calendar, invoices (receive payment), the add and edit student forms, the student profile, and the Region style settings.
+- Tests:
+  - `backend/tests/test_region.py` has 3 new tests: the defaults; switching region (wording, dates, week, payment methods, overrides, bad values refused, teachers can read but not change); new schools start in the style of their currency;
+  - `frontend/src/utils/region.test.ts`: the wording swaps (whole words only, other languages untouched) and the payment options.
+- Passing: these tests plus the school signup tests (15 passed), and the frontend tests.
+- Browser check on the demo school (switched to US, then back; the database was restored afterwards):
+  - US: the exam tabs read Exam Schedule, Report Card and Grade Sheet, and the menu reads Schedule;
+  - the calendar started on Sunday, and dates showed as 9/26/2026;
+  - the caste field was gone from the add-student form;
+  - receive payment offered Card, ACH bank transfer, Check, Cash and Online payment;
+  - back on Pakistan, Date Sheet, Award List, Result Card, a Monday week, 26/09/2026 and the caste field all returned.
   - No page errors.
 
 
