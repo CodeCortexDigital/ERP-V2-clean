@@ -5,8 +5,9 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus
 } from 'lucide-react';
+import transportService from '@/services/transport.service';
 import { useUIStore } from '@/store/uiStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -92,6 +93,11 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   const isTeacher = role === 'teacher';
   const isStudent = role === 'student';
   const { canView, canAccess } = usePermissions();
+  const [onBusDuty, setOnBusDuty] = useState(false);
+  useEffect(() => {
+    if (!role || ['admin', 'parent', 'student'].includes(role)) return;
+    transportService.routes().then((r) => setOnBusDuty(r.length > 0)).catch(() => setOnBusDuty(false));
+  }, [role]);
 
   // Admin always sees the full menu; other roles are filtered by permissions.
   const isAdmin = role === 'admin';
@@ -201,6 +207,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'reports', label: 'Reports', icon: <Award className="w-4 h-4" />, href: '/education/analytics' },
     { id: 'certificates', label: 'Certificates', icon: <Award className="w-4 h-4" />, href: '/education/certificates' },
     { id: 'library', label: 'Library', icon: <Library className="w-4 h-4" />, href: '/education/library' },
+    { id: 'transport', label: 'Transport', icon: <Bus className="w-4 h-4" />, href: '/education/transport' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings' },
     // Platform owner only: every school on this installation.
     ...(user?.is_superuser
@@ -323,6 +330,13 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       href: '/student/library',
       always: true
     },
+    {
+      id: 'transport',
+      label: 'Transport',
+      icon: <Bus className="w-4 h-4" />,
+      href: '/student/transport',
+      always: true
+    },
     ...COMMS,
     {
       id: 'notifications',
@@ -355,6 +369,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     P('documents', 'Documents', <FileText className="w-4 h-4" />, '/parent/documents'),
     P('applications', 'Applications', <ClipboardList className="w-4 h-4" />, '/parent/applications'),
     P('library', 'Library', <Library className="w-4 h-4" />, '/parent/library'),
+    P('transport', 'Transport', <Bus className="w-4 h-4" />, '/parent/transport'),
     ...COMMS,
     P('notifications', 'Notifications', <MessageSquare className="w-4 h-4" />, '/parent/notifications'),
     {
@@ -371,6 +386,11 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
   ];
 
   let menuItems = isTeacher ? teacherMenuItems : isStudent ? studentMenuItems : isParent ? parentMenuItems : adminMenuItems;
+  // Drivers and attendants (often teachers or staff with a login) get "Bus duty" once they are on a route.
+  if (onBusDuty && !isAdmin && !isParent && !isStudent) {
+    const duty: MenuItem = { id: 'bus-duty', label: 'Bus Duty', icon: <Bus className="w-4 h-4" />, href: '/transport/duty', always: true };
+    menuItems = [menuItems[0], duty, ...menuItems.slice(1)];
+  }
   menuItems = filterByPermissions(menuItems);
 
   // Auto-expand settings when on settings page

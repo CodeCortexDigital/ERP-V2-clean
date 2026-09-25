@@ -189,6 +189,13 @@ import LibraryLoansPage from './pages/education/library/LibraryLoansPage'
 import LibraryReportPage from './pages/education/library/LibraryReportPage'
 import LibraryLabelsPage from './pages/education/library/LibraryLabelsPage'
 import MyLibraryPage from './pages/portals/MyLibraryPage'
+import TransportTodayPage from './pages/education/transport/TransportTodayPage'
+import TransportRoutesPage from './pages/education/transport/TransportRoutesPage'
+import TransportRidersPage from './pages/education/transport/TransportRidersPage'
+import TransportFleetPage from './pages/education/transport/TransportFleetPage'
+import TransportReportPage from './pages/education/transport/TransportReportPage'
+import MyTransportPage from './pages/portals/MyTransportPage'
+import { Bus, Route as RouteIcon, Users2 as RidersIcon, Truck, PieChart as ReportIcon } from 'lucide-react'
 import { BookOpen as LibIcon, ScanLine, Users as MembersIcon, ListChecks, BarChart3 } from 'lucide-react'
 import MyClassesPage from './pages/portals/teacher/MyClassesPage'
 import ClassRosterPage from './pages/portals/teacher/ClassRosterPage'
@@ -225,6 +232,14 @@ const libraryTabs = [
   { id: 'members', path: '/education/library/members', label: 'Members', icon: MembersIcon },
   { id: 'loans', path: '/education/library/loans', label: 'Loans & Reservations', icon: ListChecks },
   { id: 'report', path: '/education/library/report', label: 'Report & Rules', icon: BarChart3 },
+]
+
+const transportTabs = [
+  { id: 'today', path: '/education/transport', label: 'Today', icon: Bus },
+  { id: 'routes', path: '/education/transport/routes', label: 'Routes', icon: RouteIcon },
+  { id: 'riders', path: '/education/transport/riders', label: 'Students', icon: RidersIcon },
+  { id: 'fleet', path: '/education/transport/fleet', label: 'Fleet & Crew', icon: Truck },
+  { id: 'report', path: '/education/transport/report', label: 'Report & Billing', icon: ReportIcon },
 ]
 
 function App() {
@@ -510,6 +525,15 @@ function App() {
                   <Route path="report" element={<LibraryReportPage />} />
                 </Route>
                 <Route path="library" element={<MyLibraryPage />} />
+                {/* Transport (the office sets it up; drivers and attendants run their routes under Bus duty) */}
+                <Route path="education/transport" element={<RoleBasedRoute allowedRoles={['admin']}><ModuleTabsLayout tabs={transportTabs} scopeClass="transport-scope" /></RoleBasedRoute>}>
+                  <Route index element={<TransportTodayPage />} />
+                  <Route path="routes" element={<TransportRoutesPage />} />
+                  <Route path="riders" element={<TransportRidersPage />} />
+                  <Route path="fleet" element={<TransportFleetPage />} />
+                  <Route path="report" element={<TransportReportPage />} />
+                </Route>
+                <Route path="transport/duty" element={<TransportTodayPage crew />} />
                 <Route path="education/live-class/room" element={<LiveRoomPage />} />
                 
                 {/* ============================================================
@@ -537,6 +561,7 @@ function App() {
                 <Route path="parent/behaviour" element={<StudentBehaviourPage />} />
                 <Route path="parent/documents" element={<StudentDocumentsPage />} />
                 <Route path="parent/library" element={<MyLibraryPage />} />
+                <Route path="parent/transport" element={<MyTransportPage />} />
                 <Route path="parent/fees" element={<ParentFeesPage />} />
                 <Route path="parent/applications" element={<ParentApplicationsPage />} />
                 <Route path="parent/notifications" element={<StudentNotificationsPage />} />
@@ -558,6 +583,7 @@ function App() {
                   <Route path="progress" element={<PortalProgressPage />} />
                   <Route path="documents" element={<StudentDocumentsPage />} />
                   <Route path="library" element={<MyLibraryPage />} />
+                  <Route path="transport" element={<MyTransportPage />} />
                   <Route path="behaviour" element={<StudentBehaviourPage />} />
                   <Route path="certificates" element={<StudentCertificatesPage />} />
                   <Route path="profile" element={<PortalStudentProfilePage />} />

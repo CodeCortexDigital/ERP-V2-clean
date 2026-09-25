@@ -18,8 +18,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | ✅ Done |
 | **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | ✅ Done |
 | **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | ✅ Done |
-| **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | ⏳ Next |
-| **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | Not started |
+| **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | ✅ Done |
+| **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | ⏳ Next |
 | **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | Not started |
 | **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | Not started |
 | **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | Not started |
@@ -840,6 +840,66 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - `segno` is in `requirements.txt`;
   - add a daily cron job for `python manage.py send_library_reminders`.
 - **Still to try**: scanning the printed labels with the school's own barcode scanner.
+
+
+
+### Phase 14: Transport ✅
+
+**What a school can now do**
+- **A transport module** (sidebar → Transport) with five tabs: Today, Routes, Students, Fleet & Crew, and Report & Billing.
+- **Fleet & crew**:
+  - vehicles (name, registration, bus / coaster / van / car, seats, make, and insurance and fitness-certificate expiry dates);
+  - drivers and attendants (phone, national ID, and licence number and expiry);
+  - anything expiring within 30 days is flagged;
+  - a driver or attendant can be given a **login** (for example a teacher who rides as the attendant); they then see **Bus Duty** in their menu.
+- **Routes and stops**: each route has a vehicle, driver, attendant, monthly fee and its stops in order, each with a pick-up time (to school) and a drop-off time (home). Stops can be added, renamed and reordered. A stop still used by students can't be removed.
+- **Students on transport**:
+  - add a student to a route with where they are picked up and dropped off (the same stop unless told otherwise);
+  - to and from school, to school only, or home only; a start date, their own fee if different, and a note for the crew;
+  - a full vehicle is refused;
+  - moving a student to another route or stop replaces their place, so nobody is counted twice;
+  - taking a student off a route keeps the history.
+- **Today** (office) and **Bus Duty** (crew):
+  - every route's morning and afternoon trip: not started, on the way, or completed; how many are on, off and expected; who is absent; and any delay. It refreshes every minute.
+  - **Running a trip** (works on a phone):
+    - **Start trip**;
+    - **Tell families we're late** (minutes and a reason);
+    - tick each child **Got on**, **Dropped off** (or **At school** in the morning) or **Not at stop**, tapping again to undo;
+    - **Finish trip**.
+  - The list is in stop order with the stop time.
+  - Children marked absent or with a parent's absence note are shown so the bus doesn't wait.
+  - On the way home it shows **who may collect each child**, and in red who may not, using the family's pickup permissions from Phase 1, plus emergency contacts with phone numbers.
+- **Family notices** (portal notice to parents, guardians with a login, and the student):
+  - "on the way" when the trip starts, and "running about 15 minutes late: Traffic" (one notice per parent, naming their children on that bus);
+  - "Sara got on Bus 3 at 07:32 at Main Market", "arrived at school", "was dropped off at Main Market at 14:22", and "was not at the bus stop".
+- **Transport in the portal** (student and parent menus → Transport): for each child, the route, vehicle, pick-up and drop-off stops and times, the driver and attendant with tap-to-call phone numbers, whether they are absent today, and today's two trips as they happen.
+- **Billing**: "Make invoices" for a month creates a **transport invoice** for every student riding that month, using their route's fee or their own. It never bills a student twice for the same month, and the invoices appear in Fees and the family account like any other.
+- **Report**: riders, monthly transport fees, and for the last 30 days trips, delays, average delay and children not at the stop; each route's riders against its seats; and documents about to expire.
+- Only the office sets transport up. A route's crew runs only their own route. Families see only their own children. Each school's transport is separate.
+
+**Built**
+- Backend: new app `backend/services/education/transport/` (label `education_transport`):
+  - models `Vehicle`, `TransportStaff`, `Route`, `Stop`, `Rider`, `Trip` and `TripEvent` (migration `0001`), all registered for school separation;
+  - `api.py` and `urls.py`, mounted at `/api/v1/auth/transport/`;
+  - giving a crew member a login also makes them staff of the school, so they can run their route.
+- Frontend:
+  - `services/transport.service.ts`;
+  - `components/transport/TripRunner.tsx`;
+  - `pages/education/transport/` (Today, Routes, Students, Fleet & Crew, Report & Billing);
+  - `pages/portals/MyTransportPage.tsx`;
+  - Transport in the admin, student and parent menus, and Bus Duty for crew, translated into 23 languages.
+- Tests: `backend/tests/test_transport.py` has 3 new tests:
+  - setup: expiry warnings, stops in order, riders with their own fee, a full bus refused, moving a rider, stops in use protected, the office-only setup, and the crew seeing only their route;
+  - a trip day: the manifest in stop order with who may and may not collect, absences, start / delay / got on / at school / finish, one notice per parent, the families' view, and outsiders and other staff refused;
+  - billing and the report: one transport invoice per rider per month, with no double billing.
+- Passing: these tests plus the library, school separation and billing tests (24 passed).
+- Browser check on the demo school:
+  - the admin added Bus 3, a driver, and the demo teacher as the attendant (with her login), then Route 3 with two stops and times, and put Ali and Fatima Raza on it;
+  - the teacher saw **Bus Duty**, started the morning trip (the parent was told) and ticked Ali on;
+  - the demo parent saw both children's route, stops, times, crew phone numbers and "On the way · Got on 07:xx";
+  - the office board showed "1 on · 2 expected", and the report made 2 transport invoices for the month.
+  - No page errors. The demo database was restored afterwards.
+- **Later**: live GPS tracking of the bus needs a driver app, planned with the mobile apps in phase 42–43.
 
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
