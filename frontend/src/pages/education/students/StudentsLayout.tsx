@@ -8,7 +8,7 @@ const tabs: ModuleTab[] = [
   { id: 'list', path: '/education/students', label: 'All Students', icon: Users },
   { id: 'add', path: '/education/students/add', label: 'New Student', icon: UserPlus },
   { id: 'admission', path: '/education/students/admission-letter', label: 'Admission Letter', icon: FileText },
-  { id: 'families', path: '/education/students/families', label: 'Family Directory', icon: Users2 },
+  { id: 'families', path: '/education/students/families', label: 'Households', icon: Users2 },
   { id: 'status', path: '/education/students/status', label: 'Active Status', icon: ToggleLeft },
   { id: 'idcards', path: '/education/students/id-cards', label: 'ID Cards', icon: IdCard },
   { id: 'logins', path: '/education/students/logins', label: 'Portal Logins', icon: KeyRound },

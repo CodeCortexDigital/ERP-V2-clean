@@ -1,7 +1,20 @@
 from django.urls import path
 from api.v1 import views
+from services.education.students import households as hh
 
 urlpatterns = [
+    # Households, guardians and health (before the '<str:id>/' catch-all).
+    path('households/', hh.HouseholdListCreateView.as_view(), name='household-list'),
+    path('households/<uuid:pk>/', hh.HouseholdDetailView.as_view(), name='household-detail'),
+    path('guardians/', hh.GuardianListCreateView.as_view(), name='guardian-list'),
+    path('guardians/<uuid:pk>/', hh.GuardianDetailView.as_view(), name='guardian-detail'),
+    path('<str:id>/profile/', hh.student_profile, name='student-profile'),
+    path('<str:id>/guardians/', hh.student_guardians, name='student-guardians'),
+    path('<str:id>/guardians/<uuid:link_id>/', hh.student_guardian_detail, name='student-guardian-detail'),
+    path('<str:id>/health/', hh.student_health, name='student-health'),
+    path('<str:id>/immunizations/', hh.student_immunizations, name='student-immunizations'),
+    path('<str:id>/immunizations/<uuid:imm_id>/', hh.student_immunization_detail, name='student-immunization-detail'),
+    path('<str:id>/household/', hh.student_household, name='student-household'),
     path('<str:id>/force-activity/', views.force_update_activity, name='student-force-activity'),
     path('<str:id>/update-activity/', views.update_student_activity, name='student-update-activity'),
     path('last-registration/', views.last_registration, name='student-last-registration'),

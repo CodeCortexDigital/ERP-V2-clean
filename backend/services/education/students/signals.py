@@ -27,6 +27,22 @@ def update_last_activity_on_save(sender, instance, created, **kwargs):
         # Using update to avoid recursion trigger on post_save
         Student.objects.filter(pk=instance.pk).update(last_activity=timezone.now())
 
+@receiver(post_save, sender=Student)
+def create_household_from_parent_fields(sender, instance, raw=False, **kwargs):
+    """Students entered through the classic form (father/mother fields) get a
+    household and guardian records, so the family tabs are never empty."""
+    if raw or instance.household_id or instance.deleted_at:
+        return
+    if not (instance.father_name or instance.mother_name or instance.guardian_name):
+        return
+    try:
+        from .households import ensure_household
+
+        ensure_household(instance)
+    except Exception:
+        logger.exception('Could not create a household for student %s', instance.pk)
+
+
 # Track attendance changes on student activity if attendance model is available
 def track_attendance_activity(sender, instance, created, **kwargs):
     if instance.student:

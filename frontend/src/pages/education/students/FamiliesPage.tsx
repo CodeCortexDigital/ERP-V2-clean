@@ -1,238 +1,179 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Users,
-  Search,
-  ChevronDown,
-  ChevronRight,
-  IdCard,
-  GraduationCap,
-  RefreshCw,
-} from 'lucide-react';
-import studentService, { Family } from '../../../services/student.service';
+import { Link, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Edit, Home, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Users } from 'lucide-react';
+import householdService, { type Household } from '@/services/household.service';
+import { formatMoney } from '@/utils/currency';
+import { Modal } from '@/components/ui/Modal';
 
+const card = 'bg-white rounded-xl border border-slate-200 shadow-sm';
+const input = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--app-accent)]';
+
+/** Household directory: every family with its guardians, children and balance. */
 export default function FamiliesPage() {
-  const navigate = useNavigate();
-  const [families, setFamilies] = useState<Family[]>([]);
+  const [params, setParams] = useSearchParams();
+  const [rows, setRows] = useState<Household[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<Partial<Household> | null>(null);
+  const openId = params.get('household');
+  const [open, setOpen] = useState<Household | null>(null);
 
-  const loadFamilies = async () => {
+  const load = async (q = search) => {
     setLoading(true);
-    setError(null);
     try {
-      const data = await studentService.getFamilies();
-      setFamilies(data);
-    } catch (e) {
-      console.error('Error loading families:', e);
-      setError('Unable to load families. Please try again.');
+      setRows(await householdService.households(q.trim()));
+    } catch {
+      toast.error('Could not load households.');
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => { load(''); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    loadFamilies();
-  }, []);
+    const t = window.setTimeout(() => load(search), 300);
+    return () => window.clearTimeout(t);
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!openId) { setOpen(null); return; }
+    householdService.household(openId).then(setOpen).catch(() => setOpen(null));
+  }, [openId]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return families;
-    return families.filter((f) => {
-      if (f.name.toLowerCase().includes(q)) return true;
-      if ((f.father_national_id || '').toLowerCase().includes(q)) return true;
-      if ((f.mother_national_id || '').toLowerCase().includes(q)) return true;
-      return f.members.some(
-        (m) =>
-          m.full_name.toLowerCase().includes(q) ||
-          (m.student_id || '').toLowerCase().includes(q),
-      );
-    });
-  }, [families, search]);
+  const totals = useMemo(() => ({
+    households: rows.length,
+    students: rows.reduce((n, h) => n + h.students.length, 0),
+    guardians: rows.reduce((n, h) => n + h.guardians.length, 0),
+  }), [rows]);
 
-  const totalStudents = useMemo(
-    () => families.reduce((sum, f) => sum + f.sibling_count, 0),
-    [families],
-  );
-
-  const toggle = (key: string) =>
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  const save = async () => {
+    if (!editing?.name?.trim()) return toast.error('Enter a household name.');
+    try {
+      if (editing.id) await householdService.updateHousehold(editing.id, editing);
+      else await householdService.createHousehold(editing);
+      toast.success('Household saved');
+      setEditing(null);
+      load();
+      if (openId) householdService.household(openId).then(setOpen);
+    } catch {
+      toast.error('Could not save the household.');
+    }
+  };
 
   return (
-    <div className="space-y-4 bg-slate-50 min-h-screen p-4 text-slate-800 pb-12">
-      {/* Breadcrumb Header */}
-      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-100 shadow-xs">
-        <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
-          <span
-            className="cursor-pointer hover:underline"
-            onClick={() => navigate('/education/students')}
-          >
-            Students
-          </span>
-          <span>&gt;</span>
-          <span className="text-slate-500">Manage Families</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadFamilies}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-          <button
-            onClick={() => navigate('/education/students')}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
-          </button>
-        </div>
-      </div>
-
-      {/* Stats + Search */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="md:col-span-1 bg-white rounded-xl border border-slate-100 shadow-xs p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-lg font-extrabold text-slate-800 leading-none">
-              {families.length}
-            </div>
-            <div className="text-[11px] text-slate-400 font-semibold mt-1">Families</div>
-          </div>
-        </div>
-        <div className="md:col-span-1 bg-white rounded-xl border border-slate-100 shadow-xs p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-lg font-extrabold text-slate-800 leading-none">
-              {totalStudents}
-            </div>
-            <div className="text-[11px] text-slate-400 font-semibold mt-1">
-              Linked Students
-            </div>
-          </div>
-        </div>
-        <div className="md:col-span-2 bg-white rounded-xl border border-slate-100 shadow-xs p-2 flex items-center">
-          <div className="flex items-center gap-2 w-full px-2">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search family, student, or NIC..."
-              className="w-full py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Body */}
-      {loading ? (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-xs p-12 text-center text-xs text-slate-400">
-          Loading families...
-        </div>
-      ) : error ? (
-        <div className="bg-white rounded-xl border border-red-100 shadow-xs p-12 text-center text-xs text-red-500">
-          {error}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-xs p-12 text-center space-y-2">
-          <Users className="w-10 h-10 text-slate-300 mx-auto" />
-          <p className="text-xs text-slate-500 font-semibold">No families found</p>
-          <p className="text-[11px] text-slate-400">
-            Families are detected automatically when students share a parent NIC.
+    <div className="space-y-4 p-4 max-w-6xl mx-auto text-slate-800">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">Households</h1>
+          <p className="text-sm text-slate-500">
+            {totals.households} households · {totals.students} students · {totals.guardians} guardians
           </p>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((family) => {
-            const isOpen = !!expanded[family.key];
-            return (
-              <div
-                key={family.key}
-                className="bg-white rounded-xl border border-slate-100 shadow-xs overflow-hidden"
-              >
-                <button
-                  onClick={() => toggle(family.key)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50/70 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-sm">
-                      {family.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-slate-800">{family.name}</div>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                        {family.father_national_id && (
-                          <span className="inline-flex items-center gap-1">
-                            <IdCard className="w-3 h-3" /> {family.father_national_id}
-                          </span>
-                        )}
-                        <span className="inline-flex items-center gap-1">
-                          <Users className="w-3 h-3" /> {family.sibling_count} sibling
-                          {family.sibling_count === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[11px] font-semibold">
-                      {family.active_count} active
-                    </span>
-                    {isOpen ? (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    )}
-                  </div>
-                </button>
-
-                {isOpen && (
-                  <div className="border-t border-slate-100 divide-y divide-slate-50">
-                    {family.members.map((m) => (
-                      <div
-                        key={m.id}
-                        onClick={() => navigate(`/education/students/${m.id}`)}
-                        className="flex items-center justify-between px-4 py-3 hover:bg-purple-50/40 cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold">
-                            {m.full_name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="text-xs font-semibold text-slate-700">
-                              {m.full_name}
-                            </div>
-                            <div className="text-[11px] text-slate-400">{m.student_id}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 text-[11px]">
-                          <span className="text-slate-500 font-medium">
-                            {m.current_class_name || '—'}
-                            {m.current_section_name ? ` - ${m.current_section_name}` : ''}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full font-semibold ${
-                              m.is_active
-                                ? 'bg-emerald-50 text-emerald-600'
-                                : 'bg-slate-100 text-slate-400'
-                            }`}
-                          >
-                            {m.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="flex gap-2">
+          <button onClick={() => load()} className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200" aria-label="Reload"><RefreshCw className="w-4 h-4" /></button>
+          <button onClick={() => setEditing({ name: '' })} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-white text-sm font-semibold">
+            <Plus className="w-4 h-4" /> New household
+          </button>
         </div>
+      </div>
+
+      <div className="relative">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} className={`${input} pl-9`}
+          placeholder="Search by family, guardian, student name or ID, phone or email" aria-label="Search households" />
+      </div>
+
+      {loading ? (
+        <div className="py-16 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-brand" /></div>
+      ) : rows.length === 0 ? (
+        <div className={`${card} p-10 text-center text-sm text-slate-500`}>
+          <Home className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+          No households found. Households are created automatically when you add a student with parent details.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {rows.map((h) => (
+            <button key={h.id} onClick={() => setParams({ household: h.id })}
+              className={`${card} p-4 text-left hover:border-[color:var(--app-accent)] transition-colors`}>
+              <p className="font-bold">{h.name}</p>
+              <p className="text-xs text-slate-500 truncate">{[h.address, h.city].filter(Boolean).join(', ') || 'No address'}</p>
+              <div className="mt-3 text-sm">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Guardians</p>
+                <p className="truncate">{h.guardians.map((g) => `${g.full_name} (${g.relationship_label})`).join(', ') || '—'}</p>
+                <p className="mt-2 text-xs font-semibold text-slate-500 uppercase">Students</p>
+                <p className="truncate">{h.students.map((s) => s.full_name).join(', ') || '—'}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <Modal open onClose={() => setParams({})} title={open.name} size="xl">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3 text-sm">
+              <div className="space-y-1">
+                <p className="inline-flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" />{[open.address, open.city, open.state, open.postal_code].filter(Boolean).join(', ') || 'No address'}</p>
+                {open.phone && <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" />{open.phone}</p>}
+                {open.email && <p className="flex items-center gap-2"><Mail className="w-4 h-4 text-slate-400" />{open.email}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500 uppercase font-semibold">Family balance</p>
+                <p className="text-xl font-bold">{formatMoney(open.billing_balance || 0)}</p>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-bold text-sm mb-2 inline-flex items-center gap-2"><Users className="w-4 h-4" />Students</h3>
+              <ul className="divide-y divide-slate-100 border border-slate-100 rounded-lg">
+                {open.students.map((s) => (
+                  <li key={s.id} className="px-3 py-2 flex justify-between text-sm">
+                    <Link to={`/education/students/${s.id}?tab=family`} className="text-brand font-medium hover:underline">{s.full_name}</Link>
+                    <span className="text-slate-500">{s.class_name || '—'}{s.is_active === false ? ' · inactive' : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-bold text-sm mb-2">Guardians</h3>
+              <ul className="divide-y divide-slate-100 border border-slate-100 rounded-lg">
+                {open.guardians.map((g) => (
+                  <li key={g.id} className="px-3 py-2 flex justify-between text-sm">
+                    <span><strong>{g.full_name}</strong> · {g.relationship_label}</span>
+                    <span className="text-slate-500">{g.mobile_phone || g.email || ''}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-slate-500">To add or change guardians and their permissions, open a student's Family tab.</p>
+            </div>
+            <button onClick={() => setEditing(open)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm font-semibold">
+              <Edit className="w-4 h-4" /> Edit household details
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {editing && (
+        <Modal open onClose={() => setEditing(null)} title={editing.id ? 'Edit household' : 'New household'} size="lg"
+          footer={(
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditing(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-sm font-semibold">Cancel</button>
+              <button onClick={save} className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold">Save</button>
+            </div>
+          )}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {([
+              ['name', 'Household name *'], ['phone', 'Phone'], ['email', 'Email'], ['address', 'Street address'],
+              ['city', 'City'], ['state', 'State / province'], ['postal_code', 'Postal code'], ['country', 'Country'],
+            ] as Array<[keyof Household, string]>).map(([k, text]) => (
+              <div key={k}>
+                <label htmlFor={`hh-${k}`} className="block text-xs font-semibold text-slate-600 mb-1">{text}</label>
+                <input id={`hh-${k}`} className={input} value={String(editing[k] ?? '')}
+                  onChange={(e) => setEditing((h) => ({ ...h, [k]: e.target.value }))} />
+              </div>
+            ))}
+          </div>
+        </Modal>
       )}
     </div>
   );

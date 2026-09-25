@@ -10,6 +10,11 @@ through its Invoice and Student.
 DIRECT = [
     'education_students.Student',
     'education_students.Certificate',
+    'education_students.Household',
+    'education_students.Guardian',
+    'education_students.StudentGuardian',
+    'education_students.StudentHealth',
+    'education_students.Immunization',
     'education_academics.SchoolClass',
     'education_academics.Section',
     'education_academics.Teacher',
