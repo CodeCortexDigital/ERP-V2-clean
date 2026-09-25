@@ -4,6 +4,27 @@ import { Star, ArrowLeft, Loader2 } from 'lucide-react';
 import behaviourService, { Skill, BehaviourRating } from '@/services/behaviour.service';
 import studentService from '@/services/student.service';
 import { useAuth } from '@/hooks/useAuth';
+import calendar from '@/services/calendar.service';
+import BehaviourHistory from '@/components/behaviour/BehaviourHistory';
+
+/** Merits, incidents and awards for the signed-in student, or each of a parent's children. */
+function MyBehaviour() {
+  const [kids, setKids] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [pick, setPick] = useState('');
+  useEffect(() => { calendar.children().then((k) => { setKids(k); if (k.length) setPick(k[0].id); }).catch(() => undefined); }, []);
+  if (!kids.length) return null;
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h4 className="text-sm font-black text-slate-800 mr-auto">Merits & incidents</h4>
+        {kids.length > 1 && kids.map((k) => (
+          <button key={k.id} onClick={() => setPick(k.id)} className={`px-3 py-1 rounded-full text-xs font-bold border ${pick === k.id ? 'bg-blue-600 text-white border-transparent' : 'bg-white border-slate-200'}`}>{k.full_name}</button>
+        ))}
+      </div>
+      {pick && <BehaviourHistory studentId={pick} />}
+    </section>
+  );
+}
 
 export default function StudentBehaviourPage() {
   const { user } = useAuth();
@@ -52,6 +73,9 @@ export default function StudentBehaviourPage() {
           <ArrowLeft size={13} /> Dashboard
         </Link>
       </div>
+
+      <MyBehaviour />
+      <h4 className="text-sm font-black text-slate-800">Behaviour & skills ratings</h4>
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-slate-400">

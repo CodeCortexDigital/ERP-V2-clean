@@ -150,6 +150,7 @@ urlpatterns = [
     path('auth/gradebook/', include('services.education.gradebook.urls')),
     path('auth/communication/', include('services.education.communication.urls')),
     path('auth/calendar/', include('services.education.schoolcalendar.urls')),
+    path('auth/behaviour/', include('services.education.behaviour.discipline_urls')),
     path('auth/admissions/', include('services.education.admissions.urls')),
     path('auth/analytics/', include('services.analytics.urls')),
     

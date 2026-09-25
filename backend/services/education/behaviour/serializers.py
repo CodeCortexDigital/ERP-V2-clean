@@ -6,6 +6,7 @@ class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
         fields = '__all__'
+        read_only_fields = ['tenant']
 
 
 class BehaviourRatingSerializer(serializers.ModelSerializer):
@@ -17,6 +18,7 @@ class BehaviourRatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = BehaviourRating
         fields = '__all__'
+        read_only_fields = ['tenant']
 
 
 class ObservationSerializer(serializers.ModelSerializer):
@@ -27,3 +29,4 @@ class ObservationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Observation
         fields = '__all__'
+        read_only_fields = ['tenant']

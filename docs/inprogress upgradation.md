@@ -13,8 +13,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 |  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | ✅ Done |
 |  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | ✅ Done |
 |  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | ✅ Done |
-|  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | ⏳ Next |
-| **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | Not started |
+|  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | ✅ Done |
+| **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | ⏳ Next |
 | **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | Not started |
 | **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | Not started |
 | **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | Not started |
@@ -546,6 +546,68 @@ Each phase is marked done only after it passes its backend tests and a browser c
   - the teacher saw the booking with the parent's note.
   - No page errors. The demo database was restored afterwards.
 - **On Render**: add a daily cron job that runs `python manage.py send_calendar_reminders` (next to `send_scheduled_announcements`).
+
+
+### Phase 9: Behaviour / Discipline ✅
+
+**What a school can now do**
+- **Behaviour log** (Behaviour & Skills → Behaviour Log, now the first tab):
+  - a teacher picks a class, taps one student, several, or "Whole class", chooses a **merit** (adds points) or an **incident** (takes points away), adds a note, and saves once for everyone chosen;
+  - each student card shows their running points and incidents;
+  - incidents can also have a time, a place, and a "follow up by" date;
+  - a record can be kept **staff only** instead of shown to families.
+- **Categories and points** (tab "Categories & Awards"): every school starts with 5 merits (Helping others, Excellent work, Participation, Kindness, Leadership) and 10 incident types (Homework not done, Late to class, Disrupting the class, Disrespect, Uniform, Mobile phone misuse, Bullying, Fighting, Cheating, Damage to property). The office can:
+  - change points, severity and "tell the family" per category;
+  - add categories;
+  - retire them (a used category is retired, never deleted).
+- **Actions and follow-ups** on each record:
+  - verbal or written warning, detention, parent meeting, counselling, loss of privilege, community service, reward, and follow-up notes (staff only);
+  - in-school suspension and suspension, which **only the office** can record;
+  - start and end dates, a done tick, and an optional message to the family;
+  - status moves Open → In review → Resolved.
+- **Family alerts**: serious categories (e.g. Disrespect, Bullying, Fighting) tell the family by portal notice and email, including guardians marked "Receives school messages".
+- **Positive points and awards**: the school sets milestones (by default Bronze 25, Silver 50, Gold 100 positive points). A student earns each award once, the teacher sees it straight away, and the family is told.
+- **Behaviour history**:
+  - a new **Behaviour** tab on the student page shows points, merits, incidents (and how many are open), awards, the next award, and the full history with actions; staff can open any record from there;
+  - parents and students see the same record in the portal (Behaviour & Skills), with a switch between children. Staff-only records and internal follow-up notes are hidden from them.
+- **Behaviour report**: for any date range and class:
+  - merits, incidents, open incidents, net points and students involved;
+  - counts by category, by class, and incidents by day of the week;
+  - top positive points and most incidents;
+  - follow-ups due and who is suspended today.
+- Teachers see only their own classes (and records they logged); families only their own children.
+
+**Fixes found on the way**
+- **The existing behaviour data was not kept separate between schools.** Behaviour ratings, skills and observations from one school could be seen and changed by another school, and any signed-in user (including parents) could write to them.
+  - Skills and observations now belong to a school (existing rows were moved to the right school, and each school got its own copy of the shared skill list).
+  - Ratings go through their student.
+  - Families can now only read their own children's ratings and observations, and only staff can change them.
+  - The school-separation test now includes behaviour data.
+- The sidebar highlighted two items when both linked to the same page with different tabs. Now only the matching one is highlighted.
+
+**Built**
+- Backend (`backend/services/education/behaviour/`):
+  - models `BehaviourCategory`, `BehaviourIncident`, `BehaviourAction`, `BehaviourSettings` and `MilestoneAward`, and a school column on `Skill` and `Observation` (migrations `0003` and `0004` with the backfill);
+  - new `discipline.py` and `discipline_urls.py`, mounted at `/api/v1/auth/behaviour/`;
+  - `views.py`: families read only; staff write.
+- Frontend:
+  - `services/discipline.service.ts`
+  - `pages/education/behaviour/BehaviourLogPage.tsx`, `BehaviourReportPage.tsx` and `BehaviourSettingsPage.tsx`
+  - `components/behaviour/BehaviourHistory.tsx` and `IncidentPanel.tsx`
+  - the student page's Behaviour tab, the portal behaviour page, the new tabs, and a teacher shortcut "Behaviour Log"
+- Tests: `backend/tests/test_behaviour_discipline.py` has 5 new tests:
+  - categories are seeded, only the office changes them, and a used category is retired;
+  - a teacher logs for her own class only, group merits work, incidents email the family, staff-only records stay hidden, and points add up;
+  - actions, office-only suspensions, family-hidden follow-up notes, the report, and resolving;
+  - awards are given once and the family is told;
+  - the old behaviour endpoints are read-only for families.
+- `test_tenant_isolation.py` now fills behaviour data for both schools.
+- Passing: these tests and the isolation tests (13 passed).
+- Browser check on the demo school:
+  - Ayesha Khan gave "Helping others" to two Grade 6 students, logged "Disrespect" for Fatima Raza, and added a detention (she is not offered suspension);
+  - the admin's report, categories page and Fatima's Behaviour tab showed them;
+  - the demo parent saw the merit, the incident and the detention in the portal.
+  - No page errors. The demo database was restored afterwards.
 
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 

@@ -47,6 +47,18 @@ def _populate(school, tag):
                            description=f'{tag} fee')
     Attendance = apps.get_model('education_attendance', 'AttendanceRecord')
     Attendance.objects.create(tenant=school, student=student, date=datetime.date.today(), status='present')
+    # Behaviour: skills, ratings, observations and the discipline log.
+    with use_tenant(school):
+        apps.get_model('behaviour', 'Skill').objects.create(tenant=school, name=f'{tag} Skill')
+        apps.get_model('behaviour', 'BehaviourRating').objects.create(student=student, class_ref=cls,
+                                                                      comments=f'{tag} rating')
+        apps.get_model('behaviour', 'Observation').objects.create(tenant=school, observation_type='incident',
+                                                                  student=student, title=f'{tag} observation',
+                                                                  date=datetime.date.today())
+        cat = apps.get_model('behaviour', 'BehaviourCategory').objects.create(tenant=school, name=f'{tag} Merit')
+        apps.get_model('behaviour', 'BehaviourIncident').objects.create(
+            tenant=school, student=student, category=cat, kind='positive', points=1, date=datetime.date.today(),
+            description=f'{tag} incident')
     return {'student': student, 'teacher': teacher, 'class': cls}
 
 

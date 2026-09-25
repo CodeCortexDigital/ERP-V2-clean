@@ -56,6 +56,13 @@ DIRECT = [
     'education_communication.Conversation',
     'education_communication.Announcement',
     'education_communication.SmsConfig',
+    'behaviour.Skill',
+    'behaviour.Observation',
+    'behaviour.BehaviourCategory',
+    'behaviour.BehaviourIncident',
+    'behaviour.BehaviourAction',
+    'behaviour.BehaviourSettings',
+    'behaviour.MilestoneAward',
     'education_calendar.CalendarEvent',
     'education_calendar.MeetingSlot',
     'education_gradebook.GradingScale',
@@ -118,6 +125,7 @@ THROUGH_PARENT = {
     'education_communication.ChatMessage': 'conversation__tenant',
     'education_communication.AnnouncementReceipt': 'announcement__tenant',
     'education_gradebook.GradeBand': 'scale__tenant',
+    'behaviour.BehaviourRating': 'student__tenant',
     'education_gradebook.Score': 'assignment__tenant',
 }
 

@@ -1,14 +1,35 @@
-from rest_framework import viewsets, status
+from rest_framework import permissions, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
+
+from services.core.accounts.decorators import filter_students_for_user, get_user_role
 from .models import BehaviourRating, Skill, Observation
 from .serializers import BehaviourRatingSerializer, SkillSerializer, ObservationSerializer
+
+
+class StaffWritesFamiliesRead(permissions.BasePermission):
+    """Everyone signed in can read (families only their own children); only staff can change anything."""
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return request.method in permissions.SAFE_METHODS or get_user_role(request.user) in ('admin', 'teacher')
+
+
+def _for_family(request, queryset, field='student'):
+    if get_user_role(request.user) in ('parent', 'student'):
+        from services.education.students.models import Student
+
+        kids = filter_students_for_user(request.user, Student.objects.all())
+        return queryset.filter(**{f'{field}__in': kids})
+    return queryset
 
 
 class SkillViewSet(viewsets.ModelViewSet):
     queryset = Skill.objects.all()
     serializer_class = SkillSerializer
+    permission_classes = [StaffWritesFamiliesRead]
     
     def get_queryset(self):
         queryset = Skill.objects.all()
@@ -21,9 +42,10 @@ class SkillViewSet(viewsets.ModelViewSet):
 class BehaviourRatingViewSet(viewsets.ModelViewSet):
     queryset = BehaviourRating.objects.all()
     serializer_class = BehaviourRatingSerializer
+    permission_classes = [StaffWritesFamiliesRead]
     
     def get_queryset(self):
-        queryset = BehaviourRating.objects.select_related('student', 'class_ref', 'teacher').all()
+        queryset = _for_family(self.request, BehaviourRating.objects.select_related('student', 'class_ref', 'teacher').all())
         
         student_id = self.request.query_params.get('student_id')
         class_id = self.request.query_params.get('class_id')
@@ -88,9 +110,10 @@ class BehaviourRatingViewSet(viewsets.ModelViewSet):
 class ObservationViewSet(viewsets.ModelViewSet):
     queryset = Observation.objects.all()
     serializer_class = ObservationSerializer
+    permission_classes = [StaffWritesFamiliesRead]
     
     def get_queryset(self):
-        queryset = Observation.objects.select_related('student', 'class_ref', 'teacher').all()
+        queryset = _for_family(self.request, Observation.objects.select_related('student', 'class_ref', 'teacher').all())
         
         observation_type = self.request.query_params.get('type')
         student_id = self.request.query_params.get('student_id')

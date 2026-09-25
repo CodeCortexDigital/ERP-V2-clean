@@ -4,7 +4,10 @@ import {
   ClipboardList, CalendarClock, Clock, DoorOpen, Plus, Grid, UserCog, Plane,
   Star, Award, Eye, BookOpen, Library, FilePlus, Edit, ClipboardEdit, Calendar,
   GraduationCap, MessageSquare, FileSignature, BarChart2, ListChecks, FileBarChart, Users2, Video,
-  Tag, Landmark, SlidersHorizontal, CalendarRange, Globe
+  Tag, Landmark, SlidersHorizontal, CalendarRange, Globe,
+  ThumbsUp,
+  PieChart,
+  Settings2,
 } from 'lucide-react';
 import type { ModuleTab } from './ModuleTabsLayout';
 
@@ -70,6 +73,9 @@ export const timetableTabs: ModuleTab[] = [
 
 // ============================ BEHAVIOUR & SKILLS ============================
 export const behaviourTabs: ModuleTab[] = [
+  { id: 'log', path: '/education/behaviour?tab=log', label: 'Behaviour Log', icon: ThumbsUp, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'behaviour-report', path: '/education/behaviour?tab=behaviour-report', label: 'Behaviour Report', icon: PieChart, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'behaviour-settings', path: '/education/behaviour?tab=behaviour-settings', label: 'Categories & Awards', icon: Settings2, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'rate-behaviour', path: '/education/behaviour?tab=rate-behaviour', label: 'Rate Behaviours', icon: Star, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'rate-skills', path: '/education/behaviour?tab=rate-skills', label: 'Rate Skills', icon: Award, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'observations', path: '/education/behaviour?tab=observations', label: 'Observations', icon: Eye, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },

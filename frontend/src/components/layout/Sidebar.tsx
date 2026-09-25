@@ -193,7 +193,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'timetable', label: 'Timetable', icon: <Calendar className="w-4 h-4" />, href: '/education/timetable' },
     { id: 'gradebook', label: 'Gradebook', icon: <BookOpen className="w-4 h-4" />, href: '/education/gradebook' },
     { id: 'examination', label: 'Examination', icon: <Edit className="w-4 h-4" />, href: '/education/exams' },
-    { id: 'behaviour', label: 'Behaviour & Skills', icon: <Eye className="w-4 h-4" />, href: '/education/behaviour?tab=rate-behaviour' },
+    { id: 'behaviour', label: 'Behaviour & Skills', icon: <Eye className="w-4 h-4" />, href: '/education/behaviour?tab=log' },
     { id: 'accounts', label: 'Finance', icon: <Wallet className="w-4 h-4" />, href: '/education/accounts/chart-of-accounts' },
     ...COMMS,
     { id: 'communication', label: 'Communication', icon: <MessageSquare className="w-4 h-4" />, href: '/education/communication' },
@@ -485,8 +485,8 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
                 className={({ isActive }) => `
                   sb-fade-in relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold
                   transition-all duration-150
-                  ${isActive 
-                    ? `${activeStyle.bg} ${activeStyle.text} shadow-sm` 
+                  ${isActive && (!item.href?.includes('?') || isLinkActive(item.href))
+                    ? `${activeStyle.bg} ${activeStyle.text} shadow-sm`
                     : isDarkSidebar ? 'text-slate-300 hover:bg-slate-800 hover:text-white hover:translate-x-0.5' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5'
                   }
                   ${isCollapsed ? 'justify-center' : ''}

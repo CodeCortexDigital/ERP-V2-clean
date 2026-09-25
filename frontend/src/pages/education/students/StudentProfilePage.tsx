@@ -16,8 +16,11 @@ import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import EnrollmentAndSchedule from '@/components/students/EnrollmentAndSchedule';
 import { ReportCardView } from '@/components/gradebook/ReportCardView';
 import CommunicationHistory from '@/components/students/CommunicationHistory';
+import BehaviourHistory from '@/components/behaviour/BehaviourHistory';
+import IncidentPanel from '@/components/behaviour/IncidentPanel';
+import type { Incident } from '@/services/discipline.service';
 
-type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades' | 'communication';
+type TabId = 'overview' | 'family' | 'health' | 'attendance' | 'billing' | 'grades' | 'behaviour' | 'communication';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof User }> = [
   { id: 'overview', label: 'Overview', icon: User },
@@ -26,6 +29,7 @@ const TABS: Array<{ id: TabId; label: string; icon: typeof User }> = [
   { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
   { id: 'billing', label: 'Billing', icon: Wallet },
   { id: 'grades', label: 'Grades', icon: GraduationCap },
+  { id: 'behaviour', label: 'Behaviour', icon: Star },
   { id: 'communication', label: 'Communication', icon: Mail },
 ];
 
@@ -150,6 +154,7 @@ export default function StudentProfilePage() {
       {tab === 'health' && <HealthTab data={data} studentId={id} reload={load} />}
       {tab === 'attendance' && <AttendanceCalendar studentId={String(data.student.id)} />}
       {tab === 'billing' && <BillingTab data={data} />}
+      {tab === 'behaviour' && <BehaviourTab studentId={String(data.student.id)} />}
       {tab === 'communication' && <CommunicationHistory studentId={String(data.student.id)} />}
       {tab === 'grades' && (
         <div className="space-y-4">
@@ -708,5 +713,16 @@ function GradesTab({ data }: { data: StudentProfile }) {
         </div>
       )}
     </section>
+  );
+}
+
+function BehaviourTab({ studentId }: { studentId: string }) {
+  const [open, setOpen] = useState<Incident | null>(null);
+  const [key, setKey] = useState(0);
+  return (
+    <>
+      <BehaviourHistory studentId={studentId} onOpen={setOpen} refreshKey={key} />
+      {open && <IncidentPanel incident={open} onClose={() => setOpen(null)} onChanged={() => setKey((k) => k + 1)} />}
+    </>
   );
 }
