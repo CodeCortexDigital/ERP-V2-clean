@@ -28,6 +28,16 @@ const HINTS: Record<LoginRole, { placeholder: string; hint: string }> = {
 
 const REMEMBER_KEY = 'login_remembered_username';
 
+// Test accounts on the sign-in page while testing: on a developer's computer, or where VITE_SHOW_TEST_LOGINS=true is
+// set. Remove that setting after testing. The live site refuses these demo passwords anyway (P7).
+const SHOW_TEST_LOGINS = import.meta.env.DEV || import.meta.env.VITE_SHOW_TEST_LOGINS === 'true';
+const TEST_LOGINS: { label: string; email: string; password: string; role: LoginRole }[] = [
+  { label: 'Admin', email: import.meta.env.VITE_TEST_ADMIN_EMAIL || 'codecortex105@gmail.com', password: 'Admin@123', role: 'admin' },
+  { label: 'Teacher', email: 'teacher@code.com', password: 'Teacher@123', role: 'employee' },
+  { label: 'Parent', email: 'parent@code.com', password: 'Parent@123', role: 'student' },
+  { label: 'Student', email: 'student@code.com', password: 'Student@123', role: 'student' },
+];
+
 function MicrosoftMark() {
   return (
     <svg aria-hidden viewBox="0 0 21 21" className="w-4 h-4"><rect x="1" y="1" width="9" height="9" fill="#f25022" /><rect x="11" y="1" width="9" height="9" fill="#7fba00" /><rect x="1" y="11" width="9" height="9" fill="#00a4ef" /><rect x="11" y="11" width="9" height="9" fill="#ffb900" /></svg>
@@ -263,6 +273,22 @@ export default function LoginPage() {
           {loading ? (<><Loader2 className="w-4 h-4 animate-spin" /> {t('auth.signingIn')}</>) : (<>{t('auth.signIn')} <ArrowRight className="w-4 h-4 rtl:rotate-180" /></>)}
         </button>
       </form>
+
+      {SHOW_TEST_LOGINS && (
+        <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" aria-label="Test accounts">
+          <p className="mb-2 font-semibold">Test accounts (shown while testing only). Click one to fill it in:</p>
+          <ul className="space-y-1">
+            {TEST_LOGINS.map((a) => (
+              <li key={a.email}>
+                <button type="button" onClick={() => { setRole(a.role); setUserId(a.email); setPassword(a.password); setError(''); }}
+                  className="w-full rounded-lg bg-white/70 px-2 py-1 text-start hover:bg-white">
+                  <b>{a.label}</b>: <span className="font-mono">{a.email}</span> / <span className="font-mono">{a.password}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
         <span className="h-px flex-1 bg-slate-200" /> {t('common.or')} <span className="h-px flex-1 bg-slate-200" />
