@@ -83,7 +83,7 @@ jobs:
             --sse AES256 --only-show-errors
 
       - name: Upload artifact (fallback)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: erp-backup-${{ github.run_id }}
           path: ${{ env.BACKUP_OUTPUT_DIR }}/
