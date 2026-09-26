@@ -448,14 +448,6 @@ export default function GenerateSalaryPage() {
         toast.success(`Salary generated for ${emp.full_name} successfully!`);
       }
 
-      // Save generated salaries to localStorage for real-time visibility across all views
-      try {
-        const existingLocal = JSON.parse(localStorage.getItem('erp_generated_payslips') || '[]');
-        const merged = [...generatedList, ...existingLocal.filter((e: any) => !generatedList.some((g: any) => g.id === e.id || (g.employee_id === e.employee_id && g.month === e.month)))];
-        localStorage.setItem('erp_generated_payslips', JSON.stringify(merged));
-        localStorage.setItem('custom_salaries', JSON.stringify(merged));
-      } catch (err) {}
-
       setGeneratedSalaries(generatedList);
 
       // Clear local states

@@ -1465,6 +1465,44 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors.
 
 
+### P1: Production readiness (partly done, paused) ⚠️
+
+Paused on 26 Sep 2026 to start Tier 1 first, as asked.
+
+**Done**
+- Pages no longer mix old browser-stored copies into the school's real data:
+  - classes, classrooms and periods on Academics;
+  - payslips on Generate Salary and the payslip list (they were also saved to the browser, besides the server);
+  - students on Homework, which showed any student it couldn't match the homework of "Grade 1-A". A student now sees their own class's homework only;
+  - classes and "saved employee" details on the teacher dashboard and teacher attendance;
+  - deleted-teacher IDs.
+- If a list fails to load, the page says so instead of showing an old copy.
+
+**Open findings (not yet fixed; they affect the live site)**
+
+A check of every API address, signed in as each demo role, found:
+- **Parents and students can make office-only changes.** For example:
+  - run monthly invoicing, apply late fees, send fee reminders, create payslips;
+  - bulk-delete invoices;
+  - create students, teachers, classes, subjects, fee structures, scholarships and ledger entries.
+  
+  Many of these views only require a sign-in. Teachers can do the same.
+- **Parents and students can read office data:**
+  - every invoice and payment, including the CSV exports and the finance summary and forecast;
+  - the full student list (`auth/students/`) and student counts;
+  - the teacher records;
+  - the executive dashboard and the analytics pages;
+  - attendance and staff statistics.
+- **Records can be changed through detail addresses** that only require a sign-in, for example teacher records.
+
+Planned fix:
+- a central rule in the sign-in check that limits changes by role (an allow-list for parents and students; office-only areas blocked for teachers and staff);
+- per-view filtering for the reads above, using the existing `filter_invoices_for_user`, `filter_payments_for_user` and `filter_students_for_user` helpers;
+- a test that runs every address as every role.
+
+Also still to do: the 4 known failing tests.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -1552,6 +1590,30 @@ Do the items for a market only when a school there is signing.
 | **P33** | External penetration test [M6] | Before international expansion, after P6–P9. |
 | **P34** | Trust centre and incident management [82, 83] | Public security and privacy page, on-call runbooks, affected-school notifications. |
 | **P35** | ISO 27001 / SOC 2 and continuous compliance [71, 84, M7, 60 (immutable records)] | Policies, staff training, access reviews, yearly tests and reviews. |
+
+### Progress: Tier 0 and Tier 1
+
+The notes for each finished item are in the **Progress log**, after Phase 22.
+
+| Order | Item | Status |
+| ---: | --- | --- |
+| **P1** | Production readiness | Partly done, paused (open findings in the log) |
+| **P2** | Database safety and backups | Next |
+| **P3** | Password reset and transactional email | Next |
+| **P4** | Error tracking and uptime monitoring | Next |
+| **P5** | Test-and-deploy pipeline and staging | Next |
+| **P6** | Web security hardening and rate limits | Next |
+| **P7** | Secrets and default passwords | Next |
+| **P8** | Two-step sign-in for administrators | Next |
+| **P9** | Dependency and code scanning | Next |
+| **P10** | School onboarding and data import | ⏳ In progress |
+| **P11** | SaaS plans and subscriptions | Next |
+| **P12** | Platform payments and invoices | Next |
+| **P13** | Full school export and end-of-contract deletion | Next |
+| **P14** | Privacy documents, consent and breach response | Next |
+| **P15** | Help centre and support tickets | Next |
+| **P16** | Automated SMS and WhatsApp | Next |
+| **P17** | Retention by record type | Next |
 
 ### Next step
 

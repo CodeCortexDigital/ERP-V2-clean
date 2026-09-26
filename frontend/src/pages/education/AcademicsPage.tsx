@@ -126,17 +126,8 @@ export default function AcademicsPage() {
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error fetching classes:', error);
-      try {
-        const localClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
-        if (Array.isArray(localClasses) && localClasses.length > 0) {
-          setClasses(localClasses);
-          toast.warning('Using cached data from localStorage');
-        } else {
-          setClasses([]);
-        }
-      } catch (e) {
-        setClasses([]);
-      }
+      setClasses([]);
+      toast.error('Could not load. Please refresh the page.');
     }
   };
 
@@ -146,16 +137,8 @@ export default function AcademicsPage() {
       setClassrooms(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching classrooms:', error);
-      try {
-        const localRooms = JSON.parse(localStorage.getItem('custom_classrooms') || '[]');
-        if (Array.isArray(localRooms) && localRooms.length > 0) {
-          setClassrooms(localRooms);
-        } else {
-          setClassrooms([]);
-        }
-      } catch (e) {
-        setClassrooms([]);
-      }
+      setClassrooms([]);
+      toast.error('Could not load. Please refresh the page.');
     }
   };
 
@@ -165,16 +148,8 @@ export default function AcademicsPage() {
       setPeriods(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching periods:', error);
-      try {
-        const localPeriods = JSON.parse(localStorage.getItem('custom_periods') || '[]');
-        if (Array.isArray(localPeriods) && localPeriods.length > 0) {
-          setPeriods(localPeriods);
-        } else {
-          setPeriods([]);
-        }
-      } catch (e) {
-        setPeriods([]);
-      }
+      setPeriods([]);
+      toast.error('Could not load. Please refresh the page.');
     }
   };
 

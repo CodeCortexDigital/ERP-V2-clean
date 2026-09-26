@@ -70,22 +70,6 @@ export default function PayslipsListPage() {
         setTeachers(loadedTeachers);
       }
 
-      // Merge local storage generated payslips if any
-      try {
-        const localSlips = JSON.parse(localStorage.getItem('erp_generated_payslips') || '[]');
-        const customSlips = JSON.parse(localStorage.getItem('custom_salaries') || '[]');
-        const combinedLocal = [
-          ...(Array.isArray(localSlips) ? localSlips : []),
-          ...(Array.isArray(customSlips) ? customSlips : [])
-        ];
-        combinedLocal.forEach((lSlip: any) => {
-          const exists = loadedSlips.some(s => String(s.id) === String(lSlip.id) || String(s.slip_number) === String(lSlip.slip_number) || (String(s.employee) === String(lSlip.employee_id || lSlip.employee) && String(s.month) === String(lSlip.month)));
-          if (!exists) {
-            loadedSlips.unshift(lSlip);
-          }
-        });
-      } catch (e) {}
-
       // Normalize payslip object fields
       const normalized = loadedSlips.map((slip: any) => {
         const netAmt = Number(slip.net_salary ?? (Number(slip.base_salary || slip.basic_salary || 0) + Number(slip.bonuses || slip.allowances || 0) - Number(slip.deductions || 0)));

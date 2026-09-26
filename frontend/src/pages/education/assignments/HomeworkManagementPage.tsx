@@ -101,16 +101,18 @@ export default function HomeworkManagementPage() {
     fetchResources();
   }, []);
 
+  // A student's class from their own record ("Grade 8" or "Grade 8-A").
+  const isMyClass = (className: string) => {
+    const st = (user as any)?.student || {};
+    const cls = st.current_class_name || (user as any)?.class_name || '';
+    if (!cls) return false;
+    const full = st.current_section_name ? `${cls}-${st.current_section_name}` : cls;
+    return className === full || className === cls;
+  };
+
   const loadHomeworks = async (allEntries: HomeworkEntry[]) => {
     if (role === 'student') {
-      const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-      const matched = customStudents.find((s: any) =>
-        String(s.id) === String(user?.id) ||
-        String(s.student_id) === String(user?.id) ||
-        s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-      );
-      const studentClass = matched?.class_name || (user as any)?.class_name || 'Grade 1-A';
-      setSearchedHomeworks(allEntries.filter((h) => h.className === studentClass));
+      setSearchedHomeworks(allEntries.filter((h) => isMyClass(h.className)));
     } else {
       setSearchedHomeworks(allEntries);
     }
@@ -187,15 +189,7 @@ export default function HomeworkManagementPage() {
       // Matches date filter if empty, or if it matches the assigned date, or if it matches the due date
       const matchDate = !filterDate || hw.homeworkDate === filterDate || hw.dueDate === filterDate;
       const matchClass = role === 'student'
-        ? (() => {
-            const customStudents = JSON.parse(localStorage.getItem('custom_students') || '[]');
-            const matched = customStudents.find((s: any) => 
-              String(s.id) === String(user?.id) || 
-              String(s.student_id) === String(user?.id) ||
-              s.full_name?.toLowerCase() === user?.full_name?.toLowerCase()
-            );
-            return matched?.class_name || (user as any)?.class_name || 'Grade 1-A';
-          })() === hw.className
+        ? isMyClass(hw.className)
         : (filterClass === 'all' || hw.className === filterClass);
       const matchTeacher = filterTeacher === 'all' || hw.teacherName === filterTeacher;
       return matchDate && matchClass && matchTeacher;

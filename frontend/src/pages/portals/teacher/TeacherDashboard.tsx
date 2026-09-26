@@ -80,9 +80,8 @@ export default function TeacherDashboard() {
       setLoadingClasses(true);
       const response = await classService.getAll().catch(() => ({ data: [] }));
       const rawClasses = extractListData<SchoolClass>(response.data || []);
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
       const seenClasses = new Set();
-      let classList: SchoolClass[] = [...rawClasses, ...customClasses].filter((c: any) => {
+      let classList: SchoolClass[] = [...rawClasses].filter((c: any) => {
         const cid = String(c.id || c.name);
         if (seenClasses.has(cid)) return false;
         seenClasses.add(cid);
@@ -96,7 +95,7 @@ export default function TeacherDashboard() {
       if (isPrincipalOrHead) {
         myAssignedClasses = classList.filter(c => c.is_active !== false);
       } else {
-        const savedEmp = JSON.parse(localStorage.getItem('current_employee_data') || '{}');
+        const savedEmp: any = {};
         const teacherName = (
           savedEmp.name ||
           savedEmp.full_name ||
@@ -204,40 +203,9 @@ export default function TeacherDashboard() {
       }
 
       if (!currentEmp) {
-        const savedData = localStorage.getItem('current_employee_data');
-        const savedEmployee = savedData ? JSON.parse(savedData) : null;
-        if (savedEmployee) {
-          currentEmp = {
-            id: savedEmployee.userId || user?.id || '',
-            employee_id: savedEmployee.regNo || savedEmployee.employee_id || '',
-            full_name: savedEmployee.name || savedEmployee.full_name || '',
-            email: savedEmployee.email || user?.email || '',
-            phone: savedEmployee.phone || '',
-            date_of_birth: savedEmployee.dob || '',
-            gender: savedEmployee.gender || '',
-            qualifications: [],
-            specializations: [savedEmployee.role || 'Teacher'],
-            experience_years: 0,
-            joining_date: savedEmployee.joiningDate || '',
-            is_active: true,
-            profile_picture: null,
-            monthly_salary: savedEmployee.monthlySalary || `${cur()} 1,000`,
-            father_husband_name: savedEmployee.fatherName || '',
-            national_id: savedEmployee.cnic || '',
-            religion: savedEmployee.religion || 'Islam',
-            education: savedEmployee.education || 'N/A',
-            blood_group: savedEmployee.bloodGroup || 'O+',
-            home_address: savedEmployee.address || '',
-            address: savedEmployee.address || '',
-          };
-        }
-      }
-
-      if (!currentEmp) {
         const tRes = await teacherService.getAll().catch(() => ({ data: [] }));
         const fetched = extractListData<Teacher>(tRes.data);
-        const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_teacher_ids') || '[]');
-        const filtered = fetched.filter(t => !deletedIds.includes(t.id));
+        const filtered = fetched;
         const fullName = (user?.full_name || '').trim();
         const email = (user?.email || '').trim().toLowerCase();
         const empIdMatch = fullName.match(/EMP[_-]?(\d+)/i);
@@ -260,11 +228,8 @@ export default function TeacherDashboard() {
       }
 
       const fullEmployee = {
-        name: currentEmp?.full_name ||
-          (localStorage.getItem('current_employee_data') && JSON.parse(localStorage.getItem('current_employee_data') || '{}').name) ||
-          (user?.full_name || '').split(' ')[0] || 'Employee',
-        regNo: currentEmp?.employee_id ||
-          (localStorage.getItem('current_employee_data') && JSON.parse(localStorage.getItem('current_employee_data') || '{}').regNo) || 'N/A',
+        name: currentEmp?.full_name || (user?.full_name || '').split(' ')[0] || 'Employee',
+        regNo: currentEmp?.employee_id || 'N/A',
         role: currentEmp?.specializations?.[0] || 'Teacher',
         monthlySalary: currentEmp?.monthly_salary || `${cur()} 1,000`,
         fatherName: currentEmp?.father_husband_name || '--',

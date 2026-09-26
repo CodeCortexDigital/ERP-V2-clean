@@ -138,9 +138,8 @@ export default function TeacherMarkAttendance() {
       setLoadingClasses(true);
       const response = await classService.getAll().catch(() => ({ data: [] }));
       const rawClasses = extractListData<SchoolClass>(response.data || []);
-      const customClasses = JSON.parse(localStorage.getItem('custom_classes') || '[]');
       const seenClasses = new Set();
-      let classList: SchoolClass[] = [...rawClasses, ...customClasses].filter((c: any) => {
+      let classList: SchoolClass[] = [...rawClasses].filter((c: any) => {
         const cid = String(c.id || c.name);
         if (seenClasses.has(cid)) return false;
         seenClasses.add(cid);
@@ -197,7 +196,7 @@ export default function TeacherMarkAttendance() {
                 (c.teacher_id === teacherId || c.teacher_id.includes(teacherId.replace(/^EMP[_-]?/, '')))
               );
             }
-            const savedEmp = JSON.parse(localStorage.getItem('current_employee_data') || '{}');
+            const savedEmp: any = {};
             const teacherName = (
               savedEmp.name || savedEmp.full_name || user?.full_name || user?.email || ''
             ).toLowerCase();
