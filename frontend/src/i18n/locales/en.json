@@ -30,11 +30,11 @@
     "teacher": "Teacher Portal",
     "student": "Student Portal",
     "parent": "Parent Portal",
-    "searchMenu": "Search menu...",
+    "searchMenu": "Search menu...", "searchEverywhere": "Search everywhere",
     "logout": "Logout"
   },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Dashboard", "group_people": "People", "group_academics": "Academics", "group_billing": "Billing", "group_communication": "Communication", "group_services": "Campus services", "group_reports": "Reports", "group_admin": "Administration", "group_teaching": "Teaching", "group_family": "My family", "group_learning": "Learning", "group_account": "Account", "security_privacy": "Security & privacy", "staff": "Staff",
     "admissions": "Admissions", "students": "Students",
     "attendance": "Attendance",
     "fees": "Fees",

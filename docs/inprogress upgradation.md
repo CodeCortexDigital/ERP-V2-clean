@@ -1,6 +1,6 @@
 # Upgrade to international standard: progress
 
-Phases 1 to 21 are done. Phase 22 (UI/UX & Navigation) is next.
+All 22 phases are done. What remains is the deployment checklist below, then the later roadmap (23 onwards).
 Each phase is marked done only after it passes its backend tests and a browser check. The notes for each finished phase are under **Progress log** below the table.
 
 |  Phase | Module                          | Current Pakistani-Style System                                                                 | Upgrade to International Standard      | Key Features to Implement                                                                                                                                                                            | Priority         | Status |
@@ -26,7 +26,7 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | ✅ Done |
 | **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | ✅ Done |
 | **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | ✅ Done |
-| **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | ⏳ Next |
+| **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | ✅ Done |
 
 ## After phase 22: deployment checklist
 
@@ -1411,6 +1411,57 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the exams and timetable pages still loaded for the office;
   - the student then signed in and saw "5 wrong passwords were tried on your account" on Account settings;
   - **Download my data** gave `my-data.json` with 6 sign-ins, and **Sign out everywhere** returned to the sign-in page.
+  - No page errors.
+
+
+### Phase 22: UI/UX & Navigation ✅
+
+**What changed for everyone**
+- **Grouped menu.** The long flat sidebar (28 entries for the office) is now in sections with headings:
+  - **Office**: Dashboard, then:
+    - **People**: Students, Admissions, Staff;
+    - **Academics**: Academic Setup, Timetable, Attendance, Gradebook, Examination, Behaviour & Skills, Certificates;
+    - **Billing**: Fees, Salary, Finance;
+    - **Communication**: Messages, Announcements, Calendar, Meetings, Communication;
+    - **Campus services**: Library, Transport, Inventory, Cafeteria;
+    - **Reports**;
+    - **Administration**: Security & privacy, Integrations, Settings, All Schools.
+  - **Teachers**: Teaching, Communication, Campus services.
+  - **Parents**: My family, Billing, Communication, Campus services, Account.
+  - **Students**: Learning, Billing, Communication, Campus services.
+  - Bus Duty and the Cafeteria Till stay at the top for the staff who have them.
+- **Sections fold away.** Click a heading to close or open it. The choice is remembered on the device. The section with the current page always opens, and the current page's link is scrolled into view.
+- **Menu search.** Typing in "Search menu…":
+  - finds pages in any section, in the chosen language;
+  - **Enter** opens the first match;
+  - **Esc** clears it;
+  - when no page matches, it offers **Search everywhere: "…"**, which opens the school-wide search from Phase 19 (Enter does the same). For example, "raza" opens the matching students.
+- **Icon-only sidebar**: the sections are separated by thin lines instead of headings.
+- **Wording**: "Employees" is now "Staff". Region wording from Phase 20 still applies (a US school sees Exam Schedule, Grade Sheet, Schedule).
+- **Security & privacy** has its own menu entry for administrators.
+- **Accessibility**:
+  - the menu is a navigation landmark;
+  - each section is a labelled group;
+  - headings are buttons that announce whether they're open (`aria-expanded`);
+  - the current page is marked;
+  - the section headings meet contrast on both the light and dark sidebar.
+
+**Built**
+- Frontend:
+  - `components/layout/Sidebar.tsx`: each menu item has a section; headings are collapsible and remembered; the current page's section opens and its link scrolls into view; the menu filter supports Enter and Esc and offers "Search everywhere"; the list is a `<nav>` landmark;
+  - `components/layout/navSections.ts`: which items go under which heading, and when a heading is open.
+  - The section names, "Staff", "Security & privacy" and "Search everywhere" are translated into all 23 languages.
+- Tests:
+  - `components/layout/navSections.test.ts`: sections come in a fixed order and keep their items' order; an unknown section falls back to the top; closed sections open while searching, in the icon-only view, and when they hold the current page;
+  - the language-file test (every language has every key).
+  - The frontend test run has 3 failures that already failed before these phases: `auth.teacher.service`, `student.service` and `teacher.service` tests. One test mock is hoisted before its variable exists; the other two expect old endpoint addresses. They are left for later.
+- Browser check on the demo school:
+  - the office saw 7 sections and 28 links;
+  - closing Campus services and Billing hid their links (21 left), and they stayed closed after a reload;
+  - opening the library page reopened Campus services, with Library in view and Fees still hidden;
+  - "secur" found Security & privacy and Enter opened it; "raza" offered "Search everywhere" and Enter opened the search results (Students 8);
+  - the icon-only sidebar showed 28 icons in separated groups;
+  - teacher (Teaching, Communication, Campus services), parent (My family, Billing, Communication, Campus services, Account) and student (Learning, Billing, Communication, Campus services) all saw their sections, including in the mobile drawer.
   - No page errors.
 
 
