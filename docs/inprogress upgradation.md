@@ -32,7 +32,7 @@ Each phase is marked done only after it passes its backend tests and a browser c
 
 These are done once, after all 22 modules are finished. Each phase adds to this list.
 
-- [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026 (up to Phase 19, `9fcf1dc`).
+- [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026: up to Phase 19 (`9fcf1dc`), then all 22 phases (`8bcfb14`).
 - [x] **Migrate** on Render: nothing to do by hand. The `render.yaml` start command runs `python manage.py migrate` on every deploy, so pushing applies them. The new migrations:
   - students `0009`–`0015`;
   - admissions `0003`;
