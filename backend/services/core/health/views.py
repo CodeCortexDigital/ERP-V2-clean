@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.utils import timezone as _tz
+from django.conf import settings
 
 STARTED_AT = _tz.now().isoformat()
 from rest_framework import status
@@ -75,4 +76,4 @@ def version(request):
     from services.core.errors.capture import release
 
     return Response({'commit': os.environ.get('RENDER_GIT_COMMIT') or os.environ.get('GIT_COMMIT') or '', 'short': release(),
-                     'started_at': STARTED_AT})
+                     'started_at': STARTED_AT, 'env': settings.APP_ENV})

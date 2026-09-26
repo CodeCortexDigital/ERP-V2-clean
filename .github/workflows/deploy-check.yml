@@ -3,14 +3,18 @@ name: Deploy check
 # After every push to main, confirm the live backend really runs the new code (P4). Render keeps serving the last
 # good version when a deploy fails, which is silent; this job fails instead, and GitHub emails the person who pushed.
 # Set the repository variable BACKEND_URL if the backend moves.
+# Render deploys only after CI passes (P5), so this starts when CI has finished successfully on main.
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 jobs:
   live:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -20,6 +24,7 @@ jobs:
       - name: Wait for the backend to run this commit
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL || 'https://erp-backend-s5z7.onrender.com' }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           for i in $(seq 1 40); do
             live=$(curl -fsS --max-time 60 "$BACKEND_URL/api/v1/health/version/" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("commit",""))' 2>/dev/null || true)

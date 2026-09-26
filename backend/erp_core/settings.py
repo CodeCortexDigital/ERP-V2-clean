@@ -22,6 +22,8 @@ if not SECRET_KEY:
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('1', 'true', 'yes')
+# Which site this is: production, staging or development (P5). Staging never sends real email and may be anonymised.
+APP_ENV = os.environ.get('APP_ENV', '').strip().lower() or ('development' if DEBUG else 'production')
 
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver,*').split(',') if host.strip()]
 if 'testserver' not in ALLOWED_HOSTS:
@@ -285,7 +287,9 @@ def _redis_available(url: str) -> bool:
         return False
 
 
-if CACHE_URL.startswith('redis://') and _redis_available(CACHE_URL):
+# Parallel test workers (pytest-xdist) each keep their own in-memory cache: a shared Redis would let one worker's
+# cache.clear() or sign-in limits leak into another's tests.
+if CACHE_URL.startswith('redis://') and not os.environ.get('PYTEST_XDIST_WORKER') and _redis_available(CACHE_URL):
     try:
         import django_redis  # noqa: F401
         CACHES = {
@@ -376,7 +380,8 @@ EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '15'))
 # uses the choice below.
 FALLBACK_EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND') or (
     'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST else 'django.core.mail.backends.console.EmailBackend')
-EMAIL_BACKEND = 'services.education.integrations.email_backend.TenantEmailBackend'
+EMAIL_BACKEND = ('django.core.mail.backends.console.EmailBackend' if APP_ENV == 'staging'
+                 else 'services.education.integrations.email_backend.TenantEmailBackend')
 # Where the web app lives, for sign-in redirects (comma separated), e.g. https://erp.example.com
 FRONTEND_ORIGINS = os.environ.get('FRONTEND_ORIGINS', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@school.local')

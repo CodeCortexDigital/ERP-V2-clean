@@ -300,8 +300,9 @@ def django_db_setup(django_db_setup, django_db_blocker):
 
 
 @pytest.fixture(scope="session")
-def django_db_modify_db_settings():
-    """Modify database settings for tests."""
+def django_db_modify_db_settings(django_db_modify_db_settings_parallel_suffix):
+    """Modify database settings for tests. Keeps pytest-django's per-worker suffix, so parallel runs (-n) on Postgres
+    each get their own test database."""
     settings.DATABASES['default']['NAME'] = 'test_erp_db'
 
 
@@ -310,3 +311,5 @@ def pytest_configure(config):
     settings.DEBUG = False
     settings.CELERY_TASK_ALWAYS_EAGER = True
     settings.CELERY_TASK_EAGER_PROPAGATES = True
+    # Test users are often created without a portal role; the login view refuses those outside tests.
+    settings.ALLOW_LOGIN_WITHOUT_ROLE = True

@@ -239,6 +239,14 @@ import { setupGlobalErrorHandlers, ErrorBoundary } from './utils/errorHandler'
 import CursorFollower from './components/common/CursorFollower'
 
 const AppToaster = memo(() => <Toaster position="top-right" />)
+// Staging site (P5): a strip on every page so nobody mistakes it for the live school.
+const StagingBanner = () =>
+  import.meta.env.VITE_APP_ENV === 'staging' ? (
+    <div role="status" className="fixed bottom-0 inset-x-0 z-[100] bg-amber-400 py-0.5 text-center text-xs font-bold text-amber-950 pointer-events-none">
+      Staging site: anonymised test data. Changes here do not affect schools.
+    </div>
+  ) : null
+
 AppToaster.displayName = 'AppToaster'
 
 const libraryTabs = [
@@ -292,6 +300,7 @@ function App() {
         <AuthInitializer>
           <BrowserRouter>
             <CursorFollower />
+            <StagingBanner />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

@@ -69,6 +69,10 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Pipeline and staging** (P5):
+  - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
+  - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
+  - optional staging: first set `BACKUP_ENCRYPTION_KEY` on the live site (so another site can read its backups); then in Render go to New → Blueprint → path `deploy/render-staging.yaml` and fill `STAGING_PASSWORD`, `STAGING_SOURCE_BACKUP=latest`, the backup bucket, the AWS keys, `BACKUP_ENCRYPTION_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`; in Vercel, set `VITE_API_URL` and `VITE_APP_ENV=staging` for the `staging` branch.
 - [ ] **Error alerts and uptime** (P4):
   - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
   - optionally set `SENTRY_DSN`;
@@ -1997,6 +2001,75 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - **Mark resolved** moved it to the Resolved list.
 
 
+### P5: Test-and-deploy pipeline and staging ✅
+
+**What changed**
+- **The old CI failed on every push, so nobody looked at it.** It used retired GitHub actions, ran type checks the code was never written for, and its backup job backed up an empty test database. It is rewritten (`.github/workflows/ci-cd.yml`, now called **CI**) to run on every push and pull request:
+  - **Backend tests**: first a check for missing migrations, then the full test suite, in parallel;
+  - **Production settings and migrations (Postgres)**: with DEBUG off, the settings must load, every migration must apply to an empty Postgres, and static files must collect. These are the same steps as the Render start command, so a deploy that would fail is caught here;
+  - **Frontend**: type check, tests and a full build;
+  - **Postgres (report)**: the tests on Postgres like production. It only reports and does not block.
+- **A broken commit no longer reaches the live site.** `render.yaml` now deploys only after the CI checks pass (`autoDeployTrigger: checksPass`). The P4 **Deploy check** now starts when CI has passed, then confirms that the live backend runs the new commit.
+- **Staging site** (`deploy/render-staging.yaml`, created once as a separate Render Blueprint):
+  - deploys the `staging` branch (`git push origin main:staging`);
+  - on every deploy it can load the newest live backup and **anonymise** it (`load_staging_data`):
+    - made-up names, emails, phone numbers, ID numbers and addresses (the same real value always gets the same made-up one, so family links and links by email still work);
+    - birth dates keep the year;
+    - health notes, occupations and incomes are emptied;
+    - payment, SMS, WhatsApp and integration keys and 2-step codes are removed;
+    - sign-in and email logs, sessions and tokens are emptied;
+    - audit logs keep what happened but not the before/after values;
+    - file links and IP addresses are removed;
+    - every account gets one `STAGING_PASSWORD`;
+    - it stops with an error if any real account email is left;
+  - the anonymiser **refuses to run** unless `APP_ENV=staging`, so it can never touch the live database;
+  - a staging site **never sends real email** (it goes to the log);
+  - `/api/v1/health/version/` says which site it is;
+  - the web app shows an amber **"Staging site: anonymised test data"** strip on every page when built with `VITE_APP_ENV=staging`.
+- **Release checklist**: `docs/RELEASE_CHECKLIST.md` covers before you push, trying a change on staging, what the pipeline does, and checks and rollback after a deploy.
+- Free-text notes (announcements, comments, chat messages) are **not** rewritten on staging. The file says so.
+
+**Built**
+- CI:
+  - `.github/workflows/ci-cd.yml` (rewritten);
+  - `backend/requirements-dev.txt` (pytest, pytest-django, pytest-cov, pytest-xdist);
+  - parallel test workers each keep their own cache, so a shared Redis can't leak one test's sign-in limits into another;
+  - parallel workers on Postgres each get their own test database (`conftest.py` had been dropping pytest-django's per-worker name);
+  - the login view guessed "we are in a test" from the command line to let role-less test users in. That failed in parallel workers. It is now an explicit `ALLOW_LOGIN_WITHOUT_ROLE` setting, which only the test setup turns on.
+- Deploy:
+  - `render.yaml` `autoDeployTrigger: checksPass`;
+  - `.github/workflows/deploy-check.yml` now runs after CI;
+  - `deploy/render-staging.yaml`.
+- Backend:
+  - `APP_ENV` setting;
+  - `services/core/backup/anonymise.py`;
+  - command `load_staging_data` (`--backup latest|<file>`, `--anonymise-only`);
+  - `portable.latest_name()` and `read_named()`.
+- Frontend: the staging strip in `App.tsx`.
+- Tests:
+  - `backend/tests/test_staging.py` has 3 new tests:
+    - refuses outside staging;
+    - people, secrets, logs and audit details are anonymised, the staging password works, and a second run is harmless;
+    - a real encrypted backup is restored and anonymised by `load_staging_data`.
+  - All 3 passed.
+  - Frontend: type check, 99/99 tests and the production build pass.
+  - The migration check reports "No changes detected".
+  - `check --deploy` with DEBUG off passes at error level.
+- Browser check on a **local staging copy**:
+  - a copy of the demo database was anonymised with `load_staging_data --anonymise-only`;
+  - it was served with `APP_ENV=staging` and a web app built with `VITE_APP_ENV=staging`;
+  - the staging strip showed;
+  - the real `teacher@code.com` sign-in was refused;
+  - made-up teacher and admin accounts signed in with the staging password;
+  - the student list showed only made-up names;
+  - the normal site had no strip.
+
+**Still yours** (in the checklist):
+- delete `.github/workflows/backup.yml`: it fails on every push and only backed up an empty test database (real backups are P2's `backup_database`);
+- in Render, check that erp-backend's Auto-Deploy says "After CI checks pass";
+- create the staging Blueprint if you want staging.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2097,8 +2170,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P2** | Database safety and backups | ✅ Done (switching to a paid database is yours: see the checklist) |
 | **P3** | Password reset and transactional email | ✅ Done (sending-domain DNS is yours: see the checklist) |
 | **P4** | Error tracking and uptime monitoring | ✅ Done |
-| **P5** | Test-and-deploy pipeline and staging | ⏳ In progress |
-| **P6** | Web security hardening and rate limits | Next |
+| **P5** | Test-and-deploy pipeline and staging | ✅ Done |
+| **P6** | Web security hardening and rate limits | ⏳ In progress |
 | **P7** | Secrets and default passwords | Next |
 | **P8** | Two-step sign-in for administrators | Next |
 | **P9** | Dependency and code scanning | Next |

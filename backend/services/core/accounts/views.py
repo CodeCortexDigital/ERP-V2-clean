@@ -84,9 +84,10 @@ def build_login_response(request, user, method='password'):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    import sys
-    is_testing = 'test' in sys.argv or any('pytest' in arg for arg in sys.argv)
-    if role is None and not (user.is_staff or user.is_superuser) and not is_testing:
+    from django.conf import settings as dj_settings
+
+    # Only the test setup turns this on (tests/conftest.py); it used to be guessed from the command line.
+    if role is None and not (user.is_staff or user.is_superuser) and not getattr(dj_settings, 'ALLOW_LOGIN_WITHOUT_ROLE', False):
         return Response(
             {'error': 'This account is not assigned to a valid portal role.'},
             status=status.HTTP_403_FORBIDDEN,

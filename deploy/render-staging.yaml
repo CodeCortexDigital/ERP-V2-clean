@@ -1,0 +1,55 @@
+# Staging site (P5): a copy of the backend for trying changes before they reach schools.
+# Create it once in Render: New → Blueprint → this repository → Blueprint path "deploy/render-staging.yaml".
+# It deploys the "staging" branch (git push origin main:staging to try the current main), on the free plan.
+#
+# Data: the free plan allows one Postgres database, which the live site uses, so staging keeps a SQLite file that
+# is rebuilt on every deploy. With STAGING_SOURCE_BACKUP="latest" (plus read access to the backup bucket and the
+# live BACKUP_ENCRYPTION_KEY) it loads the newest live backup and anonymises it: made-up names, contacts, ID numbers
+# and addresses; no payment, SMS or integration keys; every account uses STAGING_PASSWORD. Without it, staging starts
+# empty (sign up a test school). Staging never sends real email (APP_ENV=staging prints emails to the log).
+#
+# Frontend: in Vercel, add a Preview environment variable VITE_API_URL=https://<staging backend>/api/v1/ and
+# VITE_APP_ENV=staging for the "staging" branch, so its preview shows a "Staging" banner and talks to this backend.
+
+services:
+  - type: web
+    name: erp-backend-staging
+    runtime: python
+    rootDir: backend
+    plan: free
+    branch: staging
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: python manage.py migrate --noinput && python manage.py load_staging_data && python manage.py collectstatic --noinput && python manage.py create_admin && daphne -b 0.0.0.0 -p $PORT erp_core.asgi:application
+    healthCheckPath: /api/v1/health/live/
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: USE_SQLITE
+        value: "1"
+      - key: SQLITE_PATH
+        value: /tmp/staging.sqlite3
+      - key: STAGING_PASSWORD  # the password for every account in the anonymised copy
+        sync: false
+      - key: STAGING_SOURCE_BACKUP  # "latest", a backup file name, or empty for an empty staging site
+        sync: false
+      - key: BACKUP_S3_BUCKET  # the live backup bucket (read access is enough)
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: BACKUP_ENCRYPTION_KEY  # the same value as on the live site, to read its backups
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false

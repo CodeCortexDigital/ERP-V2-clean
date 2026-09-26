@@ -109,6 +109,20 @@ def read(log) -> bytes:
     return gzip.decompress(_fernet().decrypt(sealed))
 
 
+def latest_name() -> str:
+    """The newest backup file in the backup storage (for staging, which has no backup records of its own)."""
+    _dirs, files = storage().listdir(PREFIX.rstrip('/'))
+    files = sorted(f for f in files if f.startswith('db-') and f.endswith('.json.gz.enc'))
+    if not files:
+        raise FileNotFoundError('No backups found in the backup storage.')
+    return PREFIX + files[-1]
+
+
+def read_named(name: str) -> bytes:
+    with storage().open(name, 'rb') as fh:
+        return gzip.decompress(_fernet().decrypt(fh.read()))
+
+
 def verify(log, timeout=1800) -> dict:
     """Restore the backup into a new, empty SQLite database in a separate process, and compare record counts."""
     raw = read(log)
