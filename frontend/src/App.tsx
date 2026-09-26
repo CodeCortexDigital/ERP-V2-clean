@@ -123,6 +123,7 @@ import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
 import IntegrationsPage from '@/pages/settings/IntegrationsPage'
 import ImportPage from '@/pages/education/ImportPage'
 import LegalPage from '@/pages/LegalPage'
+import { ResetPasswordPage, VerifyEmailPage } from '@/pages/auth/ResetPasswordPage'
 import PrivacyConsentPage from '@/pages/PrivacyConsentPage'
 import SchoolReportsPage from '@/pages/education/insights/SchoolReportsPage'
 import SearchPage from '@/pages/SearchPage'
@@ -294,6 +295,8 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/legal/school/:code" element={<LegalPage />} />
               <Route path="/legal/:kind" element={<LegalPage />} />
               <Route path="/signup" element={<SignupPage />} />

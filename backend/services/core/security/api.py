@@ -335,6 +335,7 @@ def me(request):
                                                         created_at__gte=_previous_success(request.user)).count(),
         'rules': {k: v for k, v in policy.security_settings(getattr(request, 'tenant', None)).items() if k in ('idle_minutes', 'password_min_length')},
         'deletion_requested': AccountDeletionRequest.objects.filter(user=request.user, status='pending').exists(),
+        'email': request.user.email, 'email_verified': bool(request.user.email_verified),
     })
 
 
@@ -393,3 +394,71 @@ def my_data(request):
     response = HttpResponse(json.dumps(data, indent=2, default=str), content_type='application/json')
     response['Content-Disposition'] = 'attachment; filename="my-data.json"'
     return response
+
+
+# ---- Forgotten passwords and email verification (P3) -----------------------------------------------------------
+
+from rest_framework.decorators import authentication_classes, throttle_classes  # noqa: E402
+from rest_framework.permissions import AllowAny  # noqa: E402
+
+from . import password as pw  # noqa: E402
+from .models import EmailLog  # noqa: E402
+
+GENERIC_RESET = 'If an account uses that email address, a link to reset the password is on its way. Check your inbox (and spam folder).'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def password_reset(request):
+    email = str((request.data or {}).get('email') or '').strip()
+    if '@' not in email:
+        return Response({'error': 'Enter the email address you sign in with.'}, status=status.HTTP_400_BAD_REQUEST)
+    pw.request_reset(request, email)
+    return Response({'message': GENERIC_RESET})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def password_reset_confirm(request):
+    d = request.data or {}
+    ok, message = pw.confirm_reset(str(d.get('uid') or ''), str(d.get('token') or ''), str(d.get('password') or ''))
+    return Response({'message': message} if ok else {'error': message}, status=status.HTTP_200_OK if ok else status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def verify_email_send(request):
+    if request.user.email_verified:
+        return Response({'message': 'Your email address is already confirmed.', 'verified': True})
+    sent = pw.send_verification(request, request.user)
+    return Response({'message': f'We sent a link to {request.user.email}. Open it to confirm.' if sent else 'The email could not be sent. Try again later.',
+                     'verified': False}, status=status.HTTP_200_OK if sent else status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def verify_email_confirm(request):
+    ok, message = pw.confirm_verification(str((request.data or {}).get('token') or ''))
+    return Response({'message': message} if ok else {'error': message}, status=status.HTTP_200_OK if ok else status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def email_log(request):
+    """System emails sent for this school (the platform owner sees all), with failures first to spot problems."""
+    if request.user.is_superuser:
+        qs = EmailLog.objects.all()
+    else:
+        school, error = _admin_school(request)
+        if error:
+            return error
+        qs = EmailLog.objects.filter(school=school)
+    if request.GET.get('status') in ('sent', 'failed'):
+        qs = qs.filter(status=request.GET['status'])
+    items, paging = _page(request, qs)
+    return Response({'results': [{'when': _local(e.created_at), 'kind': e.kind, 'to': e.to, 'subject': e.subject, 'status': e.status,
+                                  'error': e.error} for e in items], **paging,
+                     'failed_week': qs.filter(status='failed', created_at__gte=timezone.now() - timedelta(days=7)).count()})

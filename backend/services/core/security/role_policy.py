@@ -16,7 +16,8 @@ SAFE = ('GET', 'HEAD', 'OPTIONS')
 # Always allowed for anyone signed in: signing in and out, their own account, security and privacy, notifications.
 PERSONAL = (
     'login', 'logout', 'token/refresh', 'firebase/login', 'settings/change-password', 'me/', 'me',
-    'security/me/', 'privacy/', 'notifications/', 'user-notifications/', 'ai/', 'search',
+    'security/me/', 'security/verify-email/', 'security/password-reset/', 'privacy/', 'notifications/', 'user-notifications/',
+    'ai/', 'search',
 )
 
 # Parents and students: what the family portal lets them do.

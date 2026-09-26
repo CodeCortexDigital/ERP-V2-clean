@@ -14,5 +14,10 @@ urlpatterns = [
     path('me/', api.me),
     path('me/sign-out-everywhere/', api.sign_out_everywhere),
     path('me/data/', api.my_data),
+    path('password-reset/', api.password_reset),
+    path('password-reset/confirm/', api.password_reset_confirm),
+    path('verify-email/send/', api.verify_email_send),
+    path('verify-email/confirm/', api.verify_email_confirm),
+    path('emails/', api.email_log),
     path('me/deletion-request/', api.deletion_request),
 ]

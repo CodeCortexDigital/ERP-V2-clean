@@ -163,4 +163,7 @@ def change_password(request):
     user.set_password(new_password)
     user.save(update_fields=['password'])
     mark_changed_by_user(user)
+    from services.core.security.password import notify_changed
+
+    notify_changed(user)  # an email, so a change the person didn't make is noticed
     return Response({'message': 'Password changed.'})

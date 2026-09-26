@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Activity, AlertTriangle, Ban, Database, FileLock2, ChevronLeft, ChevronRight, Download, KeyRound, Loader2, LockOpen, LogOut, Power,
+  Activity, AlertTriangle, Ban, Database, FileLock2, Mail, ChevronLeft, ChevronRight, Download, KeyRound, Loader2, LockOpen, LogOut, Power,
   RefreshCw, ScrollText, Search, ShieldCheck, SlidersHorizontal, UserRound, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
 import security, { ActivityRow, Overview, Paged, Person, PersonAction, SecurityRules, SignInRow } from '@/services/security.service';
 import MySecurityPanel from '@/components/security/MySecurityPanel';
@@ -16,12 +17,13 @@ const input = 'rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white';
 const errorText = (e: any, fallback: string) => e?.response?.data?.error || fallback;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' } as any) : '—');
 
-type Tab = 'overview' | 'people' | 'sign-ins' | 'activity' | 'roles' | 'rules' | 'privacy' | 'data' | 'mine';
+type Tab = 'overview' | 'people' | 'sign-ins' | 'activity' | 'emails' | 'roles' | 'rules' | 'privacy' | 'data' | 'mine';
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: 'overview', label: 'Overview', icon: ShieldCheck },
   { id: 'people', label: 'People & access', icon: Users },
   { id: 'sign-ins', label: 'Sign-ins', icon: KeyRound },
   { id: 'activity', label: 'Activity log', icon: ScrollText },
+  { id: 'emails', label: 'Emails sent', icon: Mail },
   { id: 'roles', label: 'Roles & access', icon: Activity },
   { id: 'rules', label: 'Rules & retention', icon: SlidersHorizontal },
   { id: 'privacy', label: 'Privacy & consent', icon: FileLock2 },
@@ -52,6 +54,7 @@ export default function SecurityPage() {
       {tab === 'people' && <PeopleTab initialStatus={params.get('status') || ''} />}
       {tab === 'sign-ins' && <SignInsTab initialOutcome={params.get('outcome') || ''} initialUser={params.get('user') || ''} />}
       {tab === 'activity' && <ActivityTab initialAction={params.get('action') || ''} initialUser={params.get('user') || ''} />}
+      {tab === 'emails' && <EmailsTab />}
       {tab === 'roles' && <RolesTab />}
       {tab === 'rules' && <RulesTab />}
       {tab === 'privacy' && <PrivacyAdminPanel />}
@@ -413,6 +416,39 @@ function RulesTab() {
         })}
       </div>
       <div className="flex justify-end"><button onClick={save} disabled={saving} className="auth-primary-btn w-auto px-6 disabled:opacity-50">{saving && <Loader2 className="w-4 h-4 animate-spin" />} Save rules</button></div>
+    </div>
+  );
+}
+
+// ---- Emails sent (P3) -----------------------------------------------------------------------------------------
+
+function EmailsTab() {
+  const [failedOnly, setFailedOnly] = useState(false);
+  const load = useCallback((q: Record<string, any>) => api.get('/security/emails/', { params: q }).then((r) => r.data), []);
+  const { data, page, setPage, loading } = usePaged<any>(load, { status: failedOnly ? 'failed' : '' });
+  return (
+    <div className={card}>
+      <div className="flex flex-wrap items-center justify-between gap-2 p-4 border-b border-slate-100">
+        <p className="text-sm text-slate-600">System emails (password resets, notices, reminders) and whether they were delivered to the mail server.
+          {data?.failed_week ? <strong className="text-rose-700"> {data.failed_week} failed in the last 7 days.</strong> : ''}</p>
+        <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={failedOnly} onChange={(e) => setFailedOnly(e.target.checked)} /> Failed only</label>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-xs text-slate-500 border-b border-slate-100"><th className="px-4 py-2">When</th><th className="px-4 py-2">To</th><th className="px-4 py-2">Subject</th><th className="px-4 py-2">Result</th></tr></thead>
+          <tbody>
+            {loading && !data && <tr><td colSpan={4} className="py-8 text-center"><Loader2 className="inline animate-spin text-slate-400" /></td></tr>}
+            {data?.results.map((e: any, i: number) => (
+              <tr key={i} className="border-b border-slate-50">
+                <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{when(e.when)}</td><td className="px-4 py-2">{e.to}</td><td className="px-4 py-2 text-slate-700">{e.subject}</td>
+                <td className="px-4 py-2">{e.status === 'sent' ? <span className="text-emerald-700 font-semibold">Sent</span> : <span className="text-rose-700 font-semibold" title={e.error}>Failed</span>}</td>
+              </tr>
+            ))}
+            {data && !data.results.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">No emails yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <Pager data={data} page={page} setPage={setPage} />
     </div>
   );
 }

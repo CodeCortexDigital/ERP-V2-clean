@@ -67,6 +67,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
   - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
+- [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
 - [ ] **Platform billing** (P12, declared in `render.yaml`):
   - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
@@ -1902,6 +1903,50 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - the full restore test (runs with `RUN_SLOW=1`; passed on the demo data as described above).
 
 
+### P3: Password reset and transactional email ✅
+
+**What changed**
+- **"Forgot password?" works.** The old page asked for an "admin reset key" and called an address the server didn't have (so it answered 404). Now:
+  - enter your email and a **reset link** is emailed. The answer is the same whether or not the account exists, so the page can't be used to find out who has an account;
+  - requests are limited to 5 an hour per email address and per IP address;
+  - the link works **once** and expires in a few days (Django's standard reset tokens);
+  - the new password must meet the school's own rule (P21's minimum length and the standard checks);
+  - after a reset, the account is unblocked if it was locked out, and **every existing session is signed out**.
+- **"Your password was changed" email** after a reset, and after changing the password in Account settings. So a change someone didn't make is noticed.
+- **Confirm your email address**: people whose email isn't confirmed see a prompt in "My sign-ins & data" with **Send confirmation email**. The link (valid for 3 days, signed) confirms the address. A link for an address that has since changed is refused.
+- **One branded email layout** (school name, heading, text, button, and the plain address as a fallback) for these emails, in text and HTML. Emails go through the school's own email when it has set one up (Phase 17), otherwise the platform's.
+- **Delivery log**: every system email is recorded (what, to whom, sent or failed, and the error), and a mail-server failure never breaks the action that triggered it. There is a new Security & privacy tab, **Emails sent**, with a "failed only" filter and the count of failures in the last week. Administrators see their school's; the platform owner sees all.
+- **Still yours** (in the checklist): the SPF, DKIM and DMARC records for the sending domain, so the emails don't land in spam.
+
+**Built**
+- Backend:
+  - `services/core/security/mailer.py` (layout and send with logging);
+  - `password.py` (reset request and confirm, the changed notice, verification);
+  - `EmailLog` (security migration `0002`);
+  - `/api/v1/security/password-reset/`, `password-reset/confirm/`, `verify-email/send/`, `verify-email/confirm/` and `emails/`;
+  - the notice on password change;
+  - email confirmation and reset added to P1's always-allowed personal list.
+- Frontend:
+  - `pages/auth/ForgotPasswordPage.tsx` (rewritten);
+  - `pages/auth/ResetPasswordPage.tsx` (`/reset-password` and `/verify-email`);
+  - the confirmation prompt in `MySecurityPanel.tsx`;
+  - the Emails sent tab;
+  - the dead `resetPassword` call removed.
+- Tests:
+  - `backend/tests/test_password_reset.py` has 4 new tests:
+    - reset by email (same answer for unknown addresses, the school's password rule, the old password stops working, old sessions signed out, a link works once, the changed notice, the log);
+    - requests are limited;
+    - changing the password sends a notice;
+    - email verification and the log (a stale link is refused, and a mail-server failure is logged, not raised).
+  - Passing: these plus the role-access tests (7 passed).
+- Browser check on the demo school (the database was restored afterwards):
+  - "Forgot password?" on the sign-in page gave "Check your email", and the reset email was logged as sent;
+  - a bad link said "not valid any more";
+  - a valid link set the new password, and the teacher signed in with it;
+  - a bad confirmation link said "This link is not valid."
+  - No page errors.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2000,8 +2045,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | ---: | --- | --- |
 | **P1** | Production readiness | ✅ Done |
 | **P2** | Database safety and backups | ✅ Done (switching to a paid database is yours: see the checklist) |
-| **P3** | Password reset and transactional email | ⏳ In progress |
-| **P4** | Error tracking and uptime monitoring | Next |
+| **P3** | Password reset and transactional email | ✅ Done (sending-domain DNS is yours: see the checklist) |
+| **P4** | Error tracking and uptime monitoring | ⏳ In progress |
 | **P5** | Test-and-deploy pipeline and staging | Next |
 | **P6** | Web security hardening and rate limits | Next |
 | **P7** | Secrets and default passwords | Next |

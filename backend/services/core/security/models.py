@@ -31,3 +31,18 @@ class SignInEvent(models.Model):
 
     def __str__(self):
         return f'{self.email} {self.outcome} {self.created_at:%Y-%m-%d %H:%M}'
+
+
+class EmailLog(models.Model):
+    """Every system email: what, to whom, and whether it went (P3)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    school = models.ForeignKey('core_tenants.School', null=True, blank=True, on_delete=models.SET_NULL, related_name='email_logs')
+    kind = models.CharField(max_length=40)
+    to = models.CharField(max_length=500)
+    subject = models.CharField(max_length=200)
+    status = models.CharField(max_length=10)  # sent / failed
+    error = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']

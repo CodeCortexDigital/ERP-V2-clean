@@ -4,6 +4,7 @@ import { AlertTriangle, Download, KeyRound, Loader2, LogOut } from 'lucide-react
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import security, { SignInRow } from '@/services/security.service';
+import api from '@/services/api';
 
 const TONE: Record<string, string> = { success: 'bg-emerald-100 text-emerald-700', failed: 'bg-amber-100 text-amber-800', locked: 'bg-rose-100 text-rose-700', disabled: 'bg-slate-200 text-slate-700' };
 
@@ -11,7 +12,7 @@ const TONE: Record<string, string> = { success: 'bg-emerald-100 text-emerald-700
 export default function MySecurityPanel() {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
-  const [data, setData] = useState<{ sign_ins: SignInRow[]; failed_since_last: number; deletion_requested: boolean } | null>(null);
+  const [data, setData] = useState<{ sign_ins: SignInRow[]; failed_since_last: number; deletion_requested: boolean; email?: string; email_verified?: boolean } | null>(null);
   const [busy, setBusy] = useState('');
   useEffect(() => { security.me().then(setData).catch(() => toast.error('Could not load your sign-ins.')); }, []);
 
@@ -52,6 +53,13 @@ export default function MySecurityPanel() {
       {data && data.failed_since_last > 0 && (
         <p role="status" className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
           <AlertTriangle size={14} /> {data.failed_since_last} wrong password{data.failed_since_last === 1 ? ' was' : 's were'} tried on your account since you last signed in.
+        </p>
+      )}
+      {data && data.email_verified === false && (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-xs text-sky-900">
+          Your email address ({data.email}) isn't confirmed yet. Confirming it makes sure you can reset your password.
+          <button onClick={async () => { try { toast.success((await api.post('/security/verify-email/send/', { origin: window.location.origin })).data.message); } catch (e: any) { toast.error(e?.response?.data?.message || 'Could not send.'); } }}
+            className="font-semibold text-blue-700">Send confirmation email</button>
         </p>
       )}
       {data?.deletion_requested && (

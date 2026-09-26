@@ -1,125 +1,51 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import authService from '@/services/auth.service';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Loader2, MailCheck } from 'lucide-react';
+import AuthShell from '@/components/auth/AuthShell';
+import api from '@/services/api';
 
+/** Forgot password: we email a one-time link to reset it (the same answer whether or not the account exists). */
 export default function ForgotPasswordPage() {
-  const [identifier, setIdentifier] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [resetKey, setResetKey] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setStatus(null);
-    setError(null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
     setLoading(true);
-
     try {
-      await (authService as any).resetPassword({
-        identifier,
-        new_password: newPassword,
-        reset_key: resetKey || undefined,
-        current_password: currentPassword || undefined,
-      });
-      setStatus('Password reset successfully. Please sign in with your new password.');
-      setTimeout(() => {
-        navigate('/login');
-      }, 1200);
+      const r = await api.post('/security/password-reset/', { email, origin: window.location.origin }, { skipGlobalToast: true } as any);
+      setSent(r.data.message);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Password reset failed.');
+      setError(err?.response?.data?.error || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
-        <div className="px-8 py-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Forgot Admin Password</h1>
-          <p className="text-sm text-slate-500 mb-6">
-            Use your user ID or email and the admin reset key to update the password.
-          </p>
-
-          {status && (
-            <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800">
-              {status}
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">User ID or Email</label>
-              <input
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter admin user ID or email"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">New Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="New secure password"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Admin Reset Key</label>
-              <input
-                type="text"
-                value={resetKey}
-                onChange={(e) => setResetKey(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter admin reset key"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Current Password (optional)</label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Current password if available"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-white font-semibold hover:bg-blue-700 transition"
-            >
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-slate-500">
-            <Link to="/login" className="text-blue-600 hover:underline">
-              Back to login
-            </Link>
-          </div>
+    <AuthShell>
+      <h1 className="text-2xl font-bold text-slate-900">Forgot your password?</h1>
+      {sent ? (
+        <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
+          <p className="flex items-center gap-2 font-semibold"><MailCheck className="w-4 h-4" /> Check your email</p>
+          <p className="mt-1">{sent}</p>
+          <p className="mt-2 text-emerald-800">Students without an email address, and anyone who doesn't receive the email: ask the school office to reset your password.</p>
         </div>
-      </div>
-    </div>
+      ) : (
+        <form onSubmit={submit} className="mt-6 space-y-4">
+          <p className="text-sm text-slate-600">Enter the email address you sign in with. We'll send you a link to choose a new password.</p>
+          <label className="block text-sm font-semibold text-slate-700" htmlFor="reset-email">Email address
+            <input id="reset-email" type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)}
+              className="auth-input mt-1.5 w-full px-3" autoComplete="email" />
+          </label>
+          {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
+          <button type="submit" disabled={loading} className="auth-primary-btn">{loading && <Loader2 className="w-4 h-4 animate-spin" />} Send reset link</button>
+        </form>
+      )}
+      <Link to="/login" className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-brand hover:underline"><ArrowLeft className="w-4 h-4" /> Back to sign in</Link>
+    </AuthShell>
   );
 }
