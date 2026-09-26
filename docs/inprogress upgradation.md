@@ -1,100 +1,105 @@
-# Upgrade to International Standard: Master Progress Document
+# Upgrade to International Standard: Progress
 
-**Project:** School ERP — Upgrade from Pakistani-Style System to International Standard
-**Document purpose:** Complete, sequential record of all completed upgrade phases and all pending future upgrade work.
-**Last updated:** 26 September 2026
+**Project:** School ERP, from a Pakistani-style school system to an international-standard, multi-school SaaS platform.
+**This document:** what is finished (with details), how deployment stands, and what is planned next (with details).
+**Last updated:** 27 September 2026
 
----
+## Summary
 
-## Table of Contents
+**Completed (all tested and browser-checked)**
+- **Phases 1–22**: the core school system (students and households, admissions, fees, attendance, academics, gradebook, communication, calendar, behaviour, student, parent and teacher portals, library, transport, inventory, cafeteria, integrations, reports, search, region styles, privacy and security, navigation).
+- **Tier 0, P1–P9**: production readiness: role access, backups, password reset and email, error tracking, the test-and-deploy pipeline and staging, web security, secrets and demo passwords, two-step sign-in, dependency and code scanning.
+- **Tier 1, P10–P17**: SaaS readiness: onboarding and import, plans and subscriptions, platform invoices, school export and deletion, privacy and consent, help centre and support tickets, automatic SMS and WhatsApp, retention by record type.
+- Fixes after P17: test accounts on the sign-in page, the students class filter, library members.
 
-1. [Executive Summary](#executive-summary)
-2. [How to Read This Document](#how-to-read-this-document)
-3. [Part A — Phase 1–22: Core School-System Modernization (COMPLETED)](#part-a--phase-122-core-school-system-modernization-completed)
-   - [Phase 1: Student & Household Records](#phase-1-student--household-records-)
-   - [Phase 2: Admissions](#phase-2-admissions-)
-   - [Phase 3: Fees / Billing](#phase-3-fees--billing-)
-   - [Phase 4: Attendance](#phase-4-attendance-)
-   - [Phase 5: Academics / Classes](#phase-5-academics--classes-)
-   - [Phase 6: Gradebook](#phase-6-gradebook-)
-   - [Phase 7: Communication](#phase-7-communication-)
-   - [Phase 8: Calendar & Events](#phase-8-calendar--events-)
-   - [Phase 9: Behaviour / Discipline](#phase-9-behaviour--discipline-)
-   - [Phase 10: Student Portal](#phase-10-student-portal-)
-   - [Phase 11: Parent Portal](#phase-11-parent-portal-)
-   - [Phase 12: Teacher Workspace](#phase-12-teacher-workspace-)
-   - [Phase 13: Library](#phase-13-library-)
-   - [Phase 14: Transport](#phase-14-transport-)
-   - [Phase 15: Inventory](#phase-15-inventory-)
-   - [Phase 16: Cafeteria](#phase-16-cafeteria-)
-   - [Phase 17: Integrations](#phase-17-integrations-)
-   - [Phase 18: Reports & Analytics](#phase-18-reports--analytics-)
-   - [Phase 19: Global Search](#phase-19-global-search-)
-   - [Phase 20: Regionalization](#phase-20-regionalization-)
-   - [Phase 21: Privacy & Security](#phase-21-privacy--security-)
-   - [Phase 22: UI/UX & Navigation](#phase-22-uiux--navigation-)
-4. [Phase 22 Deployment Checklist (Partially Complete)](#phase-22-deployment-checklist-partially-complete)
-5. [Part B — Tier 0 & Tier 1: P1–P14 (COMPLETED)](#part-b--tier-0--tier-1-p1p14-completed)
-   - [P1: Production Readiness](#p1-production-readiness-)
-   - [P2: Database Safety and Backups](#p2-database-safety-and-backups-)
-   - [P3: Password Reset and Transactional Email](#p3-password-reset-and-transactional-email-)
-   - [P4: Error Tracking and Uptime Monitoring](#p4-error-tracking-and-uptime-monitoring-)
-   - [P5: Test-and-Deploy Pipeline and Staging](#p5-test-and-deploy-pipeline-and-staging-)
-   - [P6: Web Security Hardening and Rate Limits](#p6-web-security-hardening-and-rate-limits-)
-   - [P7: Secrets and Default Passwords](#p7-secrets-and-default-passwords-)
-   - [P8: Two-Step Sign-In for Administrators](#p8-two-step-sign-in-for-administrators-)
-   - [P9: Dependency and Code Scanning](#p9-dependency-and-code-scanning-)
-   - [P10: School Onboarding and Data Import](#p10-school-onboarding-and-data-import-)
-   - [P11: SaaS Plans and Subscriptions](#p11-saas-plans-and-subscriptions-)
-   - [P12: Platform Payments and Invoices](#p12-platform-payments-and-invoices-)
-   - [P13: Full School Export and End-of-Contract Deletion](#p13-full-school-export-and-end-of-contract-deletion-)
-   - [P14: Privacy Documents, Consent and Breach Response](#p14-privacy-documents-consent-and-breach-response-)
-6. [Part C — P15–P17: Remaining Tier 1 (IN PROGRESS / NEXT)](#part-c--p15p17-remaining-tier-1-in-progress--next)
-7. [Part D — Tier 2: Growth and Daily-Use Quality (PENDING)](#part-d--tier-2-growth-and-daily-use-quality-pending)
-8. [Part E — Tier 3: When Entering a New Country (PENDING)](#part-e--tier-3-when-entering-a-new-country-pending)
-9. [Part F — Tier 4: Enterprise Scale and Certification (PENDING)](#part-f--tier-4-enterprise-scale-and-certification-pending)
-10. [Part G — Original Roadmap Reference Table (Phases 23–84)](#part-g--original-roadmap-reference-table-phases-2384)
-11. [Part H — Missing Items M1–M20](#part-h--missing-items-m120)
-12. [Part I — Final Sequence Overview](#part-i--final-sequence-overview)
-13. [Part J — Deployment Checklist (Remaining Items)](#part-j--deployment-checklist-remaining-items)
+**Deployment**
+- Everything is pushed to GitHub (27 Sep 2026). The live site is not updated yet: the new CI must pass first (see Deployment status). Then the live site is tested.
 
----
+**Pending**
+- Your deployment checklist items (Part B).
+- **Tier 2** (P18–P23): installable app and offline attendance, pilot schools, product analytics and status page, accessibility audit, sales CRM, public API and webhooks.
+- **Tier 3** (P24–P30): per country, when a school there signs.
+- **Tier 4** (P31–P35): native apps, high availability, penetration test, trust centre, ISO 27001 / SOC 2.
 
-## Executive Summary
+## How to read this document
 
-The School ERP has completed **22 core modernization phases** plus **14 of 17 Tier 0 & Tier 1 production-readiness items**. The system has been transformed from a Pakistani-style school management system into a modern, international-standard, multi-tenant SaaS platform.
+- **Part A — Completed**: every finished phase and item, with what a school can now do, what was built, the tests and the browser check.
+- **Part B — Deployment**: the current deployment status and the checklist of things only you can do (accounts, keys, DNS, cron jobs).
+- **Part C — Pending**: the future plan in priority order, each item with what to build, why, what it builds on and when.
+- **Parts D–F — Reference**: the original 23–84 roadmap, the missing items M1–M20 and the overall sequence.
+- ✅ done · ⏳ in progress · ☐ to do.
 
-**Completed:**
-- All 22 core product modules (Students, Admissions, Fees, Attendance, Academics, Gradebook, Communication, Calendar, Behaviour, Portals, Library, Transport, Inventory, Cafeteria, Integrations, Reports, Search, Regionalization, Security, UI/UX).
-- Tier 0 critical production readiness (P1–P9).
-- Tier 1 SaaS business readiness (P10–P14).
+## Status at a glance
 
-**In progress / next:**
-- P15: Help Centre and Support Tickets (in progress).
-- P16: Automated SMS and WhatsApp.
-- P17: Retention by Record Type.
+| Group | Items | Status |
+| --- | --- | --- |
+| Core modules | Phases 1–22 | ✅ Done |
+| Tier 0: production readiness | P1–P9 | ✅ Done |
+| Tier 1: SaaS readiness | P10–P17 | ✅ Done |
+| Deploy and live test | push, CI, Render, live checks | ⏳ In progress (pushed; CI being fixed) |
+| Tier 2: growth and daily use | P18–P23 | ☐ Pending |
+| Tier 3: new countries | P24–P30 | ☐ Pending (per market) |
+| Tier 4: enterprise | P31–P35 | ☐ Pending |
 
-**Pending:**
-- Tier 2: Growth and daily-use quality (P18–P23).
-- Tier 3: Country-specific readiness (P24–P30).
-- Tier 4: Enterprise scale and certification (P31–P35).
+## Contents
 
----
+- [Part A — Completed](#part-a--completed)
+  - [Core school system: Phases 1–22 ✅](#core-school-system-phases-122)
+  - [Phase 1: Student & Household Records ✅](#phase-1-student--household-records)
+  - [Phase 2: Admissions ✅](#phase-2-admissions)
+  - [Phase 3: Fees / Billing ✅](#phase-3-fees--billing)
+  - [Phase 4: Attendance ✅](#phase-4-attendance)
+  - [Phase 5: Academics / Classes ✅](#phase-5-academics--classes)
+  - [Phase 6: Gradebook ✅](#phase-6-gradebook)
+  - [Phase 7: Communication ✅](#phase-7-communication)
+  - [Phase 8: Calendar & Events ✅](#phase-8-calendar--events)
+  - [Phase 9: Behaviour / Discipline ✅](#phase-9-behaviour--discipline)
+  - [Phase 10: Student Portal ✅](#phase-10-student-portal)
+  - [Phase 11: Parent Portal ✅](#phase-11-parent-portal)
+  - [Phase 12: Teacher Workspace ✅](#phase-12-teacher-workspace)
+  - [Phase 13: Library ✅](#phase-13-library)
+  - [Phase 14: Transport ✅](#phase-14-transport)
+  - [Phase 15: Inventory ✅](#phase-15-inventory)
+  - [Phase 16: Cafeteria ✅](#phase-16-cafeteria)
+  - [Phase 17: Integrations ✅](#phase-17-integrations)
+  - [Phase 18: Reports & Analytics ✅](#phase-18-reports--analytics)
+  - [Phase 19: Global Search ✅](#phase-19-global-search)
+  - [Phase 20: Regionalization ✅](#phase-20-regionalization)
+  - [Phase 21: Privacy & Security ✅](#phase-21-privacy--security)
+  - [Phase 22: UI/UX & Navigation ✅](#phase-22-uiux--navigation)
+  - [Tier 0 and Tier 1: P1–P17 ✅](#tier-0-and-tier-1-p1p17)
+  - [P1: Production Readiness ✅](#p1-production-readiness)
+  - [P2: Database Safety and Backups ✅](#p2-database-safety-and-backups)
+  - [P3: Password Reset and Transactional Email ✅](#p3-password-reset-and-transactional-email)
+  - [P4: Error Tracking and Uptime Monitoring ✅](#p4-error-tracking-and-uptime-monitoring)
+  - [P5: Test-and-Deploy Pipeline and Staging ✅](#p5-test-and-deploy-pipeline-and-staging)
+  - [P6: Web Security Hardening and Rate Limits ✅](#p6-web-security-hardening-and-rate-limits)
+  - [P7: Secrets and Default Passwords ✅](#p7-secrets-and-default-passwords)
+  - [P8: Two-Step Sign-In for Administrators ✅](#p8-two-step-sign-in-for-administrators)
+  - [P9: Dependency and Code Scanning ✅](#p9-dependency-and-code-scanning)
+  - [P10: School Onboarding and Data Import ✅](#p10-school-onboarding-and-data-import)
+  - [P11: SaaS Plans and Subscriptions ✅](#p11-saas-plans-and-subscriptions)
+  - [P12: Platform Payments and Invoices ✅](#p12-platform-payments-and-invoices)
+  - [P13: Full School Export and End-of-Contract Deletion ✅](#p13-full-school-export-and-end-of-contract-deletion)
+  - [P14: Privacy Documents, Consent and Breach Response ✅](#p14-privacy-documents-consent-and-breach-response)
+  - [P15: Help Centre and Support Tickets ✅](#p15-help-centre-and-support-tickets)
+  - [P16: Automated SMS and WhatsApp ✅](#p16-automated-sms-and-whatsapp)
+  - [P17: Retention by Record Type ✅](#p17-retention-by-record-type)
+  - [Fixes and additions after P17 (27 Sep 2026)](#fixes-and-additions-after-p17-27-sep-2026)
+- [Part B — Deployment](#part-b--deployment)
+  - [Deployment status](#deployment-status)
+  - [Deployment checklist](#deployment-checklist)
+- [Part C — Pending: Future Upgrade Plan](#part-c--pending-future-upgrade-plan)
+  - [Tier 2: Growth and Daily-Use Quality](#tier-2-growth-and-daily-use-quality)
+  - [Tier 3: When Entering a New Country](#tier-3-when-entering-a-new-country)
+  - [Tier 4: Enterprise Scale and Certification](#tier-4-enterprise-scale-and-certification)
+- [Part D — Original Roadmap Reference Table (Phases 23–84)](#part-d--original-roadmap-reference-table-phases-2384)
+- [Part E — Missing Items M1–M20](#part-e--missing-items-m1m20)
+- [Part F — Final Sequence Overview](#part-f--final-sequence-overview)
 
-## How to Read This Document
+# Part A — Completed
 
-- **✅ Done** = completed, tested, and browser-checked.
-- **⏳ In progress** = currently being worked on.
-- **Next** = queued immediately after the current item.
-- **Pending** = planned but not started.
-- Each completed phase includes: what a school can now do, safety notes, what was built, tests, and browser checks.
-- Each pending item includes: what to do, why it matters, and suggested position.
-
----
-
-# Part A — Phase 1–22: Core School-System Modernization (COMPLETED)
-
-All 22 phases are done. Each phase was marked done only after passing backend tests and a browser check. Notes for each finished phase follow below.
+## Core school system: Phases 1–22 ✅
 
 ---
 
@@ -1229,80 +1234,9 @@ All 22 phases are done. Each phase was marked done only after passing backend te
 
 ---
 
-## Phase 22 Deployment Checklist (Partially Complete)
+## Tier 0 and Tier 1: P1–P17 ✅
 
-These are done once, after all 22 modules are finished. Each phase adds to this list.
-
-- [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026: up to Phase 19 (`9fcf1dc`), then all 22 phases (`8bcfb14`).
-- [x] **Migrate** on Render: nothing to do by hand. The `render.yaml` start command runs `python manage.py migrate` on every deploy, so pushing applies them. The new migrations:
-  - students `0009`–`0015`;
-  - admissions `0003`;
-  - finance `0015`;
-  - attendance `0009`;
-  - academics `0025`–`0026`;
-  - gradebook `0001`;
-  - communication `0005`;
-  - calendar `0001`;
-  - behaviour `0003`–`0004`;
-  - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`;
-  - audit `0004`, security `0001`, and the sign-out token tables (`token_blacklist`, from simplejwt).
-- [x] **New Python package**: `segno` (library QR labels) is in `requirements.txt`, which the Render build installs on every deploy.
-- [ ] **Paid database and durable backups** (P2):
-  - move `erp-db` in `render.yaml` from `plan: free` to a paid plan (free Render databases expire);
-  - set `BACKUP_S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (a private bucket), plus `BACKUP_ENCRYPTION_KEY` (a Fernet key);
-  - add a daily cron job `python manage.py backup_database` and a weekly one `python manage.py backup_database --verify`;
-  - keep a copy of `BACKUP_ENCRYPTION_KEY` somewhere safe outside Render: without it, backups can't be opened.
-- [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
-  - `python manage.py send_scheduled_announcements`;
-  - `python manage.py send_calendar_reminders`;
-  - `python manage.py send_library_reminders`;
-  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
-  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
-  - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
-- [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
-  - exam results readable and writable without signing in;
-  - the fee defaulter list public;
-  - the demo login endpoint;
-  - teachers with Django's staff flag treated as administrators.
-- [ ] **App addresses** on Render (now declared in `render.yaml`; enter the values in the Render dashboard):
-  - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
-  - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
-- [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
-- [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
-- [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
-- [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
-- [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
-- [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
-- [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
-- [ ] **Pipeline and staging** (P5):
-  - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
-  - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
-  - optional staging: first set `BACKUP_ENCRYPTION_KEY` on the live site (so another site can read its backups); then in Render go to New → Blueprint → path `deploy/render-staging.yaml` and fill `STAGING_PASSWORD`, `STAGING_SOURCE_BACKUP=latest`, the backup bucket, the AWS keys, `BACKUP_ENCRYPTION_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`; in Vercel, set `VITE_API_URL` and `VITE_APP_ENV=staging` for the `staging` branch.
-- [ ] **Error alerts and uptime** (P4):
-  - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
-  - optionally set `SENTRY_DSN`;
-  - add a free uptime monitor (for example UptimeRobot) on `https://erp-backend-s5z7.onrender.com/api/v1/health/live/` and on the web app's address;
-  - after a push, check that the GitHub **Deploy check** turns green.
-- [ ] **Platform billing** (P12, declared in `render.yaml`):
-  - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
-  - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
-  - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
-  - tax rules per country in the platform console.
-- [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
-- [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
-- [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
-- [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
-- [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
-
----
-
-# Part B — Tier 0 & Tier 1: P1–P14 (COMPLETED)
-
-The notes for each finished item follow below.
-
-Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then deploy, then test on the live site. P10 to P14 were done first by mistake; P1 to P9 follow now, then P15 to P17.
-
----
+Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then deploy, then test on the live site. P10 to P14 were done first; P1 to P9 followed, then P15 to P17.
 
 ## P1: Production Readiness ✅
 
@@ -2070,139 +2004,546 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 
 ---
 
-# Part C — P15–P17: Remaining Tier 1 (IN PROGRESS / NEXT)
+## P15: Help Centre and Support Tickets ✅
 
-Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then deploy, then test on the live site. P10 to P14 were done first by mistake; P1 to P9 follow now, then P15 to P17.
+**What changed**
+- **Help & support** is a new menu item for every role: office, teachers, parents and students. It opens a help centre:
+  - **26 starter articles** (guides and questions with answers) written for this app's real menus: first steps, importing, who can do what, students and families, attendance, fees and online payment, marks and report cards, timetable, messages, payroll, the portal, passwords, two-step sign-in, plan and billing, export and privacy requests;
+  - **each person sees only what fits their role**: parents and students get the portal, online payment and account articles, not the office's fee setup;
+  - **search** (title matches rank first) and **topics**;
+  - each article has related articles and **"Was this helpful?"** (one vote per person);
+  - also in the search box ("help", "support", "ticket"…).
+- **Support tickets** for school staff (administrators, teachers and office staff). Parents and students are asked to contact the school office instead.
+  - A ticket has a subject, what it is about, how urgent it is, and a description. The page it was sent from is recorded.
+  - **A first-reply promise by priority**: urgent 4 hours, high 1 day, normal 2 days, low 5 days.
+  - Each ticket gets a number (#1001…), and the support team gets an email.
+  - **Conversation**: replies from both sides; each side gets an email when the other replies.
+  - The school can say **"It's sorted"**, or **"Not sorted after all"** to reopen it. A resolved ticket closes itself after a week (daily job).
+  - **Who sees a ticket**: the person who opened it, their school's administrators, and the platform's support team. Other schools never do.
+- **Support console** for the platform owner (All Schools page):
+  - every school's tickets with **reply due** (late ones in red), priority, status and who is handling it;
+  - counts: open, waiting for us, **reply overdue**, urgent;
+  - **assign** to a member of the support team, change status and priority; every change is kept in the ticket's **history**;
+  - **internal notes** that the school never sees, and **saved replies** (5 to start with);
+  - the email link opens the right ticket.
+- **Help articles editor** in the same console: add, edit, hide or delete articles, with topic, kind (guide, question, video link), who sees them, and the text ("## " heading, "- " bullet, "1. " step). Helpful and not-helpful counts show what needs improving.
+- Tickets are part of the school's **full export** and its **end-of-contract deletion** (P13). Staging copies drop them. Support works for read-only schools (P11), and every role can reach it (P1).
 
-| Order | Item | Status |
-| ---: | --- | --- |
-| **P15** | Help centre and support tickets | ⏳ In progress |
-| **P16** | Automated SMS and WhatsApp | Next |
-| **P17** | Retention by record type | Next |
+**Built**
+- Backend:
+  - new app `services/core/support`:
+    - `HelpArticle`, `SupportTicket`, `TicketMessage` and `CannedResponse` (migrations `0001`, and `0002` for the starter articles and saved replies from `help_content.py`);
+    - `service.py` (who sees which help, search, reply promise, history, emails, who sees which ticket);
+    - `api.py` and `urls.py` at `/api/v1/support/`;
+    - commands `load_help_articles` (adds missing starter articles without overwriting edited ones) and `close_resolved_tickets` (daily);
+  - `support/` added to the always-allowed personal (P1) and read-only (P11) lists;
+  - export and deletion (P13) and staging (P5) cover tickets;
+  - `SUPPORT_EMAILS` declared in `render.yaml`.
+- Frontend:
+  - `services/support.service.ts`;
+  - `pages/help/HelpCentrePage.tsx` (`/help`, `/help/article/:slug`);
+  - `pages/help/TicketsPage.tsx` (`/help/tickets`, `/help/tickets/:id`);
+  - `components/support/ArticleBody.tsx`;
+  - `components/platform/PlatformSupport.tsx`;
+  - the menu item in all 23 languages, and search shortcuts.
+- Tests:
+  - `backend/tests/test_support.py` has 4 new tests:
+    - help by role, search, topics, articles not for the role, one vote;
+    - a ticket from start to finish (reply promise, email to support, parents refused, who sees it, internal notes hidden, reply email, school reply and "sorted", assignment to the support team only, history, closed tickets);
+    - overdue replies, closing after a week, and the export including tickets;
+    - the platform owner managing articles.
+  - All 4 passed.
+  - The full backend suite: 324 passed. Frontend: type check and 99/99 tests pass.
+- Browser check on a copy of the demo database (separate ports):
+  - the parent saw Help & support with the portal guide but not the office's fee setup, and was told to contact the school;
+  - "pay fees" found "Paying fees online" first, and the vote was thanked;
+  - the teacher opened a high-priority ticket;
+  - the platform owner saw it with its reply-due time, added an internal note, replied with a saved reply and assigned it (all three in the history);
+  - the teacher saw the support team's reply but not the note, replied, and marked it sorted;
+  - the console then showed it as resolved, replied and assigned.
+  - No page errors.
+
+**Still yours** (in the checklist):
+- optionally set `SUPPORT_EMAILS` (otherwise ticket emails go to the platform owners);
+- add `close_resolved_tickets` to the daily jobs;
+- review the starter articles and add your own.
+
+## P16: Automated SMS and WhatsApp ✅
+
+**What changed** (Communication → **SMS & WhatsApp**, administrators)
+- **Automatic messages**, in the school's own words. These go out besides the email and portal notice from earlier phases:
+  - **unexcused absence** (on by default once texts are set up), **late arrival** and **frequent absence** (off by default). They are sent when the register is saved;
+  - **fee reminders**: sent with the Fee Defaulters "Send reminder" button and the monthly reminder run, to the guardians marked "Receives invoices";
+  - **emergency messages** (below).
+  - For each, the school chooses **SMS and/or WhatsApp**, switches it on or off, and edits the wording. Words in braces are filled in: `{student}`, `{class}`, `{date}`, `{minutes}`, `{count}`, `{amount}`, `{due_date}`, `{invoice}` and `{school}`. A mistyped word stays as typed, so it never stops an alert.
+  - **Test SMS / Test WhatsApp** sends the wording, filled with example values, to any number.
+- **Each alert goes to each number once**, however often the register is saved. Numbers come from the guardians marked "Receives school messages", or else the phone numbers on the student's form, converted to international format with the school's country code.
+- **Emergency message**: for closures, weather or safety. It goes straight away to everyone, all families, all staff, or chosen classes:
+  - as a **pinned announcement** (portal and email);
+  - by **SMS and/or WhatsApp** to every number, including staff phones;
+  - then it opens its own **delivery report**.
+- **Delivery log**:
+  - every text with its kind, student, number, channel, wording and **result** (queued, sent, delivered, read, not delivered), with the provider's reason when it fails;
+  - filters, and counts for the last 7 days;
+  - **Send failed ones again** (for an emergency message, or the ones shown).
+  - Twilio's **delivery reports** update each text when the server's public address (`PUBLIC_API_URL`) is set. They are checked with the school's own auth token, so they can't be faked.
+- **WhatsApp** uses the same Twilio account, from a WhatsApp-enabled Twilio number (**WhatsApp from** in Settings). Messages that start a conversation must match a template approved for that number in Twilio, as WhatsApp requires.
+- The announcements' text messages (Phase 7) now go through the same sender, so they are in the log with their delivery status too.
+
+**Fixes found on the way**
+- **A new SMS setup was saved switched off**, so texts never went out and the page never said "Ready". The page sent back the "off" it received when the school had no settings yet. A new setup now starts switched on, and Settings has a clear **Texts switched on** tick box.
+- **The AI assistant sometimes lost the previous answer in a conversation.** A question and its answer could be saved with the same time (the clock is coarse on Windows), and then came back in the wrong order. Each new turn is now always kept after the one before. This was also the cause of the occasionally failing AI test.
+
+**Built**
+- Backend:
+  - `communication/texts.py` (rules and wording, family numbers, one Twilio sender for SMS and WhatsApp with delivery reports, no duplicates, fee and emergency texts, signed status updates);
+  - `texts_api.py` at `/api/v1/auth/communication/texts/` (`rules/`, `log/`, `retry/`, `test/`, `emergency/`, `status/`);
+  - `AutoTextRule`, plus the WhatsApp number, event, batch, error and dedupe fields (communication migration `0006`);
+  - hooks in the attendance alerts (`register.send_notice`, in the background), the fee reminder button and `send_fee_reminders`;
+  - `TWILIO_API_BASE` setting (only for testing);
+  - `AIMessage.save` keeps turns in order.
+- Frontend: `pages/messages/SmsPage.tsx`, rewritten with four tabs (Automatic messages, Emergency message, Delivery log, Settings), and the text functions in `messaging.service.ts`.
+- Tests:
+  - `backend/tests/test_texts.py` has 5 new tests, with Twilio replaced by a fake:
+    - an absence alert by SMS and WhatsApp, sent once, with the delivery-report address; late arrivals off by default;
+    - rules and wording (placeholders, empty wording refused, test send, office only);
+    - a fee reminder with the amount and due date, once a day;
+    - an emergency message: announcement, texts, a refused number in the log, retry, and signed and forged delivery reports;
+    - nothing is sent without setup.
+  - All 5 passed, plus the Phase 7 messaging tests (11 passed) and the AI tests (19 passed).
+- Browser check, against a **local stand-in for Twilio** and a copy of the demo database (separate ports):
+  - the office entered the Twilio and WhatsApp details, and the settings showed Ready;
+  - the absence wording was changed, WhatsApp was ticked, and **Test SMS** arrived with the new wording ("…Ali Khan (Grade 5) was absent today…");
+  - an absence alert for Ali Raza went by **SMS and WhatsApp** to both family numbers;
+  - an emergency message to Grade 8 opened its delivery report, showing the refused number with the provider's reason;
+  - **Send failed ones again** delivered it;
+  - the log counted the texts.
+  - No page errors.
+
+**Still yours** (in the checklist):
+- per school: the Twilio details (and a WhatsApp-enabled number with approved templates, if WhatsApp is wanted);
+- set `PUBLIC_API_URL` for delivery reports;
+- check the wording of the automatic messages.
+
+## P17: Retention by Record Type ✅
+
+**What changed** (Security & privacy → Rules & retention → **Keep records**)
+- Phase 21 already removed old activity-log and sign-in records. Now each school also decides how long it keeps each kind of record, and what happens after. **Everything is kept until the school sets a time**, so nothing is removed on the live site until someone chooses to.
+  - **Students who left or graduated** (counted from the day they left): **anonymised**.
+    - removed: the name (it becomes "Former student <number>"), contacts, ID numbers, address, parents' details, the birth day (the year stays), health notes, immunisations and documents (with their files);
+    - their guardians too, unless they still have a child at the school;
+    - the student's portal login is switched off.
+    - Marks, attendance and invoices stay, so the school's figures and accounts still add up.
+  - **Deleted** after the chosen time: admission applications that did not enrol (declined or withdrawn); conversations between families and staff (from the last message); announcements; text and email delivery logs; attendance alerts and parents' absence notes (the attendance itself stays); paid or cancelled invoices with their payments.
+  - **Minimum times** stop mistakes: invoices at least 5 years (accounting law usually asks for 6 to 7), students at least a year, delivery logs at least a month, others at least 3 months.
+- **Before saving**: each row shows how many records the rule would remove tonight, and switching a rule on asks for confirmation ("…deleted for good").
+- **The nightly job** (`apply_retention`, already on the daily list) now also applies these rules for every school. Each run is recorded in the school's activity log with what was removed, and `--dry-run` only counts.
+
+**Built**
+- Backend: `services/core/security/retention.py` (record types, minimums, actions, settings in the school's `settings_json`, preview, anonymising a student who left, apply, `/api/v1/security/retention/` for administrators); `apply_retention` extended.
+- Frontend: `components/security/RetentionPanel.tsx` in the Rules & retention tab.
+- Tests: `backend/tests/test_retention.py`, 3 new tests (nothing removed until the school decides; rules by record type incl. the guardian with a child still here kept and the portal login switched off; the office screen and the daily job with `--dry-run`). All passed.
+- Browser check on a copy of the demo database: 7 record types, all set to keep; 2 years for invoices refused; 12 months for conversations confirmed and saved; the nightly job deleted the 500-day-old conversation, kept the recent one and recorded `{'messages': 1}` in the activity log.
+
+**Still yours**: make sure `apply_retention` runs daily, and choose the school's times in Keep records when wanted.
+
+## Fixes and additions after P17 (27 Sep 2026)
+
+- **Test accounts on the sign-in page** while testing: a box lists the admin, teacher, parent and student test logins, and a click fills them in. It shows on a developer's computer, and on the live site only while `VITE_SHOW_TEST_LOGINS=true` is set in Vercel (remove it after testing; the live site refuses demo passwords anyway, P7).
+- **Students list class filter**: choosing "Grade 10" showed "120 Students" in the class banner. The banner counted the whole school, and the filter matched loosely (a student with no class matched every class, and "Grade 1" would match "Grade 10"). It now matches the class exactly, and the banner and free seats count that class only (Grade 10: 20 students).
+- **Library members**: there was no way to add members except searching for one person. **Add members** now gives library cards to a whole class, all students or all staff at once; the Members tab lists every card holder by default, with a "Books on loan" filter. Found on the way: the "books on loan" list also included members who had never borrowed anything. Fixed and tested (`test_library.py`, 5 passed).
+
+# Part B — Deployment
+
+## Deployment status
+
+- **27 Sep 2026: all of P1–P17 pushed** to GitHub (`main`, up to `988910e`).
+- The new **CI** (P5) ran on that push and **failed** (backend tests and the frontend install step). Because Render now deploys only after CI passes, **the live site was not updated** and still runs the version from `2a95d6d`. The failures are being fixed; after a green CI, Render deploys automatically and the live site is then tested.
+- Before the live deploy, see the checklist below, in particular: a real password for the live admin account (demo passwords are refused on the live site, P7) or email set up so the reset link arrives, `FRONTEND_ORIGINS` (P6), and an authenticator app for the platform owner's two-step sign-in (P8).
+
+## Deployment checklist
+
+Things only you can do (accounts, keys, DNS, cron jobs). Ticked items are done.
+
+These are done once, after all 22 modules are finished. Each phase adds to this list.
+
+- [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026: up to Phase 19 (`9fcf1dc`), then all 22 phases (`8bcfb14`).
+- [x] **Migrate** on Render: nothing to do by hand. The `render.yaml` start command runs `python manage.py migrate` on every deploy, so pushing applies them. The new migrations:
+  - students `0009`–`0015`;
+  - admissions `0003`;
+  - finance `0015`;
+  - attendance `0009`;
+  - academics `0025`–`0026`;
+  - gradebook `0001`;
+  - communication `0005`;
+  - calendar `0001`;
+  - behaviour `0003`–`0004`;
+  - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`;
+  - audit `0004`, security `0001`, and the sign-out token tables (`token_blacklist`, from simplejwt).
+- [x] **New Python package**: `segno` (library QR labels) is in `requirements.txt`, which the Render build installs on every deploy.
+- [ ] **Paid database and durable backups** (P2):
+  - move `erp-db` in `render.yaml` from `plan: free` to a paid plan (free Render databases expire);
+  - set `BACKUP_S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (a private bucket), plus `BACKUP_ENCRYPTION_KEY` (a Fernet key);
+  - add a daily cron job `python manage.py backup_database` and a weekly one `python manage.py backup_database --verify`;
+  - keep a copy of `BACKUP_ENCRYPTION_KEY` somewhere safe outside Render: without it, backups can't be opened.
+- [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
+  - `python manage.py send_scheduled_announcements`;
+  - `python manage.py send_calendar_reminders`;
+  - `python manage.py send_library_reminders`;
+  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
+  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
+  - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
+- [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
+  - exam results readable and writable without signing in;
+  - the fee defaulter list public;
+  - the demo login endpoint;
+  - teachers with Django's staff flag treated as administrators.
+- [ ] **App addresses** on Render (now declared in `render.yaml`; enter the values in the Render dashboard):
+  - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
+  - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
+- [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
+- [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
+- [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
+- [ ] **Test accounts on the sign-in page**: shown on your own computer, and on the live site only while `VITE_SHOW_TEST_LOGINS=true` is set in Vercel. Remove that setting when testing is finished. The live site refuses demo passwords anyway (P7), so give the live admin account a real password.
+- [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
+- [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
+- [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
+- [ ] **Pipeline and staging** (P5):
+  - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
+  - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
+  - optional staging: first set `BACKUP_ENCRYPTION_KEY` on the live site (so another site can read its backups); then in Render go to New → Blueprint → path `deploy/render-staging.yaml` and fill `STAGING_PASSWORD`, `STAGING_SOURCE_BACKUP=latest`, the backup bucket, the AWS keys, `BACKUP_ENCRYPTION_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`; in Vercel, set `VITE_API_URL` and `VITE_APP_ENV=staging` for the `staging` branch.
+- [ ] **Error alerts and uptime** (P4):
+  - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
+  - optionally set `SENTRY_DSN`;
+  - add a free uptime monitor (for example UptimeRobot) on `https://erp-backend-s5z7.onrender.com/api/v1/health/live/` and on the web app's address;
+  - after a push, check that the GitHub **Deploy check** turns green.
+- [ ] **Platform billing** (P12, declared in `render.yaml`):
+  - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
+  - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
+  - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
+  - tax rules per country in the platform console.
+- [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
+- [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
+- [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
+- [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
+- [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
 
 ---
 
-## P15: Help Centre and Support Tickets ⏳ In Progress
+# Part C — Pending: Future Upgrade Plan
 
-**Original roadmap reference:** Items 29, 30.
+What is left, in the agreed order of priority. Each item says what to build, why, what already exists to build on, and when it should be done. Numbers in brackets are the original roadmap items (Part D).
 
-**Current state:** No centralized help system; support handled manually.
+## Tier 2: Growth and Daily-Use Quality
 
-**Upgrade to:** Integrated help centre and professional support management.
+After the first paying schools are live and stable. These improve daily use and keep schools.
 
-**What to do:**
+### P18: Installable web app and offline attendance
 
-- **Help centre**: searchable help articles, role-based guides, FAQs, tutorials, videos, module documentation.
-- **Support tickets**: tickets with priority levels, ticket status, SLA, staff assignment, canned responses, ticket history.
+**Roadmap items:** 42, 44
 
-**Why it matters:**
+**What to build**
+- App manifest, icons and splash screen, so the web app installs on phones and tablets ("Add to home screen").
+- A service worker with an offline app shell, and push notifications (attendance alerts, messages, announcements) with the user's permission.
+- Offline attendance for teachers: mark the register without internet, keep it on the device, sync when back online, and show what is waiting to sync; clashes (the office changed the same day) are shown, not overwritten.
 
-- Schools need to find answers without contacting support for every question.
-- Support needs a structured way to track, prioritize and resolve issues.
-- Reduces support load and improves response times.
+**Why it matters**
+- Many classrooms have weak internet; teachers stop using a register that fails. Parents expect phone notifications.
 
-**Suggested position:** With 29/30 (Tier 1).
+**Builds on**
+- Phase 4 (attendance codes and the daily register), Phase 7 (portal notices), P6 (the CSP allows service workers from the app itself).
 
----
+**When**
+- First item after the live deploy has settled.
 
-## P16: Automated SMS and WhatsApp ⏳ Next
+### P19: Pilot schools and feedback loop
 
-**Original roadmap reference:** Item 33.
+**Roadmap items:** M17, M16, 81
 
-**Current state:** WhatsApp/manual communication.
+**What to build**
+- 3 to 5 pilot schools per market, with an onboarding call, import help (P10) and a named contact.
+- Feedback inside the app (a short form on every page that files a support ticket, P15) and a 30/60/90-day check-in plan with notes per school.
+- A simple health view per school: last sign-ins, modules used, open tickets.
 
-**Upgrade to:** Automated messaging infrastructure.
+**Why it matters**
+- Real schools find the problems tests don't; early feedback decides what to build next.
 
-**What to do:**
+**Builds on**
+- P10 import, P15 help centre and tickets, P11 plans and trials.
 
-- Attendance alerts, fee reminders, admission updates, emergency alerts.
-- SMS templates, WhatsApp Business integration.
-- Delivery status tracking.
-- Builds on Phase 7 (Communication).
+**When**
+- Alongside the first paying schools.
 
-**Why it matters:**
+### P20: Product analytics, release notes and status page
 
-- Parents expect timely, automated alerts about their children.
-- Manual messaging does not scale.
-- Delivery confirmation ensures critical messages arrive.
+**Roadmap items:** 37, 39, 36
 
-**Suggested position:** With 33 (Tier 1).
+**What to build**
+- Feature use per school (which modules and pages are used, how often), without tracking students or storing personal data; respects the P14 usage-statistics consent.
+- A "What's new" page and a notice after each release, by module.
+- A public status page (uptime from the P4 monitor, incidents and planned maintenance).
 
----
+**Why it matters**
+- Shows what schools actually use, tells them about improvements, and answers "is it down?" without a ticket.
 
-## P17: Retention by Record Type ⏳ Next
+**Builds on**
+- P4 error tracking and uptime, P14 consent, P15 help centre.
 
-**Original roadmap reference:** Rest of 61.
+**When**
+- After P19, once there are several schools.
 
-**Current state:** Records retained without configurable policies.
+### P21: Accessibility audit and conformance report
 
-**Upgrade to:** Configurable data retention.
+**Roadmap items:** 69, 70
 
-**What to do:**
+**What to build**
+- A full WCAG 2.1 AA check of every page (keyboard use, screen readers, contrast, focus, forms, error messages), not just the navigation done in Phase 22.
+- Fix what is found, add automated accessibility checks to CI (P5), and publish an Accessibility Conformance Report (VPAT).
 
-- Retention rules by record type (students who left, old invoices, messages).
-- Automatic archival, anonymization, deletion jobs.
-- School-specific retention policies.
-- Extends Phase 21's log retention.
+**Why it matters**
+- Required by many public and international schools and by law in several countries; also makes the app easier for everyone.
 
-**Why it matters:**
+**Builds on**
+- Phase 22 navigation, the Phase 18 accessible charts, P5 CI.
 
-- Privacy laws require data minimization and retention limits.
-- Schools need to keep records for different periods depending on type.
-- Reduces data breach risk by not keeping data longer than needed.
+**When**
+- Before selling to public-sector or US/EU schools.
 
-**Suggested position:** With 61 (Tier 1).
+### P22: Sales CRM and market pages
 
----
+**Roadmap items:** 38, 80, M18
 
-# Part D — Tier 2: Growth and Daily-Use Quality (PENDING)
+**What to build**
+- A simple pipeline for leads, demos, trials and renewals, linked to P11 trials and P12 invoices.
+- Public pricing pages per market, a demo school to try without signing up, and case studies from pilot schools.
 
-| Order | Item | What to do |
-| ---: | --- | --- |
-| **P18** | Installable web app and offline attendance [42, 44] | App manifest, icons, offline shell, push notifications. Teachers can mark attendance offline and it syncs later. |
-| **P19** | Pilot schools and feedback loop [M17, M16, 81] | 3–5 pilot schools, feedback collection, 30/60/90-day check-ins. |
-| **P20** | Product analytics, release notes, status page [37, 39, 36] | Feature use per school (without tracking students), a What's New page, and a public status page. |
-| **P21** | Accessibility audit [69, 70] | Full WCAG 2.1 AA check of every page (Phase 22 covered navigation), then a conformance report (VPAT). |
-| **P22** | Sales CRM and market pages [38, 80, M18] | Leads, demos and trials pipeline, pricing pages, demo school, case studies. |
-| **P23** | Public API and webhooks [40, 41] | Per-school API keys, rate limits and documentation. Webhooks for student, attendance, payment and admission events, with retries and delivery logs. |
+**Why it matters**
+- Turns interest into paying schools and makes renewals visible before they lapse.
 
-**What changed the order:** Growth and daily-use quality come after the first paying schools are live and stable. These items improve retention and reduce support burden.
+**Builds on**
+- P11 plans and trials, P12 platform invoices, the Phase 20 region styles.
 
----
+**When**
+- When actively selling in more than one market.
 
-# Part E — Tier 3: When Entering a New Country (PENDING)
+### P23: Public API and webhooks
+
+**Roadmap items:** 40, 41
+
+**What to build**
+- API keys per school with scopes, rate limits and versioned, documented endpoints (the OpenAPI schema already exists).
+- Webhooks for student, attendance, payment and admission events, with signed deliveries, retries and a delivery log.
+
+**Why it matters**
+- Larger schools and partners want to connect their own systems without manual exports.
+
+**Builds on**
+- The existing REST API and schema, P6 rate limits, the P16 delivery-log pattern.
+
+**When**
+- When a school or partner asks for an integration.
+
+## Tier 3: When Entering a New Country
 
 Do the items for a market only when a school there is signing.
 
-| Order | Item | What to do |
-| ---: | --- | --- |
-| **P24** | International academic structures [50] | UK Year groups, US grades, European grading scales and Pakistani boards as configurable presets. |
-| **P25** | Remaining localisation [rest of 47–49, 51, M11] | Translation management, number formats, daylight-saving checks, country legal texts. |
-| **P26** | EU and UK readiness [65, 52 (EU region), 66] | EU data region, DPA and DPIA support, UK Children's Code, AI transparency. |
-| **P27** | AI governance and privacy [78, 79] | AI on or off per school, usage limits, AI logs, teacher confirmation, data masking, zero-retention providers. |
-| **P28** | US readiness [67, 68, 74, 75] | FERPA and COPPA controls, directory information, disclosure logs, NDPA. Clever and ClassLink SSO, OneRoster. |
-| **P29** | Remaining Google and Microsoft [rest of 72, 73] | Account sync, calendar sync. |
-| **P30** | LMS and district data [76, 77] | LTI 1.3, Ed-Fi. |
+### P24: International academic structures
 
-**Why this order:** Each item is only needed when a school in that market is signing. Doing them early wastes effort on requirements that may change.
+**Roadmap items:** 50
 
----
+**What to build**
+- Presets for UK year groups and key stages, US grades and credits, European grading scales, and Pakistani boards (matric/intermediate), set per school.
 
-# Part F — Tier 4: Enterprise Scale and Certification (PENDING)
+**Why it matters**
+- Schools expect their own structure and grade names out of the box.
 
-| Order | Item | What to do |
-| ---: | --- | --- |
-| **P31** | Native mobile apps [43, 45, 46, M12] | Parent, student and teacher apps. Apple and Google sign-in, biometrics. App-store privacy details and staged releases. |
-| **P32** | High availability and infrastructure as code [55, 54, 52] | Several app instances, CDN, object storage, Terraform, regional deployments. |
-| **P33** | External penetration test [M6] | Before international expansion, after P6–P9. |
-| **P34** | Trust centre and incident management [82, 83] | Public security and privacy page, on-call runbooks, affected-school notifications. |
-| **P35** | ISO 27001 / SOC 2 and continuous compliance [71, 84, M7, 60 (immutable records)] | Policies, staff training, access reviews, yearly tests and reviews. |
+**Builds on**
+- Phase 5 years and terms, Phase 6 grading scales, Phase 20 region styles.
 
-**Why this order:** Enterprise scale and certification come when the business has enough enterprise customers to justify the cost.
+**When**
+- With the first school in a new education system.
 
----
+### P25: Remaining localisation
 
-# Part G — Original Roadmap Reference Table (Phases 23–84)
+**Roadmap items:** rest of 47–49, 51, M11
+
+**What to build**
+- Translation management (missing strings, review), number formats, daylight-saving checks for reminders and timetables, and legal texts per country and language.
+
+**Why it matters**
+- Mistranslations and wrong times erode trust; legal texts must match the country.
+
+**Builds on**
+- The 23 languages, the Phase 20 region styles, the P14 legal documents.
+
+**When**
+- Per new language or country.
+
+### P26: EU and UK readiness
+
+**Roadmap items:** 65, 52 (EU region), 66
+
+**What to build**
+- An EU data region (database, files and backups in the EU), DPA and DPIA support, UK Children's Code settings, and AI transparency notices.
+
+**Why it matters**
+- Required to sell to EU and UK schools under GDPR / UK GDPR.
+
+**Builds on**
+- P13 export and deletion, P14 privacy documents and breach playbook, P17 retention.
+
+**When**
+- Before the first EU or UK school.
+
+### P27: AI governance and privacy
+
+**Roadmap items:** 78, 79
+
+**What to build**
+- AI on or off per school and per feature, usage limits, an AI activity log, teacher confirmation for AI suggestions, masking of personal data sent to the AI, and zero-retention providers where available.
+
+**Why it matters**
+- Schools and regulators expect control over AI use with children's data.
+
+**Builds on**
+- The existing AI assistant with its quotas (P11 includes the AI module per plan).
+
+**When**
+- Before EU schools, or when a school asks.
+
+### P28: US readiness
+
+**Roadmap items:** 67, 68, 74, 75
+
+**What to build**
+- FERPA and COPPA controls (directory information settings, disclosure logs, parental consent), the NDPA and state addenda, Clever and ClassLink sign-in, and OneRoster rostering.
+
+**Why it matters**
+- US districts will not sign without these.
+
+**Builds on**
+- P14 consent, Phase 21 audit log, Phase 17 SSO pattern.
+
+**When**
+- Before the first US school.
+
+### P29: Remaining Google and Microsoft integration
+
+**Roadmap items:** rest of 72, 73
+
+**What to build**
+- Account sync from Google Workspace and Microsoft 365, and calendar sync both ways.
+
+**Why it matters**
+- Saves the office re-typing staff and students.
+
+**Builds on**
+- Phase 17 Microsoft sign-in and Google Classroom.
+
+**When**
+- When schools on those platforms ask.
+
+### P30: LMS and district data
+
+**Roadmap items:** 76, 77
+
+**What to build**
+- LTI 1.3 launch from learning platforms (Moodle, Canvas…) and Ed-Fi data exchange for districts.
+
+**Why it matters**
+- Needed where schools already use an LMS or report to a district.
+
+**Builds on**
+- P23 public API.
+
+**When**
+- On demand.
+
+## Tier 4: Enterprise Scale and Certification
+
+### P31: Native mobile apps
+
+**Roadmap items:** 43, 45, 46, M12
+
+**What to build**
+- Parent, student and teacher apps (or one app with roles): push notifications, attendance, fees, grades, homework, messages, calendar; Apple and Google sign-in, biometric unlock; bus GPS tracking for Phase 14.
+- App-store privacy details, age ratings and staged releases.
+
+**Why it matters**
+- Families expect an app; the installable web app (P18) covers most needs until then.
+
+**Builds on**
+- P18, the existing API, Phase 14 transport.
+
+**When**
+- When scale justifies app-store upkeep.
+
+### P32: High availability and infrastructure as code
+
+**Roadmap items:** 55, 54, 52
+
+**What to build**
+- Several app instances with load balancing, a CDN, object storage for all files, infrastructure as code (Terraform) and repeatable regional deployments.
+
+**Why it matters**
+- Needed for larger schools and uptime promises in contracts.
+
+**Builds on**
+- P2 durable backups, P5 staging, P4 monitoring.
+
+**When**
+- When load or contracts need it.
+
+### P33: External penetration test
+
+**Roadmap items:** M6
+
+**What to build**
+- An independent security test of the web app and API, then fixing what is found.
+
+**Why it matters**
+- Buyers and insurers ask for it; finds what internal checks miss.
+
+**Builds on**
+- P6–P9 hardening and scanning.
+
+**When**
+- Before international expansion.
+
+### P34: Trust centre and incident management
+
+**Roadmap items:** 82, 83
+
+**What to build**
+- A public page with security and privacy information, sub-processors, status and certifications; on-call runbooks and post-incident reviews.
+
+**Why it matters**
+- Answers security questionnaires and speeds up sales.
+
+**Builds on**
+- P14 sub-processors and incident register, P4, P20 status page.
+
+**When**
+- With P33.
+
+### P35: ISO 27001 / SOC 2 and continuous compliance
+
+**Roadmap items:** 71, 84, M7, 60 (immutable records)
+
+**What to build**
+- Written policies, staff security training, quarterly access reviews, yearly penetration tests and DPIA reviews, vendor reviews, and tamper-proof audit records.
+
+**Why it matters**
+- Required by large schools, districts and groups.
+
+**Builds on**
+- Phase 21 audit log, P2 restore tests, P33, P34.
+
+**When**
+- When selling to large groups.
+
+# Part D — Original Roadmap Reference Table (Phases 23–84)
 
 The 23–84 list and the missing items M1–M19 (below) are put in order of urgency, based on what phases 1–22 already built and what the live site showed. Numbers in brackets are the original item numbers. The original table stays below for reference.
 
@@ -2286,13 +2627,10 @@ Do the items for a market only when a school there is signing.
 | **P34** | Trust centre and incident management [82, 83] | Public security and privacy page, on-call runbooks, affected-school notifications. |
 | **P35** | ISO 27001 / SOC 2 and continuous compliance [71, 84, M7, 60 (immutable records)] | Policies, staff training, access reviews, yearly tests and reviews. |
 
-### Next step
-
-Start with **P1–P4**. They protect real data and make problems visible. P3 also fixes the broken "Forgot password?". P5–P9 follow, and together they are the minimum before a paying school goes live.
 
 ---
 
-# Part H — Missing Items M1–M20
+# Part E — Missing Items M1–M20
 
 | Missing # | Area | What is missing / should be added | Why it matters | Suggested position |
 | --- | --- | --- | --- | --- |
@@ -2319,14 +2657,14 @@ Start with **P1–P4**. They protect real data and make problems visible. P3 als
 
 ---
 
-# Part I — Final Sequence Overview
+# Part F — Final Sequence Overview
 
 So the overall roadmap becomes:
 
 - **1–22:** Core school-system modernization (COMPLETED)
 - **P1–P9:** Tier 0 — Critical production readiness (COMPLETED)
 - **P10–P14:** Tier 1 (first part) — SaaS business readiness (COMPLETED)
-- **P15–P17:** Tier 1 (remaining) — Help, SMS, Retention (IN PROGRESS / NEXT)
+- **P15–P17:** Tier 1 (remaining) — Help, SMS, Retention (COMPLETED)
 - **P18–P23:** Tier 2 — Growth and daily-use quality (PENDING)
 - **P24–P30:** Tier 3 — When entering a new country (PENDING)
 - **P31–P35:** Tier 4 — Enterprise scale and certification (PENDING)
@@ -2334,58 +2672,3 @@ So the overall roadmap becomes:
 This keeps the original **22 modules untouched** and puts the additional work into the **next upgrade phase**, rather than repeating Student Records, Admissions, Billing, Attendance, Academics, Gradebook, Communication, Calendar, etc.
 
 ---
-
-# Part J — Deployment Checklist (Remaining Items)
-
-These are the remaining deployment items after all 22 phases and P1–P14 are complete.
-
-- [ ] **Paid database and durable backups** (P2):
-  - move `erp-db` in `render.yaml` from `plan: free` to a paid plan (free Render databases expire);
-  - set `BACKUP_S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (a private bucket), plus `BACKUP_ENCRYPTION_KEY` (a Fernet key);
-  - add a daily cron job `python manage.py backup_database` and a weekly one `python manage.py backup_database --verify`;
-  - keep a copy of `BACKUP_ENCRYPTION_KEY` somewhere safe outside Render: without it, backups can't be opened.
-- [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
-  - `python manage.py send_scheduled_announcements`;
-  - `python manage.py send_calendar_reminders`;
-  - `python manage.py send_library_reminders`;
-  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
-  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
-  - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
-- [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
-  - exam results readable and writable without signing in;
-  - the fee defaulter list public;
-  - the demo login endpoint;
-  - teachers with Django's staff flag treated as administrators.
-- [ ] **App addresses** on Render (now declared in `render.yaml`; enter the values in the Render dashboard):
-  - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
-  - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
-- [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
-- [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
-- [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
-- [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
-- [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
-- [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
-- [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
-- [ ] **Pipeline and staging** (P5):
-  - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
-  - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
-  - optional staging: first set `BACKUP_ENCRYPTION_KEY` on the live site (so another site can read its backups); then in Render go to New → Blueprint → path `deploy/render-staging.yaml` and fill `STAGING_PASSWORD`, `STAGING_SOURCE_BACKUP=latest`, the backup bucket, the AWS keys, `BACKUP_ENCRYPTION_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`; in Vercel, set `VITE_API_URL` and `VITE_APP_ENV=staging` for the `staging` branch.
-- [ ] **Error alerts and uptime** (P4):
-  - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
-  - optionally set `SENTRY_DSN`;
-  - add a free uptime monitor (for example UptimeRobot) on `https://erp-backend-s5z7.onrender.com/api/v1/health/live/` and on the web app's address;
-  - after a push, check that the GitHub **Deploy check** turns green.
-- [ ] **Platform billing** (P12, declared in `render.yaml`):
-  - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
-  - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
-  - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
-  - tax rules per country in the platform console.
-- [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
-- [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
-- [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
-- [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
-- [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
-
----
-
-**End of document.**

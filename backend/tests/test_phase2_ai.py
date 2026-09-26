@@ -4,7 +4,11 @@ from rest_framework import status
 from django.apps import apps
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-import numpy as np
+# The ai-ml packages are optional (see ai-ml/requirements.txt; the app switches these features off without them),
+# so this module is skipped where they are not installed, e.g. in CI.
+np = pytest.importorskip('numpy')
+pytest.importorskip('sklearn')
+pytest.importorskip('pandas')
 
 import os
 import sys
