@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Circle, ChevronRight, Rocket, X } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronRight, FileSpreadsheet, Rocket, X } from 'lucide-react';
 import schoolService, { type SetupStep } from '@/services/school.service';
 import { useTranslation } from 'react-i18next';
 
@@ -70,10 +70,10 @@ export default function SetupChecklist() {
 
       <ul className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-2">
         {steps.map((s) => (
-          <li key={s.key}>
+          <li key={s.key} className="flex items-stretch gap-1.5">
             <button
               onClick={() => navigate(s.link)}
-              className={`w-full flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm transition-colors ${
+              className={`flex-1 min-w-0 flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm transition-colors ${
                 s.done ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 hover:bg-slate-50 text-slate-700'
               }`}
             >
@@ -81,6 +81,15 @@ export default function SetupChecklist() {
               <span className={`flex-1 ${s.done ? 'line-through decoration-emerald-400' : 'font-medium'}`}>{t(`setup.steps.${s.key}`, { defaultValue: s.label })}</span>
               {!s.done && <ChevronRight className="w-4 h-4 text-slate-400 rtl:rotate-180" />}
             </button>
+            {!s.done && s.import_link && (
+              <button
+                onClick={() => navigate(s.import_link!)}
+                className="shrink-0 flex items-center gap-1 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                title={t('setup.import')}
+              >
+                <FileSpreadsheet className="w-4 h-4" /> {t('setup.import')}
+              </button>
+            )}
           </li>
         ))}
       </ul>

@@ -159,6 +159,7 @@ urlpatterns = [
     path('auth/cafeteria/', include('services.education.cafeteria.urls')),
     path('auth/integrations/', include('services.education.integrations.urls')),
     path('auth/insights/', include('services.education.insights.urls')),
+    path('auth/imports/', include('services.education.imports.urls')),
     path('auth/admissions/', include('services.education.admissions.urls')),
     path('auth/analytics/', include('services.analytics.urls')),
     

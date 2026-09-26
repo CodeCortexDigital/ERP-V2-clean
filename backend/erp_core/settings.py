@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'services.education.cafeteria',
     'services.education.integrations',
     'services.education.insights',
+    'services.education.imports',
     'services.analytics',
     'services.ai',
 ]

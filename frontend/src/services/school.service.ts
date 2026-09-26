@@ -39,6 +39,8 @@ export interface SetupStep {
   label: string;
   done: boolean;
   link: string;
+  /** Where to bring this step's records in from a spreadsheet, if it can be imported. */
+  import_link?: string | null;
 }
 
 export interface PlatformSchool {

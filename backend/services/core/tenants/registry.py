@@ -103,6 +103,7 @@ DIRECT = [
     'education_gradebook.StandardRating',
     'education_gradebook.ReportComment',
     'education_gradebook.ReportCardRelease',
+    'education_imports.ImportRun',
     'ai.AIConversation',
     'ai.AIUsage',
 ]

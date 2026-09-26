@@ -452,7 +452,7 @@ export default function AddStudentPage() {
           <button className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-purple-700 rounded-lg text-xs font-semibold transition-colors">
             <Settings className="w-3.5 h-3.5" /> Customize
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors">
+          <button type="button" onClick={() => navigate('/education/import?kind=students')} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold transition-colors">
             <Download className="w-3.5 h-3.5" /> Import Students
           </button>
         </div>

@@ -1503,6 +1503,52 @@ Planned fix:
 Also still to do: the 4 known failing tests.
 
 
+### P10: School onboarding and data import ✅
+
+**What a school can now do**
+- **Import data** (Administration → Import data, or **Import Students** on the admission form) from a CSV or Excel (.xlsx) file, in five steps:
+  1. **Classes and sections**, including grade level, capacity and tuition fee. For an existing class, only its new sections are added.
+  2. **Subjects**, with code, department and elective.
+  3. **Teachers and staff**: email (their sign-in), employee number, role, subjects, joining date, salary, qualifications.
+  4. **Students and guardians**: class and section, date of birth, the father's, mother's and guardian's details, address, and more. Families and the parents' portal logins are created just as on the admission form.
+  5. **Opening fee balances**, by student number. Each becomes an "Opening balance" invoice.
+- **Templates**: each step has a downloadable template. Column headings are matched loosely (for example "Roll No", "GR No" or "Admission No" all mean the student number).
+- **Preview first.** Every row is checked before anything is saved, and marked **Ready**, **Already exists** or **Needs fixing** with the reason. Checks include:
+  - a class or section that doesn't exist;
+  - a bad date, amount or email;
+  - a student number or email that already exists;
+  - the same student (name and date of birth) already in the school;
+  - the same row twice in the file.
+  
+  Missing student and employee numbers continue the school's own numbering (for example DS-2026120 is followed by DS-2026121).
+- **Import** adds all the ready rows in one go. If one can't be saved, nothing is saved and the office is told which row.
+- Duplicates and rows with problems are skipped and can be downloaded as a CSV to fix and import again.
+- **Past imports**: who imported what and when, with the results and the skipped rows.
+- **Setup checklist** on the dashboard has two new steps, **Choose language, currency and region style** and **Set up the school year and terms**, and an **Import** shortcut beside classes, subjects, staff and students. The region step counts once the office has saved Language & currency.
+
+**Built**
+- Backend:
+  - new app `services/education/imports`: `specs.py` (the five imports: columns, checks, duplicates, saving), `api.py` and `urls.py` (`/api/v1/auth/imports/`: kinds, template, preview, import, history, skipped rows), and `ImportRun` (migration `0001`);
+  - administrators only;
+  - `openpyxl` added to `requirements.txt`;
+  - onboarding steps extended in `tenants/signup.py`.
+- Frontend:
+  - `pages/education/ImportPage.tsx` and `services/imports.service.ts`;
+  - import shortcuts on the setup checklist;
+  - the admission form's Import Students button now works;
+  - "Import data" in the Administration menu and in search;
+  - translations in all 23 languages.
+- Tests:
+  - `backend/tests/test_imports.py` has 5 new tests: classes, subjects and the template; staff, students and opening balances; bad files and who may import; nothing saved if a row fails; onboarding steps.
+  - Passing: these plus the signup and region tests (20 passed), and the frontend type check.
+- Browser check on the demo school (the database was restored afterwards):
+  - Import Students opened the student step, and the template downloaded;
+  - a 3-row file previewed as 1 ready (to get DS-2026121), 1 "Grade 99 does not exist" and 1 "DS-2026001 already exists";
+  - importing gave "1 added, 1 already existed, 1 had problems", and search then found the new student;
+  - Past imports listed it.
+  - No page errors.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -1606,8 +1652,8 @@ The notes for each finished item are in the **Progress log**, after Phase 22.
 | **P7** | Secrets and default passwords | Next |
 | **P8** | Two-step sign-in for administrators | Next |
 | **P9** | Dependency and code scanning | Next |
-| **P10** | School onboarding and data import | ⏳ In progress |
-| **P11** | SaaS plans and subscriptions | Next |
+| **P10** | School onboarding and data import | ✅ Done |
+| **P11** | SaaS plans and subscriptions | ⏳ In progress |
 | **P12** | Platform payments and invoices | Next |
 | **P13** | Full school export and end-of-contract deletion | Next |
 | **P14** | Privacy documents, consent and breach response | Next |

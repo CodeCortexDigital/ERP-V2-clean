@@ -34,7 +34,7 @@
     "logout": "Logout"
   },
   "nav": {
-    "dashboard": "Dashboard", "group_people": "People", "group_academics": "Academics", "group_billing": "Billing", "group_communication": "Communication", "group_services": "Campus services", "group_reports": "Reports", "group_admin": "Administration", "group_teaching": "Teaching", "group_family": "My family", "group_learning": "Learning", "group_account": "Account", "security_privacy": "Security & privacy", "staff": "Staff",
+    "dashboard": "Dashboard", "group_people": "People", "group_academics": "Academics", "group_billing": "Billing", "group_communication": "Communication", "group_services": "Campus services", "group_reports": "Reports", "group_admin": "Administration", "group_teaching": "Teaching", "group_family": "My family", "group_learning": "Learning", "group_account": "Account", "security_privacy": "Security & privacy", "import_data": "Import data", "staff": "Staff",
     "admissions": "Admissions", "students": "Students",
     "attendance": "Attendance",
     "fees": "Fees",
@@ -160,14 +160,14 @@
     "welcome": "Welcome to {{school}}!",
     "finish": "Finish setting up your school",
     "progress": "{{done}} of {{total}} steps done. Your school's data is private to your school.",
-    "hide": "Hide setup checklist",
+    "hide": "Hide setup checklist", "import": "Import",
     "steps": {
       "profile": "Add your school profile (logo, address, phone)",
       "classes": "Create classes and sections",
       "subjects": "Add subjects",
       "staff": "Add teachers and staff",
       "students": "Admit students",
-      "fees": "Set up fee structures"
+      "fees": "Set up fee structures", "region": "Choose language, currency and region style", "year": "Set up the school year and terms"
     }
   },
   "locale": {

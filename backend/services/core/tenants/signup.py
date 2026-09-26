@@ -246,6 +246,7 @@ def school_locale_view(request):
         return Response({'error': next(iter(errors.values())), 'fields': errors}, status=status.HTTP_400_BAD_REQUEST)
     with use_tenant(None):
         merged = {**(tenant.settings_json or {}), **updates}
+        merged['region_chosen'] = True  # onboarding: the office has chosen language, currency and region
         tenant.settings_json = {k: v for k, v in merged.items() if v is not None}
         tenant.save(update_fields=['settings_json', 'updated_at'])
     return Response({'locale': school_locale(tenant)})
@@ -253,13 +254,24 @@ def school_locale_view(request):
 
 # Setup checklist shown on a new school's dashboard: (key, label, model, link)
 SETUP_STEPS = [
-    ('profile', 'Add your school profile (logo, address, phone)', None, '/settings/profile'),
-    ('classes', 'Create classes and sections', 'education_academics.SchoolClass', '/education/academic-setup'),
-    ('subjects', 'Add subjects', 'education_academics.Subject', '/education/academic-setup'),
-    ('staff', 'Add teachers and staff', 'education_academics.Teacher', '/education/teachers/add'),
-    ('students', 'Admit students', 'education_students.Student', '/education/students/add'),
-    ('fees', 'Set up fee structures', 'education_finance.FeeStructure', '/education/fees/invoices'),
+    # key, label, model whose existence marks it done (None = checked from the school's settings), page, import kind
+    ('profile', 'Add your school profile (logo, address, phone)', None, '/settings/profile', None),
+    ('region', 'Choose language, currency and region style', None, '/settings/language', None),
+    ('year', 'Set up the school year and terms', 'education_academics.AcademicYear', '/education/academic-setup', None),
+    ('classes', 'Create classes and sections', 'education_academics.SchoolClass', '/education/academic-setup', 'classes'),
+    ('subjects', 'Add subjects', 'education_academics.Subject', '/education/academic-setup', 'subjects'),
+    ('staff', 'Add teachers and staff', 'education_academics.Teacher', '/education/teachers/add', 'staff'),
+    ('students', 'Admit students', 'education_students.Student', '/education/students/add', 'students'),
+    ('fees', 'Set up fee structures', 'education_finance.FeeStructure', '/education/fees/invoices', None),
 ]
+
+
+def _setting_done(key, settings):
+    if key == 'profile':
+        return bool(settings.get('address') and settings.get('phone'))
+    if key == 'region':  # the office has saved Settings -> Language & currency at least once
+        return bool(settings.get('region_chosen'))
+    return False
 
 
 @api_view(['GET'])
@@ -270,13 +282,13 @@ def onboarding_status(request):
     if tenant is None:
         return Response({'school': None, 'steps': [], 'complete': True})
     steps = []
-    for key, label, model_label, link in SETUP_STEPS:
+    for key, label, model_label, link, import_kind in SETUP_STEPS:
         if model_label is None:
-            s = tenant.settings_json or {}
-            done = bool(s.get('address') and s.get('phone'))
+            done = _setting_done(key, tenant.settings_json or {})
         else:
             done = apps.get_model(model_label).objects.exists()
-        steps.append({'key': key, 'label': label, 'done': done, 'link': link})
+        steps.append({'key': key, 'label': label, 'done': done, 'link': link,
+                      'import_link': f'/education/import?kind={import_kind}' if import_kind else None})
     return Response({
         'school': {'name': tenant.name, 'code': tenant.tenant_code},
         'steps': steps,
