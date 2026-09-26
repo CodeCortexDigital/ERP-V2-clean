@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { usePlanStore } from '@/store/planStore';
 import billing, { errorText, MySubscription, Plan } from '@/services/subscription.service';
+import InvoicesPanel from '@/components/billing/InvoicesPanel';
 
 const card = 'bg-white rounded-xl border border-slate-200 shadow-sm';
 const TONE: Record<string, string> = {
@@ -34,6 +35,7 @@ export default function BillingPage() {
   const [sub, setSub] = useState<MySubscription | null>(null);
   const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [busy, setBusy] = useState('');
+  const [invoicesKey, setInvoicesKey] = useState(0);  // reload the invoice list after a plan change
   const load = () => billing.mine().then((d) => { setSub(d); if (d.billing_cycle) setCycle(d.billing_cycle); }).catch((e) => toast.error(errorText(e, 'Could not load.')));
   useEffect(() => { load(); }, []);
 
@@ -43,7 +45,7 @@ export default function BillingPage() {
   const choose = async (p: Plan) => {
     if (!window.confirm(`Switch to ${p.name} (${cycle})?`)) return;
     setBusy(p.code);
-    try { toast.success((await billing.change(p.code, cycle)).message); await load(); refreshPlan(); } catch (e) { toast.error(errorText(e, 'Could not change the plan.')); } finally { setBusy(''); }
+    try { toast.success((await billing.change(p.code, cycle)).message); await load(); refreshPlan(); setInvoicesKey((k) => k + 1); } catch (e) { toast.error(errorText(e, 'Could not change the plan.')); } finally { setBusy(''); }
   };
   const cancel = async (resume: boolean) => {
     if (!resume && !window.confirm('End the subscription at the end of the current period? Nothing is deleted; the school becomes read-only.')) return;
@@ -137,8 +139,10 @@ export default function BillingPage() {
             );
           })}
         </div>
-        <p className="text-xs text-slate-500 mt-2">Upgrades apply at once. A smaller plan starts when the current paid period ends, and only if your students and staff fit it. Payment by card arrives with the next update; until then our team confirms payment.</p>
+        <p className="text-xs text-slate-500 mt-2">Upgrades apply at once (the difference for the days left is invoiced). A smaller plan starts when the current paid period ends, and only if your students and staff fit it. Choosing a plan creates an invoice below.</p>
       </section>
+
+      <InvoicesPanel key={invoicesKey} onPaid={() => { load(); refreshPlan(); }} />
 
       {!!sub.events?.length && (
         <section className={card} aria-labelledby="billing-history">

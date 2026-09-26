@@ -116,3 +116,16 @@ services:
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET
         sync: false
+      # Platform billing (P12): card payment of school subscription invoices, and what invoices show.
+      - key: PLATFORM_STRIPE_SECRET_KEY
+        sync: false
+      - key: PLATFORM_STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PLATFORM_BANK_DETAILS
+        sync: false
+      - key: PLATFORM_LEGAL_NAME
+        sync: false
+      - key: PLATFORM_ADDRESS
+        sync: false
+      - key: PLATFORM_TAX_ID
+        sync: false

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CreditCard, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import subscriptions, { errorText, Plan, PlatformRow } from '@/services/subscription.service';
+import PlatformInvoices from './PlatformInvoices';
 
 const card = 'bg-white rounded-xl border border-slate-200 shadow-sm';
 const input = 'rounded-lg border border-slate-300 px-2 py-1 text-sm';
@@ -93,8 +94,10 @@ export default function PlatformBilling() {
               <th className="px-4 py-2">Students</th><th className="px-4 py-2">Staff</th><th className="px-4 py-2" /></tr></thead>
             <tbody>{plans.map((p) => <PlanRow key={p.code} plan={p} onSave={savePlan} />)}</tbody>
           </table>
-        </div>
+          <PlatformInvoices />
+    </div>
       </section>
+      <PlatformInvoices />
     </div>
   );
 }

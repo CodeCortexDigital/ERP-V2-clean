@@ -22,9 +22,31 @@ export interface PlatformRow {
   current_period_end?: string | null; billing_cycle?: string;
 }
 
+export interface PlatformInvoice {
+  id: string; number: string; kind: 'period' | 'proration'; kind_label: string; plan: string; billing_cycle: string;
+  period_start: string; period_end: string; currency: string; subtotal: number; tax_label: string; tax_rate: number;
+  tax_amount: number; tax_note: string; total: number; status: 'open' | 'paid' | 'void' | 'overdue'; issue_date: string;
+  due_date: string; paid_at: string | null; paid_via: string; payment_reference: string; school: string;
+  bill_to: { legal_name?: string; address?: string; country?: string; tax_id?: string; email?: string };
+}
+export interface PaymentOptions { card: boolean; bank_details: string }
+export interface BillingDetails { legal_name: string; address: string; country: string; tax_id: string; email: string }
+export interface TaxRuleRow { country: string; label: string; rate: number; exempt_with_tax_id: boolean }
+
 export const errorText = (e: any, fallback: string) => e?.response?.data?.detail || e?.response?.data?.error || fallback;
 
 const subscriptionService = {
+  details: () => api.get('/billing/details/').then((r) => r.data.details as BillingDetails),
+  saveDetails: (d: Partial<BillingDetails>) => api.put('/billing/details/', d).then((r) => r.data.details as BillingDetails),
+  invoices: () => api.get('/billing/invoices/').then((r) => r.data as { results: PlatformInvoice[]; payment: PaymentOptions }),
+  invoice: (id: string) => api.get(`/billing/invoices/${id}/`).then((r) => r.data as { invoice: PlatformInvoice; payment: PaymentOptions; seller: { name: string; address: string; tax_id: string } }),
+  pay: (id: string) => api.post(`/billing/invoices/${id}/pay/`, { origin: window.location.origin }).then((r) => r.data as { url: string }),
+  platformInvoices: (status = '') => api.get('/billing/platform/invoices/', { params: status ? { status } : {} }).then((r) => r.data.results as PlatformInvoice[]),
+  invoiceAction: (id: string, action: 'mark_paid' | 'void', extra: Record<string, string> = {}) => api.post(`/billing/platform/invoices/${id}/`, { action, ...extra }).then((r) => r.data),
+  runBilling: () => api.post('/billing/platform/run/').then((r) => r.data as { issued: number; reminded: number }),
+  taxRules: () => api.get('/billing/platform/tax/').then((r) => r.data.rules as TaxRuleRow[]),
+  saveTax: (t: Partial<TaxRuleRow>) => api.put('/billing/platform/tax/', t).then((r) => r.data.rules as TaxRuleRow[]),
+  deleteTax: (country: string) => api.delete('/billing/platform/tax/', { params: { country } }).then((r) => r.data.rules as TaxRuleRow[]),
   plans: () => api.get('/billing/plans/').then((r) => r.data.plans as Plan[]),
   mine: () => api.get('/billing/subscription/').then((r) => r.data as MySubscription),
   change: (plan: string, cycle: string) => api.post('/billing/subscription/change/', { plan, cycle }).then((r) => r.data as { message: string }),

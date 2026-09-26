@@ -14,6 +14,7 @@ import LanguageSettings from './LanguageSettings';
 import AccountSettings from './AccountSettings';
 import SecurityPage from './SecurityPage';
 import BillingPage from './BillingPage';
+import InvoicePrintPage from './InvoicePrintPage';
 import SettingsSidebar, { menuItems, isSettingsTabActive } from './components/SettingsSidebar';
 
 export default function SettingsPage() {
@@ -79,6 +80,7 @@ export default function SettingsPage() {
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/security" element={<SecurityPage />} />
             <Route path="/billing" element={<BillingPage />} />
+            <Route path="/billing/invoices/:id" element={<InvoicePrintPage />} />
             <Route path="/role-permissions" element={<Navigate to="/settings/security?tab=roles" replace />} />
             <Route path="*" element={<Navigate to="/settings" replace />} />
           </Routes>

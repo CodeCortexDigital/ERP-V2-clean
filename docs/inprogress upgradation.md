@@ -50,7 +50,8 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - `python manage.py send_scheduled_announcements`;
   - `python manage.py send_calendar_reminders`;
   - `python manage.py send_library_reminders`;
-  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules).
+  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
+  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders).
 - [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
   - exam results readable and writable without signing in;
   - the fee defaulter list public;
@@ -61,6 +62,11 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Platform billing** (P12, declared in `render.yaml`):
+  - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
+  - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
+  - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
+  - tax rules per country in the platform console.
 - [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
 - [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
 - [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
@@ -1620,6 +1626,61 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - A mistake caught during the work: the new frontend service first overwrote the existing family-billing `billing.service.ts`. It was restored from git, and the new one is `subscription.service.ts`.
 
 
+### P12: Platform payments and invoices ✅
+
+**What a school sees** (Settings → Plan & billing)
+- **Invoices** from the platform:
+  - number (PI-2026-00001…), what it's for (plan and period, or the difference for an upgrade), due date, total and status (open, overdue, paid, cancelled);
+  - **View / print**: a clean invoice page to print or save as PDF, with the seller's and the school's details, tax and any payment reference;
+  - **Pay by card**: Stripe Checkout, once the platform's Stripe keys are set. Otherwise the page shows the bank-transfer details, with the invoice number as the reference;
+  - after a card payment the page confirms it, and the invoice turns paid when Stripe's signed confirmation arrives.
+- **Billing details**: legal name, address, country code, tax ID and billing email. They are printed on new invoices, the country and tax ID decide the tax, and reminders go to the billing email (or the school's admins).
+
+**How invoices are made**
+- **Choosing a plan** issues the first invoice. During a trial it's due when the trial ends; paying early keeps the rest of the trial. For a read-only school it's due today.
+- **Upgrading mid-period** issues an invoice for the price difference for the days left, due in 7 days. Paying it doesn't move the renewal date. Downgrades aren't billed until renewal.
+- **Renewals**: a daily job issues the next period's invoice 7 days before it's due (using a scheduled smaller plan if there is one). Only one invoice is ever made per period.
+- **Paying** a period invoice starts the paid period (P11's renewal).
+- **Payment reminders** by email, each sent once: 3 days before, on the due date, then 3 and 7 days late. The last one says the school will become read-only. After the 7 days' grace, P11 makes the school read-only automatically until it pays.
+- **Tax**: rules by country (for example GB VAT 20%). "Reverse charge" means a school that gives a tax ID pays no tax, and the invoice says so. Amounts are rounded to the cent.
+
+**Platform owner** (All Schools page)
+- Every school's invoices, filtered by open, overdue, paid or cancelled.
+- **Mark paid** (with the bank reference) and **Cancel**. A paid invoice can't be cancelled.
+- **Run billing now** (the same as the daily job).
+- **Tax on invoices**: add or remove country rules.
+- Every payment is written into the school's subscription history, with its reference.
+
+**Built**
+- Backend:
+  - `TaxRule` and `PlatformInvoice` (billing migration `0003`);
+  - `invoicing.py`: billing details, tax, issuing, proration, upcoming invoices, paying, cancelling, reminders and the daily run;
+  - `stripe_platform.py`: Checkout with the platform's own keys, reusing the Stripe helpers from fees;
+  - `invoice_api.py`: details, invoices, invoice, pay, the signed Stripe webhook, and the platform invoices, actions, run and tax endpoints;
+  - the command `run_platform_billing`;
+  - choosing a plan now bills it.
+- Frontend:
+  - `components/billing/InvoicesPanel.tsx` (invoices, pay, bank details, billing details);
+  - `pages/settings/InvoicePrintPage.tsx`;
+  - `components/platform/PlatformInvoices.tsx` (invoices, run billing, tax rules).
+- Deployment: the new `PLATFORM_*` settings are declared in `render.yaml`, and the daily job is added to the checklist.
+- Tests:
+  - `backend/tests/test_platform_invoices.py` has 5 new tests:
+    - billing details and tax, including reverse charge and one invoice per period;
+    - choosing a plan bills, and paying early keeps the trial;
+    - a read-only school gets bank details, then a signed Stripe webhook marks the invoice paid and opens the school again (a bad signature is refused);
+    - the upgrade difference, renewals and the four reminders;
+    - the platform owner marks paid, cancels, runs billing and sees the reference in the history.
+  - Passing: these plus the P11 tests (10 passed).
+  - The full backend suite after P11: 273 passed. The only failure is the one that already failed before (the leave-approval manager test).
+- Browser check on the demo school (the database was restored afterwards):
+  - the platform owner added GB VAT 20%, and the school saved its billing details;
+  - choosing Starter gave "Invoice PI-2026-00001 (USD 58.80) is ready";
+  - the printable invoice showed $49.00 plus VAT 20% ($9.80) = $58.80, due 26 Oct 2026, billed to "CodeCortex Model School Ltd";
+  - the platform owner marked it paid with reference TRF-2026-09-26, and the school was then "Active, paid until 25 Nov 2026".
+  - No page errors.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -1725,8 +1786,8 @@ The notes for each finished item are in the **Progress log**, after Phase 22.
 | **P9** | Dependency and code scanning | Next |
 | **P10** | School onboarding and data import | ✅ Done |
 | **P11** | SaaS plans and subscriptions | ✅ Done |
-| **P12** | Platform payments and invoices | ⏳ In progress |
-| **P13** | Full school export and end-of-contract deletion | Next |
+| **P12** | Platform payments and invoices | ✅ Done |
+| **P13** | Full school export and end-of-contract deletion | ⏳ In progress |
 | **P14** | Privacy documents, consent and breach response | Next |
 | **P15** | Help centre and support tickets | Next |
 | **P16** | Automated SMS and WhatsApp | Next |

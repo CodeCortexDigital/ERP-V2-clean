@@ -110,7 +110,13 @@ def change(request):
     plan = Plan.objects.filter(code=(request.data or {}).get('plan'), is_public=True).first()
     if plan is None:
         return Response({'error': 'Choose a plan.'}, status=status.HTTP_400_BAD_REQUEST)
+    old_plan, old_cycle = sub.plan, sub.billing_cycle
     message = service.change_plan(sub, plan, (request.data or {}).get('cycle'), by=request.user)
+    from .invoicing import after_plan_change
+
+    invoice = after_plan_change(sub, old_plan, old_cycle)  # P12: the first period, or the upgrade difference
+    if invoice is not None and invoice.status == 'open':
+        message += f' Invoice {invoice.number} ({invoice.currency} {invoice.total}) is ready under Invoices.'
     return Response({'message': message, 'subscription': _subscription(sub, sub.school)})
 
 
