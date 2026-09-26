@@ -166,6 +166,11 @@ def login_view(request):
 
     from services.core.security import policy
 
+    if policy.too_many_failed_sign_ins(request):
+        policy.record_sign_in(request, email=str(identifier), outcome='locked')
+        return Response({'error': 'Too many wrong passwords from this network. Please wait 15 minutes and try again.',
+                         'locked': True}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
     user_obj = User.objects.filter(email__iexact=login_username).first()
     if user_obj is None:
         try:
@@ -173,6 +178,7 @@ def login_view(request):
         except (ValueError, ValidationError):
             user_obj = None
     if user_obj is None:
+        policy.count_failed_sign_in(request)
         policy.record_sign_in(request, email=str(identifier), outcome='failed')
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -189,6 +195,7 @@ def login_view(request):
             return Response({'error': 'This account has been switched off. Please contact the school office.', 'disabled': True},
                             status=status.HTTP_401_UNAUTHORIZED)
         locked_now = policy.failed_attempt(user_obj, school)
+        policy.count_failed_sign_in(request)
         policy.record_sign_in(request, email=user_obj.email, outcome='failed', user=user_obj, school=school)
         if locked_now:
             return _locked_response(policy.security_settings(school)['lockout_minutes'])

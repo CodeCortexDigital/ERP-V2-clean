@@ -95,6 +95,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'services.education.students.middleware.StudentActivityMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'services.core.security.headers.SecurityHeadersMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'api.versioning.APIVersionMiddleware',
@@ -441,9 +442,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'core_accounts.User'
 
-# CORS Settings
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# Web security (P6): which pages may call the API, HTTPS-only cookies, HSTS and browser protections. See
+# erp_core/security_settings.py; FRONTEND_ORIGINS lists the web app address(es).
+from erp_core import security_settings as _sec  # noqa: E402
+
+globals().update(_sec.cors(DEBUG, os.environ))
+globals().update(_sec.transport(DEBUG, os.environ))
+# Proxies in front of the app that add the client's address to X-Forwarded-For (Render: 1). Used for per-address limits.
+TRUSTED_PROXIES = _sec.trusted_proxies(DEBUG, os.environ)
 CORS_ALLOW_HEADERS = ['Content-Type', 'Authorization', 'X-Employee-Id', 'X-CSRFToken', 'Cache-Control', 'Pragma']
 
 # REST Framework Settings
@@ -460,6 +466,8 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ),
     'DEFAULT_PAGINATION_CLASS': 'services.core.utils.pagination.StandardResultsSetPagination',
+    # DRF's per-address throttles read the client address the same way (P6).
+    'NUM_PROXIES': TRUSTED_PROXIES or None,
     'PAGE_SIZE': 500,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',

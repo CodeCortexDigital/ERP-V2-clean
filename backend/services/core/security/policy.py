@@ -64,8 +64,41 @@ def save_settings(school, patch: dict) -> tuple[dict | None, str | None]:
 
 
 def client_ip(request) -> str | None:
-    forwarded = (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
-    return forwarded or request.META.get('REMOTE_ADDR') or None
+    """The visitor's address. Behind Render's proxy it is the entry the proxy added to X-Forwarded-For (counted from
+    the right, TRUSTED_PROXIES deep): entries further left come from the visitor and can be made up (P6)."""
+    from django.conf import settings
+
+    meta = getattr(request, 'META', {})
+    hops = getattr(settings, 'TRUSTED_PROXIES', 0)
+    parts = [p.strip() for p in (meta.get('HTTP_X_FORWARDED_FOR') or '').split(',') if p.strip()]
+    if hops and parts:
+        return parts[-hops] if len(parts) >= hops else parts[0]
+    return meta.get('REMOTE_ADDR') or None
+
+
+def too_many_failed_sign_ins(request) -> bool:
+    """Per-address limit on wrong passwords, across all accounts (P6): slows down trying one password on many
+    accounts. Only failures count, so a whole class signing in from the school's network is never blocked."""
+    from django.conf import settings
+    from django.core.cache import cache
+
+    ip = client_ip(request)
+    return bool(ip) and cache.get(f'signin-fail:{ip}', 0) >= getattr(settings, 'SIGN_IN_FAILURES_PER_IP', 30)
+
+
+def count_failed_sign_in(request) -> None:
+    from django.core.cache import cache
+
+    ip = client_ip(request)
+    if not ip:
+        return
+    key = f'signin-fail:{ip}'
+    if cache.add(key, 1, 15 * 60):
+        return
+    try:
+        cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, 15 * 60)
 
 
 def user_school(user):

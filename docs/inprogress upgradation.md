@@ -69,6 +69,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
 - [ ] **Pipeline and staging** (P5):
   - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
   - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
@@ -2070,6 +2071,71 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - create the staging Blueprint if you want staging.
 
 
+### P6: Web security hardening and rate limits ✅
+
+**What changed**
+- **Only our web app may call the API from a browser.** Before, *any* website was allowed (`CORS_ALLOW_ALL_ORIGINS`, with credentials). Now:
+  - only the addresses in `FRONTEND_ORIGINS` are allowed; the same list is trusted for CSRF;
+  - on your own computer (DEBUG) anything is still allowed;
+  - if `FRONTEND_ORIGINS` is not set on the live site yet, only the hosts' default addresses (`*.vercel.app`, `*.onrender.com`) are allowed and a warning is logged, so the live site keeps working until you set it.
+- **HTTPS only in production** (each setting can be switched off by environment):
+  - plain HTTP is redirected to HTTPS; Render's internal health checks are exempt;
+  - HSTS for a year (subdomains and preload stay opt-in, because they are hard to undo on a custom domain);
+  - session and CSRF cookies are HTTPS-only;
+  - the proxy's `X-Forwarded-Proto` header is trusted.
+  - `check --deploy` now has no warnings except those two opt-ins.
+- **Browser protection headers on the API**:
+  - every JSON or file answer gets the strictest Content-Security-Policy (nothing may run, load or frame it);
+  - Django's own pages (admin, API docs) get a policy that allows only this site;
+  - a Permissions-Policy on every response;
+  - frames are refused (`DENY`), plus nosniff, a referrer policy and an opener policy.
+- **Web app headers** (`frontend/vercel.json`):
+  - a Content-Security-Policy that allows scripts only from the app itself and Google sign-in, styles and fonts from the app and Google Fonts, and frames only for Google sign-in; no plugins; nobody may frame the app;
+  - HSTS, `X-Frame-Options: DENY`, nosniff and a referrer policy;
+  - `Cross-Origin-Opener-Policy: same-origin-allow-popups`, so the Google sign-in popup still works;
+  - a Permissions-Policy that allows the camera and microphone only for the app's own live classes.
+  - The small dark-mode script that ran inline in `index.html` is now a file (`public/theme-init.js`), so the page needs no inline scripts.
+- **Wrong passwords are limited per network address.** P21's lock is per account, so one address could try a common password on hundreds of accounts. Now:
+  - 30 wrong passwords in 15 minutes from one address blocks further sign-ins from that address for 15 minutes, with the message "Too many wrong passwords from this network";
+  - only failures count, so a whole class signing in from the school's network is never blocked.
+- **The visitor's address can't be made up any more.** The app used the first `X-Forwarded-For` entry, which the visitor controls. It now uses the entry Render's proxy adds (`TRUSTED_PROXIES`, 1 by default in production). This applies to the audit log, sign-in history, the password-reset limit, error reports, admissions and DRF's per-address limits.
+- **Rate limits already in place** (checked, unchanged):
+  - signup: 10 an hour per address;
+  - admissions forms: 20 an hour;
+  - password reset: 5 an hour per email and per address (P3);
+  - browser error reports: 60 an hour (P4);
+  - AI assistant: `AI_RATE_LIMIT` per user per window, plus the monthly school quota.
+
+**Built**
+- Backend:
+  - `erp_core/security_settings.py` (CORS, HTTPS and proxy rules as testable functions), applied in `settings.py`;
+  - `services/core/security/headers.py` (`SecurityHeadersMiddleware`);
+  - `policy.client_ip` rewritten, plus `too_many_failed_sign_ins` and `count_failed_sign_in`, used in `login_view`;
+  - the audit and admissions address helpers now use `policy.client_ip`;
+  - DRF `NUM_PROXIES`.
+- Frontend: `vercel.json` headers and `public/theme-init.js`.
+- Tests:
+  - `backend/tests/test_web_security.py` has 6 new tests:
+    - CORS rules (development, live with the list, live without it);
+    - HTTPS settings in production and the switches;
+    - a made-up address is ignored;
+    - headers on API answers and on Django pages;
+    - only the listed web app gets CORS headers;
+    - the per-address limit on wrong passwords, another address unaffected, and right passwords never counting.
+  - All 6 passed.
+- Browser check:
+  - the **production build** was served with the exact `vercel.json` headers (locally, the only changes were allowing the local API address and leaving out the HTTPS upgrade);
+  - pages visited as the administrator: dashboard, students, fees, attendance, exams, messages, settings, security, platform, timetable and reports;
+  - as the teacher: dashboard, gradebook and live room;
+  - as the parent: dashboard and privacy;
+  - **0 Content-Security-Policy violations**, and pages, fonts and images showed normally;
+  - dark mode was still applied before paint;
+  - the API answered with the strict CSP, Permissions-Policy and `DENY`;
+  - after 30 wrong passwords from one address, the sign-in form showed "Too many wrong passwords from this network" (429).
+
+**Still yours** (in the checklist): set `FRONTEND_ORIGINS` on Render to the web app's real address(es). Until then, any `*.vercel.app` or `*.onrender.com` page may call the API.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2171,8 +2237,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P3** | Password reset and transactional email | ✅ Done (sending-domain DNS is yours: see the checklist) |
 | **P4** | Error tracking and uptime monitoring | ✅ Done |
 | **P5** | Test-and-deploy pipeline and staging | ✅ Done |
-| **P6** | Web security hardening and rate limits | ⏳ In progress |
-| **P7** | Secrets and default passwords | Next |
+| **P6** | Web security hardening and rate limits | ✅ Done |
+| **P7** | Secrets and default passwords | ⏳ In progress |
 | **P8** | Two-step sign-in for administrators | Next |
 | **P9** | Dependency and code scanning | Next |
 | **P10** | School onboarding and data import | ✅ Done |
