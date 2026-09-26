@@ -72,7 +72,8 @@ export function setupApiErrorInterceptor(api: AxiosInstance) {
       }
 
       if (status === 403) {
-        toast.error('You do not have permission to perform this action');
+        const body = error.response?.data as any;
+        toast.error(body?.two_factor_setup_required ? String(body.error) : 'You do not have permission to perform this action');
       } else if (status && status >= 500) {
         toast.error('Server error — please try again later');
       } else if (status && status >= 400) {

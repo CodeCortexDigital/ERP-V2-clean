@@ -62,8 +62,22 @@ interface AuthState {
   ssoLogin: (code: string) => Promise<AuthUser>;
   /** Sign in from a server payload that already holds tokens (school signup). */
   startSession: (data: { access: string; refresh: string; user: AuthUser }) => AuthUser;
+  /** Second step of signing in (P8): the challenge from TwoStepNeeded plus a code from the app or a recovery code. */
+  completeTwoStep: (challenge: string, code: string) => Promise<AuthUser>;
   logout: () => void;
   setUser: (user: AuthUser | null) => void;
+}
+
+/** Thrown by the sign-in calls when the account uses two-step sign-in: ask for a code, then completeTwoStep (P8). */
+export class TwoStepNeeded extends Error {
+  constructor(public challenge: string, public email: string) {
+    super('two-step sign-in');
+  }
+}
+
+function sessionOrChallenge(data: any, start: (d: { access: string; refresh: string; user: AuthUser }) => AuthUser): AuthUser {
+  if (data?.two_factor_required) throw new TwoStepNeeded(data.challenge, data.email || '');
+  return start(data as { access: string; refresh: string; user: AuthUser });
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -109,29 +123,21 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (userId, password) => {
         const response = await authService.login(userId, password);
-        const { access, refresh, user } = response.data;
-        const authUser = user as AuthUser;
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
-        applyAuthHeader(access);
-        set({
-          accessToken: access,
-          refreshToken: refresh,
-          user: authUser,
-          role: resolveRole(authUser),
-          isAuthenticated: true,
-          loading: false,
-        });
-        return authUser;
+        return sessionOrChallenge(response.data, get().startSession);
       },
 
       googleLogin: async (token) => {
         const response = await authService.googleLogin(token);
-        return get().startSession(response.data as { access: string; refresh: string; user: AuthUser });
+        return sessionOrChallenge(response.data, get().startSession);
       },
 
       ssoLogin: async (code) => {
         const response = await api.post('/auth/integrations/sso/exchange/', { code });
+        return sessionOrChallenge(response.data, get().startSession);
+      },
+
+      completeTwoStep: async (challenge, code) => {
+        const response = await api.post('/auth/login/2fa/', { challenge, code });
         return get().startSession(response.data as { access: string; refresh: string; user: AuthUser });
       },
 

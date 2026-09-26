@@ -12,6 +12,7 @@ urlpatterns = [
     
     # Basic auth
     path('login/', views.login_view, name='login'),
+    path('login/2fa/', views.login_two_factor_view, name='login-two-factor'),
     path('firebase/login/', FirebaseLoginView.as_view(), name='firebase-login'),
     path('logout/', views.logout_view, name='logout'),
     path('me/', views.get_current_user, name='get_current_user'),

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import security, { SignInRow } from '@/services/security.service';
 import api from '@/services/api';
+import TwoStepSection from './TwoStepSection';
 
 const TONE: Record<string, string> = { success: 'bg-emerald-100 text-emerald-700', failed: 'bg-amber-100 text-amber-800', locked: 'bg-rose-100 text-rose-700', disabled: 'bg-slate-200 text-slate-700' };
 
@@ -62,6 +63,7 @@ export default function MySecurityPanel() {
             className="font-semibold text-blue-700">Send confirmation email</button>
         </p>
       )}
+      <TwoStepSection />
       {data?.deletion_requested && (
         <p role="status" className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-700">
           You have asked the school office to delete your account.

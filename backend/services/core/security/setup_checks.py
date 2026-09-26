@@ -39,6 +39,8 @@ def checks() -> list[dict]:
     User = get_user_model()
     demo = list(User._base_manager.filter(email__in=DEMO_EMAILS, is_active=True).values_list('email', flat=True))
     known_admins = _known_password_admins()
+    no_two_step = list(User._base_manager.filter(is_active=True, is_superuser=True, two_factor_enabled=False)
+                       .values_list('email', flat=True)[:10])
     rows = [
         ('secret_key', 'Secret key set in the environment', not settings.SECRET_KEY.startswith('django-insecure'),
          'Set SECRET_KEY on Render (a long random value).'),
@@ -56,6 +58,8 @@ def checks() -> list[dict]:
          f'Switch off or delete the demo accounts: {", ".join(demo)}.' if demo else ''),
         ('known_passwords', 'No platform owner uses a demo password', not known_admins,
          f'Change the password of: {", ".join(known_admins)}.' if known_admins else ''),
+        ('owner_two_step', 'Platform owners use two-step sign-in', not no_two_step,
+         f'Turn on two-step sign-in (My sign-ins & data): {", ".join(no_two_step)}.' if no_two_step else ''),
         ('admin_password_env', 'First-admin password removed from the environment', not _env('ADMIN_PASSWORD'),
          'ADMIN_PASSWORD is only needed for the very first start; remove it on Render once you have signed in.'),
     ]

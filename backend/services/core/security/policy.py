@@ -19,6 +19,7 @@ DEFAULTS = {
     'idle_minutes': 0,          # sign out after this long without activity (0 = never)
     'activity_days': 365,       # how long the activity log is kept
     'sign_in_days': 180,        # how long sign-in history is kept
+    'admin_two_factor': 0,      # 1 = administrators must use two-step sign-in (P8)
 }
 LIMITS = {
     'lockout_attempts': (3, 20),
@@ -27,6 +28,7 @@ LIMITS = {
     'idle_minutes': (0, 480),
     'activity_days': (30, 3650),
     'sign_in_days': (30, 3650),
+    'admin_two_factor': (0, 1),
 }
 
 

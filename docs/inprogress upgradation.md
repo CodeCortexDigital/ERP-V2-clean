@@ -69,6 +69,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
 - [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
 - [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
 - [ ] **Pipeline and staging** (P5):
@@ -2193,6 +2194,67 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 **Still yours** (in the checklist): open **Live site settings** after the deploy and fix what it lists. In particular, switch off the demo accounts if they were ever created on the live site, and remove `ADMIN_PASSWORD`.
 
 
+### P8: Two-step sign-in for administrators ✅
+
+**What changed**
+- **Two-step sign-in with an authenticator app.** These are the standard 6-digit codes that Google Authenticator, Microsoft Authenticator, 1Password and similar apps show. Anyone can turn it on in **Account → My sign-ins & data**:
+  1. scan the QR code (or type the key);
+  2. enter a code to confirm;
+  3. save the **ten recovery codes**, shown once, with Copy and Download.
+  - From then on, signing in asks for a code after the password.
+  - It also applies to **Google and Microsoft sign-in**, which now ask for the code too.
+  - A lost phone: each recovery code signs in once; "New recovery codes" makes a fresh set.
+  - Turning it off needs the password and a code.
+- **Required where it matters**:
+  - **platform owners** on the live site (`REQUIRE_2FA_PLATFORM_OWNER`, on by default in production);
+  - a school's **administrators** when the school ticks "Administrators must use two-step sign-in" in Security → Rules.
+  - Someone who must use it but hasn't yet gets a setup screen right after signing in, and the server refuses their changes until it is on (reading still works). Required accounts can't turn it off.
+- **Lost phone and codes**: the school office can use **Reset two-step** in People & access. The person is signed out and can set it up again. The action is recorded in the activity log.
+- **Safety details**:
+  - the phone key is stored encrypted, and recovery codes only as hashes;
+  - a code can't be used twice, and one step of clock difference is allowed;
+  - the sign-in challenge expires after 5 minutes and allows 5 wrong codes;
+  - wrong codes count towards the account's lockout (P21) and the per-address limit (P6);
+  - turning it on or off and new recovery codes are recorded in the activity log;
+  - staging copies drop everyone's two-step keys;
+  - the Live site settings panel warns about platform owners without it.
+
+**Built**
+- Backend:
+  - `TwoFactor` (security migration `0003`);
+  - `services/core/security/twofactor.py` (codes to RFC 6238, the encrypted key, recovery codes, the sign-in challenge, who must use it);
+  - `twofactor_api.py` at `/api/v1/security/2fa/` (status, `setup/`, `confirm/`, `disable/`, `recovery-codes/`);
+  - `/api/v1/auth/login/2fa/`;
+  - `build_login_response` asks for the second step for every sign-in method;
+  - the setup requirement is enforced in `TenantJWTAuthentication`;
+  - the school rule `admin_two_factor`;
+  - the `reset_two_factor` people action;
+  - `security/2fa/` added to the always-allowed personal and read-only lists.
+- Frontend:
+  - `components/auth/TwoStepCodeForm.tsx` (the code step on the sign-in page, with "use a recovery code");
+  - `TwoStepNeeded` and `completeTwoStep` in the auth store;
+  - `components/security/TwoStepSection.tsx` (setup, recovery codes, turn off) in My sign-ins & data;
+  - `TwoStepGate.tsx` in the layout;
+  - the school rule checkbox and **Reset two-step** in `SecurityPage.tsx`.
+- Tests:
+  - `backend/tests/test_two_factor.py` has 5 new tests:
+    - codes match the RFC 6238 test vector;
+    - sign-in with two steps (wrong code, no reuse, clock drift, recovery code once, made-up challenge, too many tries);
+    - Google and Microsoft sign-in also ask for the code;
+    - required for platform owners on the live site and for administrators when the school asks, and can't be turned off then;
+    - turning it off, new codes, and the office reset.
+  - All 5 passed. Frontend: 99/99.
+- Browser check on a copy of the demo database (separate ports), with two-step required for the platform owner:
+  - after signing in, the **setup screen** appeared;
+  - the QR code was scanned (a real code was computed from the key) and two-step turned on;
+  - 10 recovery codes were shown;
+  - the next sign-in asked for the code: a wrong code gave "That code is not right", and the right one signed in;
+  - a **recovery code** signed in once;
+  - the teacher, without two-step, signed in as before and saw "Two-step sign-in: Off" with a working setup (QR shown) in Account.
+
+**Still yours** (in the checklist): after the deploy, the platform owner sets up two-step sign-in (the live site asks at the first sign-in; have an authenticator app ready) and keeps the recovery codes somewhere safe.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2317,8 +2379,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P5** | Test-and-deploy pipeline and staging | ✅ Done |
 | **P6** | Web security hardening and rate limits | ✅ Done |
 | **P7** | Secrets and default passwords | ✅ Done |
-| **P8** | Two-step sign-in for administrators | ⏳ In progress |
-| **P9** | Dependency and code scanning | Next |
+| **P8** | Two-step sign-in for administrators | ✅ Done |
+| **P9** | Dependency and code scanning | ⏳ In progress |
 | **P10** | School onboarding and data import | ✅ Done |
 | **P11** | SaaS plans and subscriptions | ✅ Done |
 | **P12** | Platform payments and invoices | ✅ Done |

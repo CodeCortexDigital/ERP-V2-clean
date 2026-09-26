@@ -223,6 +223,7 @@ def _person(u, role, me):
         'id': str(u.id), 'name': _name(u), 'email': u.email, 'role': role, 'role_label': ROLE_LABELS.get(role, role.title()),
         'active': u.is_active, 'locked_minutes': locked, 'last_sign_in': _local(u.last_login), 'last_ip': u.last_login_ip,
         'failed_attempts': u.failed_login_attempts or 0, 'is_me': u.pk == me.pk, 'platform_owner': u.is_superuser,
+        'two_factor': bool(u.two_factor_enabled),
         'deletion_requested': AccountDeletionRequest.objects.filter(user=u, status='pending').exists(),
     }
 
@@ -298,6 +299,13 @@ def person_action(request, user_id):
         target.save(update_fields=['is_active'])
         policy.unlock(target)
         message = f"{_name(target)}'s account is switched on."
+    elif action == 'reset_two_factor':
+        # Lost phone and recovery codes: they set it up again at their next sign-in.
+        from . import twofactor
+
+        twofactor.turn_off(target)
+        policy.revoke_sessions(target)
+        message = f"{_name(target)}'s two-step sign-in was turned off. They can set it up again after signing in."
     else:
         return Response({'error': 'Unknown action.'}, status=status.HTTP_400_BAD_REQUEST)
     AuditLog.objects.create(user=request.user, school=school, action='SECURITY', resource_type=f'v1/security/people/{target.pk}/{action}/',

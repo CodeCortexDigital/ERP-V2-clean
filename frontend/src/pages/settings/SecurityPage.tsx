@@ -157,6 +157,7 @@ const CONFIRM: Record<PersonAction, (n: string) => string> = {
   sign_out: (n) => `Sign ${n} out on every device? They can sign in again with their password.`,
   disable: (n) => `Switch off ${n}'s account? They are signed out at once and can't sign in until it's switched back on.`,
   enable: (n) => `Switch ${n}'s account back on?`,
+  reset_two_factor: (n) => `Turn off ${n}'s two-step sign-in (lost phone)? Do this only after checking it is really them. They are signed out and can set it up again.`,
 };
 
 function PeopleTab({ initialStatus }: { initialStatus: string }) {
@@ -206,6 +207,7 @@ function PeopleTab({ initialStatus }: { initialStatus: string }) {
                   {!p.platform_owner && (
                     <div className="flex flex-wrap justify-end gap-1.5">
                       {p.locked_minutes > 0 && <button disabled={!!busy} onClick={() => act(p, 'unlock')} className="inline-flex items-center gap-1 rounded-md border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-800"><LockOpen size={12} /> Unlock</button>}
+                      {p.two_factor && <button disabled={!!busy} onClick={() => act(p, 'reset_two_factor')} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">Reset two-step</button>}
                       {p.active && <button disabled={!!busy} onClick={() => act(p, 'sign_out')} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"><LogOut size={12} /> Sign out</button>}
                       {!p.is_me && (p.active
                         ? <button disabled={!!busy} onClick={() => act(p, 'disable')} className="inline-flex items-center gap-1 rounded-md border border-rose-300 px-2 py-1 text-xs font-semibold text-rose-700"><Power size={12} /> Switch off</button>
@@ -415,6 +417,11 @@ function RulesTab() {
           );
         })}
       </div>
+      <label className="flex items-start gap-2 text-sm font-semibold text-slate-800">
+        <input type="checkbox" className="mt-1" checked={!!rules.admin_two_factor} onChange={(e) => setRules({ ...rules, admin_two_factor: e.target.checked ? 1 : 0 })} />
+        <span>Administrators must use two-step sign-in
+          <span className="block text-xs font-normal text-slate-500">After their password, administrators also enter a code from an app on their phone. Those who haven't set it up are asked to at their next sign-in, and can't make changes until they have.</span></span>
+      </label>
       <div className="flex justify-end"><button onClick={save} disabled={saving} className="auth-primary-btn w-auto px-6 disabled:opacity-50">{saving && <Loader2 className="w-4 h-4 animate-spin" />} Save rules</button></div>
     </div>
   );

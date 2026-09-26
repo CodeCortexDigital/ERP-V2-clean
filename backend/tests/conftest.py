@@ -202,6 +202,15 @@ class NotificationFactory(factory.django.DjangoModelFactory):
 # PYTEST FIXTURES
 # ============================================================================
 
+@pytest.fixture(autouse=True)
+def _fresh_cache():
+    """Rate limits and counters live in the cache; user ids repeat between tests, so start every test with it empty."""
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+
+
 @pytest.fixture
 def api_client():
     """Fixture to provide API client."""

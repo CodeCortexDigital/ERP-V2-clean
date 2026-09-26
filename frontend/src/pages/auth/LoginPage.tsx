@@ -8,6 +8,8 @@ import AuthShell, { GoogleMark } from '@/components/auth/AuthShell';
 import schoolService from '@/services/school.service';
 import api from '@/services/api';
 import { useTranslation } from 'react-i18next';
+import { TwoStepNeeded } from '@/store/authStore';
+import TwoStepCodeForm from '@/components/auth/TwoStepCodeForm';
 
 type LoginRole = 'admin' | 'employee' | 'student';
 
@@ -34,7 +36,7 @@ function MicrosoftMark() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, googleLogin, ssoLogin } = useAuth();
+  const { login, googleLogin, ssoLogin, completeTwoStep } = useAuth();
   const [params, setParams] = useSearchParams();
   const { t } = useTranslation();
   const [role, setRole] = useState<LoginRole>('admin');
@@ -49,6 +51,8 @@ export default function LoginPage() {
   const [msEmail, setMsEmail] = useState('');
   const [msLoading, setMsLoading] = useState(false);
   const [error, setError] = useState('');
+  // Accounts with two-step sign-in: after the password (or Google / Microsoft) they enter a code (P8).
+  const [twoStep, setTwoStep] = useState<TwoStepNeeded | null>(null);
 
   useEffect(() => {
     try {
@@ -77,7 +81,7 @@ export default function LoginPage() {
     setParams({}, { replace: true });
     if (ssoError) { setError(ssoError); return; }
     setMsLoading(true);
-    ssoLogin(code!).then(goToPortal).catch((err: any) => setError(err?.response?.data?.error || t('auth.errorMicrosoft')))
+    ssoLogin(code!).then(goToPortal).catch((err: any) => (err instanceof TwoStepNeeded ? setTwoStep(err) : setError(err?.response?.data?.error || t('auth.errorMicrosoft'))))
       .finally(() => setMsLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -114,6 +118,7 @@ export default function LoginPage() {
       }
       goToPortal(authUser);
     } catch (err: any) {
+      if (err instanceof TwoStepNeeded) { setTwoStep(err); return; }
       const status = err.response?.status;
       setError(
         err.response?.data?.error ||
@@ -135,6 +140,7 @@ export default function LoginPage() {
       idToken = await signInWithGoogle();
       goToPortal(await googleLogin(idToken));
     } catch (err: any) {
+      if (err instanceof TwoStepNeeded) { setTwoStep(err); return; }
       if (err?.response?.data?.needs_signup) {
         // New Google user: they can create their own school with this account.
         navigate('/signup', { state: { googleToken: idToken, email: err.response.data.email, name: err.response.data.name } });
@@ -148,6 +154,18 @@ export default function LoginPage() {
   };
 
   const { placeholder, hint } = HINTS[role];
+
+  if (twoStep) {
+    return (
+      <AuthShell>
+        <TwoStepCodeForm
+          email={twoStep.email}
+          onSubmit={async (code) => goToPortal(await completeTwoStep(twoStep.challenge, code))}
+          onRestart={() => { setTwoStep(null); setPassword(''); }}
+        />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell>

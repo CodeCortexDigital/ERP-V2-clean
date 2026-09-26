@@ -46,3 +46,17 @@ class EmailLog(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class TwoFactor(models.Model):
+    """Two-step sign-in with an authenticator app (P8). The secret is stored encrypted; recovery codes only as hashes."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='two_factor')
+    secret = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)  # set once the first code was entered: then it is on
+    last_step = models.BigIntegerField(default=0)  # the last 30-second step used, so a code can't be used twice
+    recovery_hashes = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.user_id} two-step {"on" if self.confirmed_at else "being set up"}'

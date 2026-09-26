@@ -73,8 +73,15 @@ def _serialize_student(student):
 
 
 
-def build_login_response(request, user, method='password'):
-    """Tokens + user/tenant payload after a successful sign-in (password, Google, Microsoft or signup)."""
+def build_login_response(request, user, method='password', second_step_done=False):
+    """Tokens + user/tenant payload after a successful sign-in (password, Google, Microsoft or signup).
+
+    Someone with two-step sign-in on gets a short-lived challenge instead, finished at /auth/login/2fa/ (P8)."""
+    from services.core.security import twofactor
+
+    if not second_step_done and twofactor.enabled(user):
+        return Response({'two_factor_required': True, 'challenge': twofactor.challenge(user, method),
+                         'email': user.email})
     role = get_user_role(user)
     student_obj = _get_student_for_user(user)
 
@@ -134,6 +141,45 @@ def build_login_response(request, user, method='password'):
     if tenant:
         payload['tenant'] = SchoolSerializer(tenant).data
     return Response(payload)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_two_factor_view(request):
+    """Second step of signing in: the challenge from the first step plus a code from the app or a recovery code."""
+    from django.core.cache import cache
+
+    from services.core.security import policy, twofactor
+
+    token = str(request.data.get('challenge') or '')
+    found = twofactor.read_challenge(token)
+    if not found:
+        return Response({'error': 'This sign-in has expired. Please sign in again.', 'expired': True}, status=status.HTTP_400_BAD_REQUEST)
+    user, method, nonce = found
+    school = policy.user_school(user)
+    minutes = policy.locked_minutes(user)
+    if minutes:
+        return _locked_response(minutes)
+    tries_key = f'2fa-tries:{nonce}'
+    if cache.get(tries_key, 0) >= 5:
+        return Response({'error': 'Too many wrong codes. Please sign in again.', 'expired': True},
+                        status=status.HTTP_429_TOO_MANY_REQUESTS)
+    kind = twofactor.verify(user, request.data.get('code'))
+    if not kind:
+        cache.set(tries_key, cache.get(tries_key, 0) + 1, twofactor.CHALLENGE_SECONDS)
+        locked_now = policy.failed_attempt(user, school)
+        policy.count_failed_sign_in(request)
+        policy.record_sign_in(request, email=user.email, outcome='failed', user=user, school=school, method='two-step')
+        if locked_now:
+            return _locked_response(policy.security_settings(school)['lockout_minutes'])
+        return Response({'error': 'That code is not right. Check the time on your phone and try again.'},
+                        status=status.HTTP_401_UNAUTHORIZED)
+    cache.delete(tries_key)
+    response = build_login_response(request, user, method=method, second_step_done=True)
+    if kind == 'recovery' and response.status_code == 200:
+        response.data['recovery_code_used'] = True
+        response.data['recovery_codes_left'] = twofactor.status(user)['recovery_codes_left']
+    return response
 
 
 @api_view(['POST'])

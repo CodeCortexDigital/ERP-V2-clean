@@ -10,6 +10,7 @@ import AiAssistant, { type ChatMode } from '@/components/AiAssistant';
 import { useIdleSignOut } from '@/hooks/useIdleSignOut';
 import SubscriptionBanner from '@/components/billing/SubscriptionBanner';
 import AcceptanceGate from '@/components/privacy/AcceptanceGate';
+import TwoStepGate from '@/components/security/TwoStepGate';
 import { usePlanStore } from '@/store/planStore';
 
 interface LayoutProps {
@@ -93,6 +94,7 @@ export function Layout({ children }: LayoutProps) {
 
       {hasAi && <AiAssistant key={assistantMode} mode={assistantMode} />}
       <AcceptanceGate />
+      <TwoStepGate />
     </div>
   );
 }

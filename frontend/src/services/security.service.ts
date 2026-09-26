@@ -5,6 +5,7 @@ export interface SecurityRules {
   lockout_minutes: number;
   password_min_length: number;
   idle_minutes: number;
+  admin_two_factor?: number;
   activity_days: number;
   sign_in_days: number;
 }
@@ -25,6 +26,7 @@ export interface Person {
   id: string; name: string; email: string; role: string; role_label: string; active: boolean; locked_minutes: number;
   last_sign_in: string | null; last_ip: string | null; failed_attempts: number; is_me: boolean; platform_owner: boolean;
   deletion_requested: boolean;
+  two_factor?: boolean;
 }
 
 export interface Overview {
@@ -33,7 +35,7 @@ export interface Overview {
   rules: SecurityRules;
 }
 
-export type PersonAction = 'unlock' | 'sign_out' | 'disable' | 'enable';
+export type PersonAction = 'unlock' | 'sign_out' | 'disable' | 'enable' | 'reset_two_factor';
 type Query = Record<string, string | number | undefined>;
 
 const clean = (q: Query) => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== ''));
