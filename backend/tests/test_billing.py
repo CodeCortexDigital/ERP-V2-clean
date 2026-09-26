@@ -1,220 +1,158 @@
-"""Family billing, credit, refunds, statements and Stripe card payments (Phase 3)."""
-import datetime
-import json
-from decimal import Decimal
-from unittest import mock
+"""SaaS plans and subscriptions (P11)."""
+import io
+from datetime import timedelta
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from services.core.billing import service
+from services.core.billing.models import Plan, Subscription
 from services.core.tenants.context import use_tenant
 from services.core.tenants.models import TenantMembership
-from services.education.finance.models import AccountCredit, Invoice, Payment, PaymentGatewayConfig, PaymentTransaction
-from services.education.finance.payments import stripe_gateway
-from services.education.students.models import Guardian, Household, StudentGuardian
+from services.education.academics.models import SchoolClass
 from tests.conftest import SchoolFactory, StudentFactory, UserFactory
 
+B = '/api/v1/billing'
 
-def _client(user=None):
+
+def _client(user):
     c = APIClient()
-    if user:
-        c.credentials(HTTP_AUTHORIZATION=f'Bearer {RefreshToken.for_user(user).access_token}')
+    c.credentials(HTTP_AUTHORIZATION=f'Bearer {RefreshToken.for_user(user).access_token}')
     return c
 
 
-def _admin(school):
-    user = UserFactory(email=f'admin@{school.tenant_code.lower()}.test')
-    TenantMembership.objects.create(user=user, school=school, role='admin', is_primary=True)
-    return user
-
-
 @pytest.fixture
-def family(db):
-    school = SchoolFactory(name='Hillview School')
-    school.settings_json = {'currency': 'USD'}
-    school.save()
-    household = Household.objects.create(tenant=school, name='Garcia family')
-    kids = [StudentFactory(tenant=school, full_name=n, household=household, father_name='', mother_name='', guardian_name='')
-            for n in ('Ana Garcia', 'Luis Garcia')]
-    mom = Guardian.objects.create(tenant=school, household=household, first_name='Rosa', last_name='Garcia',
-                                  relationship='mother', email='rosa@example.com')
-    for k in kids:
-        StudentGuardian.objects.create(tenant=school, student=k, guardian=mom, is_primary=True, receives_billing=True)
-    today = datetime.date.today()
-    with use_tenant(school):
-        inv = [Invoice.objects.create(student=kids[0], amount=Decimal('300'), due_date=today - datetime.timedelta(days=10),
-                                      description='Ana tuition'),
-               Invoice.objects.create(student=kids[1], amount=Decimal('200'), due_date=today, description='Luis tuition')]
-    return school, household, kids, inv
+def bill(db):
+    s = SchoolFactory(name='Hillside School')
+    admin = UserFactory(email='office@hillside.test')
+    TenantMembership.objects.create(user=admin, school=s, role='admin', is_primary=True)
+    teacher = UserFactory(email='t@hillside.test')
+    TenantMembership.objects.create(user=teacher, school=s, role='teacher')
+    owner = UserFactory(email='owner@platform.test', is_superuser=True, is_staff=True)
+    with use_tenant(s):
+        g1 = SchoolClass.objects.create(tenant=s, name='Grade 1', code='G1')
+    return dict(s=s, admin=admin, office=_client(admin), teacher=_client(teacher), owner=_client(owner), g1=g1)
+
+
+def _subscribe(school, code, **kw):
+    sub = Subscription.objects.create(school=school, plan=Plan.objects.get(code=code), **kw)
+    school._subscription_cache = 'unset'
+    return sub
 
 
 @pytest.mark.django_db
-def test_family_payment_is_split_oldest_first_and_extra_becomes_credit(family):
-    school, household, kids, inv = family
-    api = _client(_admin(school))
-    base = f'/api/v1/auth/finance/families/household/{household.id}'
+def test_plans_and_new_schools_get_a_trial(bill):
+    plans = APIClient().get(f'{B}/plans/').json()['plans']
+    assert [p['code'] for p in plans] == ['starter', 'standard', 'premium', 'enterprise']
+    assert plans[3]['contact_sales'] and plans[0]['student_limit'] == 150
+    # Schools from before plans existed: unlimited, every module, nothing blocked.
+    me = bill['office'].get(f'{B}/subscription/').json()
+    assert me['status'] == 'legacy' and 'library' in me['modules'] and me['can_write']
+    from services.core.tenants.signup import create_school_with_admin
 
-    accounts = api.get('/api/v1/auth/finance/families/').json()
-    garcia = next(r for r in accounts['results'] if r['id'] == str(household.id))
-    assert garcia['outstanding'] == 500.0 and set(garcia['students']) == {'Ana Garcia', 'Luis Garcia'}
-
-    res = api.post(f'{base}/payments/', {'amount': '550', 'method': 'bank_transfer', 'reference': 'TRX-1'}, format='json')
-    assert res.status_code == 201, res.content
-    body = res.json()
-    assert [a['amount'] for a in body['allocated']] == [300.0, 200.0]  # oldest invoice first
-    assert body['credit_added'] == 50.0
-    assert body['statement']['outstanding'] == 0 and body['statement']['credit_available'] == 50.0
-    assert body['statement']['closing_balance'] == -50.0  # the school owes the family 50
-    for i in inv:
-        i.refresh_from_db()
-        assert i.status == 'paid'
-
-    # New invoice, then use the credit on it.
-    with use_tenant(school):
-        new = Invoice.objects.create(student=kids[1], amount=Decimal('80'), due_date=datetime.date.today(), description='Trip')
-    st = api.post(f'{base}/apply-credit/', {}, format='json').json()
-    assert st['credit_available'] == 0 and st['outstanding'] == 30.0 and st['closing_balance'] == 30.0
-    new.refresh_from_db()
-    assert new.status == 'partial' and new.paid_amount == Decimal('50')
+    school, user = create_school_with_admin(school_name='New Academy', admin_email='a@new.test', admin_name='A', password='Secret-123x', currency='USD')
+    sub = Subscription.objects.get(school=school)
+    assert sub.plan.code == 'premium' and sub.effective_status() == 'trialing'
+    data = _client(user).get(f'{B}/subscription/').json()
+    assert data['trial_days_left'] == 30 and data['plan']['name'] == 'Premium' and data['events'][0]['summary'].startswith('Free trial')
+    assert [p['code'] for p in data['plans'] if p['fits']] == ['starter', 'standard', 'premium', 'enterprise']
+    # Non-admins only see which areas are open.
+    assert set(bill['teacher'].get(f'{B}/subscription/').json()) == {'status', 'modules', 'can_write'}
 
 
 @pytest.mark.django_db
-def test_refunds_reopen_the_invoice_or_become_credit(family):
-    school, household, kids, inv = family
-    api = _client(_admin(school))
-    with use_tenant(school):
-        pay = Payment.objects.create(invoice=inv[0], amount=Decimal('300'), payment_method='cash')
-    inv[0].refresh_from_db()
-    assert inv[0].status == 'paid'
-
-    res = api.post(f'/api/v1/auth/finance/payments/{pay.id}/refund/', {'amount': '100', 'method': 'cash', 'reason': 'Left early'},
-                   format='json')
-    assert res.status_code == 201, res.content
-    inv[0].refresh_from_db()
-    assert inv[0].paid_amount == Decimal('200') and inv[0].status in ('overdue', 'partial')
-
-    assert api.post(f'/api/v1/auth/finance/payments/{pay.id}/refund/', {'amount': '250', 'method': 'cash'},
-                    format='json').status_code == 400  # more than is left on the payment
-    assert api.post(f'/api/v1/auth/finance/payments/{pay.id}/refund/', {'amount': '50', 'method': 'account_credit'},
-                    format='json').status_code == 201
-    assert AccountCredit.objects.filter(household=household).first().amount == Decimal('50')
-
-    st = api.get(f'/api/v1/auth/finance/families/household/{household.id}/statement/').json()
-    kinds = [l['type'] for l in st['lines']]
-    assert kinds.count('refund') == 2 and 'credit' in kinds
-    # 500 charged - 300 paid + 150 refunded - 50 kept as credit = 300 owed
-    assert st['closing_balance'] == 300.0
-    assert st['billing_contacts'][0]['email'] == 'rosa@example.com' and st['currency'] == 'USD'
+def test_modules_outside_the_plan_are_closed(bill):
+    _subscribe(bill['s'], 'starter', status='active', current_period_end=timezone.now() + timedelta(days=10))
+    r = bill['teacher'].get('/api/v1/auth/library/books/')
+    assert r.status_code == 402 and 'Library is not included in your Starter plan' in r.json()['detail']
+    assert bill['office'].get('/api/v1/auth/insights/overview/').status_code == 402
+    assert bill['office'].get('/api/v1/auth/students/').status_code == 200  # core areas are in every plan
+    Subscription.objects.filter(school=bill['s']).update(plan=Plan.objects.get(code='standard'))
+    assert bill['teacher'].get('/api/v1/auth/library/books/').status_code != 402
+    assert bill['office'].get('/api/v1/auth/inventory/items/').status_code == 402
 
 
 @pytest.mark.django_db
-def test_goodwill_credit_needs_a_reason_and_staff(family):
-    school, household, kids, inv = family
-    api = _client(_admin(school))
-    url = f'/api/v1/auth/finance/families/household/{household.id}/credit/'
-    assert api.post(url, {'amount': '25'}, format='json').status_code == 400
-    assert api.post(url, {'amount': '25', 'note': 'Sibling discount'}, format='json').status_code == 201
-
-    outsider = _client(UserFactory(email='nobody@example.com'))
-    assert outsider.post(url, {'amount': '25', 'note': 'x'}, format='json').status_code == 403
-    assert outsider.get('/api/v1/auth/finance/families/').status_code == 403
-    assert outsider.get('/api/v1/auth/finance/payment-gateways/').status_code == 403
-
-
-@pytest.mark.django_db
-def test_gateway_secrets_are_never_returned(family):
-    school, *_ = family
-    api = _client(_admin(school))
-    res = api.post('/api/v1/auth/finance/payment-gateways/', {'provider': 'stripe', 'name': 'Stripe',
-                                                          'api_secret': 'sk_test_123', 'webhook_secret': 'whsec_1'},
-                   format='json')
-    assert res.status_code == 201, res.content
-    body = res.json()
-    assert 'api_secret' not in body and body['has_api_secret'] is True
-    listed = api.get('/api/v1/auth/finance/payment-gateways/').content.decode()
-    assert 'sk_test_123' not in listed and 'whsec_1' not in listed
-    # Editing without re-entering the secret keeps it.
-    api.patch(f"/api/v1/auth/finance/payment-gateways/{body['id']}/", {'name': 'Cards'}, format='json')
-    with use_tenant(None):
-        assert PaymentGatewayConfig.objects.get(pk=body['id']).api_secret == 'sk_test_123'
-    assert [p['code'] for p in api.get('/api/v1/auth/finance/payments/providers/').json()] == ['stripe']
+def test_read_only_after_the_trial_and_renewal(bill):
+    sub = _subscribe(bill['s'], 'standard', status='trialing', trial_ends_at=timezone.now() - timedelta(hours=1))
+    office = bill['office']
+    r = office.put('/api/v1/tenants/locale/', {'week_start': 0}, format='json')
+    assert r.status_code == 402 and 'free trial has ended' in r.json()['detail']
+    assert office.get('/api/v1/tenants/locale/').status_code == 200  # viewing still works
+    assert office.post('/api/v1/security/me/sign-out-everywhere/').status_code == 200  # personal safety still works
+    me = office.get(f'{B}/subscription/').json()
+    assert me['status'] == 'read_only' and not me['can_write']
+    # Choosing a plan is allowed while read-only; paying (renew) opens the school again.
+    assert office.post(f'{B}/subscription/change/', {'plan': 'premium', 'cycle': 'yearly'}, format='json').status_code == 200
+    sub.refresh_from_db()
+    service.renew(sub)
+    assert sub.effective_status() == 'active' and (sub.current_period_end - timezone.now()).days >= 364
+    fresh = _client(bill['admin'])
+    assert fresh.put('/api/v1/tenants/locale/', {'week_start': 0}, format='json').status_code == 200
+    # A missed renewal: a week of grace, then read-only.
+    now = timezone.now()
+    sub.current_period_end = now - timedelta(days=3)
+    assert sub.effective_status(now) == 'past_due' and sub.can_write(now)
+    sub.current_period_end = now - timedelta(days=8)
+    assert sub.effective_status(now) == 'read_only'
 
 
 @pytest.mark.django_db
-def test_stripe_checkout_and_signed_webhook(family):
-    school, household, kids, inv = family
-    with use_tenant(school):
-        PaymentGatewayConfig.objects.create(tenant=school, provider='stripe', api_secret='sk_test_x',
-                                            webhook_secret='whsec_test', is_active=True)
-    parent = UserFactory(email='rosa@example.com')
-    from services.core.accounts.models import ParentProfile
-
-    ParentProfile.objects.create(user=parent).linked_students.add(*kids)
-    api = _client(parent)
-
-    fake = mock.Mock(status_code=200, content=b'1')
-    fake.json.return_value = {'id': 'cs_test_1', 'url': 'https://checkout.stripe.com/c/pay/cs_test_1'}
-    with mock.patch('services.education.finance.payments.stripe_gateway.requests.post', return_value=fake) as post:
-        res = api.post('/api/v1/auth/finance/payments/session/', {'invoice_id': str(inv[0].id), 'provider': 'stripe'},
-                       format='json', HTTP_ORIGIN='https://app.example.com')
-    assert res.status_code == 200, res.content
-    assert res.json()['checkout_url'].startswith('https://checkout.stripe.com/') and res.json()['currency'] == 'USD'
-    sent = post.call_args.kwargs['data']
-    assert sent['line_items[0][price_data][unit_amount]'] == 30000 and sent['line_items[0][price_data][currency]'] == 'usd'
-    ref = res.json()['gateway_reference']
-
-    event = json.dumps({'type': 'checkout.session.completed', 'data': {'object': {
-        'id': 'cs_test_1', 'payment_status': 'paid', 'amount_total': 30000, 'payment_intent': 'pi_1',
-        'metadata': {'gateway_reference': ref}}}}).encode()
-    anon = _client()
-    bad = anon.post('/api/v1/auth/finance/payments/webhook/stripe/', event, content_type='application/json',
-                    HTTP_STRIPE_SIGNATURE=stripe_gateway.sign(event, 'wrong_secret'))
-    assert bad.status_code == 400
-    good = anon.post('/api/v1/auth/finance/payments/webhook/stripe/', event, content_type='application/json',
-                     HTTP_STRIPE_SIGNATURE=stripe_gateway.sign(event, 'whsec_test'))
-    assert good.status_code == 200, good.content
-    inv[0].refresh_from_db()
-    assert inv[0].status == 'paid'
-    # Replaying the same event does not pay twice.
-    anon.post('/api/v1/auth/finance/payments/webhook/stripe/', event, content_type='application/json',
-              HTTP_STRIPE_SIGNATURE=stripe_gateway.sign(event, 'whsec_test'))
-    with use_tenant(school):
-        assert Payment.objects.filter(invoice=inv[0]).count() == 1
-        assert PaymentTransaction.objects.get(gateway_reference=ref).is_confirmed
-
-    # A parent can see their family statement, but not pay someone else's invoice.
-    assert api.get(f'/api/v1/auth/finance/families/household/{household.id}/statement/').status_code == 200
-    other = StudentFactory(tenant=school, full_name='Other Kid')
-    with use_tenant(school):
-        theirs = Invoice.objects.create(student=other, amount=Decimal('10'), due_date=datetime.date.today())
-    assert api.post('/api/v1/auth/finance/payments/session/', {'invoice_id': str(theirs.id), 'provider': 'stripe'},
-                    format='json').status_code == 404
-
-
-def test_money_units():
-    assert stripe_gateway.to_minor_units(Decimal('12.34'), 'EUR') == 1234
-    assert stripe_gateway.to_minor_units(Decimal('5000'), 'KRW') == 5000
-    assert stripe_gateway.from_minor_units(1234, 'GBP') == Decimal('12.34')
-    body = b'{"x":1}'
-    assert stripe_gateway.verify_signature(body, stripe_gateway.sign(body, 's'), 's')
-    assert not stripe_gateway.verify_signature(body, stripe_gateway.sign(body, 's', timestamp=1), 's')  # too old
+def test_limits_and_plan_changes(bill):
+    s, office = bill['s'], bill['office']
+    sub = _subscribe(s, 'starter', status='active', current_period_end=timezone.now() + timedelta(days=20))
+    Plan.objects.filter(code='starter').update(student_limit=2)
+    kw = dict(father_name='', mother_name='', guardian_name='', guardian_phone='')
+    StudentFactory(tenant=s, current_class=bill['g1'], **kw)
+    StudentFactory(tenant=s, current_class=bill['g1'], **kw)
+    s._subscription_cache = 'unset'
+    with pytest.raises(service.BillingBlocked):
+        StudentFactory(tenant=s, current_class=bill['g1'], **kw)
+    # The import preview marks rows over the limit.
+    csv = SimpleUploadedFile('s.csv', b'Name,Class\nNew One,Grade 1\n', content_type='text/csv')
+    row = office.post('/api/v1/auth/imports/students/preview/', {'file': csv}, format='multipart').json()['rows'][0]
+    assert row['state'] == 'error' and 'plan limit' in row['messages'][0]
+    # Upgrade: at once. Downgrade: at the end of the period, and only if the school fits.
+    r = office.post(f'{B}/subscription/change/', {'plan': 'standard'}, format='json').json()
+    assert r['message'].startswith('Now on Standard') and r['subscription']['plan']['code'] == 'standard'
+    Plan.objects.filter(code='starter').update(student_limit=1)
+    r = office.post(f'{B}/subscription/change/', {'plan': 'starter'}, format='json')
+    assert r.status_code == 402 and 'too small' in r.json()['detail']
+    Plan.objects.filter(code='starter').update(student_limit=150)
+    r = office.post(f'{B}/subscription/change/', {'plan': 'starter'}, format='json').json()
+    assert 'starts on' in r['message'] and r['subscription']['pending_plan']['code'] == 'starter'
+    sub.refresh_from_db()
+    service.renew(sub)
+    assert sub.plan.code == 'starter' and sub.pending_plan is None
+    assert office.post(f'{B}/subscription/change/', {'plan': 'enterprise'}, format='json').status_code == 402
+    assert bill['teacher'].post(f'{B}/subscription/change/', {'plan': 'premium'}, format='json').status_code == 403
+    # Cancel: works until the period ends, then read-only; can be resumed before that.
+    r = office.post(f'{B}/subscription/cancel/').json()
+    assert 'read-only' in r['message'] and r['subscription']['cancel_at_period_end']
+    office.post(f'{B}/subscription/cancel/', {'resume': True}, format='json')
+    sub.refresh_from_db()
+    assert not sub.cancel_at_period_end
+    sub.cancel_at_period_end = True
+    sub.save()
+    service.renew(sub)
+    assert sub.status == 'cancelled'
 
 
 @pytest.mark.django_db
-def test_payment_plan_replaces_the_invoice_without_double_billing(family):
-    school, household, kids, inv = family
-    api = _client(_admin(school))
-    res = api.post(f'/api/v1/auth/finance/invoices/{inv[0].id}/payment-plan/',
-                   {'installments': 3, 'frequency': 'monthly', 'first_due_date': '2026-10-05'}, format='json')
-    assert res.status_code == 201, res.content
-    parts = res.json()['installments']
-    assert [p['amount'] for p in parts] == [100.0, 100.0, 100.0]
-    assert [p['due_date'] for p in parts] == ['2026-10-05', '2026-11-05', '2026-12-05']
-    inv[0].refresh_from_db()
-    assert inv[0].status == 'cancelled' and inv[0].balance_due == 0
-    st = api.get(f'/api/v1/auth/finance/families/household/{household.id}/statement/').json()
-    assert st['outstanding'] == 500.0 and st['closing_balance'] == 500.0  # still 300 + 200, not 800
-    # Splitting again, or splitting a paid invoice, is refused.
-    assert api.post(f'/api/v1/auth/finance/invoices/{inv[0].id}/payment-plan/', {'installments': 2},
-                    format='json').status_code == 400
+def test_platform_owner_manages_plans_and_schools(bill):
+    owner, s = bill['owner'], bill['s']
+    assert bill['office'].get(f'{B}/platform/').status_code == 403
+    rows = {r['name']: r for r in owner.get(f'{B}/platform/').json()['schools']}
+    assert rows['Hillside School']['status'] == 'legacy'
+    d = owner.post(f'{B}/platform/schools/{s.pk}/', {'plan': 'premium', 'renew': True, 'note': 'bank transfer'}, format='json').json()
+    assert d['subscription']['status'] == 'active' and d['subscription']['plan']['code'] == 'premium'
+    assert any('bank transfer' in e['summary'] for e in d['events'])
+    d = owner.post(f'{B}/platform/schools/{s.pk}/', {'status': 'suspended'}, format='json').json()
+    assert d['subscription']['status'] == 'suspended' and not d['subscription']['can_write']
+    r = owner.put(f'{B}/platform/plans/starter/', {'price_monthly': 39, 'student_limit': '', 'modules': ['library', 'bogus']}, format='json').json()
+    assert r['price_monthly'] == 39 and r['student_limit'] is None
+    assert [m['key'] for m in r['modules'] if m['included']] == ['library']
+    assert owner.put(f'{B}/platform/plans/starter/', {'price_monthly': -1}, format='json').status_code == 400

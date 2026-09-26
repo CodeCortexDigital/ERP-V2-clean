@@ -23,7 +23,10 @@ class TenantJWTAuthentication(JWTAuthentication):
             if issued_before_sign_out(result[0], result[1]):
                 raise AuthenticationFailed(SIGNED_OUT, code='signed_out')
             try:
-                bind_tenant(request, result[0])
+                school = bind_tenant(request, result[0])
             except TenantAccessDenied as exc:
                 raise PermissionDenied(str(exc))
+            from services.core.billing.service import check_request
+
+            check_request(request, result[0], school)  # modules outside the plan; read-only after a lapse
         return result

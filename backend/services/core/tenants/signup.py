@@ -123,6 +123,9 @@ def create_school_with_admin(*, school_name, admin_email, admin_name, password=N
             user.set_unusable_password()  # Google-only account
         user.save()
         TenantMembership.objects.create(user=user, school=school, role='admin', is_active=True, is_primary=True)
+        from services.core.billing.service import start_trial
+
+        start_trial(school, by=user)  # 30-day free trial with every module (Premium)
     return school, user
 
 

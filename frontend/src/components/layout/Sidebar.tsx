@@ -17,6 +17,7 @@ import { readThemeSettings } from '@/utils/theme';
 import { useTranslation } from 'react-i18next';
 import { useRegion } from '@/utils/region';
 import { buildSections, sectionOpen } from './navSections';
+import { usePlanStore } from '@/store/planStore';
 
 interface SubMenuItem {
   label: string;
@@ -41,6 +42,11 @@ interface MenuItem {
 }
 
 const CLOSED_KEY = 'sidebar_closed_groups';
+// Menu entries that belong to an optional plan module (P11).
+const PLAN_MODULE: Record<string, string> = {
+  library: 'library', transport: 'transport', inventory: 'inventory', cafeteria: 'cafeteria', 'cafeteria-till': 'cafeteria',
+  'bus-duty': 'transport', integrations: 'integrations', reports: 'reports',
+};
 
 const COMMS: MenuItem[] = [
   { id: 'messages', label: 'Messages', icon: <Mail className="w-4 h-4" />, href: '/messages', always: true, group: 'communication' },
@@ -116,6 +122,8 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
 
   // Admin always sees the full menu; other roles are filtered by permissions.
   const isAdmin = role === 'admin';
+  usePlanStore((s) => s.sub);  // re-render when the plan loads
+  const hasModule = usePlanStore((s) => s.has);
 
   // Map a sub-item href to the permission module it belongs to (best-effort).
   const moduleForHref = (href: string): string | null => {
@@ -442,6 +450,11 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     menuItems = [menuItems[0], till, ...menuItems.slice(1)];
   }
   menuItems = filterByPermissions(menuItems);
+  // Optional areas outside the school's plan are hidden (the server refuses them anyway).
+  menuItems = menuItems.filter((item) => {
+    const module = PLAN_MODULE[item.id];
+    return !module || hasModule(module);
+  });
 
   // Auto-expand settings when on settings page
   useEffect(() => {

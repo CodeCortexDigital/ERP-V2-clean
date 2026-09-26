@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Building2, Users, GraduationCap, Search, ShieldAlert, Loader2, RefreshCw } from 'lucide-react';
 import schoolService, { type PlatformSchool } from '@/services/school.service';
 import { useAuth } from '@/contexts/AuthContext';
+import PlatformBilling from '@/components/platform/PlatformBilling';
 
 /** Platform owner console: every school on this installation. */
 export default function PlatformSchoolsPage() {
@@ -157,6 +158,7 @@ export default function PlatformSchoolsPage() {
           </div>
         )}
       </div>
+      <PlatformBilling />
     </div>
   );
 }

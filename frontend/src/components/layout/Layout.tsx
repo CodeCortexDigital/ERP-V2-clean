@@ -8,6 +8,8 @@ import { initGlobalTheme } from '@/utils/theme';
 import { useLocaleStore } from '@/store/localeStore';
 import AiAssistant, { type ChatMode } from '@/components/AiAssistant';
 import { useIdleSignOut } from '@/hooks/useIdleSignOut';
+import SubscriptionBanner from '@/components/billing/SubscriptionBanner';
+import { usePlanStore } from '@/store/planStore';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -21,6 +23,7 @@ export function Layout({ children }: LayoutProps) {
     role === 'teacher' || role === 'parent' || role === 'student' ? role : 'admin';
   const { sidebarCollapsed } = useUIStore();
   useIdleSignOut();
+  const hasAi = usePlanStore((s) => s.has('ai'));
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Apply General Settings theme globally (sidebar/header/accent) to all pages
@@ -28,6 +31,8 @@ export function Layout({ children }: LayoutProps) {
     initGlobalTheme();
     // The school's currency and language (Settings → Language & currency).
     useLocaleStore.getState().refresh();
+    // The school's plan: which optional areas are open, and the trial / payment banner.
+    usePlanStore.getState().refresh();
   }, []);
 
   // Check mobile on mount and resize
@@ -79,12 +84,13 @@ export function Layout({ children }: LayoutProps) {
         <Header 
           onMobileMenuToggle={toggleMobileSidebar}
         />
+        <SubscriptionBanner />
         <main className="flex-1 overflow-y-auto p-4">
           {children || <Outlet />}
         </main>
       </div>
 
-      <AiAssistant key={assistantMode} mode={assistantMode} />
+      {hasAi && <AiAssistant key={assistantMode} mode={assistantMode} />}
     </div>
   );
 }

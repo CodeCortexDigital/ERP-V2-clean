@@ -13,6 +13,7 @@ import ThemeLanguage from './ThemeLanguage';
 import LanguageSettings from './LanguageSettings';
 import AccountSettings from './AccountSettings';
 import SecurityPage from './SecurityPage';
+import BillingPage from './BillingPage';
 import SettingsSidebar, { menuItems, isSettingsTabActive } from './components/SettingsSidebar';
 
 export default function SettingsPage() {
@@ -77,6 +78,7 @@ export default function SettingsPage() {
           <Route path="/language" element={<LanguageSettings />} />
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/security" element={<SecurityPage />} />
+            <Route path="/billing" element={<BillingPage />} />
             <Route path="/role-permissions" element={<Navigate to="/settings/security?tab=roles" replace />} />
             <Route path="*" element={<Navigate to="/settings" replace />} />
           </Routes>

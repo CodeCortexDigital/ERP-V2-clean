@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Building2, Receipt, Landmark, Award,
-  Palette, ShieldCheck, Tag, Languages, LockKeyhole
+  Palette, ShieldCheck, Tag, Languages, LockKeyhole, CreditCard
 } from 'lucide-react';
 
 interface SettingsSidebarProps {
@@ -24,6 +24,7 @@ export const menuItems: SettingsTab[] = [
   { id: 'theme', path: '/settings/theme', label: 'Theme', icon: Palette, dark: 'bg-cyan-700', light: 'bg-cyan-100', rgb: '14 116 144' },
   { id: 'language', path: '/settings/language', label: 'Language & currency', icon: Languages, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'account', path: '/settings/account', label: 'Account', icon: ShieldCheck, dark: 'bg-slate-700', light: 'bg-slate-100', rgb: '51 65 85' },
+  { id: 'billing', path: '/settings/billing', label: 'Plan & billing', icon: CreditCard, dark: 'bg-amber-700', light: 'bg-amber-100', rgb: '180 83 9' },
   { id: 'security', path: '/settings/security', label: 'Security & privacy', icon: LockKeyhole, dark: 'bg-purple-700', light: 'bg-purple-100', rgb: '147 51 234' },
 ];
 

@@ -27,6 +27,7 @@ const OFFICE: PageLink[] = [
   { label: 'Reports overview', url: '/education/analytics/insights', words: 'analytics charts statistics' },
   { label: 'Finance report', url: '/education/analytics/insights/finance', words: 'collection overdue ageing' },
   { label: 'Integrations', url: '/settings/integrations', words: 'microsoft google classroom email smtp' },
+  { label: 'Plan & billing', url: '/settings/billing', words: 'subscription plan upgrade trial pricing' },
   { label: 'Import data', url: '/education/import', words: 'spreadsheet excel csv upload bulk students staff balances' },
   { label: 'Security & privacy', url: '/settings/security', words: 'passwords lock unlock access roles permissions' },
   { label: 'Activity log', url: '/settings/security?tab=activity', words: 'audit history who changed' },

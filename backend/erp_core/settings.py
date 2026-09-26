@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'services.core.tenants',
     'services.core.features',
     'services.core.security',
+    'services.core.billing',
     
     # Education apps
     'services.education.academics',

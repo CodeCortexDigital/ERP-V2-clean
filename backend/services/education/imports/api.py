@@ -139,6 +139,13 @@ def _check(request, kind):
         state = 'error' if errors else 'duplicate' if duplicate else 'ready'
         checked.append({'row': n, 'state': state, 'messages': errors or ([duplicate] if duplicate else []), 'note': note,
                         'values': {k: text(v) for k, v in row.items()}, '_clean': clean})
+    if kind in ('students', 'staff'):  # the school's plan limit (P11)
+        from services.core.billing.service import room_left
+
+        left = room_left(request.tenant, kind)
+        if left is not None:
+            for r in [r for r in checked if r['state'] == 'ready'][left:]:
+                r['state'], r['messages'] = 'error', [f'Over your plan limit ({left} more {kind} allowed). Upgrade in Settings → Plan & billing.']
     return {'spec': spec, 'rows': checked, 'unknown': unknown, 'name': upload.name,
             'columns': [{'key': k, 'label': label} for k, label, _r, _a in spec['columns'] if k in mapping.values()]}, None
 

@@ -1549,6 +1549,77 @@ Also still to do: the 4 known failing tests.
   - No page errors.
 
 
+### P11: SaaS plans and subscriptions ✅
+
+**Plans** (prices in USD; the platform owner can change them)
+
+| Plan | Monthly | Yearly | Students | Staff | Optional modules |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Starter | 49 | 490 | 150 | 20 | none (core only) |
+| Standard | 99 | 990 | 500 | 60 | library, transport, advanced reports |
+| Premium | 199 | 1,990 | 1,500 | 150 | also inventory, cafeteria, integrations, AI assistant, online fee payments |
+| Enterprise | custom | custom | unlimited | unlimited | everything; arranged with the team |
+
+The core is in every plan: students, admissions, attendance, gradebook, fees, messages, calendar and security.
+
+**What a school sees** (Settings → **Plan & billing**, administrators)
+- The current plan and its status, the modules it includes, and bars for active students and staff against the plan's limits.
+- The plans side by side, monthly or yearly (two months free). A plan that is too small for the school says why.
+- **Choose a plan**: upgrades apply at once. A smaller plan starts when the paid period ends, and only if the school's students and staff fit it.
+- **Cancel**: the school keeps working until the end of the period, then becomes read-only. Nothing is deleted. It can be undone before then.
+- A history of every change.
+
+**How subscriptions behave**
+- **New schools** get a 30-day free trial of Premium, so they can try everything.
+- **Schools from before plans existed** (the demo school) keep working with everything open until a plan is chosen or assigned.
+- **Statuses**: free trial, active, payment overdue (7 days' grace after the paid period), read-only, suspended, cancelled.
+  - After an expired trial or the end of the grace days, the school is **read-only**: everyone can view and export, but nothing can be added or changed.
+  - Choosing a plan, paying fees online, and personal account safety still work.
+- **Modules outside the plan** are refused by the server (402, "Library is not included in your Starter plan…") and hidden from the menus. The AI assistant button hides too.
+- **Limits**: adding a student or staff member beyond the plan's limit is refused with a clear message. The import preview marks the rows that would go over.
+- **Banners** above every page:
+  - administrators: "Your free trial ends in N days" (last week), "Payment overdue…", "The school is read-only… choose a plan";
+  - everyone else: "…please contact the school office".
+- **Platform owner** (All Schools page), "Plans and subscriptions":
+  - every school's plan, status, dates and numbers;
+  - **Manage**: change plan, billing, status or trial end, with a note;
+  - **Record payment**: starts a paid period and applies a scheduled plan change;
+  - a **price list** editor for prices and limits.
+
+**Built**
+- Backend:
+  - new app `services/core/billing`:
+    - `Plan`, `Subscription` and `SubscriptionEvent` (migrations `0001`, and `0002` for the four plans);
+    - `service.py`: trial, usage, limits, plan changes, renewal, and the request check;
+    - `signals.py`: student and staff limits;
+    - `api.py` and `urls.py` (`/api/v1/billing/`: plans, subscription, change, cancel; platform overview, school, plan);
+  - the plan check runs in the JWT sign-in, right after the school is known;
+  - signup starts the trial;
+  - the import preview respects the limits.
+- Frontend:
+  - `pages/settings/BillingPage.tsx`;
+  - `components/billing/SubscriptionBanner.tsx`;
+  - `store/planStore.ts` and `services/subscription.service.ts`;
+  - `components/platform/PlatformBilling.tsx` on the All Schools page;
+  - the sidebar and the AI button follow the plan;
+  - a "Plan & billing" settings tab and search shortcut.
+- Tests:
+  - `backend/tests/test_billing.py` has 5 new tests:
+    - plans, and trials for new schools;
+    - modules outside the plan are closed;
+    - read-only after the trial, then renewal and the grace days;
+    - limits and plan changes (upgrade, scheduled downgrade, too-small refusal, Enterprise, cancel and resume);
+    - the platform owner manages schools and prices.
+  - Passing: these plus the import, signup and security tests. The public price list was added to the list of addresses that may answer without signing in.
+- Browser check on the demo school (the database was restored afterwards):
+  - Plan & billing showed "No plan (unlimited)";
+  - choosing Standard gave "Now on Standard" (a trial), and Inventory, Cafeteria and the AI assistant disappeared from the menu;
+  - the platform owner ended the trial: the red read-only banner appeared for the office and the teacher;
+  - **Record payment** ("bank transfer") made it active until 26 Oct 2026, and the history listed each step.
+  - No page errors.
+- A mistake caught during the work: the new frontend service first overwrote the existing family-billing `billing.service.ts`. It was restored from git, and the new one is `subscription.service.ts`.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -1653,8 +1724,8 @@ The notes for each finished item are in the **Progress log**, after Phase 22.
 | **P8** | Two-step sign-in for administrators | Next |
 | **P9** | Dependency and code scanning | Next |
 | **P10** | School onboarding and data import | ✅ Done |
-| **P11** | SaaS plans and subscriptions | ⏳ In progress |
-| **P12** | Platform payments and invoices | Next |
+| **P11** | SaaS plans and subscriptions | ✅ Done |
+| **P12** | Platform payments and invoices | ⏳ In progress |
 | **P13** | Full school export and end-of-contract deletion | Next |
 | **P14** | Privacy documents, consent and breach response | Next |
 | **P15** | Help centre and support tickets | Next |
