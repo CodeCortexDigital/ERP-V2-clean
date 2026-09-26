@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Activity, AlertTriangle, Ban, ChevronLeft, ChevronRight, Download, KeyRound, Loader2, LockOpen, LogOut, Power,
+  Activity, AlertTriangle, Ban, Database, ChevronLeft, ChevronRight, Download, KeyRound, Loader2, LockOpen, LogOut, Power,
   RefreshCw, ScrollText, Search, ShieldCheck, SlidersHorizontal, UserRound, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import security, { ActivityRow, Overview, Paged, Person, PersonAction, SecurityRules, SignInRow } from '@/services/security.service';
 import MySecurityPanel from '@/components/security/MySecurityPanel';
+import DataPanel from '@/components/security/DataPanel';
 
 const card = 'bg-white rounded-xl border border-slate-200 shadow-sm';
 const input = 'rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white';
 const errorText = (e: any, fallback: string) => e?.response?.data?.error || fallback;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' } as any) : '—');
 
-type Tab = 'overview' | 'people' | 'sign-ins' | 'activity' | 'roles' | 'rules' | 'mine';
+type Tab = 'overview' | 'people' | 'sign-ins' | 'activity' | 'roles' | 'rules' | 'data' | 'mine';
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: 'overview', label: 'Overview', icon: ShieldCheck },
   { id: 'people', label: 'People & access', icon: Users },
@@ -22,6 +23,7 @@ const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: 'activity', label: 'Activity log', icon: ScrollText },
   { id: 'roles', label: 'Roles & access', icon: Activity },
   { id: 'rules', label: 'Rules & retention', icon: SlidersHorizontal },
+  { id: 'data', label: 'Data export & deletion', icon: Database },
   { id: 'mine', label: 'My sign-ins & data', icon: UserRound },
 ];
 
@@ -50,6 +52,7 @@ export default function SecurityPage() {
       {tab === 'activity' && <ActivityTab initialAction={params.get('action') || ''} initialUser={params.get('user') || ''} />}
       {tab === 'roles' && <RolesTab />}
       {tab === 'rules' && <RulesTab />}
+      {tab === 'data' && <DataPanel />}
       {tab === 'mine' && <MySecurityPanel />}
     </div>
   );

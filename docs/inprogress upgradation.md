@@ -51,7 +51,8 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - `python manage.py send_calendar_reminders`;
   - `python manage.py send_library_reminders`;
   - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
-  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders).
+  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
+  - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
 - [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
   - exam results readable and writable without signing in;
   - the fee defaulter list public;
@@ -1681,6 +1682,59 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - No page errors.
 
 
+### P13: Full school export and end-of-contract deletion ✅
+
+**What a school can now do** (Settings → Security & privacy → **Data export & deletion**, administrators)
+- **Export all school data**: a complete copy of every record in every module (students and families, staff, classes, attendance, marks, fees and payments, messages, library, transport, cafeteria, inventory, imports and more), plus everyone who can sign in. It comes in three formats:
+  - **CSV files**: one file per kind of record, plus uploaded documents and photos, in a zip;
+  - **Excel workbook**: one sheet per kind of record;
+  - **JSON**: for moving to another system, plus uploaded files, in a zip.
+
+  Every export has a manifest (record counts) and a README explaining how the IDs link records. Passwords, sign-in secrets and integration keys are never included. Past exports are listed and kept for 7 days, then removed.
+- **Delete the school's data** when the contract ends:
+  - type the school's name to confirm (and optionally a reason);
+  - the deletion happens **30 days later**, and the office can cancel until then;
+  - a red notice shows the date, who asked, and whether an export was made first;
+  - asking and exporting still work when the school is read-only.
+- **On the date** (a daily job), everything that belongs only to this school is deleted:
+  - every record in every module, uploaded files, the activity log, sign-in history and exports;
+  - every sign-in account that belongs only to this school. Accounts that also work at another school, and the platform owner, are kept.
+
+  The school row stays as an empty, inactive "Deleted school (CODE)" so that the platform's invoices and the proof remain.
+
+**Platform owner** (All Schools page → Data deletions)
+- Every request, with its status (scheduled, cancelled, deleted), who asked, the date and the reason.
+- **Delete now**: carry out a scheduled deletion early, typing the school's name again.
+- **Certificate of data deletion**: when, by whom, at whose request, and how many records, files and accounts were deleted, with a breakdown by kind. It can be printed.
+
+**Built**
+- Backend:
+  - new app `services/core/portability`:
+    - `SchoolExport` and `SchoolDeletion` (migration `0001`);
+    - `data.py`: every record of a school from the tenant registry, the CSV, JSON and Excel builders, and the purge;
+    - `api.py` and `urls.py` (`/api/v1/portability/`: overview, exports, download, deletion; certificate; the platform list and purge);
+    - the command `run_data_lifecycle`;
+  - export and deletion addresses are allowed while a school is read-only.
+- Frontend:
+  - `components/security/DataPanel.tsx` (a new Security & privacy tab);
+  - `components/platform/PlatformDeletions.tsx` (with the certificate);
+  - `services/portability.service.ts`;
+  - a search shortcut.
+- Fixed on the way: P12's invoices section on the All Schools page had been placed inside the price-list box. It now sits on its own, with the deletions below it.
+- Tests:
+  - `backend/tests/test_portability.py` has 3 new tests:
+    - the full export in each format (only this school's records, no password columns, who may download, expiry after 7 days);
+    - end-of-contract deletion (confirmation, cancel, reschedule, the platform owner deleting early; records, files, logs and single-school accounts gone; a shared account, the platform owner, the platform invoices and the other school kept; the certificate);
+    - the daily job deletes on the date.
+  - Passing: these plus the billing, invoice and security tests (21 passed), and the frontend type check.
+- Browser check on the demo school (the database was restored afterwards):
+  - the CSV zip (318 KB) and the Excel workbook (674 KB) each held 7,921 records and 246 people;
+  - a wrong school name kept the delete button disabled;
+  - scheduling showed "deleted on 26 Oct 2026", and cancel worked;
+  - after scheduling again, the platform owner's **Delete now** produced the certificate: 8,061 records, 2 uploaded files and 245 sign-in accounts deleted.
+  - No page errors.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -1787,8 +1841,8 @@ The notes for each finished item are in the **Progress log**, after Phase 22.
 | **P10** | School onboarding and data import | ✅ Done |
 | **P11** | SaaS plans and subscriptions | ✅ Done |
 | **P12** | Platform payments and invoices | ✅ Done |
-| **P13** | Full school export and end-of-contract deletion | ⏳ In progress |
-| **P14** | Privacy documents, consent and breach response | Next |
+| **P13** | Full school export and end-of-contract deletion | ✅ Done |
+| **P14** | Privacy documents, consent and breach response | ⏳ In progress |
 | **P15** | Help centre and support tickets | Next |
 | **P16** | Automated SMS and WhatsApp | Next |
 | **P17** | Retention by record type | Next |
