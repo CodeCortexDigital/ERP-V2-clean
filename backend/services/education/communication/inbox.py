@@ -299,26 +299,10 @@ def send_sms(to: str, body: str, cfg: SmsConfig | None = None, student=None) -> 
     cfg = cfg or sms_config()
     if cfg is None:
         return False, 'SMS is not set up for this school.'
-    number = normalize_phone(to, cfg.default_country_code)
-    if not number:
-        return False, f'{to} is not a valid phone number.'
-    log = Message.objects.create(tenant_id=cfg.tenant_id, student=student, sender='School', recipient=number,
-                                 recipient_phone=number, message=body[:1600], channel='sms')
-    try:
-        resp = requests.post(f'https://api.twilio.com/2010-04-01/Accounts/{cfg.account_sid}/Messages.json',
-                             data={'To': number, 'From': cfg.from_number, 'Body': body[:1600]},
-                             auth=(cfg.account_sid, cfg.auth_token), timeout=15)
-        data = resp.json() if resp.content else {}
-    except requests.RequestException as exc:
-        log.delivery_status = 'failed'
-        log.save(update_fields=['delivery_status'])
-        return False, str(exc)
-    ok = resp.status_code < 400
-    log.delivery_status = data.get('status', 'queued') if ok else 'failed'
-    log.external_id = data.get('sid', '')
-    log.last_attempt_at = timezone.now()
-    log.save(update_fields=['delivery_status', 'external_id', 'last_attempt_at'])
-    return ok, '' if ok else (data.get('message') or 'The SMS provider refused the message.')
+    from .texts import send_text  # one sender for every text, with delivery status (P16)
+
+    msg = send_text(cfg, 'sms', to, body, student=student)
+    return msg.delivery_status != 'failed', msg.error
 
 
 @api_view(['GET', 'PUT'])
@@ -329,7 +313,7 @@ def sms_settings(request):
     cfg = SmsConfig.objects.first()
     if request.method == 'PUT':
         cfg = cfg or SmsConfig(tenant=getattr(request, 'tenant', None))
-        for key in ('account_sid', 'from_number', 'default_country_code'):
+        for key in ('account_sid', 'from_number', 'default_country_code', 'whatsapp_from'):
             if key in request.data:
                 setattr(cfg, key, str(request.data[key] or '').strip())
         if request.data.get('auth_token'):
@@ -338,7 +322,8 @@ def sms_settings(request):
             cfg.is_active = bool(request.data['is_active'])
         cfg.save()
     return Response({'provider': 'twilio', 'account_sid': cfg.account_sid if cfg else '', 'from_number': cfg.from_number if cfg else '',
-                     'default_country_code': cfg.default_country_code if cfg else '', 'is_active': bool(cfg and cfg.is_active),
+                     'default_country_code': cfg.default_country_code if cfg else '', 'whatsapp_from': cfg.whatsapp_from if cfg else '',
+                     'is_active': bool(cfg.is_active) if cfg else True,  # a new setup starts switched on
                      'has_auth_token': bool(cfg and cfg.auth_token), 'ready': sms_config() is not None})
 
 

@@ -21,6 +21,12 @@ class Message(models.Model):
     last_attempt_at = models.DateTimeField(null=True, blank=True)
     is_delivered = models.BooleanField(default=False)
     delivered_at = models.DateTimeField(null=True, blank=True)
+    # Automatic texts (P16): which alert it was, a batch (e.g. one emergency message), why it failed, and a key so
+    # the same alert is never texted twice.
+    event = models.CharField(max_length=20, blank=True, default='', db_index=True)
+    batch = models.CharField(max_length=60, blank=True, default='', db_index=True)
+    error = models.CharField(max_length=300, blank=True, default='')
+    dedupe_key = models.CharField(max_length=200, blank=True, default='', db_index=True)
     # Free-text school code used by the WhatsApp integration (predates `tenant`).
     legacy_tenant_code = models.CharField(max_length=100, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -200,7 +206,24 @@ class SmsConfig(TenantScopedModel):
     account_sid = models.CharField(max_length=100, blank=True, default='')
     auth_token = models.CharField(max_length=200, blank=True, default='')
     from_number = models.CharField(max_length=30, blank=True, default='')
+    whatsapp_from = models.CharField(max_length=30, blank=True, default='')  # a WhatsApp-enabled Twilio number (P16)
     default_country_code = models.CharField(max_length=5, blank=True, default='',
                                             help_text='Added to local numbers that start with 0, e.g. 92 or 44')
     is_active = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class AutoTextRule(TenantScopedModel):
+    """Which alerts go out by SMS and WhatsApp automatically, with the school's own wording (P16)."""
+    EVENTS = [('absent', 'Unexcused absence'), ('late', 'Late arrival'), ('chronic', 'Frequent absence'),
+              ('fee_reminder', 'Fee reminder'), ('emergency', 'Emergency message')]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.CharField(max_length=20, choices=EVENTS)
+    sms = models.BooleanField(default=True)
+    whatsapp = models.BooleanField(default=False)
+    template = models.TextField()
+    is_active = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('tenant', 'event')

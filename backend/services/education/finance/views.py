@@ -1320,7 +1320,13 @@ def send_fee_reminder(request, invoice_id):
         from .billing import billing_emails
 
         recipients = billing_emails(invoice.student)
+        # A text too, if the school has automatic fee reminders by SMS / WhatsApp switched on (P16).
+        from services.education.communication import texts
+
+        texted = texts.fee_reminder(invoice)
         if not recipients:
+            if texted:
+                return Response({'message': f'Reminder sent by text to {len(texted)} number(s); the family has no email address.'})
             return Response({'error': 'No email address for this family. Add one to a guardian marked "Receives invoices".'}, status=400)
         
         days_overdue = 0

@@ -48,6 +48,20 @@ class AIMessage(models.Model):
     class Meta:
         ordering = ['created_at']
 
+    def save(self, *args, **kwargs):
+        adding = self._state.adding
+        super().save(*args, **kwargs)
+        if adding:
+            # The clock can give a question and its answer the same time (it is coarse on Windows), which made the
+            # conversation come back in the wrong order. Each new turn is kept strictly after the one before.
+            from datetime import timedelta
+
+            last = (AIMessage.objects.filter(conversation_id=self.conversation_id).exclude(pk=self.pk)
+                    .order_by('-created_at').values_list('created_at', flat=True).first())
+            if last and last >= self.created_at:
+                self.created_at = last + timedelta(milliseconds=1)
+                AIMessage.objects.filter(pk=self.pk).update(created_at=self.created_at)
+
 
 class AIUsage(models.Model):
     """Daily token usage per user and feature — the basis for limits and cost reports."""

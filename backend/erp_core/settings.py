@@ -393,6 +393,8 @@ EMAIL_BACKEND = ('django.core.mail.backends.console.EmailBackend' if APP_ENV == 
                  else 'services.education.integrations.email_backend.TenantEmailBackend')
 # Where the web app lives, for sign-in redirects (comma separated), e.g. https://erp.example.com
 FRONTEND_ORIGINS = os.environ.get('FRONTEND_ORIGINS', '')
+# Twilio's API address; only changed to point at a local fake when testing (P16).
+TWILIO_API_BASE = os.environ.get('TWILIO_API_BASE', 'https://api.twilio.com')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@school.local')
 
 MEDIA_ROOT = BASE_DIR / 'media'

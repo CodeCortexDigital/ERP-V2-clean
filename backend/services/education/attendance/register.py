@@ -97,8 +97,9 @@ def _school_name(student):
     return ((school.settings_json or {}).get('institute_name') or school.name) if school else 'School'
 
 
-def send_notice(student, day: date, kind: str, message: str) -> AttendanceNotice | None:
-    """Send one alert to the family (email + in-app), at most once per student, day and kind."""
+def send_notice(student, day: date, kind: str, message: str, texts_ctx: dict | None = None) -> AttendanceNotice | None:
+    """Send one alert to the family (email + in-app, and SMS / WhatsApp if the school set them up: P16), at most once
+    per student, day and kind."""
     cfg = settings_for(student.tenant)
     try:
         with transaction.atomic():
@@ -124,6 +125,14 @@ def send_notice(student, day: date, kind: str, message: str) -> AttendanceNotice
                 sent.append(f'app:{u.email}')
         except Exception:
             logger.exception('In-app attendance notice failed')
+    try:
+        from services.education.communication import texts
+        from services.education.communication.inbox import _in_background
+
+        ctx = {'date': day.strftime('%d %b %Y'), **(texts_ctx or {})}
+        _in_background(lambda: texts.notify_family(student, kind, ctx, key=day.isoformat()))
+    except Exception:
+        logger.exception('Attendance text failed')
     notice.sent_to = sent
     notice.save(update_fields=['sent_to'])
     return notice
@@ -141,7 +150,7 @@ def alert_for_record(record: AttendanceRecord):
                     f'in the parent portal or contact the school office.')
     elif record.status == 'late' and not excused and cfg['alert_tardy']:
         mins = f' ({record.minutes_late} minutes late)' if record.minutes_late else ''
-        send_notice(student, record.date, 'late', f'{student.full_name} arrived late on {when}{mins}.')
+        send_notice(student, record.date, 'late', f'{student.full_name} arrived late on {when}{mins}.', {'minutes': mins})
     if record.status == 'absent' and not excused and cfg['chronic_threshold']:
         since = record.date - timedelta(days=30)
         count = AttendanceRecord.objects.filter(student=student, date__gt=since, date__lte=record.date,
@@ -151,7 +160,7 @@ def alert_for_record(record: AttendanceRecord):
             if not recent:
                 send_notice(student, record.date, 'chronic',
                             f'{student.full_name} has missed {count} school days without an excuse in the last 30 days. '
-                            f'Regular attendance matters. Please contact the school so we can help.')
+                            f'Regular attendance matters. Please contact the school so we can help.', {'count': count})
 
 
 # ---------------------------------------------------------------------------

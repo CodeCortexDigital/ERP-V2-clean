@@ -81,6 +81,13 @@ class Command(BaseCommand):
 
         for invoice in unpaid_invoices:
             student = invoice.student
+            if not dry_run:
+                try:
+                    from services.education.communication import texts
+
+                    texts.fee_reminder(invoice)  # SMS / WhatsApp where the school switched it on (P16)
+                except Exception as exc:
+                    self.stderr.write(f'  Text for {invoice.invoice_number} failed: {exc}')
 
             if not student.email:
                 no_email_count += 1

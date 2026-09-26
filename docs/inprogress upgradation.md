@@ -90,7 +90,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
   - tax rules per country in the platform console.
 - [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
-- [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
+- [ ] **SMS and WhatsApp** (per school, P16): in Communication → SMS & WhatsApp → Settings, the Twilio SID, auth token, sending number and country code, plus a WhatsApp-enabled Twilio number (with templates approved in Twilio) for WhatsApp. Then check the wording under Automatic messages. For delivery reports, set `PUBLIC_API_URL` on Render to the backend's https address.
 - [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
 - [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
 - [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
@@ -2348,6 +2348,64 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - review the starter articles and add your own.
 
 
+### P16: Automated SMS and WhatsApp ✅
+
+**What changed** (Communication → **SMS & WhatsApp**, administrators)
+- **Automatic messages**, in the school's own words. These go out besides the email and portal notice from earlier phases:
+  - **unexcused absence** (on by default once texts are set up), **late arrival** and **frequent absence** (off by default). They are sent when the register is saved;
+  - **fee reminders**: sent with the Fee Defaulters "Send reminder" button and the monthly reminder run, to the guardians marked "Receives invoices";
+  - **emergency messages** (below).
+  - For each, the school chooses **SMS and/or WhatsApp**, switches it on or off, and edits the wording. Words in braces are filled in: `{student}`, `{class}`, `{date}`, `{minutes}`, `{count}`, `{amount}`, `{due_date}`, `{invoice}` and `{school}`. A mistyped word stays as typed, so it never stops an alert.
+  - **Test SMS / Test WhatsApp** sends the wording, filled with example values, to any number.
+- **Each alert goes to each number once**, however often the register is saved. Numbers come from the guardians marked "Receives school messages", or else the phone numbers on the student's form, converted to international format with the school's country code.
+- **Emergency message**: for closures, weather or safety. It goes straight away to everyone, all families, all staff, or chosen classes:
+  - as a **pinned announcement** (portal and email);
+  - by **SMS and/or WhatsApp** to every number, including staff phones;
+  - then it opens its own **delivery report**.
+- **Delivery log**:
+  - every text with its kind, student, number, channel, wording and **result** (queued, sent, delivered, read, not delivered), with the provider's reason when it fails;
+  - filters, and counts for the last 7 days;
+  - **Send failed ones again** (for an emergency message, or the ones shown).
+  - Twilio's **delivery reports** update each text when the server's public address (`PUBLIC_API_URL`) is set. They are checked with the school's own auth token, so they can't be faked.
+- **WhatsApp** uses the same Twilio account, from a WhatsApp-enabled Twilio number (**WhatsApp from** in Settings). Messages that start a conversation must match a template approved for that number in Twilio, as WhatsApp requires.
+- The announcements' text messages (Phase 7) now go through the same sender, so they are in the log with their delivery status too.
+
+**Fixes found on the way**
+- **A new SMS setup was saved switched off**, so texts never went out and the page never said "Ready". The page sent back the "off" it received when the school had no settings yet. A new setup now starts switched on, and Settings has a clear **Texts switched on** tick box.
+- **The AI assistant sometimes lost the previous answer in a conversation.** A question and its answer could be saved with the same time (the clock is coarse on Windows), and then came back in the wrong order. Each new turn is now always kept after the one before. This was also the cause of the occasionally failing AI test.
+
+**Built**
+- Backend:
+  - `communication/texts.py` (rules and wording, family numbers, one Twilio sender for SMS and WhatsApp with delivery reports, no duplicates, fee and emergency texts, signed status updates);
+  - `texts_api.py` at `/api/v1/auth/communication/texts/` (`rules/`, `log/`, `retry/`, `test/`, `emergency/`, `status/`);
+  - `AutoTextRule`, plus the WhatsApp number, event, batch, error and dedupe fields (communication migration `0006`);
+  - hooks in the attendance alerts (`register.send_notice`, in the background), the fee reminder button and `send_fee_reminders`;
+  - `TWILIO_API_BASE` setting (only for testing);
+  - `AIMessage.save` keeps turns in order.
+- Frontend: `pages/messages/SmsPage.tsx`, rewritten with four tabs (Automatic messages, Emergency message, Delivery log, Settings), and the text functions in `messaging.service.ts`.
+- Tests:
+  - `backend/tests/test_texts.py` has 5 new tests, with Twilio replaced by a fake:
+    - an absence alert by SMS and WhatsApp, sent once, with the delivery-report address; late arrivals off by default;
+    - rules and wording (placeholders, empty wording refused, test send, office only);
+    - a fee reminder with the amount and due date, once a day;
+    - an emergency message: announcement, texts, a refused number in the log, retry, and signed and forged delivery reports;
+    - nothing is sent without setup.
+  - All 5 passed, plus the Phase 7 messaging tests (11 passed) and the AI tests (19 passed).
+- Browser check, against a **local stand-in for Twilio** and a copy of the demo database (separate ports):
+  - the office entered the Twilio and WhatsApp details, and the settings showed Ready;
+  - the absence wording was changed, WhatsApp was ticked, and **Test SMS** arrived with the new wording ("…Ali Khan (Grade 5) was absent today…");
+  - an absence alert for Ali Raza went by **SMS and WhatsApp** to both family numbers;
+  - an emergency message to Grade 8 opened its delivery report, showing the refused number with the provider's reason;
+  - **Send failed ones again** delivered it;
+  - the log counted the texts.
+  - No page errors.
+
+**Still yours** (in the checklist):
+- per school: the Twilio details (and a WhatsApp-enabled number with approved templates, if WhatsApp is wanted);
+- set `PUBLIC_API_URL` for delivery reports;
+- check the wording of the automatic messages.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2480,8 +2538,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P13** | Full school export and end-of-contract deletion | ✅ Done |
 | **P14** | Privacy documents, consent and breach response | ✅ Done |
 | **P15** | Help centre and support tickets | ✅ Done |
-| **P16** | Automated SMS and WhatsApp | ⏳ In progress |
-| **P17** | Retention by record type | Next |
+| **P16** | Automated SMS and WhatsApp | ✅ Done |
+| **P17** | Retention by record type | ⏳ In progress |
 
 
 

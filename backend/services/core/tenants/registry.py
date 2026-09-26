@@ -58,6 +58,7 @@ DIRECT = [
     'education_communication.Conversation',
     'education_communication.Announcement',
     'education_communication.SmsConfig',
+    'education_communication.AutoTextRule',
     'behaviour.Skill',
     'behaviour.Observation',
     'behaviour.BehaviourCategory',

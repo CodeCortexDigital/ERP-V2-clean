@@ -133,7 +133,7 @@ export const gradebookTabs: ModuleTab[] = [
 export const communicationTabs: ModuleTab[] = [
   { id: 'whatsapp', path: '/education/communication?tab=whatsapp', label: 'WhatsApp', icon: MessageSquare, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'messaging', path: '/education/communication?tab=messaging', label: 'Messaging', icon: MessageSquare, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
-  { id: 'sms-gateway', path: '/education/communication/sms', label: 'SMS', icon: MessageSquare, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
+  { id: 'sms-gateway', path: '/education/communication/sms', label: 'SMS & WhatsApp', icon: MessageSquare, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'branded-sms', path: '/education/communication?tab=branded-sms', label: 'Branded SMS', icon: MessageSquare, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
   { id: 'sms-templates', path: '/education/communication?tab=sms-templates', label: 'SMS Templates', icon: MessageSquare, dark: 'bg-emerald-700', light: 'bg-emerald-100', rgb: '4 120 87' },
 ];
