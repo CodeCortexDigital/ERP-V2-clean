@@ -1,105 +1,109 @@
-# Upgrade to international standard: progress
+# Upgrade to International Standard: Master Progress Document
 
-All 22 phases are done. What remains is the deployment checklist below, then the later roadmap (23 onwards).
-Each phase is marked done only after it passes its backend tests and a browser check. The notes for each finished phase are under **Progress log** below the table.
+**Project:** School ERP — Upgrade from Pakistani-Style System to International Standard
+**Document purpose:** Complete, sequential record of all completed upgrade phases and all pending future upgrade work.
+**Last updated:** 26 September 2026
 
-|  Phase | Module                          | Current Pakistani-Style System                                                                 | Upgrade to International Standard      | Key Features to Implement                                                                                                                                                                            | Priority         | Status |
-| ----: | --- | --- | --- | --- | --- | --- |
-|  **1** | **Student & Household Records** | One flat student form with `father_*`, `mother_*`, caste, orphan status, B-Form, family income | **Household-based student management** | Student profile, household/family, multiple guardians, custody details, pickup permissions, billing parent, communication parent, health information, allergies, immunizations, student profile tabs | 🔴 **1 — First** | ✅ Done |
-|  **2** | **Admissions**                  | Office staff manually enters student application                                               | **Online admissions workflow**         | Public application form → application review → approve/reject → enrollment → document upload → e-signatures → yearly re-enrollment                                                                   | 🔴 **2**         | ✅ Done |
-|  **3** | **Fees / Billing**              | Monthly challans, paid slips, manual fee records, delete fees                                  | **Complete tuition billing system**    | Invoices, fee structures, payment plans, family statements, online payments, reminders, credits, refunds, payment history, challan support for Pakistan                                              | 🔴 **3**         | ✅ Done |
-|  **4** | **Attendance**                  | Simple Present/Absent per day                                                                  | **Advanced attendance management**     | Present, absent, tardy, excused, unexcused, period-wise attendance, attendance history, automatic parent alerts                                                                                      | 🔴 **4**         | ✅ Done |
-|  **5** | **Academics / Classes**         | Basic classes and subjects                                                                     | **Academic structure**                 | Academic years, terms/semesters, grades, sections, subjects, teachers, courses, class schedules, student enrollment                                                                                  | 🔴 **5**         | ✅ Done |
-|  **6** | **Gradebook**                   | Exam marks → award list → marksheet                                                            | **Modern digital gradebook**           | Assessment categories, weighted grades, assignment/exam marks, GPA, grading scales, report cards, transcripts, standards-based grading                                                               | 🔴 **6**         | ✅ Done |
-|  **7** | **Communication**               | Notices and WhatsApp                                                                           | **Two-way school communication**       | Parent-teacher messaging, announcements, email, SMS, notifications, communication history, targeted messages                                                                                         | 🟠 **7**         | ✅ Done |
-|  **8** | **Calendar & Events**           | Basic notices/date sheet                                                                       | **School-wide calendar**               | Academic calendar, holidays, exams, events, meetings, deadlines, parent/student calendar, reminders                                                                                                  | 🟠 **8**         | ✅ Done |
-|  **9** | **Behaviour / Discipline**      | Affective and psychomotor ratings                                                              | **Behaviour management**               | Discipline incidents, incident categories, actions, warnings, follow-ups, positive points/rewards, behaviour history                                                                                 | 🟠 **9**         | ✅ Done |
-| **10** | **Student Portal**              | Basic student information/results                                                              | **Complete student/family portal**     | Profile, attendance, grades, assignments, fees, invoices, messages, calendar, documents, academic progress                                                                                           | 🟠 **10**        | ✅ Done |
-| **11** | **Parent Portal**               | Limited parent information                                                                     | **Family/Parent Portal**               | Multiple children under one account, fees, attendance, grades, communication, calendar, applications, documents                                                                                      | 🟠 **11**        | ✅ Done |
-| **12** | **Teacher Portal**              | Basic teacher functionality                                                                    | **Teacher Workspace**                  | Classes, attendance, gradebook, assignments, student profiles, messaging, calendar, reports                                                                                                          | 🟠 **12**        | ✅ Done |
-| **13** | **Library**                     | Basic or missing                                                                               | **Library Management**                 | Books, copies, QR/barcodes, issue/return, reservations, overdue tracking, member records                                                                                                             | 🟡 **13**        | ✅ Done |
-| **14** | **Transport**                   | Basic transport information                                                                    | **Transport Management**               | Routes, stops, buses, drivers, students, pickup/drop-off, assignments, transport notifications                                                                                                       | 🟡 **14**        | ✅ Done |
-| **15** | **Inventory**                   | Missing/basic                                                                                  | **Inventory Management**               | Items, categories, suppliers, stock in/out, low-stock alerts, purchase records, inventory reports                                                                                                    | 🟡 **15**        | ✅ Done |
-| **16** | **Cafeteria**                   | Missing                                                                                        | **Cafeteria Management**               | Menu, meal plans, student purchases, balances, transactions, reports                                                                                                                                 | 🟡 **16**        | ✅ Done |
-| **17** | **Integrations**                | Limited integrations                                                                           | **External integrations**              | Google Classroom, Google Workspace, Microsoft 365, email/SMS providers, payment gateways, SSO                                                                                                        | 🟢 **17**        | ✅ Done |
-| **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | ✅ Done |
-| **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | ✅ Done |
-| **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | ✅ Done |
-| **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | ✅ Done |
-| **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | ✅ Done |
+---
 
-## After phase 22: deployment checklist
+## Table of Contents
 
-These are done once, after all 22 modules are finished. Each phase adds to this list.
+1. [Executive Summary](#executive-summary)
+2. [How to Read This Document](#how-to-read-this-document)
+3. [Part A — Phase 1–22: Core School-System Modernization (COMPLETED)](#part-a--phase-122-core-school-system-modernization-completed)
+   - [Phase 1: Student & Household Records](#phase-1-student--household-records-)
+   - [Phase 2: Admissions](#phase-2-admissions-)
+   - [Phase 3: Fees / Billing](#phase-3-fees--billing-)
+   - [Phase 4: Attendance](#phase-4-attendance-)
+   - [Phase 5: Academics / Classes](#phase-5-academics--classes-)
+   - [Phase 6: Gradebook](#phase-6-gradebook-)
+   - [Phase 7: Communication](#phase-7-communication-)
+   - [Phase 8: Calendar & Events](#phase-8-calendar--events-)
+   - [Phase 9: Behaviour / Discipline](#phase-9-behaviour--discipline-)
+   - [Phase 10: Student Portal](#phase-10-student-portal-)
+   - [Phase 11: Parent Portal](#phase-11-parent-portal-)
+   - [Phase 12: Teacher Workspace](#phase-12-teacher-workspace-)
+   - [Phase 13: Library](#phase-13-library-)
+   - [Phase 14: Transport](#phase-14-transport-)
+   - [Phase 15: Inventory](#phase-15-inventory-)
+   - [Phase 16: Cafeteria](#phase-16-cafeteria-)
+   - [Phase 17: Integrations](#phase-17-integrations-)
+   - [Phase 18: Reports & Analytics](#phase-18-reports--analytics-)
+   - [Phase 19: Global Search](#phase-19-global-search-)
+   - [Phase 20: Regionalization](#phase-20-regionalization-)
+   - [Phase 21: Privacy & Security](#phase-21-privacy--security-)
+   - [Phase 22: UI/UX & Navigation](#phase-22-uiux--navigation-)
+4. [Phase 22 Deployment Checklist (Partially Complete)](#phase-22-deployment-checklist-partially-complete)
+5. [Part B — Tier 0 & Tier 1: P1–P14 (COMPLETED)](#part-b--tier-0--tier-1-p1p14-completed)
+   - [P1: Production Readiness](#p1-production-readiness-)
+   - [P2: Database Safety and Backups](#p2-database-safety-and-backups-)
+   - [P3: Password Reset and Transactional Email](#p3-password-reset-and-transactional-email-)
+   - [P4: Error Tracking and Uptime Monitoring](#p4-error-tracking-and-uptime-monitoring-)
+   - [P5: Test-and-Deploy Pipeline and Staging](#p5-test-and-deploy-pipeline-and-staging-)
+   - [P6: Web Security Hardening and Rate Limits](#p6-web-security-hardening-and-rate-limits-)
+   - [P7: Secrets and Default Passwords](#p7-secrets-and-default-passwords-)
+   - [P8: Two-Step Sign-In for Administrators](#p8-two-step-sign-in-for-administrators-)
+   - [P9: Dependency and Code Scanning](#p9-dependency-and-code-scanning-)
+   - [P10: School Onboarding and Data Import](#p10-school-onboarding-and-data-import-)
+   - [P11: SaaS Plans and Subscriptions](#p11-saas-plans-and-subscriptions-)
+   - [P12: Platform Payments and Invoices](#p12-platform-payments-and-invoices-)
+   - [P13: Full School Export and End-of-Contract Deletion](#p13-full-school-export-and-end-of-contract-deletion-)
+   - [P14: Privacy Documents, Consent and Breach Response](#p14-privacy-documents-consent-and-breach-response-)
+6. [Part C — P15–P17: Remaining Tier 1 (IN PROGRESS / NEXT)](#part-c--p15p17-remaining-tier-1-in-progress--next)
+7. [Part D — Tier 2: Growth and Daily-Use Quality (PENDING)](#part-d--tier-2-growth-and-daily-use-quality-pending)
+8. [Part E — Tier 3: When Entering a New Country (PENDING)](#part-e--tier-3-when-entering-a-new-country-pending)
+9. [Part F — Tier 4: Enterprise Scale and Certification (PENDING)](#part-f--tier-4-enterprise-scale-and-certification-pending)
+10. [Part G — Original Roadmap Reference Table (Phases 23–84)](#part-g--original-roadmap-reference-table-phases-2384)
+11. [Part H — Missing Items M1–M20](#part-h--missing-items-m120)
+12. [Part I — Final Sequence Overview](#part-i--final-sequence-overview)
+13. [Part J — Deployment Checklist (Remaining Items)](#part-j--deployment-checklist-remaining-items)
 
-- [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026: up to Phase 19 (`9fcf1dc`), then all 22 phases (`8bcfb14`).
-- [x] **Migrate** on Render: nothing to do by hand. The `render.yaml` start command runs `python manage.py migrate` on every deploy, so pushing applies them. The new migrations:
-  - students `0009`–`0015`;
-  - admissions `0003`;
-  - finance `0015`;
-  - attendance `0009`;
-  - academics `0025`–`0026`;
-  - gradebook `0001`;
-  - communication `0005`;
-  - calendar `0001`;
-  - behaviour `0003`–`0004`;
-  - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`;
-  - audit `0004`, security `0001`, and the sign-out token tables (`token_blacklist`, from simplejwt).
-- [x] **New Python package**: `segno` (library QR labels) is in `requirements.txt`, which the Render build installs on every deploy.
-- [ ] **Paid database and durable backups** (P2):
-  - move `erp-db` in `render.yaml` from `plan: free` to a paid plan (free Render databases expire);
-  - set `BACKUP_S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (a private bucket), plus `BACKUP_ENCRYPTION_KEY` (a Fernet key);
-  - add a daily cron job `python manage.py backup_database` and a weekly one `python manage.py backup_database --verify`;
-  - keep a copy of `BACKUP_ENCRYPTION_KEY` somewhere safe outside Render: without it, backups can't be opened.
-- [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
-  - `python manage.py send_scheduled_announcements`;
-  - `python manage.py send_calendar_reminders`;
-  - `python manage.py send_library_reminders`;
-  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
-  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
-  - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
-  - `python manage.py close_resolved_tickets` (closes support tickets resolved a week ago; P15).
-- [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
-  - exam results readable and writable without signing in;
-  - the fee defaulter list public;
-  - the demo login endpoint;
-  - teachers with Django's staff flag treated as administrators.
-- [ ] **App addresses** on Render (now declared in `render.yaml`; enter the values in the Render dashboard):
-  - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
-  - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
-- [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
-- [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
-- [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
-- [ ] **Support** (P15): optionally set `SUPPORT_EMAILS` on Render (who is emailed about new tickets; otherwise the platform owners). Review the starter help articles in All Schools → Support tickets → Help articles.
-- [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
-- [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
-- [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
-- [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
-- [ ] **Pipeline and staging** (P5):
-  - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
-  - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
-  - optional staging: first set `BACKUP_ENCRYPTION_KEY` on the live site (so another site can read its backups); then in Render go to New → Blueprint → path `deploy/render-staging.yaml` and fill `STAGING_PASSWORD`, `STAGING_SOURCE_BACKUP=latest`, the backup bucket, the AWS keys, `BACKUP_ENCRYPTION_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`; in Vercel, set `VITE_API_URL` and `VITE_APP_ENV=staging` for the `staging` branch.
-- [ ] **Error alerts and uptime** (P4):
-  - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
-  - optionally set `SENTRY_DSN`;
-  - add a free uptime monitor (for example UptimeRobot) on `https://erp-backend-s5z7.onrender.com/api/v1/health/live/` and on the web app's address;
-  - after a push, check that the GitHub **Deploy check** turns green.
-- [ ] **Platform billing** (P12, declared in `render.yaml`):
-  - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
-  - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
-  - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
-  - tax rules per country in the platform console.
-- [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
-- [ ] **SMS and WhatsApp** (per school, P16): in Communication → SMS & WhatsApp → Settings, the Twilio SID, auth token, sending number and country code, plus a WhatsApp-enabled Twilio number (with templates approved in Twilio) for WhatsApp. Then check the wording under Automatic messages. For delivery reports, set `PUBLIC_API_URL` on Render to the backend's https address.
-- [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
-- [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
-- [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
+---
 
-## Progress log
+## Executive Summary
 
-### Phase 1: Student & Household Records ✅
+The School ERP has completed **22 core modernization phases** plus **14 of 17 Tier 0 & Tier 1 production-readiness items**. The system has been transformed from a Pakistani-style school management system into a modern, international-standard, multi-tenant SaaS platform.
 
-**What a school can now do**
+**Completed:**
+- All 22 core product modules (Students, Admissions, Fees, Attendance, Academics, Gradebook, Communication, Calendar, Behaviour, Portals, Library, Transport, Inventory, Cafeteria, Integrations, Reports, Search, Regionalization, Security, UI/UX).
+- Tier 0 critical production readiness (P1–P9).
+- Tier 1 SaaS business readiness (P10–P14).
+
+**In progress / next:**
+- P15: Help Centre and Support Tickets (in progress).
+- P16: Automated SMS and WhatsApp.
+- P17: Retention by Record Type.
+
+**Pending:**
+- Tier 2: Growth and daily-use quality (P18–P23).
+- Tier 3: Country-specific readiness (P24–P30).
+- Tier 4: Enterprise scale and certification (P31–P35).
+
+---
+
+## How to Read This Document
+
+- **✅ Done** = completed, tested, and browser-checked.
+- **⏳ In progress** = currently being worked on.
+- **Next** = queued immediately after the current item.
+- **Pending** = planned but not started.
+- Each completed phase includes: what a school can now do, safety notes, what was built, tests, and browser checks.
+- Each pending item includes: what to do, why it matters, and suggested position.
+
+---
+
+# Part A — Phase 1–22: Core School-System Modernization (COMPLETED)
+
+All 22 phases are done. Each phase was marked done only after passing backend tests and a browser check. Notes for each finished phase follow below.
+
+---
+
+## Phase 1: Student & Household Records ✅
+
+**Upgrade:** One flat student form with `father_*`, `mother_*`, caste, orphan status, B-Form, family income → **Household-based student management**.
+
+### What a school can now do
+
 - Keep each student in a **household** (family), with the family address, phone and email, and see all children and guardians of a family together.
 - Add **any number of guardians** per student (mother, father, step-parents, grandparents, legal guardian, foster parent and others), with phone, email, work details and national ID.
 - Set **per-student permissions** for each guardian: primary contact, lives with the student, legal custody, **allowed to pick up**, emergency contact and call order, **receives invoices**, **receives school messages**, parent portal access.
@@ -110,18 +114,21 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - See a **tabbed student page**: Overview, Family & guardians, Health, Attendance (present, absent, tardy, excused), Billing (balance and recent invoices, and who is billed) and Grades.
 - Browse and search the **Households** directory (Students → Households) by family, guardian or student name, ID, phone or email, and see each family's total balance.
 
-**Pakistani flow is kept**
+### Pakistani flow is kept
+
 - The classic student form (father/mother fields, B-Form, caste and so on) still works unchanged.
 - Every student saved through it automatically gets a household and guardian records. Siblings are grouped by the father's (or else the mother's) CNIC, the same rule the old family directory used.
 - Existing students were converted once when the update was installed (locally: 121 students into 120 households).
 - Pakistan-specific fields only appear on the profile when they are filled in.
 
-**Who can do what**
+### Who can do what
+
 - School admins can add and change families, guardians and health records, and see the household directory.
 - Teachers, parents and students can view a student's profile only when they are already allowed to see that student. They cannot change it.
 - Each school only ever sees its own households and guardians.
 
-**Built**
+### Built
+
 - Backend: `Household`, `Guardian`, `StudentGuardian`, `StudentHealth` and `Immunization` models (migrations `0009` and `0010`, including the one-off conversion) in `backend/services/education/students/`. API in `households.py`, routes in `backend/api/v1/student_urls.py`:
   - `/students/households/`
   - `/students/guardians/`
@@ -130,15 +137,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - Tests: `backend/tests/test_households.py` has 4 new tests. They cover sibling grouping, guardian/health/immunization management, admin-only changes and isolation between schools. They pass, along with the existing isolation, student, signup and permission tests (63 passed).
 - Browser check: opened the households directory and a household, added a guardian with a pickup restriction, saved a severe allergy and an immunization, and opened every tab. No errors.
 
+---
 
+## Phase 2: Admissions ✅
 
+**Upgrade:** Office staff manually enters student application → **Online admissions workflow**.
 
+### What a school can now do
 
-
-##############################################################################################################################################################
-### Phase 2: Admissions ✅
-
-**What a school can now do**
 - Turn on **online applications** (Admissions → Online form settings) and share a public link such as `/apply/<school>`. Families apply from a phone or computer with no account.
 - The form has five steps:
   1. Student.
@@ -147,36 +153,24 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   4. **Document upload**: PDF, JPG or PNG, checked for type and size.
   5. **Review and e-signature**: typed full name, agreement to the declaration and privacy notice, optional photo consent. The time and IP address are recorded.
 - The family gets an **application number and tracking code**, by email too, and can **check the status online** at `/apply/status`.
-- The school sets:
-  - the school year;
-  - the welcome text;
-  - the list of documents to upload;
-  - the declaration families sign;
-  - an email address that is told about each new application.
-- **Review pipeline** with counts:
-  - statuses: New → In review → Accepted / Waitlisted / Declined → Enrolled, plus Withdrawn;
-  - search, and a filter by source (online or office).
-- Each application has:
-  - a decision panel with an optional note, which is emailed to the family for accept, waitlist or decline;
-  - interview or assessment date, notes and rating;
-  - documents, where staff can upload and remove files;
-  - a full **history** of every change and note, and who made it.
+- The school sets: the school year; the welcome text; the list of documents to upload; the declaration families sign; an email address that is told about each new application.
+- **Review pipeline** with counts: statuses: New → In review → Accepted / Waitlisted / Declined → Enrolled, plus Withdrawn; search, and a filter by source (online or office).
+- Each application has: a decision panel with an optional note, which is emailed to the family for accept, waitlist or decline; interview or assessment date, notes and rating; documents, where staff can upload and remove files; a full **history** of every change and note, and who made it.
 - **Enrol in one click**: choose the class and section. This creates the student, their **household, guardians (with permissions) and health notes** from the application, then opens the new student's record.
-- **Re-enrolment**: start a campaign ("Returning for 2027–28?") for all current students.
-  - Parents see a card in the parent portal and answer Returning, Undecided or Not returning, signing with their name.
-  - The office sees live counts, can filter, and can record an answer given by phone.
-  - The office can close and reopen the campaign.
+- **Re-enrolment**: start a campaign ("Returning for 2027–28?") for all current students. Parents see a card in the parent portal and answer Returning, Undecided or Not returning, signing with their name. The office sees live counts, can filter, and can record an answer given by phone. The office can close and reopen the campaign.
 - Office staff can still enter walk-in or paper applications through the same form (Admissions → New application).
 - **Admissions** is now in the admin menu, translated into all 23 languages.
 
-**Safety**
+### Safety
+
 - Only school admins can see or change applications. Before this, any signed-in user could.
 - The public form works only when the school has turned it on. It is rate-limited per IP.
 - Status can only be checked with both the application number and its secret tracking code.
 - Enrolling requires an accepted application and can happen only once.
 - Each school only sees its own applications and campaigns. Application numbers are unique across all schools.
 
-**Built**
+### Built
+
 - Backend (`backend/services/education/admissions/`):
   - new fields for international addresses, a guardians list, medical and learning-support needs, source, tracking code, signature and consents;
   - new models `ApplicationDocument`, `ApplicationEvent`, `ReEnrollmentCampaign` and `ReEnrollmentResponse`;
@@ -206,47 +200,28 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The test data was removed afterwards.
 - Fixed during testing: the web client strips responses that contain `"success": true`, so the enrol reply came back empty. The admissions endpoints no longer send that key.
 
-### Phase 3: Fees / Billing ✅
+---
 
-**What a school can now do**
-- **Family accounts** (Fees → Family Accounts): one billing account per household, covering every child's invoices together.
-  - Shows the amount outstanding and any credit held, with search and a filter for families who owe.
-  - School-wide totals for outstanding and credit.
-- **Family statement** for any date range:
-  - lists every invoice, payment, refund and credit, with a running balance;
-  - shows who is billed (guardians marked "Receives invoices");
-  - can be printed, or **emailed to the billing parents** with one click.
-- **Record a family payment** once:
-  - it pays the oldest invoices first, across all the children;
-  - anything extra is kept as **account credit**.
-- **Account credit**:
-  - give credit with a reason (for example a sibling discount or fee waiver);
-  - **apply credit** to open invoices;
-  - credit from overpayments and refunds is tracked automatically.
-- **Refunds** on any payment, up to the amount not yet refunded:
-  - back to the original method (card payments are refunded through Stripe automatically), in cash, by bank transfer, or kept as account credit;
-  - the invoice reopens by the refunded amount.
-- **Payment plans** (Fees → Payment Plans):
-  - split an unpaid invoice into 2–24 installments, weekly, every two weeks, monthly or quarterly;
-  - the original invoice is closed with a note, so the family is **never billed twice**;
-  - save reusable plans such as "Termly: 3 payments".
-- **Online payments** (Fees → Online Payments):
-  - **Stripe** for cards, Apple Pay and Google Pay in the school's own currency (135+ currencies, including zero-decimal ones like KRW and JPY);
-  - **JazzCash / Easypaisa** for Pakistan;
-  - step-by-step setup with the webhook address to copy;
-  - keys are never shown again after saving.
-- **Parents pay online**:
-  - the parent dashboard and the student Fees page show a **Family account** card with the amount due, credit and statement;
-  - each open invoice has a **Pay online** button that goes to Stripe Checkout and back;
-  - the payment is recorded on the invoice automatically when Stripe confirms it.
+## Phase 3: Fees / Billing ✅
+
+**Upgrade:** Monthly challans, paid slips, manual fee records, delete fees → **Complete tuition billing system**.
+
+### What a school can now do
+
+- **Family accounts** (Fees → Family Accounts): one billing account per household, covering every child's invoices together. Shows the amount outstanding and any credit held, with search and a filter for families who owe. School-wide totals for outstanding and credit.
+- **Family statement** for any date range: lists every invoice, payment, refund and credit, with a running balance; shows who is billed (guardians marked "Receives invoices"); can be printed, or **emailed to the billing parents** with one click.
+- **Record a family payment** once: it pays the oldest invoices first, across all the children; anything extra is kept as **account credit**.
+- **Account credit**: give credit with a reason (for example a sibling discount or fee waiver); **apply credit** to open invoices; credit from overpayments and refunds is tracked automatically.
+- **Refunds** on any payment, up to the amount not yet refunded: back to the original method (card payments are refunded through Stripe automatically), in cash, by bank transfer, or kept as account credit; the invoice reopens by the refunded amount.
+- **Payment plans** (Fees → Payment Plans): split an unpaid invoice into 2–24 installments, weekly, every two weeks, monthly or quarterly; the original invoice is closed with a note, so the family is **never billed twice**; save reusable plans such as "Termly: 3 payments".
+- **Online payments** (Fees → Online Payments): **Stripe** for cards, Apple Pay and Google Pay in the school's own currency (135+ currencies, including zero-decimal ones like KRW and JPY); **JazzCash / Easypaisa** for Pakistan; step-by-step setup with the webhook address to copy; keys are never shown again after saving.
+- **Parents pay online**: the parent dashboard and the student Fees page show a **Family account** card with the amount due, credit and statement; each open invoice has a **Pay online** button that goes to Stripe Checkout and back; the payment is recorded on the invoice automatically when Stripe confirms it.
 - **Fee reminders** now go to the guardians marked "Receives invoices", instead of only the student's email.
 - The Pakistani flow is kept: monthly challans, paid slips, balance brought forward, JazzCash and Easypaisa all still work.
 
-**Safety and correctness fixes found on the way**
-- Payment gateway settings, including secret keys, could be read by **any signed-in user**, students too.
-  - Now only finance staff can see or change them.
-  - Secrets are write-only.
-  - Leaving a secret empty when editing keeps the saved one.
+### Safety and correctness fixes found on the way
+
+- Payment gateway settings, including secret keys, could be read by **any signed-in user**, students too. Now only finance staff can see or change them. Secrets are write-only. Leaving a secret empty when editing keeps the saved one.
 - **"Pay online" never worked before**: the payment-detail route caught `/payments/session/` first. The route order is fixed.
 - Any signed-in user could start a payment for **any invoice** in the school. Now only invoices the user may see can be paid.
 - Payment webhooks ran with no school selected, so confirmations could not find the invoice. Stripe events are now matched to the right school and checked with that school's own webhook secret. Replayed events never pay twice.
@@ -254,13 +229,12 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - The old "create installments" left the original invoice open, so **families were billed twice**. It is replaced by the payment-plan action above.
 - A payment provider could be set up only once across **all** schools. It is now once per school.
 
-**Phase 1 improvement made here**
-- Children linked to the same parent login are now kept in one household.
-  - This covers families without a CNIC on file, for example the demo parent's Ali and Fatima Raza.
-  - Migration `students/0011` merged the households that had been split.
-  - New siblings join automatically.
+### Phase 1 improvement made here
 
-**Built**
+- Children linked to the same parent login are now kept in one household. This covers families without a CNIC on file, for example the demo parent's Ali and Fatima Raza. Migration `students/0011` merged the households that had been split. New siblings join automatically.
+
+### Built
+
 - Backend (`backend/services/education/finance/`):
   - models `AccountCredit` and `Refund`, with `recalculate_invoice()`, which sets paid = payments − refunds;
   - a payment method "account credit", the provider "stripe", and weekly and every-two-weeks plans;
@@ -298,50 +272,32 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 
 **To take card payments for real**: in Fees → Online Payments, paste the school's Stripe secret key and webhook signing secret. In Stripe, add the webhook address shown on that screen.
 
-### Phase 4: Attendance ✅
+---
 
-**What a school can now do**
-- **Attendance codes**, US style:
-  - Present;
-  - Absent, **excused or unexcused**;
-  - **Tardy** with **minutes late**, excused or unexcused;
-  - **Early dismissal**;
-  - No school.
+## Phase 4: Attendance ✅
+
+**Upgrade:** Simple Present/Absent per day → **Advanced attendance management**.
+
+### What a school can now do
+
+- **Attendance codes**, US style: Present; Absent, **excused or unexcused**; **Tardy** with **minutes late**, excused or unexcused; **Early dismissal**; No school.
 - Every code can carry a **reason**: illness, medical appointment, family, religious observance, school activity, transport, other.
-- **Lesson (period) attendance** (Attendance → Lesson Attendance):
-  - teachers pick a class, section and date; the day's lessons come from the timetable, or from the school's periods;
-  - they mark Present, Tardy (with minutes), Absent or Excused per student, with a note;
-  - a tick shows which lessons are already done;
-  - teachers can only take attendance for their own classes, and never for future dates.
-- **Two ways to run attendance** (Attendance → Absence Reports → settings):
-  - **Once a day** (homeroom register, as before). Lesson marks are extra detail.
-  - **Every lesson**. The daily code is worked out automatically:
-    - absent from every lesson = Absent;
-    - late to the first lesson = Tardy;
-    - left partway through = Early dismissal.
-- **Automatic family alerts**. Guardians marked "Receives school messages" and linked parent accounts are told by **email and in the parent portal**:
-  - when a student is **absent without an excuse**;
-  - when a student **arrives late without an excuse** (with the minutes);
-  - with a **frequent-absence warning** after a set number of unexcused absences in 30 days (default 3; 0 turns it off).
-  - Each alert is sent once. Excused absences never send an alert.
+- **Lesson (period) attendance** (Attendance → Lesson Attendance): teachers pick a class, section and date; the day's lessons come from the timetable, or from the school's periods; they mark Present, Tardy (with minutes), Absent or Excused per student, with a note; a tick shows which lessons are already done; teachers can only take attendance for their own classes, and never for future dates.
+- **Two ways to run attendance** (Attendance → Absence Reports → settings): **Once a day** (homeroom register, as before). Lesson marks are extra detail. **Every lesson**. The daily code is worked out automatically: absent from every lesson = Absent; late to the first lesson = Tardy; left partway through = Early dismissal.
+- **Automatic family alerts**. Guardians marked "Receives school messages" and linked parent accounts are told by **email and in the parent portal**: when a student is **absent without an excuse**; when a student **arrives late without an excuse** (with the minutes); with a **frequent-absence warning** after a set number of unexcused absences in 30 days (default 3; 0 turns it off). Each alert is sent once. Excused absences never send an alert.
 - **Parents report absences** in the parent portal ("Report an absence"): child, absent / arriving late / leaving early, dates, reason and note. They can see whether each report is waiting, approved or declined.
-- **The office reviews reports** (Attendance → Absence Reports):
-  - "Excuse" marks every school day in the range as excused, with the reason;
-  - "Decline" sends a note to the parent;
-  - office-entered reports are approved at once.
-- **Attendance history** on the student page, which replaces the old 30-day list:
-  - the Attendance tab shows a **month calendar** with colour codes (P, T, TE, A, AE, ED);
-  - totals for the school year: attendance %, present, absent excused / unexcused, tardy, early dismissal;
-  - the family's absence reports and every alert sent, with the addresses it went to;
-  - the office can click any school day to change its code, excuse it, or add a reason and note.
+- **The office reviews reports** (Attendance → Absence Reports): "Excuse" marks every school day in the range as excused, with the reason; "Decline" sends a note to the parent; office-entered reports are approved at once.
+- **Attendance history** on the student page, which replaces the old 30-day list: the Attendance tab shows a **month calendar** with colour codes (P, T, TE, A, AE, ED); totals for the school year: attendance %, present, absent excused / unexcused, tardy, early dismissal; the family's absence reports and every alert sent, with the addresses it went to; the office can click any school day to change its code, excuse it, or add a reason and note.
 - The Pakistani daily register (Attendance → Student Marking) works exactly as before. Absences marked there now also alert the family.
 
-**Fixes found on the way**
+### Fixes found on the way
+
 - The attendance **analytics, patterns, alerts, trends and at-risk** endpoints were never reachable, because the `<id>/` route caught them first. The screens that call them now work.
 - The old absence alert ran only when a record was first created, told only linked parent accounts, and sent a WhatsApp to the **student's own phone**. It is replaced by the guardian alerts above.
 - Records that were already "Excused" are flagged as excused absences (migration `0009`).
 
-**Built**
+### Built
+
 - Backend (`backend/services/education/attendance/`):
   - new fields on the daily record: excused flag, reason, minutes late, and the early-dismissal code;
   - new models `PeriodAttendance`, `AbsenceReport` and `AttendanceNotice`;
@@ -369,37 +325,24 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The demo database was restored afterwards.
 - Note for local running: the demo backend started by `demo.bat` had to be restarted to pick up the new routes.
 
+---
 
-### Phase 5: Academics / Classes ✅
+## Phase 5: Academics / Classes ✅
 
-**What a school can now do**
-- **School years & terms** (Academic Setup → School Years & Terms):
-  - add school years with first and last days, and choose the current year;
-  - split a year into **2 semesters, 3 trimesters, 3 terms or 4 quarters** in one click, or add terms by hand;
-  - dates are checked: a term must sit inside its year, and terms cannot overlap;
-  - the current term is highlighted. The gradebook and report cards in Phase 6 use these grading periods.
-- **Grade levels and homeroom teachers** for every class: Pre-K, Kindergarten, Grade 1–12.
-  - Grade levels put classes in order and decide promotions.
-  - Existing classes were filled in automatically from their names ("Grade 5", "Class 3", "Year 10", "KG", "Nursery").
-- **Start a new school year** ("Start this year" on next year's card):
-  - a preview shows every student's move, one grade up and keeping their section name where it exists;
-  - it shows who **graduates** (the top grade) and who needs attention (no grade level or no next grade);
-  - tick students who **repeat the year**;
-  - then, in one step: the new year becomes current, students move up, graduates are marked, and enrollment history is written.
-- **Course catalog** (Academic Setup → Course Catalog), for every subject:
-  - **department**;
-  - **level**: Standard, Honors, Advanced, AP, IB, Support;
-  - **credits**, for example 1.0 or 0.5;
-  - **elective** and **offered this year**.
-  - Changes save as you go. Transcripts and GPA (Phase 6) use these.
-- **Enrollment history** on the student's Overview tab:
-  - every class and section the student has been in, per school year, with dates and how each ended: Enrolled, Promoted, Repeated, Moved, Left, Graduated;
-  - it is recorded automatically whenever a student is admitted, moved to another class or section (including the existing Promote Students page), leaves, or rolls over;
-  - existing students were given their current enrollment once.
+**Upgrade:** Basic classes and subjects → **Academic structure**.
+
+### What a school can now do
+
+- **School years & terms** (Academic Setup → School Years & Terms): add school years with first and last days, and choose the current year; split a year into **2 semesters, 3 trimesters, 3 terms or 4 quarters** in one click, or add terms by hand; dates are checked: a term must sit inside its year, and terms cannot overlap; the current term is highlighted. The gradebook and report cards in Phase 6 use these grading periods.
+- **Grade levels and homeroom teachers** for every class: Pre-K, Kindergarten, Grade 1–12. Grade levels put classes in order and decide promotions. Existing classes were filled in automatically from their names ("Grade 5", "Class 3", "Year 10", "KG", "Nursery").
+- **Start a new school year** ("Start this year" on next year's card): a preview shows every student's move, one grade up and keeping their section name where it exists; it shows who **graduates** (the top grade) and who needs attention (no grade level or no next grade); tick students who **repeat the year**; then, in one step: the new year becomes current, students move up, graduates are marked, and enrollment history is written.
+- **Course catalog** (Academic Setup → Course Catalog), for every subject: **department**; **level**: Standard, Honors, Advanced, AP, IB, Support; **credits**, for example 1.0 or 0.5; **elective** and **offered this year**. Changes save as you go. Transcripts and GPA (Phase 6) use these.
+- **Enrollment history** on the student's Overview tab: every class and section the student has been in, per school year, with dates and how each ended: Enrolled, Promoted, Repeated, Moved, Left, Graduated; it is recorded automatically whenever a student is admitted, moved to another class or section (including the existing Promote Students page), leaves, or rolls over; existing students were given their current enrollment once.
 - **Class schedule** on the student's Overview tab: the week's lessons from the timetable (time, subject, teacher, room), opening on today.
 - The Pakistani flow is kept: classes are reused every year as before, and the Promote Students page still works (it now also writes history).
 
-**Built**
+### Built
+
 - Backend:
   - `Term` model;
   - grade level and homeroom teacher on classes;
@@ -427,49 +370,39 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - Iqra Abbasi's Overview showed "Grade 5 · A · 2026-2027 · Enrolled" and her Friday timetable.
   - No page errors. The demo database was restored afterwards.
 
+---
 
+## Phase 6: Gradebook ✅
 
+**Upgrade:** Exam marks → award list → marksheet → **Modern digital gradebook**.
 
+### What a school can now do
 
-### Phase 6: Gradebook ✅
-
-**What a school can now do**
 - **Gradebook** (new menu item, also a teacher quick action). Choose class and subject, section and term, and get a spreadsheet of students × assignments:
   - type a score and press Tab;
   - shortcuts: **M** = missing (counts as 0), **EX** = excused (not counted), **INC** = incomplete, a number then **L** = late;
   - missing, excused and late cells are coloured;
   - each student's **running grade** (letter, percent, and how many are missing) updates as you type;
   - export to CSV.
-- **Weighted categories** per class-subject:
-  - one click adds a common set (Homework 20, Quizzes 20, Tests 40, Projects 10, Participation 10), or build your own;
-  - the total is shown, and **drop the N lowest** scores per category.
-  - If a category has no graded work yet, the weights re-scale over the categories in use.
-- **Assignments**:
-  - title, category, points, due date, term, for every section or one section, instructions;
-  - "counts toward grade" (off for practice work), and "students and parents can see it".
+- **Weighted categories** per class-subject: one click adds a common set (Homework 20, Quizzes 20, Tests 40, Projects 10, Participation 10), or build your own; the total is shown, and **drop the N lowest** scores per category. If a category has no graded work yet, the weights re-scale over the categories in use.
+- **Assignments**: title, category, points, due date, term, for every section or one section, instructions; "counts toward grade" (off for practice work), and "students and parents can see it".
 - **Exams feed the gradebook**. "Add an exam" brings an exam from the Examination module in, with its marks, placed in the term that contains the exam date. Marks entered or changed later in Examination stay in sync. The Pakistani exam → award list → marksheet flow keeps working.
-- **Grading scales** (Gradebook → Grading Scales):
-  - US A–F with plus/minus and GPA points (A 93+ = 4.0 … F), standards levels 4–1, or the school's existing grade scale, which is picked up automatically as the default;
-  - edit grades, minimum percents and GPA points; choose the default; set the passing mark.
-- **Standards-based grading** (Gradebook → Standards):
-  - list the standards for each subject (code + "what the student can do");
-  - rate every student per term: 4 Exceeds, 3 Meets, 2 Approaching, 1 Beginning.
-- **Report cards** (Gradebook → Report Cards), for each term:
-  - subject grades with category breakdown, standards ratings, **teacher comments** per subject, a **homeroom comment**, attendance for the term, and **unweighted and weighted GPA** (Honors +0.5, AP/IB +1.0, weighted by course credits);
-  - preview any student, write comments in place, print;
-  - **release to families** per class or for all classes; parents get an in-app notice;
-  - "Hide again" undoes a release.
+- **Grading scales** (Gradebook → Grading Scales): US A–F with plus/minus and GPA points (A 93+ = 4.0 … F), standards levels 4–1, or the school's existing grade scale, which is picked up automatically as the default; edit grades, minimum percents and GPA points; choose the default; set the passing mark.
+- **Standards-based grading** (Gradebook → Standards): list the standards for each subject (code + "what the student can do"); rate every student per term: 4 Exceeds, 3 Meets, 2 Approaching, 1 Beginning.
+- **Report cards** (Gradebook → Report Cards), for each term: subject grades with category breakdown, standards ratings, **teacher comments** per subject, a **homeroom comment**, attendance for the term, and **unweighted and weighted GPA** (Honors +0.5, AP/IB +1.0, weighted by course credits); preview any student, write comments in place, print; **release to families** per class or for all classes; parents get an in-app notice; "Hide again" undoes a release.
 - **Transcripts**: every school year from enrollment history, with each course's term grades, final grade, and credits attempted and earned (credits only for a pass), the year's GPA, **cumulative GPA** and total credits. Printable.
 - **Families and students**: a **Grades** card on the parent dashboard and the student Results page shows each subject's current grade, and opens to the published assignments and scores (missing work flagged). Report cards and transcripts are there once released.
 - The student page's Grades tab now shows the report card, with staff comments, a term selector and the transcript, above the exam results.
 
-**Safety**
+### Safety
+
 - Teachers can only open and grade the classes they teach; admins can open all.
 - Only admins change grading scales and release report cards.
 - Families only see report cards that have been released, and only published assignments.
 - Each school's gradebook is separate. The isolation sweep covers the new list endpoints: 8 passed.
 
-**Built**
+### Built
+
 - Backend: a new app, `backend/services/education/gradebook/`:
   - models `GradingScale`, `GradeBand`, `Category`, `Assignment`, `Score`, `Standard`, `StandardRating`, `ReportComment` and `ReportCardRelease` (migration `0001`);
   - `calc.py`, the grade engine: categories, drop lowest, missing and excused, weighting, letter and GPA bands, credit-weighted GPA;
@@ -499,9 +432,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The demo database was restored afterwards.
 - Fixed on the way: the report card preview now refreshes right after a release.
 
-### Phase 7: Communication ✅
+---
 
-**What a school can now do**
+## Phase 7: Communication ✅
+
+**Upgrade:** Notices and WhatsApp → **Two-way school communication**.
+
+### What a school can now do
+
 - **Messages**: two-way, private conversations for every role (sidebar → Messages; an envelope in the header shows unread messages).
   - **Parents** can write to the office and the teachers of their own children's classes. Each teacher is shown with the child they teach.
   - **Teachers** can write to the office, other teachers, and the parents of students they teach.
@@ -512,29 +450,18 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - Unread counts appear per conversation and in the header.
   - Every new message also sends an **email and a portal notice** to the others in the conversation.
   - The inbox refreshes itself; Ctrl + Enter sends.
-- **Announcements** (sidebar → Announcements). Staff post to:
-  - everyone, all parents, all staff, all students, **chosen classes** or **grade levels** (for classes and grades, choose parents and/or students).
-  - Delivery: the **portal**, plus **email** (including guardians without a login who are marked "Receives school messages") and **SMS**.
-  - The office can **pin** an announcement and **schedule** it for later. The command `send_scheduled_announcements` sends due ones, and they are also sent the next time anyone opens the list.
-  - Staff see delivered, read, email and text counts.
-  - Teachers can only announce to their own classes; families only see announcements sent to them.
-- **SMS that really sends** (Communication → SMS):
-  - the school's Twilio account (SID, auth token, sending number, country code for local numbers such as 0300… → +92300…);
-  - the auth token is never shown again;
-  - send to a list of numbers, with a result per number;
-  - every text is logged.
-  - The old "SMS Gateway" tab only **pretended** to send ("SMS queued") and is replaced.
+- **Announcements** (sidebar → Announcements). Staff post to: everyone, all parents, all staff, all students, **chosen classes** or **grade levels** (for classes and grades, choose parents and/or students). Delivery: the **portal**, plus **email** (including guardians without a login who are marked "Receives school messages") and **SMS**. The office can **pin** an announcement and **schedule** it for later. The command `send_scheduled_announcements` sends due ones, and they are also sent the next time anyone opens the list. Staff see delivered, read, email and text counts. Teachers can only announce to their own classes; families only see announcements sent to them.
+- **SMS that really sends** (Communication → SMS): the school's Twilio account (SID, auth token, sending number, country code for local numbers such as 0300… → +92300…); the auth token is never shown again; send to a list of numbers, with a result per number; every text is logged. The old "SMS Gateway" tab only **pretended** to send ("SMS queued") and is replaced.
 - **Communication history** (new tab on the student page): conversations about the student, announcements that reached their family, attendance alerts, and WhatsApp/SMS messages, newest first.
 - The existing WhatsApp tools stay as they are. The teacher shortcut to them is renamed "WhatsApp & SMS" so it isn't confused with Messages.
 
-**Fixes found on the way**
-- There were **no email settings**, so every email tried a mail server on the same computer with no timeout.
-  - Email is now configured from `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` and `EMAIL_TIMEOUT` (15 s).
-  - Without a mail server it prints to the console.
-  - This also makes fee reminders, attendance alerts, admissions and report-card emails dependable.
+### Fixes found on the way
+
+- There were **no email settings**, so every email tried a mail server on the same computer with no timeout. Email is now configured from `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` and `EMAIL_TIMEOUT` (15 s). Without a mail server it prints to the console. This also makes fee reminders, attendance alerts, admissions and report-card emails dependable.
 - Sending an announcement to the whole school took over a minute and was cut off. Emails and texts now go out **in the background** over one mail connection, so posting is instant (246 recipients in the demo).
 
-**Built**
+### Built
+
 - Backend (`backend/services/education/communication/`):
   - models `Conversation`, `ConversationParticipant`, `ChatMessage`, `Announcement`, `AnnouncementReceipt` and `SmsConfig` (migration `0005`);
   - new `inbox.py`: the contacts rules, conversations, replies, unread counts, announcements with audience targeting and delivery, Twilio SMS, and student history;
@@ -564,10 +491,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The demo database was restored afterwards.
 - **To send real email**: set `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` on Render (for example your Google Workspace, SendGrid or Mailgun SMTP details).
 
+---
 
-### Phase 8: Calendar & Events ✅
+## Phase 8: Calendar & Events ✅
 
-**What a school can now do**
+**Upgrade:** Basic notices/date sheet → **School-wide calendar**.
+
+### What a school can now do
+
 - **One school calendar** for every role (sidebar → Calendar), with a month grid and a list view. It brings together:
   - school events, holidays, trips, sports, meetings and deadlines added by staff;
   - **term start and end dates** from School Years;
@@ -575,21 +506,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - **homework and assignment due dates** from the Gradebook (families only see published ones);
   - **fee due dates** for a family's own children;
   - their own **parent-teacher meetings**.
-- **Who sees an event**: everyone, families, staff only, chosen classes, or grade levels.
-  - Families only see what is for them and their children's classes.
-  - Teachers can add events for their own classes; the office can add anything.
-  - Only the person who added an event, or the office, can change or delete it.
+- **Who sees an event**: everyone, families, staff only, chosen classes, or grade levels. Families only see what is for them and their children's classes. Teachers can add events for their own classes; the office can add anything. Only the person who added an event, or the office, can change or delete it.
 - **Holidays close the school**: an event marked "School is closed" (every holiday is) counts as no school, so attendance treats those days like weekends.
 - **Reminders**: an event can remind its audience on the day, 1, 2 or 3 days, or a week before, by portal notice and email. Run the command `send_calendar_reminders` once a day.
-- **Parent-teacher meetings** (sidebar → Meetings):
-  - a teacher offers times for a day (e.g. 15:00–17:00 in 15-minute meetings, with a room or video link), and the same time is never offered twice;
-  - families see open times from **their own children's teachers only**, choose the child it's about, add a note, and book;
-  - two families can't book the same time;
-  - the teacher gets an email when a time is booked; either side can cancel and the other is told;
-  - both get a reminder the day before.
+- **Parent-teacher meetings** (sidebar → Meetings): a teacher offers times for a day (e.g. 15:00–17:00 in 15-minute meetings, with a room or video link), and the same time is never offered twice; families see open times from **their own children's teachers only**, choose the child it's about, add a note, and book; two families can't book the same time; the teacher gets an email when a time is booked; either side can cancel and the other is told; both get a reminder the day before.
 - **Add to my phone calendar**: every user gets a private link that Google Calendar, Apple Calendar or Outlook can subscribe to. It shows the same items they see in the app and keeps itself up to date.
 
-**Built**
+### Built
+
 - Backend: new app `backend/services/education/schoolcalendar/` (label `education_calendar`):
   - models `CalendarEvent` and `MeetingSlot` (migration `0001`), registered for school separation;
   - `api.py`: the combined feed, events, meeting times, booking and cancelling, the private iCal link, and reminders;
@@ -614,45 +538,30 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The demo database was restored afterwards.
 - **On Render**: add a daily cron job that runs `python manage.py send_calendar_reminders` (next to `send_scheduled_announcements`).
 
+---
 
-### Phase 9: Behaviour / Discipline ✅
+## Phase 9: Behaviour / Discipline ✅
 
-**What a school can now do**
-- **Behaviour log** (Behaviour & Skills → Behaviour Log, now the first tab):
-  - a teacher picks a class, taps one student, several, or "Whole class", chooses a **merit** (adds points) or an **incident** (takes points away), adds a note, and saves once for everyone chosen;
-  - each student card shows their running points and incidents;
-  - incidents can also have a time, a place, and a "follow up by" date;
-  - a record can be kept **staff only** instead of shown to families.
-- **Categories and points** (tab "Categories & Awards"): every school starts with 5 merits (Helping others, Excellent work, Participation, Kindness, Leadership) and 10 incident types (Homework not done, Late to class, Disrupting the class, Disrespect, Uniform, Mobile phone misuse, Bullying, Fighting, Cheating, Damage to property). The office can:
-  - change points, severity and "tell the family" per category;
-  - add categories;
-  - retire them (a used category is retired, never deleted).
-- **Actions and follow-ups** on each record:
-  - verbal or written warning, detention, parent meeting, counselling, loss of privilege, community service, reward, and follow-up notes (staff only);
-  - in-school suspension and suspension, which **only the office** can record;
-  - start and end dates, a done tick, and an optional message to the family;
-  - status moves Open → In review → Resolved.
+**Upgrade:** Affective and psychomotor ratings → **Behaviour management**.
+
+### What a school can now do
+
+- **Behaviour log** (Behaviour & Skills → Behaviour Log, now the first tab): a teacher picks a class, taps one student, several, or "Whole class", chooses a **merit** (adds points) or an **incident** (takes points away), adds a note, and saves once for everyone chosen; each student card shows their running points and incidents; incidents can also have a time, a place, and a "follow up by" date; a record can be kept **staff only** instead of shown to families.
+- **Categories and points** (tab "Categories & Awards"): every school starts with 5 merits (Helping others, Excellent work, Participation, Kindness, Leadership) and 10 incident types (Homework not done, Late to class, Disrupting the class, Disrespect, Uniform, Mobile phone misuse, Bullying, Fighting, Cheating, Damage to property). The office can: change points, severity and "tell the family" per category; add categories; retire them (a used category is retired, never deleted).
+- **Actions and follow-ups** on each record: verbal or written warning, detention, parent meeting, counselling, loss of privilege, community service, reward, and follow-up notes (staff only); in-school suspension and suspension, which **only the office** can record; start and end dates, a done tick, and an optional message to the family; status moves Open → In review → Resolved.
 - **Family alerts**: serious categories (e.g. Disrespect, Bullying, Fighting) tell the family by portal notice and email, including guardians marked "Receives school messages".
 - **Positive points and awards**: the school sets milestones (by default Bronze 25, Silver 50, Gold 100 positive points). A student earns each award once, the teacher sees it straight away, and the family is told.
-- **Behaviour history**:
-  - a new **Behaviour** tab on the student page shows points, merits, incidents (and how many are open), awards, the next award, and the full history with actions; staff can open any record from there;
-  - parents and students see the same record in the portal (Behaviour & Skills), with a switch between children. Staff-only records and internal follow-up notes are hidden from them.
-- **Behaviour report**: for any date range and class:
-  - merits, incidents, open incidents, net points and students involved;
-  - counts by category, by class, and incidents by day of the week;
-  - top positive points and most incidents;
-  - follow-ups due and who is suspended today.
+- **Behaviour history**: a new **Behaviour** tab on the student page shows points, merits, incidents (and how many are open), awards, the next award, and the full history with actions; staff can open any record from there; parents and students see the same record in the portal (Behaviour & Skills), with a switch between children. Staff-only records and internal follow-up notes are hidden from them.
+- **Behaviour report**: for any date range and class: merits, incidents, open incidents, net points and students involved; counts by category, by class, and incidents by day of the week; top positive points and most incidents; follow-ups due and who is suspended today.
 - Teachers see only their own classes (and records they logged); families only their own children.
 
-**Fixes found on the way**
-- **The existing behaviour data was not kept separate between schools.** Behaviour ratings, skills and observations from one school could be seen and changed by another school, and any signed-in user (including parents) could write to them.
-  - Skills and observations now belong to a school (existing rows were moved to the right school, and each school got its own copy of the shared skill list).
-  - Ratings go through their student.
-  - Families can now only read their own children's ratings and observations, and only staff can change them.
-  - The school-separation test now includes behaviour data.
+### Fixes found on the way
+
+- **The existing behaviour data was not kept separate between schools.** Behaviour ratings, skills and observations from one school could be seen and changed by another school, and any signed-in user (including parents) could write to them. Skills and observations now belong to a school (existing rows were moved to the right school, and each school got its own copy of the shared skill list). Ratings go through their student. Families can now only read their own children's ratings and observations, and only staff can change them. The school-separation test now includes behaviour data.
 - The sidebar highlighted two items when both linked to the same page with different tabs. Now only the matching one is highlighted.
 
-**Built**
+### Built
+
 - Backend (`backend/services/education/behaviour/`):
   - models `BehaviourCategory`, `BehaviourIncident`, `BehaviourAction`, `BehaviourSettings` and `MilestoneAward`, and a school column on `Skill` and `Observation` (migrations `0003` and `0004` with the backfill);
   - new `discipline.py` and `discipline_urls.py`, mounted at `/api/v1/auth/behaviour/`;
@@ -676,10 +585,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the demo parent saw the merit, the incident and the detention in the portal.
   - No page errors. The demo database was restored afterwards.
 
+---
 
-### Phase 10: Student Portal ✅
+## Phase 10: Student Portal ✅
 
-**What a school can now do**
+**Upgrade:** Basic student information/results → **Complete student/family portal**.
+
+### What a school can now do
+
 - **One overview for each student** at the top of the Student Portal and the Parent Portal dashboard. It shows:
   - **alerts** at the top: attendance below 90%, missing work, overdue work, overdue fees, and "the report card is ready";
   - **attendance** for this term (or the last 90 days if no term is set up), with absences, late arrivals and today's mark;
@@ -692,27 +605,13 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - **coming up**: the next two weeks of the calendar for that child only (events, exams, due dates, fees, meetings).
   - Every tile opens the full page.
 - **Several children**: a parent switches between children with one tap. The choice is remembered, and every portal page follows it.
-- **Assignments** (sidebar → Assignments; the old Homework link opens the same page):
-  - gradebook assignments and class homework together;
-  - status for each piece: Upcoming, Due today, Overdue, Missing, Submitted, Marked or Excused;
-  - the mark, the teacher's comment, and homework attachments to download;
-  - filters: All, To do, Overdue / missing, Marked, and by subject.
-- **Academic progress** (sidebar → Progress):
-  - each term's average, attendance, absences, late arrivals, merits and incidents;
-  - grades for every subject, term by term;
-  - attendance by month for the last six months;
-  - a line saying whether the average went up or down on the term before;
-  - report cards open from here once the school releases them.
-- **Documents** (sidebar → Documents, and a new **Documents** tab on the student page for staff):
-  - the office and the student's teachers upload files (reports, certificates, medical notes, letters, consent forms and more) and choose whether the family can see each one;
-  - families are told by portal notice when a file is shared with them;
-  - families can **send a document to the school** (e.g. a doctor's note): the office and the class teachers are told, and it is marked "From family";
-  - only the office or the person who uploaded a file can remove it; families can't change the school's files;
-  - released report cards and issued certificates are listed in the same place;
-  - allowed files: PDF up to 5 MB; images, Word and Excel up to 10 MB.
+- **Assignments** (sidebar → Assignments; the old Homework link opens the same page): gradebook assignments and class homework together; status for each piece: Upcoming, Due today, Overdue, Missing, Submitted, Marked or Excused; the mark, the teacher's comment, and homework attachments to download; filters: All, To do, Overdue / missing, Marked, and by subject.
+- **Academic progress** (sidebar → Progress): each term's average, attendance, absences, late arrivals, merits and incidents; grades for every subject, term by term; attendance by month for the last six months; a line saying whether the average went up or down on the term before; report cards open from here once the school releases them.
+- **Documents** (sidebar → Documents, and a new **Documents** tab on the student page for staff): the office and the student's teachers upload files (reports, certificates, medical notes, letters, consent forms and more) and choose whether the family can see each one; families are told by portal notice when a file is shared with them; families can **send a document to the school** (e.g. a doctor's note): the office and the class teachers are told, and it is marked "From family"; only the office or the person who uploaded a file can remove it; families can't change the school's files; released report cards and issued certificates are listed in the same place; allowed files: PDF up to 5 MB; images, Word and Excel up to 10 MB.
 - Families and students only ever see their own children or themselves. Teachers see students in their own classes.
 
-**Built**
+### Built
+
 - Backend:
   - model `StudentDocument` (migration `education_students` `0014`), registered for school separation;
   - new `students/portal.py` and `portal_urls.py`, mounted at `/api/v1/auth/portal/`. They provide the children list, the overview, assignments (with homework attachments), progress, and documents (list, upload, download, share or hide, remove);
@@ -738,11 +637,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The demo database was restored afterwards.
 - Parents got their own menu for these pages in Phase 11.
 
+---
 
+## Phase 11: Parent Portal ✅
 
-### Phase 11: Parent Portal ✅
+**Upgrade:** Limited parent information → **Family/Parent Portal**.
 
-**What a school can now do**
+### What a school can now do
+
 - **A menu of their own for parents**, instead of a cut-down office menu: Dashboard, My Family, Attendance, Assignments, Progress, Behaviour & Skills, Fees & Billing, Documents, Applications, Messages, Announcements, Calendar, Meetings and Notifications. It is translated into 23 languages.
 - **One account, every child.** Pages that show one child have a switch at the top. The chosen child is remembered from page to page.
 - **My Family** (sidebar → My Family):
@@ -764,10 +666,12 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - **Fees & Billing**: what each child owes and what is overdue, the family total, and the family account with the statement and "Pay online".
 - Assignments, Progress, Documents and Behaviour now have parent addresses (`/parent/...`), and "Dashboard" takes parents back to the Parent Portal.
 
-**Fixes found on the way**
+### Fixes found on the way
+
 - In the Student and Parent portals, "Dashboard" stayed highlighted in the sidebar on every page. Now only the page you are on is highlighted.
 
-**Built**
+### Built
+
 - Backend (`backend/services/education/students/`):
   - model `ContactChangeRequest` (migration `0015`), registered for school separation;
   - new `family.py`: the family page, change requests, the office list and review, and the family's applications. Mounted under `/api/v1/auth/portal/` (`family/`, `family/changes/`, `family/applications/`, `family-updates/`).
@@ -787,11 +691,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the parent was kept out of the office page.
   - No page errors. The demo database was restored afterwards.
 
+---
 
+## Phase 12: Teacher Workspace ✅
 
-### Phase 12: Teacher Workspace ✅
+**Upgrade:** Basic teacher functionality → **Teacher Workspace**.
 
-**What a school can now do**
+### What a school can now do
+
 - **My day** at the top of the Teacher Portal dashboard. It shows everything that needs the teacher today:
   - **today's lessons** from the timetable, in order, with room and class. The lesson happening now is highlighted, and each lesson shows whether its register is done (a past lesson without one shows in red);
   - **daily registers** for the teacher's classes: marked out of total, absent and late. Registers still to take come first, the homeroom first among them. "Take register" opens that class's register;
@@ -801,19 +708,12 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - **behaviour follow-ups** that are due or overdue;
   - **due this week** (unpublished work is marked "not published"), unread messages, and the next 7 days of the calendar.
 - **My Classes** (sidebar → My Classes): a card for each class the teacher teaches, with subjects, number of students, today's register, attendance, class average, missing work, open incidents, and how many students need attention. The homeroom class is marked.
-- **Class roster** (open a class):
-  - one row per student: attendance, days absent and late, the grade in each of the teacher's subjects, missing work, merits and incidents;
-  - a **"needs attention"** flag with the reasons: attendance below 90%, average below 50%, 3 or more missing pieces of work, or 2 or more incidents this term;
-  - sort by name, attention, attendance or average; show only students who need attention;
-  - each name opens the student's record; buttons open the register, the gradebook and the behaviour log.
-- **Class Reports** (sidebar → Class Reports):
-  - everyone who needs attention across all the teacher's classes, and why;
-  - grades by class and subject: average, highest, lowest and how many of each letter grade;
-  - attendance by class: rate, days absent, late arrivals;
-  - a print button.
+- **Class roster** (open a class): one row per student: attendance, days absent and late, the grade in each of the teacher's subjects, missing work, merits and incidents; a **"needs attention"** flag with the reasons: attendance below 90%, average below 50%, 3 or more missing pieces of work, or 2 or more incidents this term; sort by name, attention, attendance or average; show only students who need attention; each name opens the student's record; buttons open the register, the gradebook and the behaviour log.
+- **Class Reports** (sidebar → Class Reports): everyone who needs attention across all the teacher's classes, and why; grades by class and subject: average, highest, lowest and how many of each letter grade; attendance by class: rate, days absent, late arrivals; a print button.
 - Teachers see only their own classes. The office sees every class on the same pages. Parents and students are kept out.
 
-**Built**
+### Built
+
 - Backend: new `services/education/academics/workspace.py` and `workspace_urls.py`, mounted at `/api/v1/auth/workspace/` (`today/`, `classes/`, `classes/<id>/`, `report/`).
 - Frontend:
   - `services/workspace.service.ts`;
@@ -832,52 +732,29 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the admin saw all 6 classes, and the demo parent was sent back to the Parent Portal.
   - No page errors. The demo database was restored afterwards.
 
+---
 
+## Phase 13: Library ✅
 
-### Phase 13: Library ✅
+**Upgrade:** Basic or missing → **Library Management**.
 
-**What a school can now do**
+### What a school can now do
+
 - **A library module** (sidebar → Library) with five tabs: Desk, Catalogue, Members, Loans & Reservations, and Report & Rules.
-- **Catalogue**:
-  - add books with title, authors, ISBN, subject, shelf mark, publisher, year, edition, language and reading level, and say how many copies there are;
-  - every copy gets its own barcode (`LIB-000001`, `LIB-000002`, …);
-  - search by title, author, ISBN, shelf mark or barcode, and filter by subject;
-  - a book's page shows each copy (on the shelf, on loan to whom and until when, held, lost, damaged or withdrawn), the reservation queue and how often it has been borrowed;
-  - add copies, mark copies damaged, lost or withdrawn, or put them back on the shelf;
-  - a book that was ever borrowed stays in the records (withdraw its copies instead of deleting it).
+- **Catalogue**: add books with title, authors, ISBN, subject, shelf mark, publisher, year, edition, language and reading level, and say how many copies there are; every copy gets its own barcode (`LIB-000001`, `LIB-000002`, …); search by title, author, ISBN, shelf mark or barcode, and filter by subject; a book's page shows each copy (on the shelf, on loan to whom and until when, held, lost, damaged or withdrawn), the reservation queue and how often it has been borrowed; add copies, mark copies damaged, lost or withdrawn, or put them back on the shelf; a book that was ever borrowed stays in the records (withdraw its copies instead of deleting it).
 - **Barcodes and QR codes**: **Print labels** gives a sheet with the title, shelf mark, a barcode and a QR code for each copy. Members get printable **library cards** (`C-000001`) the same way.
-- **The desk**:
-  - scan a library card (or type a name or student number) to open the borrower, with books out, overdue books, fines and whether they are blocked;
-  - scan books to lend them: the due date is set automatically, and a scanner that types the barcode and presses Enter works straight away;
-  - scan returned books: late days and any fine are worked out;
-  - if someone reserved the book, the desk shows **"Put aside for …"** and that family is told it is ready to collect;
-  - renew or return from the borrower's list.
-- **Rules** (Report & Rules):
-  - loan days and the number of books at a time, separately for students and staff;
-  - how many renewals are allowed;
-  - how long a reserved book is kept;
-  - a fine per day late (0 means no fines);
-  - no new loans while a book is overdue.
-  - The desk explains every refusal: "already on loan to …", "held for …", "the limit is 3", "has an overdue book", "blocked: …".
+- **The desk**: scan a library card (or type a name or student number) to open the borrower, with books out, overdue books, fines and whether they are blocked; scan books to lend them: the due date is set automatically, and a scanner that types the barcode and presses Enter works straight away; scan returned books: late days and any fine are worked out; if someone reserved the book, the desk shows **"Put aside for …"** and that family is told it is ready to collect; renew or return from the borrower's list.
+- **Rules** (Report & Rules): loan days and the number of books at a time, separately for students and staff; how many renewals are allowed; how long a reserved book is kept; a fine per day late (0 means no fines); no new loans while a book is overdue. The desk explains every refusal: "already on loan to …", "held for …", "the limit is 3", "has an overdue book", "blocked: …".
 - **Members**: every student and staff member can have a card, made the first time they are needed. A member's record shows books on loan, history and fines. The office can **block borrowing** with a reason and print cards for many members at once.
-- **Loans & Reservations**:
-  - lists: on loan, **overdue**, fines to settle, returned, and the reservation queue;
-  - renew, return and **mark lost** (the copy's price becomes the fine);
-  - fines are marked paid or waived.
+- **Loans & Reservations**: lists: on loan, **overdue**, fines to settle, returned, and the reservation queue; renew, return and **mark lost** (the copy's price becomes the fine); fines are marked paid or waived.
 - **Reservations**: when every copy is out, a student, a parent (for any of their children) or a teacher reserves the book and gets a place in the queue. The first returned copy is held for them for the set number of days. If they don't collect it, it goes to the next person or back on the shelf.
-- **Reminders** by portal notice and email, to the student and their parents, or to the member of staff:
-  - the day before a book is due;
-  - every 3 days while it is overdue;
-  - when a reserved book is ready.
-  - Run the command `send_library_reminders` once a day; it also releases holds nobody collected.
-- **In the portals** (Library in the student, parent and teacher menus):
-  - search the catalogue (with an "on the shelf now" filter) and reserve;
-  - see books on loan with due dates, renew, see and cancel reservations, and see past reading;
-  - parents switch between children.
+- **Reminders** by portal notice and email, to the student and their parents, or to the member of staff: the day before a book is due; every 3 days while it is overdue; when a reserved book is ready. Run the command `send_library_reminders` once a day; it also releases holds nobody collected.
+- **In the portals** (Library in the student, parent and teacher menus): search the catalogue (with an "on the shelf now" filter) and reserve; see books on loan with due dates, renew, see and cancel reservations, and see past reading; parents switch between children.
 - **Library report**: titles, copies, on loan, overdue, loans and readers in the last 90 days, waiting reservations, fines to collect, the most borrowed books, top readers, loans by subject and by month.
 - Each school has its own library. Only the office runs the desk; everyone else only sees their own card.
 
-**Built**
+### Built
+
 - Backend: new app `backend/services/education/library/` (label `education_library`):
   - models `LibrarySettings`, `Book`, `BookCopy`, `Member`, `Loan` and `Reservation` (migration `0001`), all registered for school separation;
   - `api.py` and `urls.py`, mounted at `/api/v1/auth/library/`;
@@ -908,43 +785,27 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - add a daily cron job for `python manage.py send_library_reminders`.
 - **Still to try**: scanning the printed labels with the school's own barcode scanner.
 
+---
 
+## Phase 14: Transport ✅
 
-### Phase 14: Transport ✅
+**Upgrade:** Basic transport information → **Transport Management**.
 
-**What a school can now do**
+### What a school can now do
+
 - **A transport module** (sidebar → Transport) with five tabs: Today, Routes, Students, Fleet & Crew, and Report & Billing.
-- **Fleet & crew**:
-  - vehicles (name, registration, bus / coaster / van / car, seats, make, and insurance and fitness-certificate expiry dates);
-  - drivers and attendants (phone, national ID, and licence number and expiry);
-  - anything expiring within 30 days is flagged;
-  - a driver or attendant can be given a **login** (for example a teacher who rides as the attendant); they then see **Bus Duty** in their menu.
+- **Fleet & crew**: vehicles (name, registration, bus / coaster / van / car, seats, make, and insurance and fitness-certificate expiry dates); drivers and attendants (phone, national ID, and licence number and expiry); anything expiring within 30 days is flagged; a driver or attendant can be given a **login** (for example a teacher who rides as the attendant); they then see **Bus Duty** in their menu.
 - **Routes and stops**: each route has a vehicle, driver, attendant, monthly fee and its stops in order, each with a pick-up time (to school) and a drop-off time (home). Stops can be added, renamed and reordered. A stop still used by students can't be removed.
-- **Students on transport**:
-  - add a student to a route with where they are picked up and dropped off (the same stop unless told otherwise);
-  - to and from school, to school only, or home only; a start date, their own fee if different, and a note for the crew;
-  - a full vehicle is refused;
-  - moving a student to another route or stop replaces their place, so nobody is counted twice;
-  - taking a student off a route keeps the history.
-- **Today** (office) and **Bus Duty** (crew):
-  - every route's morning and afternoon trip: not started, on the way, or completed; how many are on, off and expected; who is absent; and any delay. It refreshes every minute.
-  - **Running a trip** (works on a phone):
-    - **Start trip**;
-    - **Tell families we're late** (minutes and a reason);
-    - tick each child **Got on**, **Dropped off** (or **At school** in the morning) or **Not at stop**, tapping again to undo;
-    - **Finish trip**.
-  - The list is in stop order with the stop time.
-  - Children marked absent or with a parent's absence note are shown so the bus doesn't wait.
-  - On the way home it shows **who may collect each child**, and in red who may not, using the family's pickup permissions from Phase 1, plus emergency contacts with phone numbers.
-- **Family notices** (portal notice to parents, guardians with a login, and the student):
-  - "on the way" when the trip starts, and "running about 15 minutes late: Traffic" (one notice per parent, naming their children on that bus);
-  - "Sara got on Bus 3 at 07:32 at Main Market", "arrived at school", "was dropped off at Main Market at 14:22", and "was not at the bus stop".
+- **Students on transport**: add a student to a route with where they are picked up and dropped off (the same stop unless told otherwise); to and from school, to school only, or home only; a start date, their own fee if different, and a note for the crew; a full vehicle is refused; moving a student to another route or stop replaces their place, so nobody is counted twice; taking a student off a route keeps the history.
+- **Today** (office) and **Bus Duty** (crew): every route's morning and afternoon trip: not started, on the way, or completed; how many are on, off and expected; who is absent; and any delay. It refreshes every minute. **Running a trip** (works on a phone): **Start trip**; **Tell families we're late** (minutes and a reason); tick each child **Got on**, **Dropped off** (or **At school** in the morning) or **Not at stop**, tapping again to undo; **Finish trip**. The list is in stop order with the stop time. Children marked absent or with a parent's absence note are shown so the bus doesn't wait. On the way home it shows **who may collect each child**, and in red who may not, using the family's pickup permissions from Phase 1, plus emergency contacts with phone numbers.
+- **Family notices** (portal notice to parents, guardians with a login, and the student): "on the way" when the trip starts, and "running about 15 minutes late: Traffic" (one notice per parent, naming their children on that bus); "Sara got on Bus 3 at 07:32 at Main Market", "arrived at school", "was dropped off at Main Market at 14:22", and "was not at the bus stop".
 - **Transport in the portal** (student and parent menus → Transport): for each child, the route, vehicle, pick-up and drop-off stops and times, the driver and attendant with tap-to-call phone numbers, whether they are absent today, and today's two trips as they happen.
 - **Billing**: "Make invoices" for a month creates a **transport invoice** for every student riding that month, using their route's fee or their own. It never bills a student twice for the same month, and the invoices appear in Fees and the family account like any other.
 - **Report**: riders, monthly transport fees, and for the last 30 days trips, delays, average delay and children not at the stop; each route's riders against its seats; and documents about to expire.
 - Only the office sets transport up. A route's crew runs only their own route. Families see only their own children. Each school's transport is separate.
 
-**Built**
+### Built
+
 - Backend: new app `backend/services/education/transport/` (label `education_transport`):
   - models `Vehicle`, `TransportStaff`, `Route`, `Stop`, `Rider`, `Trip` and `TripEvent` (migration `0001`), all registered for school separation;
   - `api.py` and `urls.py`, mounted at `/api/v1/auth/transport/`;
@@ -968,43 +829,29 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The demo database was restored afterwards.
 - **Later**: live GPS tracking of the bus needs a driver app, planned with the mobile apps in phase 42–43.
 
+---
 
+## Phase 15: Inventory ✅
 
-### Phase 15: Inventory ✅
+**Upgrade:** Missing/basic → **Inventory Management**.
 
-**What a school can now do**
+### What a school can now do
+
 - **An inventory module** (sidebar → Inventory) with four tabs: Stock, Purchases, Suppliers & Categories, and Report.
-- **Items**:
-  - name, code (automatic `ITM-0001`, or the school's own), unit (pieces, boxes, packs, reams, sets, pairs, kg, litres, metres), category, store room / shelf, and the usual supplier;
-  - the **reorder level** (warn at) and the usual order quantity;
-  - the cost of one unit, and a **sale price** for things sold to students such as uniforms and books;
-  - opening stock when the item is added;
-  - search by name, code or shelf, and filter by category or **Low stock**;
-  - the stock list shows quantity, reorder level and value, with the total stock value.
-- **Stock in and out** (**In / out** on any item):
-  - in: received (at a unit cost), returned to store, or a stock count that found more;
-  - out: **issued** to a department, classroom or person (required), **sold to a student**, damaged / lost, or a stock count that found less;
-  - you can't take out more than is in stock;
-  - every change is kept in the item's **history**, with who did it, the balance after, and any reference or note.
+- **Items**: name, code (automatic `ITM-0001`, or the school's own), unit (pieces, boxes, packs, reams, sets, pairs, kg, litres, metres), category, store room / shelf, and the usual supplier; the **reorder level** (warn at) and the usual order quantity; the cost of one unit, and a **sale price** for things sold to students such as uniforms and books; opening stock when the item is added; search by name, code or shelf, and filter by category or **Low stock**; the stock list shows quantity, reorder level and value, with the total stock value.
+- **Stock in and out** (**In / out** on any item): in: received (at a unit cost), returned to store, or a stock count that found more; out: **issued** to a department, classroom or person (required), **sold to a student**, damaged / lost, or a stock count that found less; you can't take out more than is in stock; every change is kept in the item's **history**, with who did it, the balance after, and any reference or note.
 - **Average cost**: receiving at a new price updates the item's average cost, so stock value stays right.
 - **Selling to students**: choose the student and the quantity; the page shows what the family will be billed. The sale creates an **invoice** on the student's account (e.g. "School shop: 2 × School shirt size 10"), so it appears in Fees, the family account and "Pay online" like any other charge.
 - **Low-stock alerts**: when an item falls to its reorder level, the office gets **one** notice ("A4 paper is down to 8 reams, reorder at 10"). It resets once the item is restocked.
-- **Purchase orders**:
-  - make an order for a supplier with items, quantities and costs;
-  - the stages are Draft → **Mark as sent** → **Receive into stock** (all at once, or partly as deliveries arrive) with the supplier's bill number;
-  - received goods go into stock at the order's cost;
-  - you can't receive more than was ordered, change a sent order's items, or cancel once goods have arrived.
+- **Purchase orders**: make an order for a supplier with items, quantities and costs; the stages are Draft → **Mark as sent** → **Receive into stock** (all at once, or partly as deliveries arrive) with the supplier's bill number; received goods go into stock at the order's cost; you can't receive more than was ordered, change a sent order's items, or cancel once goods have arrived.
 - **Reorder list**: low items grouped by their usual supplier, with a suggested quantity that allows for what's already on order. **Make an order** turns it into a draft purchase order in one click.
 - **Suppliers** (contact, phone, email, address, tax number such as NTN or VAT, notes) and **categories**. A supplier with orders is kept and can be marked inactive.
-- **Report**:
-  - items, stock value, running low, open orders, and sales to students;
-  - value by category, the most used items, what was issued to each department, and purchases by supplier, over the last 30 / 90 / 180 / 365 days;
-  - the latest stock movements;
-  - a **CSV** of the whole stock list for audits and stock counts.
+- **Report**: items, stock value, running low, open orders, and sales to students; value by category, the most used items, what was issued to each department, and purchases by supplier, over the last 30 / 90 / 180 / 365 days; the latest stock movements; a **CSV** of the whole stock list for audits and stock counts.
 - Only the office manages inventory. Each school's inventory is separate.
 - The old "Online Store" page was a browser-only demo: its products and purchases were kept only in the browser and never reached the school's records. Its address now opens Inventory; uniforms and books are sold from real stock there.
 
-**Built**
+### Built
+
 - Backend: new app `backend/services/education/inventory/` (label `education_inventory`):
   - models `Category`, `Supplier`, `Item`, `Movement`, `PurchaseOrder` and `PurchaseLine` (migration `0001`), all registered for school separation;
   - `api.py` and `urls.py`, mounted at `/api/v1/auth/inventory/`. Every stock change goes through one function (`record`), which locks the item, keeps the average cost and sends the low-stock alert.
@@ -1024,46 +871,30 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - selling 2 shirts to Ali Raza showed "The family is billed $3,000" and created invoice INV-2026-09-0361;
   - **Make an order** from the reorder list produced PO-2026-0001 for 50 reams, which was marked sent and received with bill INV-7788, bringing the paper to 58 reams;
   - the CSV downloaded, and the report showed the stock value, the sale and "Science dept $7,000".
-  - No page errors. The demo database was restored afterwards .
+  - No page errors. The demo database was restored afterwards.
 
+---
 
+## Phase 16: Cafeteria ✅
 
+**Upgrade:** Missing → **Cafeteria Management**.
 
+### What a school can now do
 
-
-
-
-
-
-
-
-
-### Phase 16: Cafeteria ✅
-
-**What a school can now do**
 - **A cafeteria module** (sidebar → Cafeteria) with three tabs: Till, Menu & Food, and Accounts, Plans & Report.
 - **Food and drinks**: name, category (meal, snack, drink, fruit, dessert), price, **allergens** (nuts, milk, egg, gluten, and so on), vegetarian, halal, and on sale or not.
 - **Weekly menu**: a grid of breakfast, lunch and snack for Monday–Friday. Click a slot to choose what's served; move between weeks; **Copy to next week**. Families see the week's menu with prices and allergens.
 - **Student accounts** (prepaid): each student has a cafeteria balance, opened automatically the first time they are topped up or served. The office sees every balance, what was spent today and each student's meal plan, with a **Low** filter. From a student's account it can add cash, correct a balance (with a reason), pause the account, and refund a purchase.
-- **The till** (works on a tablet at the counter):
-  - type a name or scan the student number;
-  - it shows the **balance**, what's **left of today's limit**, the student's **meal plan** (and whether today's meal was already had), and any **allergies** and dietary needs (in red when severe) from the student's health record;
-  - tap food to build the order, then **Charge**, or **Meal plan** for students on one;
-  - the sale is refused when there isn't enough money, the daily limit would be passed, the account is paused, or the meal plan meal was already had today;
-  - **Allergy check**: if a food's allergens match the student's recorded allergies (e.g. "Peanut cookie: nuts" for a peanut allergy), the till stops with a warning; **Sell anyway** is possible but is written on the transaction;
-  - cash top-ups at the till, and a list of sales "just now".
+- **The till** (works on a tablet at the counter): type a name or scan the student number; it shows the **balance**, what's **left of today's limit**, the student's **meal plan** (and whether today's meal was already had), and any **allergies** and dietary needs (in red when severe) from the student's health record; tap food to build the order, then **Charge**, or **Meal plan** for students on one; the sale is refused when there isn't enough money, the daily limit would be passed, the account is paused, or the meal plan meal was already had today; **Allergy check**: if a food's allergens match the student's recorded allergies (e.g. "Peanut cookie: nuts" for a peanut allergy), the till stops with a warning; **Sell anyway** is possible but is written on the transaction; cash top-ups at the till, and a list of sales "just now".
 - **Meal plans** (e.g. "Lunch every school day" at a monthly fee): add and remove students. The till serves them without charging, once per day per meal. **Bill the month** makes one invoice per student, never twice for the same month.
-- **Families** (Cafeteria in the parent and student menus): each child's balance, spent today against the limit, meal plan, recent purchases and top-ups, and this week's menu. Parents can:
-  - **Top up**: this makes an invoice ("Cafeteria top-up for Fatima Raza"); once it's paid (at the office or with **Pay online**), the money is added automatically and the family is told;
-  - set a **daily limit** for each child.
+- **Families** (Cafeteria in the parent and student menus): each child's balance, spent today against the limit, meal plan, recent purchases and top-ups, and this week's menu. Parents can: **Top up**: this makes an invoice ("Cafeteria top-up for Fatima Raza"); once it's paid (at the office or with **Pay online**), the money is added automatically and the family is told; set a **daily limit** for each child.
 - **Low-balance alert**: the family is told once when a balance falls to the school's level, and again only after it has been topped up above it.
 - **Rules**: a daily limit for everyone, the low-balance level, and how far below zero a student may go (0 = never).
-- **Report**:
-  - sales, number of purchases, meal-plan meals, money held in accounts, low balances and balances below zero;
-  - best sellers and sales by day.
+- **Report**: sales, number of purchases, meal-plan meals, money held in accounts, low balances and balances below zero; best sellers and sales by day.
 - Only the office and cafeteria staff (a staff login at the school) use the till. Cafeteria staff see **Cafeteria Till** in their menu. Families only see their own children. Each school's cafeteria is separate.
 
-**Built**
+### Built
+
 - Backend: new app `backend/services/education/cafeteria/` (label `education_cafeteria`):
   - models `CafeteriaSettings`, `FoodItem`, `MenuDay`, `MealPlan`, `MealPlanMember`, `Account`, `Transaction` and `TopUpRequest` (migration `0001`), all registered for school separation;
   - `api.py` and `urls.py`, mounted at `/api/v1/auth/cafeteria/`. Every balance change goes through one function (`post`), which locks the account and handles the low-balance alert;
@@ -1086,40 +917,27 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the report showed $310 in sales and one meal-plan meal.
   - No page errors. The demo database was restored afterwards.
 
+---
 
+## Phase 17: Integrations ✅
 
-### Phase 17: Integrations ✅
+**Upgrade:** Limited integrations → **External integrations**.
 
-**What a school can now do**
-- **One Integrations page** (sidebar → Integrations, office only) showing every outside service and whether it's on.
-  - **Already available**, each with a link to where it's set up: Google sign-in (for every account), calendar feeds for Google / Apple / Outlook (Phase 8), SMS through Twilio (Phase 7), and online payments (Stripe, JazzCash, Easypaisa; Phase 3).
-  - Three new connections, described below.
-- **Sign in with Microsoft 365 / Entra ID**:
-  - the school registers an app in the Microsoft Entra admin centre, following the steps shown (the redirect address has a Copy button), then enters the client ID, directory (tenant) ID, client secret and the school's email domain(s);
-  - the login page now has **Continue with Microsoft**: people type their school email, the matching school is found from its domain, and Microsoft asks them to sign in;
-  - back in the app they land in their own portal. This works for office staff, teachers, students and parents who already have an account at that school with the same email; nobody gets a new account this way;
-  - the app checks that the reply is for the school's own app, was made for this sign-in, hasn't expired, and comes from the school's directory;
-  - a school address with no account here is told to ask the office;
-  - two schools can't claim the same email domain.
-- **Google Classroom** (read only):
-  - the school connects its Google account once (**Connect Google Classroom**) and sees its active courses;
-  - link each course to a class here;
-  - **Compare rosters** shows, by email, who is in both, who is only in Classroom (and which class they're in here, or "not a student here"), and who is only in the class (including students with no email on record), plus the Classroom teachers;
-  - nothing is changed in Classroom.
-- **School email**:
-  - send the school's notices, reminders and receipts from its **own address and mail server** (Google Workspace, Microsoft 365, SendGrid, Mailgun or any SMTP server), with the school's name as the sender;
-  - **Send test** shows the mail server's answer (for example a wrong password or unknown server), and the last problem is kept on the card;
-  - schools without their own server keep using the system's email.
-- **Secrets are safe**:
-  - client secrets, email passwords and Google access are **stored encrypted**;
-  - they're never shown again ("saved; leave blank to keep");
-  - **Turn off and forget** or **Disconnect** wipes them.
+### What a school can now do
+
+- **One Integrations page** (sidebar → Integrations, office only) showing every outside service and whether it's on. **Already available**, each with a link to where it's set up: Google sign-in (for every account), calendar feeds for Google / Apple / Outlook (Phase 8), SMS through Twilio (Phase 7), and online payments (Stripe, JazzCash, Easypaisa; Phase 3). Three new connections, described below.
+- **Sign in with Microsoft 365 / Entra ID**: the school registers an app in the Microsoft Entra admin centre, following the steps shown (the redirect address has a Copy button), then enters the client ID, directory (tenant) ID, client secret and the school's email domain(s); the login page now has **Continue with Microsoft**: people type their school email, the matching school is found from its domain, and Microsoft asks them to sign in; back in the app they land in their own portal. This works for office staff, teachers, students and parents who already have an account at that school with the same email; nobody gets a new account this way; the app checks that the reply is for the school's own app, was made for this sign-in, hasn't expired, and comes from the school's directory; a school address with no account here is told to ask the office; two schools can't claim the same email domain.
+- **Google Classroom** (read only): the school connects its Google account once (**Connect Google Classroom**) and sees its active courses; link each course to a class here; **Compare rosters** shows, by email, who is in both, who is only in Classroom (and which class they're in here, or "not a student here"), and who is only in the class (including students with no email on record), plus the Classroom teachers; nothing is changed in Classroom.
+- **School email**: send the school's notices, reminders and receipts from its **own address and mail server** (Google Workspace, Microsoft 365, SendGrid, Mailgun or any SMTP server), with the school's name as the sender; **Send test** shows the mail server's answer (for example a wrong password or unknown server), and the last problem is kept on the card; schools without their own server keep using the system's email.
+- **Secrets are safe**: client secrets, email passwords and Google access are **stored encrypted**; they're never shown again ("saved; leave blank to keep"); **Turn off and forget** or **Disconnect** wipes them.
 - **Sign-in can only return to the school app**: the addresses it may send people back to are on a fixed list (`FRONTEND_ORIGINS`, plus localhost while developing), so a sign-in can't be redirected to another site. The one-time sign-in code works once, within 2 minutes.
 
-**Fixes found on the way**
+### Fixes found on the way
+
 - **Staff who are not teachers could not sign in at all.** An account whose only link to the school is a staff or accountant membership (bus attendants from Phase 14, cafeteria cashiers from Phase 16, office helpers) was refused with "not assigned to a valid portal role". Such accounts now get the **staff** role; parent, teacher, student and admin still come first.
 
-**Built**
+### Built
+
 - Backend: new app `backend/services/education/integrations/` (label `education_integrations`):
   - models `Integration` and `ClassroomLink` (migration `0001`), registered for school separation;
   - `secrets.py`: Fernet encryption with a key derived from `SECRET_KEY`;
@@ -1149,45 +967,33 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors. The demo database was restored afterwards.
 - **Not in this phase**: Microsoft Teams or OneDrive, pushing grades back to Classroom, and district SSO (Clever / ClassLink) and rostering (OneRoster). They're on the later roadmap (72–77).
 
+---
 
+## Phase 18: Reports & Analytics ✅
 
-### Phase 18: Reports & Analytics ✅
+**Upgrade:** Basic reports → **Advanced analytics dashboard**.
 
-**What a school can now do**
+### What a school can now do
+
 - **Six new school reports**, the first tabs under Reports (the sidebar's Reports now opens them for the office): Overview, Enrolment, Attendance Trends, Finance, Academics and Teachers. The existing report tabs are still there.
 - **One date range at the top** applies to everything below it: Last 30 days, Last 90 days, This year so far, Last 12 months, or any two dates. Changing it keeps the charts on screen, dimmed, until the new numbers arrive.
 - **Every number is compared** with the period of the same length just before, shown as a change in green or red with an arrow (for example "−0.3 pts vs previous period").
-- **Overview**:
-  - students on roll, new students, attendance, fees collected, collection rate (collected ÷ billed), overdue fees (and all that's owed), and behaviour incidents;
-  - charts: fees billed and collected by month, attendance by month, students on roll by month, and attendance by class.
-- **Enrolment**:
-  - on roll, joined and left in the period, and the share of applications that enrolled;
-  - students on roll month by month for a year, joiners and leavers by month, students by class, the admissions funnel (applied → accepted → enrolled), and gender.
-- **Attendance Trends**:
-  - the rate with its change, days absent (and excused), late arrivals, and how many students are often absent (below 90% with 10+ days recorded);
-  - the rate by month, by class (lowest first) and by day of the week, and a list of the students often absent, each linking to their record.
-- **Finance**:
-  - billed, collected, collection rate, owed now and overdue;
-  - billed vs collected for 12 months;
-  - **what's owed, by how late** (not due, 1–30, 31–60, 61–90, over 90 days);
-  - billed by fee type (tuition, transport, …) and how families paid;
-  - the students who owe the most;
-  - income and expenses for the period (fees collected, other income, expenses from the ledger, net).
-  - "Billed" counts only this period's charges, not balances brought forward, so nothing is counted twice; refunds are taken off what was collected.
+- **Overview**: students on roll, new students, attendance, fees collected, collection rate (collected ÷ billed), overdue fees (and all that's owed), and behaviour incidents; charts: fees billed and collected by month, attendance by month, students on roll by month, and attendance by class.
+- **Enrolment**: on roll, joined and left in the period, and the share of applications that enrolled; students on roll month by month for a year, joiners and leavers by month, students by class, the admissions funnel (applied → accepted → enrolled), and gender.
+- **Attendance Trends**: the rate with its change, days absent (and excused), late arrivals, and how many students are often absent (below 90% with 10+ days recorded); the rate by month, by class (lowest first) and by day of the week, and a list of the students often absent, each linking to their record.
+- **Finance**: billed, collected, collection rate, owed now and overdue; billed vs collected for 12 months; **what's owed, by how late** (not due, 1–30, 31–60, 61–90, over 90 days); billed by fee type (tuition, transport, …) and how families paid; the students who owe the most; income and expenses for the period (fees collected, other income, expenses from the ledger, net). "Billed" counts only this period's charges, not balances brought forward, so nothing is counted twice; refunds are taken off what was collected.
 - **Academics** (current term): average by class and by subject (lowest first), the spread of letter grades, and every student who needs attention with the reason (the same rules as the teacher workspace).
 - **Teachers**: each teacher's classes, students, lessons a week, work due in the period, how much of it is marked, behaviour records logged, and their classes' attendance.
-- **Charts are easy to read and check**:
-  - hovering or keyboard focus shows the exact values;
-  - every chart has **Show table**;
-  - two-series charts have a legend;
-  - the colours were checked for colour-blind readers and contrast, in light and dark mode.
+- **Charts are easy to read and check**: hovering or keyboard focus shows the exact values; every chart has **Show table**; two-series charts have a legend; the colours were checked for colour-blind readers and contrast, in light and dark mode.
 - **CSV** of each report's main table (enrolment by month, students often absent, billed vs collected by month, averages by class, teachers).
 - Office only. Every figure is for the signed-in school only.
 
-**Fixes found on the way**
+### Fixes found on the way
+
 - The teacher's "My day" (Phase 12) could show the wrong day's lessons around midnight, because the day was read from the clock differently from the rest of the app. It now uses the school's local date everywhere.
 
-**Built**
+### Built
+
 - Backend: new app `backend/services/education/insights/` (label `education_insights`, no tables). `api.py` and `urls.py`, mounted at `/api/v1/auth/insights/` (`overview`, `enrolment`, `attendance`, `finance`, `academics`, `teachers`); each takes `?from=&to=` and `?export=csv`.
 - Frontend:
   - `components/insights/Charts.tsx`: small SVG charts with no extra package (column, line, bar list and stat tile), each with hover, a table view, and light and dark colours;
@@ -1206,39 +1012,27 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - dark mode was checked.
   - No page errors.
 
+---
 
+## Phase 19: Global Search ✅
 
-### Phase 19: Global Search ✅
+**Upgrade:** Search within individual modules → **Global search**.
 
-**What a school can now do**
-- **Search from anywhere**: a **Search** button in the top bar, or press **Ctrl K** (⌘ K on a Mac) or **/**, opens one search box over any page.
-  - Type 2 or more letters to see results grouped by kind, best match first (exact, then starts with, then contains);
-  - **↑ ↓** moves, **Enter** opens, **Esc** closes;
-  - recent searches are remembered on the device;
-  - **See all results** opens a full results page with a filter for each kind of record.
-- **What the office can find**:
-  - students, by name, student number, email, phone or father's name;
-  - parents & guardians, by name, email, phone or ID (a result opens the child's Family tab);
-  - staff, by name, employee number, email or phone;
-  - classes (a result opens the class roster);
-  - **invoices** by number or student (a result opens the invoice list filtered to it);
-  - **applications** by number, name or email (a result opens that application);
-  - library books by title, author, ISBN or **copy barcode**;
-  - transport routes and vehicles (including registration numbers);
-  - inventory items (by name or code) and suppliers.
+### What a school can now do
+
+- **Search from anywhere**: a **Search** button in the top bar, or press **Ctrl K** (⌘ K on a Mac) or **/**, opens one search box over any page. Type 2 or more letters to see results grouped by kind, best match first (exact, then starts with, then contains); **↑ ↓** moves, **Enter** opens, **Esc** closes; recent searches are remembered on the device; **See all results** opens a full results page with a filter for each kind of record.
+- **What the office can find**: students, by name, student number, email, phone or father's name; parents & guardians, by name, email, phone or ID (a result opens the child's Family tab); staff, by name, employee number, email or phone; classes (a result opens the class roster); **invoices** by number or student (a result opens the invoice list filtered to it); **applications** by number, name or email (a result opens that application); library books by title, author, ISBN or **copy barcode**; transport routes and vehicles (including registration numbers); inventory items (by name or code) and suppliers.
 - **Pages too**: typing "collect", "absence", "report cards", "bus" or "top up" offers the matching page ("Go to"), different for each role.
-- **Everyone sees only what they may**:
-  - teachers find only the students and classes they teach, plus the library;
-  - parents find only their own children and the library (which opens their library page);
-  - students find themselves and the library;
-  - nobody sees another school's records.
+- **Everyone sees only what they may**: teachers find only the students and classes they teach, plus the library; parents find only their own children and the library (which opens their library page); students find themselves and the library; nobody sees another school's records.
 
-**Fixes found on the way**
+### Fixes found on the way
+
 - **The old search showed every student to anyone signed in**, including parents and students, with names and phone numbers, and it was only reachable through an unused component with a broken address. It has been replaced by the search above, which checks the person's role.
 - The invoice list's search now also matches invoice numbers.
 - The library catalogue, the portal library, the inventory stock list and admissions now open on a search or record passed in the address (`?q=` / `?open=`), so search results land in the right place.
 
-**Built**
+### Built
+
 - Backend: `backend/services/core/search/views.py` rewritten (still `/api/v1/search/?q=`, plus `&type=` and `&limit=`). It groups results, ranks them, gives each the address that opens it, and limits everything by role. It works the same on SQLite and Postgres.
 - Frontend:
   - `services/search.service.ts` rewritten;
@@ -1259,28 +1053,23 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the demo parent's "ali" found only their own child Ali Raza, and the teacher found 5 students in her classes and no invoices.
   - No page errors.
 
+---
 
-### Phase 20: Regionalization ✅
+## Phase 20: Regionalization ✅
 
-**What a school can now do**
-- **Choose a region style** in **Settings → Language & currency → Region style**: **Pakistan**, **International**, **United Kingdom** or **United States**.
-  - A preview shows the wording before saving;
-  - when switching, the school can also switch its currency and time zone to the region's (for example USD and New York); the tick box can be cleared to keep them;
-  - the date format (DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD) and the first day of the week (Monday, Sunday or Saturday) can be set separately.
-- **Wording follows the region** in the menu, the module tabs and page headings. For a US school:
-  - Challan → Invoice, Date Sheet → Exam Schedule, Award List → Grade Sheet, Result Card → Report Card;
-  - Paid Slips → Receipts, Fee Defaulters → Past-due Accounts, Admission Letter → Acceptance Letter;
-  - Timetable → Schedule, Cheque → Check, Enrolment → Enrollment;
-  - UK schools get Head Teacher and Exam Timetable, and International schools get neutral terms.
-  - Translated menus (other languages) are left as they are.
+**Upgrade:** Pakistani terminology everywhere → **Region Style System**.
+
+### What a school can now do
+
+- **Choose a region style** in **Settings → Language & currency → Region style**: **Pakistan**, **International**, **United Kingdom** or **United States**. A preview shows the wording before saving; when switching, the school can also switch its currency and time zone to the region's (for example USD and New York); the tick box can be cleared to keep them; the date format (DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD) and the first day of the week (Monday, Sunday or Saturday) can be set separately.
+- **Wording follows the region** in the menu, the module tabs and page headings. For a US school: Challan → Invoice, Date Sheet → Exam Schedule, Award List → Grade Sheet, Result Card → Report Card; Paid Slips → Receipts, Fee Defaulters → Past-due Accounts, Admission Letter → Acceptance Letter; Timetable → Schedule, Cheque → Check, Enrolment → Enrollment; UK schools get Head Teacher and Exam Timetable, and International schools get neutral terms. Translated menus (other languages) are left as they are.
 - **Dates** across the app are written in the school's format (26/09/2026 or 9/26/2026), and the **school calendar** starts the week on the school's chosen day.
 - **Forms**: outside Pakistan, the student forms and profile no longer ask for caste, orphan status or OSC, and "B-Form" reads "Birth certificate no. / ID". Anything already recorded is kept.
-- **Payment methods** offered when receiving a payment follow the region:
-  - Pakistan: cash, bank transfer, JazzCash/Easypaisa (online) and cheque;
-  - US: card, ACH bank transfer, check, cash and online.
+- **Payment methods** offered when receiving a payment follow the region: Pakistan: cash, bank transfer, JazzCash/Easypaisa (online) and cheque; US: card, ACH bank transfer, check, cash and online.
 - **Existing schools are unchanged** until they choose. New schools start as Pakistan when they sign up with PKR, and International otherwise.
 
-**Built**
+### Built
+
 - Backend:
   - `services/core/tenants/localization.py`: the four regions with their wording, date format, week start, Pakistan-only fields and payment methods; the school's locale now includes these;
   - `services/core/tenants/signup.py`: the locale endpoint (`/api/v1/tenants/locale/`) accepts `region` (with `apply_defaults`), `date_format` and `week_start`, admins only, and checks the values; new schools get a region from their currency.
@@ -1300,88 +1089,45 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - back on Pakistan, Date Sheet, Award List, Result Card, a Monday week, 26/09/2026 and the caste field all returned.
   - No page errors.
 
+---
 
-### Phase 21: Privacy & Security ✅
+## Phase 21: Privacy & Security ✅
 
-**Security holes found and closed**
-- **Anyone could read or change exam results without signing in.**
-  - Exams, results, schedules, registrations and admit cards were open to the public. Anyone could list every school's results (names and marks) and create, bulk-enter or delete results.
-  - Signed-in parents and students could also write results.
-  - Now everything needs a sign-in. People see only their own role's exams and results. Only the office or the class's own teacher can change marks, schedules or registrations.
+**Upgrade:** Basic authentication/roles → **Enterprise-grade security**.
+
+### Security holes found and closed
+
+- **Anyone could read or change exam results without signing in.** Exams, results, schedules, registrations and admit cards were open to the public. Anyone could list every school's results (names and marks) and create, bulk-enter or delete results. Signed-in parents and students could also write results. Now everything needs a sign-in. People see only their own role's exams and results. Only the office or the class's own teacher can change marks, schedules or registrations.
 - **The fee defaulter list, revenue and class collection figures were public.** They are now for school administrators only.
-- **Other endpoints that answered without signing in are closed too:**
-  - the timetable (it could even be added to);
-  - the WhatsApp "test send" (it could send messages through the school's account);
-  - the detailed server health page.
+- **Other endpoints that answered without signing in are closed too:** the timetable (it could even be added to); the WhatsApp "test send" (it could send messages through the school's account); the detailed server health page.
 - **Anyone could sign in as anyone.** The demo login accepted any existing email address and returned that person's login tokens without a password. It only failed because of a missing import. The endpoint and its code are removed.
-- **Teachers were treated as administrators.** Many endpoints trusted Django's "staff" flag, which the demo seed gave to teachers. With it, a teacher could:
-  - see every staff member's salary and ID number, and clear all salaries;
-  - read the whole audit log of every school;
-  - see and reset students' and teachers' portal passwords;
-  - switch off anyone's account;
-  - change feature flags for all schools;
-  - approve leave.
-
-  All of these now check the school administrator role. Feature flags that affect every school are for the platform owner only.
+- **Teachers were treated as administrators.** Many endpoints trusted Django's "staff" flag, which the demo seed gave to teachers. With it, a teacher could: see every staff member's salary and ID number, and clear all salaries; read the whole audit log of every school; see and reset students' and teachers' portal passwords; switch off anyone's account; change feature flags for all schools; approve leave. All of these now check the school administrator role. Feature flags that affect every school are for the platform owner only.
 - **The audit log was shared between schools.** Every entry now belongs to a school, and admins see only their own.
 - **Signing out didn't end the session.** The sign-out token list wasn't installed, so a signed-out refresh token kept working for 7 days. Now signing out ends it, and the app sends the token when you sign out.
-- **Misleading screens removed:**
-  - the "Role Permissions" page, whose switches saved nothing;
-  - the "Delete account" button, which only showed a message and recorded nothing.
+- **Misleading screens removed:** the "Role Permissions" page, whose switches saved nothing; the "Delete account" button, which only showed a message and recorded nothing. Both are replaced below.
 
-  Both are replaced below.
+### What a school can now do (Settings → Security & privacy)
 
-**What a school can now do** (Settings → **Security & privacy**)
-- **Overview**:
-  - how many people can sign in;
-  - who is blocked right now, who is switched off, and who has never signed in;
-  - for the last 7 days: sign-ins, wrong passwords, blocked sign-ins, changes made, and refused actions (someone tried something their role doesn't allow);
-  - the current rules;
-  - deletion requests waiting.
-- **People & access**: everyone who can sign in to the school (administrators, teachers, staff, parents, students).
-  - Each person shows their last sign-in, where it came from, and any wrong passwords.
-  - Search, and filter by role or status: blocked, switched off, wrong passwords, never signed in, asked to be deleted.
-  - Actions:
-    - **Unlock**;
-    - **Sign out** on every device;
-    - **Switch off** (signs them out at once);
-    - **Switch on**.
-  - You can't switch off your own account or reach another school's people. Each action is recorded in the activity log with the person's name.
-- **Sign-ins**: every attempt, with:
-  - the result (signed in, wrong password, blocked for too many attempts, blocked because switched off);
-  - how (password, Microsoft, Google, signup);
-  - the IP address and device.
-
-  Filters, dates, and a CSV download.
+- **Overview**: how many people can sign in; who is blocked right now, who is switched off, and who has never signed in; for the last 7 days: sign-ins, wrong passwords, blocked sign-ins, changes made, and refused actions (someone tried something their role doesn't allow); the current rules; deletion requests waiting.
+- **People & access**: everyone who can sign in to the school (administrators, teachers, staff, parents, students). Each person shows their last sign-in, where it came from, and any wrong passwords. Search, and filter by role or status: blocked, switched off, wrong passwords, never signed in, asked to be deleted. Actions: **Unlock**; **Sign out** on every device; **Switch off** (signs them out at once); **Switch on**. You can't switch off your own account or reach another school's people. Each action is recorded in the activity log with the person's name.
+- **Sign-ins**: every attempt, with: the result (signed in, wrong password, blocked for too many attempts, blocked because switched off); how (password, Microsoft, Google, signup); the IP address and device. Filters, dates, and a CSV download.
 - **Activity log**: every change anyone makes in the school (added, changed, deleted, ran), every export, and every refused attempt, with who, when, the area of the app, and the IP address. Filter by person, action, area and dates, and download as CSV. Viewing pages is not recorded, so the log stays readable.
 - **Roles & access**: what each role can see and do in each area (students, admissions, attendance, gradebook, fees, messages, library, transport, cafeteria, inventory, reports, search, security, settings), with how many people have each role. The system enforces these on every request; this page describes them in plain words.
-- **Rules & retention**:
-  - how many wrong passwords before an account is blocked (default 5), and for how long (default 15 minutes);
-  - the shortest password (default 8), checked when someone changes their password;
-  - sign out after a period of no activity (default off; useful on shared office computers);
-  - how long to keep the activity log (default 365 days) and sign-in history (default 180 days).
+- **Rules & retention**: how many wrong passwords before an account is blocked (default 5), and for how long (default 15 minutes); the shortest password (default 8), checked when someone changes their password; sign out after a period of no activity (default off; useful on shared office computers); how long to keep the activity log (default 365 days) and sign-in history (default 180 days).
 
-**Signing in**
+### Signing in
+
 - After too many wrong passwords in a row the account is blocked for a while. The sign-in page says how many minutes are left, and that the office can unlock it sooner.
 - A switched-off account is told so, but only when the password is right.
 - Wrong passwords for unknown names are recorded too, without a school.
 
-**Everyone's own privacy** (Settings → Account, or Security & privacy for non-admins)
-- **My sign-ins & data**:
-  - recent sign-ins with device and IP address;
-  - a warning if wrong passwords were tried on the account since the person last signed in;
-  - **Sign out everywhere**: all sessions on all devices end, including this one;
-  - **Download my data**: a JSON file with:
-    - the account and preferences;
-    - sign-ins and own activity in the school;
-    - consents;
-    - for parents and students, the children's or their own basic record.
-- **Ask to delete my account**:
-  - sends a request to the school office, and can be withdrawn;
-  - the office sees it on the overview and in People & access;
-  - the request is completed when the office switches the account off. The office decides because the school may have to keep some records.
+### Everyone's own privacy (Settings → Account, or Security & privacy for non-admins)
 
-**Built**
+- **My sign-ins & data**: recent sign-ins with device and IP address; a warning if wrong passwords were tried on the account since the person last signed in; **Sign out everywhere**: all sessions on all devices end, including this one; **Download my data**: a JSON file with: the account and preferences; sign-ins and own activity in the school; consents; for parents and students, the children's or their own basic record.
+- **Ask to delete my account**: sends a request to the school office, and can be withdrawn; the office sees it on the overview and in People & access; the request is completed when the office switches the account off. The office decides because the school may have to keep some records.
+
+### Built
+
 - Backend:
   - new app `services/core/security`:
     - `SignInEvent`;
@@ -1394,14 +1140,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - JWT sign-in rejects tokens issued before "sign out everywhere";
   - `rest_framework_simplejwt.token_blacklist` installed;
   - the sign-in view does lockout, disabled accounts and sign-in records, and records successful Microsoft, Google and signup sign-ins too;
-  - the "staff flag" checks replaced by the school-administrator check in:
-    - portal logins;
-    - employee tasks;
-    - leave and payslip lists;
-    - leave approval;
-    - timetable writes;
-    - the old admin data endpoints;
-    - the student permission classes.
+  - the "staff flag" checks replaced by the school-administrator check in: portal logins; employee tasks; leave and payslip lists; leave approval; timetable writes; the old admin data endpoints; the student permission classes.
 - Frontend:
   - `services/security.service.ts`;
   - `pages/settings/SecurityPage.tsx`;
@@ -1441,10 +1180,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - **Download my data** gave `my-data.json` with 6 sign-ins, and **Sign out everywhere** returned to the sign-in page.
   - No page errors.
 
+---
 
-### Phase 22: UI/UX & Navigation ✅
+## Phase 22: UI/UX & Navigation ✅
 
-**What changed for everyone**
+**Upgrade:** ~15 flat menu items with terms such as Challan, Date Sheet, Award List → **Modern grouped navigation**.
+
+### What changed for everyone
+
 - **Grouped menu.** The long flat sidebar (28 entries for the office) is now in sections with headings:
   - **Office**: Dashboard, then:
     - **People**: Students, Admissions, Staff;
@@ -1459,22 +1202,14 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - **Students**: Learning, Billing, Communication, Campus services.
   - Bus Duty and the Cafeteria Till stay at the top for the staff who have them.
 - **Sections fold away.** Click a heading to close or open it. The choice is remembered on the device. The section with the current page always opens, and the current page's link is scrolled into view.
-- **Menu search.** Typing in "Search menu…":
-  - finds pages in any section, in the chosen language;
-  - **Enter** opens the first match;
-  - **Esc** clears it;
-  - when no page matches, it offers **Search everywhere: "…"**, which opens the school-wide search from Phase 19 (Enter does the same). For example, "raza" opens the matching students.
+- **Menu search.** Typing in "Search menu…": finds pages in any section, in the chosen language; **Enter** opens the first match; **Esc** clears it; when no page matches, it offers **Search everywhere: "…"**, which opens the school-wide search from Phase 19 (Enter does the same). For example, "raza" opens the matching students.
 - **Icon-only sidebar**: the sections are separated by thin lines instead of headings.
 - **Wording**: "Employees" is now "Staff". Region wording from Phase 20 still applies (a US school sees Exam Schedule, Grade Sheet, Schedule).
 - **Security & privacy** has its own menu entry for administrators.
-- **Accessibility**:
-  - the menu is a navigation landmark;
-  - each section is a labelled group;
-  - headings are buttons that announce whether they're open (`aria-expanded`);
-  - the current page is marked;
-  - the section headings meet contrast on both the light and dark sidebar.
+- **Accessibility**: the menu is a navigation landmark; each section is a labelled group; headings are buttons that announce whether they're open (`aria-expanded`); the current page is marked; the section headings meet contrast on both the light and dark sidebar.
 
-**Built**
+### Built
+
 - Frontend:
   - `components/layout/Sidebar.tsx`: each menu item has a section; headings are collapsible and remembered; the current page's section opens and its link scrolls into view; the menu filter supports Enter and Esc and offers "Search everywhere"; the list is a `<nav>` landmark;
   - `components/layout/navSections.ts`: which items go under which heading, and when a heading is open.
@@ -1492,349 +1227,87 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - teacher (Teaching, Communication, Campus services), parent (My family, Billing, Communication, Campus services, Account) and student (Learning, Billing, Communication, Campus services) all saw their sections, including in the mobile drawer.
   - No page errors.
 
+---
 
-### P1: Production readiness, part 1 (browser-stored copies)
+## Phase 22 Deployment Checklist (Partially Complete)
 
-Paused on 26 Sep 2026 to start Tier 1 first, as asked.
+These are done once, after all 22 modules are finished. Each phase adds to this list.
 
-**Done**
-- Pages no longer mix old browser-stored copies into the school's real data:
-  - classes, classrooms and periods on Academics;
-  - payslips on Generate Salary and the payslip list (they were also saved to the browser, besides the server);
-  - students on Homework, which showed any student it couldn't match the homework of "Grade 1-A". A student now sees their own class's homework only;
-  - classes and "saved employee" details on the teacher dashboard and teacher attendance;
-  - deleted-teacher IDs.
-- If a list fails to load, the page says so instead of showing an old copy.
+- [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026: up to Phase 19 (`9fcf1dc`), then all 22 phases (`8bcfb14`).
+- [x] **Migrate** on Render: nothing to do by hand. The `render.yaml` start command runs `python manage.py migrate` on every deploy, so pushing applies them. The new migrations:
+  - students `0009`–`0015`;
+  - admissions `0003`;
+  - finance `0015`;
+  - attendance `0009`;
+  - academics `0025`–`0026`;
+  - gradebook `0001`;
+  - communication `0005`;
+  - calendar `0001`;
+  - behaviour `0003`–`0004`;
+  - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`;
+  - audit `0004`, security `0001`, and the sign-out token tables (`token_blacklist`, from simplejwt).
+- [x] **New Python package**: `segno` (library QR labels) is in `requirements.txt`, which the Render build installs on every deploy.
+- [ ] **Paid database and durable backups** (P2):
+  - move `erp-db` in `render.yaml` from `plan: free` to a paid plan (free Render databases expire);
+  - set `BACKUP_S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (a private bucket), plus `BACKUP_ENCRYPTION_KEY` (a Fernet key);
+  - add a daily cron job `python manage.py backup_database` and a weekly one `python manage.py backup_database --verify`;
+  - keep a copy of `BACKUP_ENCRYPTION_KEY` somewhere safe outside Render: without it, backups can't be opened.
+- [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
+  - `python manage.py send_scheduled_announcements`;
+  - `python manage.py send_calendar_reminders`;
+  - `python manage.py send_library_reminders`;
+  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
+  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
+  - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
+- [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
+  - exam results readable and writable without signing in;
+  - the fee defaulter list public;
+  - the demo login endpoint;
+  - teachers with Django's staff flag treated as administrators.
+- [ ] **App addresses** on Render (now declared in `render.yaml`; enter the values in the Render dashboard):
+  - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
+  - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
+- [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
+- [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
+- [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
+- [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
+- [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
+- [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
+- [ ] **Pipeline and staging** (P5):
+  - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
+  - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
+  - optional staging: first set `BACKUP_ENCRYPTION_KEY` on the live site (so another site can read its backups); then in Render go to New → Blueprint → path `deploy/render-staging.yaml` and fill `STAGING_PASSWORD`, `STAGING_SOURCE_BACKUP=latest`, the backup bucket, the AWS keys, `BACKUP_ENCRYPTION_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`; in Vercel, set `VITE_API_URL` and `VITE_APP_ENV=staging` for the `staging` branch.
+- [ ] **Error alerts and uptime** (P4):
+  - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
+  - optionally set `SENTRY_DSN`;
+  - add a free uptime monitor (for example UptimeRobot) on `https://erp-backend-s5z7.onrender.com/api/v1/health/live/` and on the web app's address;
+  - after a push, check that the GitHub **Deploy check** turns green.
+- [ ] **Platform billing** (P12, declared in `render.yaml`):
+  - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
+  - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
+  - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
+  - tax rules per country in the platform console.
+- [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
+- [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
+- [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
+- [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
+- [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
 
-**Open findings (not yet fixed; they affect the live site)**
+---
 
-A check of every API address, signed in as each demo role, found:
-- **Parents and students can make office-only changes.** For example:
-  - run monthly invoicing, apply late fees, send fee reminders, create payslips;
-  - bulk-delete invoices;
-  - create students, teachers, classes, subjects, fee structures, scholarships and ledger entries.
-  
-  Many of these views only require a sign-in. Teachers can do the same.
-- **Parents and students can read office data:**
-  - every invoice and payment, including the CSV exports and the finance summary and forecast;
-  - the full student list (`auth/students/`) and student counts;
-  - the teacher records;
-  - the executive dashboard and the analytics pages;
-  - attendance and staff statistics.
-- **Records can be changed through detail addresses** that only require a sign-in, for example teacher records.
+# Part B — Tier 0 & Tier 1: P1–P14 (COMPLETED)
 
-Planned fix:
-- a central rule in the sign-in check that limits changes by role (an allow-list for parents and students; office-only areas blocked for teachers and staff);
-- per-view filtering for the reads above, using the existing `filter_invoices_for_user`, `filter_payments_for_user` and `filter_students_for_user` helpers;
-- a test that runs every address as every role.
+The notes for each finished item follow below.
 
-Also still to do: the 4 known failing tests.
+Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then deploy, then test on the live site. P10 to P14 were done first by mistake; P1 to P9 follow now, then P15 to P17.
 
+---
 
-### P10: School onboarding and data import ✅
-
-**What a school can now do**
-- **Import data** (Administration → Import data, or **Import Students** on the admission form) from a CSV or Excel (.xlsx) file, in five steps:
-  1. **Classes and sections**, including grade level, capacity and tuition fee. For an existing class, only its new sections are added.
-  2. **Subjects**, with code, department and elective.
-  3. **Teachers and staff**: email (their sign-in), employee number, role, subjects, joining date, salary, qualifications.
-  4. **Students and guardians**: class and section, date of birth, the father's, mother's and guardian's details, address, and more. Families and the parents' portal logins are created just as on the admission form.
-  5. **Opening fee balances**, by student number. Each becomes an "Opening balance" invoice.
-- **Templates**: each step has a downloadable template. Column headings are matched loosely (for example "Roll No", "GR No" or "Admission No" all mean the student number).
-- **Preview first.** Every row is checked before anything is saved, and marked **Ready**, **Already exists** or **Needs fixing** with the reason. Checks include:
-  - a class or section that doesn't exist;
-  - a bad date, amount or email;
-  - a student number or email that already exists;
-  - the same student (name and date of birth) already in the school;
-  - the same row twice in the file.
-  
-  Missing student and employee numbers continue the school's own numbering (for example DS-2026120 is followed by DS-2026121).
-- **Import** adds all the ready rows in one go. If one can't be saved, nothing is saved and the office is told which row.
-- Duplicates and rows with problems are skipped and can be downloaded as a CSV to fix and import again.
-- **Past imports**: who imported what and when, with the results and the skipped rows.
-- **Setup checklist** on the dashboard has two new steps, **Choose language, currency and region style** and **Set up the school year and terms**, and an **Import** shortcut beside classes, subjects, staff and students. The region step counts once the office has saved Language & currency.
-
-**Built**
-- Backend:
-  - new app `services/education/imports`: `specs.py` (the five imports: columns, checks, duplicates, saving), `api.py` and `urls.py` (`/api/v1/auth/imports/`: kinds, template, preview, import, history, skipped rows), and `ImportRun` (migration `0001`);
-  - administrators only;
-  - `openpyxl` added to `requirements.txt`;
-  - onboarding steps extended in `tenants/signup.py`.
-- Frontend:
-  - `pages/education/ImportPage.tsx` and `services/imports.service.ts`;
-  - import shortcuts on the setup checklist;
-  - the admission form's Import Students button now works;
-  - "Import data" in the Administration menu and in search;
-  - translations in all 23 languages.
-- Tests:
-  - `backend/tests/test_imports.py` has 5 new tests: classes, subjects and the template; staff, students and opening balances; bad files and who may import; nothing saved if a row fails; onboarding steps.
-  - Passing: these plus the signup and region tests (20 passed), and the frontend type check.
-- Browser check on the demo school (the database was restored afterwards):
-  - Import Students opened the student step, and the template downloaded;
-  - a 3-row file previewed as 1 ready (to get DS-2026121), 1 "Grade 99 does not exist" and 1 "DS-2026001 already exists";
-  - importing gave "1 added, 1 already existed, 1 had problems", and search then found the new student;
-  - Past imports listed it.
-  - No page errors.
-
-
-### P11: SaaS plans and subscriptions ✅
-
-**Plans** (prices in USD; the platform owner can change them)
-
-| Plan | Monthly | Yearly | Students | Staff | Optional modules |
-| --- | ---: | ---: | ---: | ---: | --- |
-| Starter | 49 | 490 | 150 | 20 | none (core only) |
-| Standard | 99 | 990 | 500 | 60 | library, transport, advanced reports |
-| Premium | 199 | 1,990 | 1,500 | 150 | also inventory, cafeteria, integrations, AI assistant, online fee payments |
-| Enterprise | custom | custom | unlimited | unlimited | everything; arranged with the team |
-
-The core is in every plan: students, admissions, attendance, gradebook, fees, messages, calendar and security.
-
-**What a school sees** (Settings → **Plan & billing**, administrators)
-- The current plan and its status, the modules it includes, and bars for active students and staff against the plan's limits.
-- The plans side by side, monthly or yearly (two months free). A plan that is too small for the school says why.
-- **Choose a plan**: upgrades apply at once. A smaller plan starts when the paid period ends, and only if the school's students and staff fit it.
-- **Cancel**: the school keeps working until the end of the period, then becomes read-only. Nothing is deleted. It can be undone before then.
-- A history of every change.
-
-**How subscriptions behave**
-- **New schools** get a 30-day free trial of Premium, so they can try everything.
-- **Schools from before plans existed** (the demo school) keep working with everything open until a plan is chosen or assigned.
-- **Statuses**: free trial, active, payment overdue (7 days' grace after the paid period), read-only, suspended, cancelled.
-  - After an expired trial or the end of the grace days, the school is **read-only**: everyone can view and export, but nothing can be added or changed.
-  - Choosing a plan, paying fees online, and personal account safety still work.
-- **Modules outside the plan** are refused by the server (402, "Library is not included in your Starter plan…") and hidden from the menus. The AI assistant button hides too.
-- **Limits**: adding a student or staff member beyond the plan's limit is refused with a clear message. The import preview marks the rows that would go over.
-- **Banners** above every page:
-  - administrators: "Your free trial ends in N days" (last week), "Payment overdue…", "The school is read-only… choose a plan";
-  - everyone else: "…please contact the school office".
-- **Platform owner** (All Schools page), "Plans and subscriptions":
-  - every school's plan, status, dates and numbers;
-  - **Manage**: change plan, billing, status or trial end, with a note;
-  - **Record payment**: starts a paid period and applies a scheduled plan change;
-  - a **price list** editor for prices and limits.
-
-**Built**
-- Backend:
-  - new app `services/core/billing`:
-    - `Plan`, `Subscription` and `SubscriptionEvent` (migrations `0001`, and `0002` for the four plans);
-    - `service.py`: trial, usage, limits, plan changes, renewal, and the request check;
-    - `signals.py`: student and staff limits;
-    - `api.py` and `urls.py` (`/api/v1/billing/`: plans, subscription, change, cancel; platform overview, school, plan);
-  - the plan check runs in the JWT sign-in, right after the school is known;
-  - signup starts the trial;
-  - the import preview respects the limits.
-- Frontend:
-  - `pages/settings/BillingPage.tsx`;
-  - `components/billing/SubscriptionBanner.tsx`;
-  - `store/planStore.ts` and `services/subscription.service.ts`;
-  - `components/platform/PlatformBilling.tsx` on the All Schools page;
-  - the sidebar and the AI button follow the plan;
-  - a "Plan & billing" settings tab and search shortcut.
-- Tests:
-  - `backend/tests/test_billing.py` has 5 new tests:
-    - plans, and trials for new schools;
-    - modules outside the plan are closed;
-    - read-only after the trial, then renewal and the grace days;
-    - limits and plan changes (upgrade, scheduled downgrade, too-small refusal, Enterprise, cancel and resume);
-    - the platform owner manages schools and prices.
-  - Passing: these plus the import, signup and security tests. The public price list was added to the list of addresses that may answer without signing in.
-- Browser check on the demo school (the database was restored afterwards):
-  - Plan & billing showed "No plan (unlimited)";
-  - choosing Standard gave "Now on Standard" (a trial), and Inventory, Cafeteria and the AI assistant disappeared from the menu;
-  - the platform owner ended the trial: the red read-only banner appeared for the office and the teacher;
-  - **Record payment** ("bank transfer") made it active until 26 Oct 2026, and the history listed each step.
-  - No page errors.
-- A mistake caught during the work: the new frontend service first overwrote the existing family-billing `billing.service.ts`. It was restored from git, and the new one is `subscription.service.ts`.
-
-
-### P12: Platform payments and invoices ✅
-
-**What a school sees** (Settings → Plan & billing)
-- **Invoices** from the platform:
-  - number (PI-2026-00001…), what it's for (plan and period, or the difference for an upgrade), due date, total and status (open, overdue, paid, cancelled);
-  - **View / print**: a clean invoice page to print or save as PDF, with the seller's and the school's details, tax and any payment reference;
-  - **Pay by card**: Stripe Checkout, once the platform's Stripe keys are set. Otherwise the page shows the bank-transfer details, with the invoice number as the reference;
-  - after a card payment the page confirms it, and the invoice turns paid when Stripe's signed confirmation arrives.
-- **Billing details**: legal name, address, country code, tax ID and billing email. They are printed on new invoices, the country and tax ID decide the tax, and reminders go to the billing email (or the school's admins).
-
-**How invoices are made**
-- **Choosing a plan** issues the first invoice. During a trial it's due when the trial ends; paying early keeps the rest of the trial. For a read-only school it's due today.
-- **Upgrading mid-period** issues an invoice for the price difference for the days left, due in 7 days. Paying it doesn't move the renewal date. Downgrades aren't billed until renewal.
-- **Renewals**: a daily job issues the next period's invoice 7 days before it's due (using a scheduled smaller plan if there is one). Only one invoice is ever made per period.
-- **Paying** a period invoice starts the paid period (P11's renewal).
-- **Payment reminders** by email, each sent once: 3 days before, on the due date, then 3 and 7 days late. The last one says the school will become read-only. After the 7 days' grace, P11 makes the school read-only automatically until it pays.
-- **Tax**: rules by country (for example GB VAT 20%). "Reverse charge" means a school that gives a tax ID pays no tax, and the invoice says so. Amounts are rounded to the cent.
-
-**Platform owner** (All Schools page)
-- Every school's invoices, filtered by open, overdue, paid or cancelled.
-- **Mark paid** (with the bank reference) and **Cancel**. A paid invoice can't be cancelled.
-- **Run billing now** (the same as the daily job).
-- **Tax on invoices**: add or remove country rules.
-- Every payment is written into the school's subscription history, with its reference.
-
-**Built**
-- Backend:
-  - `TaxRule` and `PlatformInvoice` (billing migration `0003`);
-  - `invoicing.py`: billing details, tax, issuing, proration, upcoming invoices, paying, cancelling, reminders and the daily run;
-  - `stripe_platform.py`: Checkout with the platform's own keys, reusing the Stripe helpers from fees;
-  - `invoice_api.py`: details, invoices, invoice, pay, the signed Stripe webhook, and the platform invoices, actions, run and tax endpoints;
-  - the command `run_platform_billing`;
-  - choosing a plan now bills it.
-- Frontend:
-  - `components/billing/InvoicesPanel.tsx` (invoices, pay, bank details, billing details);
-  - `pages/settings/InvoicePrintPage.tsx`;
-  - `components/platform/PlatformInvoices.tsx` (invoices, run billing, tax rules).
-- Deployment: the new `PLATFORM_*` settings are declared in `render.yaml`, and the daily job is added to the checklist.
-- Tests:
-  - `backend/tests/test_platform_invoices.py` has 5 new tests:
-    - billing details and tax, including reverse charge and one invoice per period;
-    - choosing a plan bills, and paying early keeps the trial;
-    - a read-only school gets bank details, then a signed Stripe webhook marks the invoice paid and opens the school again (a bad signature is refused);
-    - the upgrade difference, renewals and the four reminders;
-    - the platform owner marks paid, cancels, runs billing and sees the reference in the history.
-  - Passing: these plus the P11 tests (10 passed).
-  - The full backend suite after P11: 273 passed. The only failure is the one that already failed before (the leave-approval manager test).
-- Browser check on the demo school (the database was restored afterwards):
-  - the platform owner added GB VAT 20%, and the school saved its billing details;
-  - choosing Starter gave "Invoice PI-2026-00001 (USD 58.80) is ready";
-  - the printable invoice showed $49.00 plus VAT 20% ($9.80) = $58.80, due 26 Oct 2026, billed to "CodeCortex Model School Ltd";
-  - the platform owner marked it paid with reference TRF-2026-09-26, and the school was then "Active, paid until 25 Nov 2026".
-  - No page errors.
-
-
-### P13: Full school export and end-of-contract deletion ✅
-
-**What a school can now do** (Settings → Security & privacy → **Data export & deletion**, administrators)
-- **Export all school data**: a complete copy of every record in every module (students and families, staff, classes, attendance, marks, fees and payments, messages, library, transport, cafeteria, inventory, imports and more), plus everyone who can sign in. It comes in three formats:
-  - **CSV files**: one file per kind of record, plus uploaded documents and photos, in a zip;
-  - **Excel workbook**: one sheet per kind of record;
-  - **JSON**: for moving to another system, plus uploaded files, in a zip.
-
-  Every export has a manifest (record counts) and a README explaining how the IDs link records. Passwords, sign-in secrets and integration keys are never included. Past exports are listed and kept for 7 days, then removed.
-- **Delete the school's data** when the contract ends:
-  - type the school's name to confirm (and optionally a reason);
-  - the deletion happens **30 days later**, and the office can cancel until then;
-  - a red notice shows the date, who asked, and whether an export was made first;
-  - asking and exporting still work when the school is read-only.
-- **On the date** (a daily job), everything that belongs only to this school is deleted:
-  - every record in every module, uploaded files, the activity log, sign-in history and exports;
-  - every sign-in account that belongs only to this school. Accounts that also work at another school, and the platform owner, are kept.
-
-  The school row stays as an empty, inactive "Deleted school (CODE)" so that the platform's invoices and the proof remain.
-
-**Platform owner** (All Schools page → Data deletions)
-- Every request, with its status (scheduled, cancelled, deleted), who asked, the date and the reason.
-- **Delete now**: carry out a scheduled deletion early, typing the school's name again.
-- **Certificate of data deletion**: when, by whom, at whose request, and how many records, files and accounts were deleted, with a breakdown by kind. It can be printed.
-
-**Built**
-- Backend:
-  - new app `services/core/portability`:
-    - `SchoolExport` and `SchoolDeletion` (migration `0001`);
-    - `data.py`: every record of a school from the tenant registry, the CSV, JSON and Excel builders, and the purge;
-    - `api.py` and `urls.py` (`/api/v1/portability/`: overview, exports, download, deletion; certificate; the platform list and purge);
-    - the command `run_data_lifecycle`;
-  - export and deletion addresses are allowed while a school is read-only.
-- Frontend:
-  - `components/security/DataPanel.tsx` (a new Security & privacy tab);
-  - `components/platform/PlatformDeletions.tsx` (with the certificate);
-  - `services/portability.service.ts`;
-  - a search shortcut.
-- Fixed on the way: P12's invoices section on the All Schools page had been placed inside the price-list box. It now sits on its own, with the deletions below it.
-- Tests:
-  - `backend/tests/test_portability.py` has 3 new tests:
-    - the full export in each format (only this school's records, no password columns, who may download, expiry after 7 days);
-    - end-of-contract deletion (confirmation, cancel, reschedule, the platform owner deleting early; records, files, logs and single-school accounts gone; a shared account, the platform owner, the platform invoices and the other school kept; the certificate);
-    - the daily job deletes on the date.
-  - Passing: these plus the billing, invoice and security tests (21 passed), and the frontend type check.
-- Browser check on the demo school (the database was restored afterwards):
-  - the CSV zip (318 KB) and the Excel workbook (674 KB) each held 7,921 records and 246 people;
-  - a wrong school name kept the delete button disabled;
-  - scheduling showed "deleted on 26 Oct 2026", and cancel worked;
-  - after scheduling again, the platform owner's **Delete now** produced the certificate: 8,061 records, 2 uploaded files and 245 sign-in accounts deleted.
-  - No page errors.
-
-
-### P14: Privacy documents, consent and breach response ✅
-
-**Legal documents**
-- **Public pages**, linked from the sign-in page:
-  - `/legal/privacy`, the platform's privacy notice;
-  - `/legal/terms`, the terms of use;
-  - `/legal/subprocessors`;
-  - `/legal/school/CODE`, a school's own privacy notice.
-- Until the platform owner publishes, the privacy and terms pages show a **starting template**, marked as needing review by a lawyer.
-- The **platform owner** reviews and publishes new versions (All Schools → Privacy notice and terms). The **school office** writes and publishes its own notice from a template with the school's name filled in (Security & privacy → Privacy & consent), and sees how many people have accepted each document.
-- **Acceptance**: after a new version is published, everyone is shown it when they next sign in and must accept it to continue, with a note of what changed. The acceptance and IP address are recorded.
-
-**Consent**
-- Each school has consent questions. Two come ready:
-  - **Photos and videos**, asked for each child;
-  - **Anonymous usage statistics**, asked of each person.
-
-  The office can add more (for example "School trips").
-- **Privacy & consent** is a new page for parents, students and staff (in the Account section of the menu). Parents answer Yes or No for each child, can change their mind at any time, and see the history of each answer.
-- If the office changes a question's wording, earlier answers are flagged and the family is asked again.
-- **Report** for the office: yes, no and not answered for every student (or person), with who answered and when, and a CSV download.
-- **Teachers see "No photos"** next to a child on the class roster and on the student profile when the family said no.
-
-**Privacy requests**
-- From Privacy & consent, anyone can ask the school to **see a copy** of their data, **correct** it, **limit** or **object to** its use, or **erase** it, for themselves or one of their children.
-- Each request has a due date **one month** later. The office sees open requests with the deadline (overdue ones in red), replies, and marks them handled, completed or refused. Refusing needs a reason.
-- The requester sees the status and the reply.
-
-**Breach response**
-- **Sub-processors**: the platform owner keeps the list (company, purpose, data, location, optional), and the public page shows it. It starts with the services this system is built to use: Render, Vercel, Stripe, OpenAI, Anthropic, Google, Microsoft and Twilio. Their locations are for the platform owner to fill in for their own accounts.
-- **Report a problem** (school office): for example a lost device or an email to the wrong family. It creates an incident (INC-2026-001…) that the platform owner sees straight away.
-- **Incident register** (platform owner):
-  - severity, status, affected schools, data affected and number of people;
-  - the **72-hour regulator deadline**, shown in red when overdue, with a "Regulator told now" record;
-  - an 8-step **playbook** (contain, assess, record, regulator, schools, people, fix, review);
-  - a **timeline** of notes;
-  - **Tell affected schools**: emails each affected school's administrators and billing contact, and records it.
-- Privacy actions (consent, requests) keep working when a school is read-only, and the P13 export and deletion now include the privacy records.
-
-**Built**
-- Backend:
-  - new app `services/core/privacy`:
-    - `LegalDocument`, `DocumentAcceptance`, `ConsentType`, `ConsentRecord`, `PrivacyRequest`, `SubProcessor`, `Incident` and `IncidentUpdate` (migrations `0001`, and `0002` for the starting sub-processor list);
-    - `service.py`: templates, pending documents, current answers, photo consent, the playbook, telling schools;
-    - `api.py` and `urls.py` (`/api/v1/privacy/`);
-  - `privacy/` allowed while read-only;
-  - export and deletion cover the privacy records.
-- Frontend:
-  - `pages/LegalPage.tsx` (public);
-  - `components/privacy/AcceptanceGate.tsx` (in the main layout);
-  - `pages/PrivacyConsentPage.tsx` (`/privacy`);
-  - `components/privacy/PrivacyAdminPanel.tsx` (a new Security & privacy tab);
-  - `components/platform/PlatformPrivacy.tsx`;
-  - `components/privacy/PhotoConsent.tsx` (on the roster and the profile);
-  - links on the sign-in page;
-  - the menu item, translated into all 23 languages.
-- Tests:
-  - `backend/tests/test_privacy.py` has 5 new tests:
-    - documents are published and accepted (template, platform and school versions, re-asking after a new version, the public sub-processor page);
-    - consent per child and the report (only for your own children; history; teachers' photo flags; CSV; wording changes flag old answers; new questions);
-    - privacy requests (deadline, refusing needs a reason, the reply reaches the requester, overdue);
-    - incidents (school report, status and severity, playbook, emailing the schools, the 72-hour flag);
-    - the export and deletion cover consent.
-  - Passing: these plus the portability and billing tests (13 passed), the locale test and the frontend type check.
-- A bug caught during the work: the photo flags came back as "not asked" for everyone because the answers were looked up by the wrong kind of ID. It is fixed and tested.
-- Browser check on the demo school (the database was restored afterwards):
-  - the sign-in page links worked, and the public privacy page showed the template;
-  - the sub-processors page listed the 8 services;
-  - the platform owner published the privacy notice, and the office published the school's notice;
-  - the parent was asked to accept both, then answered "No" to photos for a child and sent a correction request, which the office completed with a reply;
-  - the consent report showed 0 yes, 1 no and 119 not answered;
-  - the office reported "Email sent to the wrong family" (INC-2026-001), and the platform owner ticked the first playbook step and told the school by email, which the timeline recorded;
-  - on the teacher's roster, "No photos" showed next to the child who had no photo consent. (The demo has two pupils named Fatima Raza; the teacher teaches the other one, so the badge was checked on her.)
-  - No page errors.
-
-
-### P1: Production readiness ✅
+## P1: Production Readiness ✅
 
 **Every role now reaches only what it should.** The role sweep (every API address, called as each demo role) found wide holes, now closed:
+
 - **Changes by role**: one rule, applied in the sign-in check to every signed-in request before any view runs.
   - **Parents and students** can only make changes in their own areas: their portal and family pages, messages and announcements (marking them read), absence reports, calendar bookings, library, cafeteria top-ups, paying fees online, admissions, and their own account, security and privacy.
   - **Teachers and staff** can't change the school's money (invoices, payments, fee structures, scholarships, payslips, ledgers, salaries, finance settings), its structure (years, terms, classes, sections, subjects, class subjects, teacher assignments, grading setup), student and staff records, settings, integrations, imports, portal logins, security, billing, data export, audit or feature flags. Their own jobs still work: leave requests, bus duty, the cafeteria till, marking attendance, marks for their classes, homework, messages.
@@ -1849,11 +1322,13 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - **"Manager" and "HR" roles** can approve leave, as the leave views intended. The role's type had always been read as plain "staff".
 
 **Buttons that pretended to work**
+
 - "Send reminder" on Fee Defaulters waited a second and said "sent" without sending anything. It now emails the family about their oldest open invoice, through the existing reminder, with the office's own text on top. The SMS and WhatsApp options, which sent nothing, are removed.
 - "Call parent" showed a message. It now opens the phone dialler (or says there is no number).
 - Part 1 (above) removed the browser-stored copies of data from six pages.
 
 **The known failing tests are fixed**
+
 - Backend: the leave-approval manager test. It now uses a school like real data does, and the manager role is recognised.
 - Frontend: 3 tests updated to the current behaviour:
   - the mocks are hoisted properly;
@@ -1861,15 +1336,9 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - deleting a teacher asks the server, which keeps the record if it has history.
 
 **Built**
+
 - `services/core/security/role_policy.py`, called from `tenants/authentication.py`.
-- Read fixes in:
-  - `finance/views.py`;
-  - `api/v1/views.py`;
-  - `accounts/views.py`;
-  - `students/views.py`;
-  - `analytics/views.py`;
-  - `employee/views.py`;
-  - `academics/views.py` (the staff privacy mixin).
+- Read fixes in: `finance/views.py`; `api/v1/views.py`; `accounts/views.py`; `students/views.py`; `analytics/views.py`; `employee/views.py`; `academics/views.py` (the staff privacy mixin).
 - `accounts/decorators.py` (the manager and HR roles).
 - The fee reminder: `finance/views.py` (the office's own text) and `FeesDefaultersPage.tsx`.
 - Tests:
@@ -1883,9 +1352,12 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - the office's dashboard, students, invoices, defaulters, staff and reports loaded.
   - No page errors.
 
-### P2: Database safety and backups ✅
+---
+
+## P2: Database Safety and Backups ✅
 
 **What changed**
+
 - **No more silent data loss.** If the production database can't be found, the app now stops with a clear error instead of quietly starting on a temporary file that is wiped on restart. That old fallback is only on in development, or if `DB_SQLITE_FALLBACK=1` is set on purpose.
 - **Encrypted backups of everything.**
   - A backup is the whole database, compressed and encrypted with a key that lives only in the environment (`BACKUP_ENCRYPTION_KEY`, or one derived from the secret key), with a checksum.
@@ -1904,11 +1376,13 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - **Found on the way:** the backup app's tables had never existed (no migrations), so the old backup code would have crashed. Its migration is now included.
 
 **Still yours to do** (in the checklist):
+
 - move the Render database to a paid plan;
 - set the S3 bucket, the keys and `BACKUP_ENCRYPTION_KEY`, and keep a copy of the key safely elsewhere;
 - add the daily and weekly cron jobs.
 
 **Built**
+
 - `services/core/backup/portable.py` (create, read, verify, prune), the `backup_database` command, `api.py` and `urls.py` (`/api/v1/backups/`), and the backup migration `0001`.
 - Settings: `SQLITE_PATH`, and the fallback off in production.
 - `components/platform/PlatformBackups.tsx`.
@@ -1917,10 +1391,12 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - pruning, and who may see backups;
   - the full restore test (runs with `RUN_SLOW=1`; passed on the demo data as described above).
 
+---
 
-### P3: Password reset and transactional email ✅
+## P3: Password Reset and Transactional Email ✅
 
 **What changed**
+
 - **"Forgot password?" works.** The old page asked for an "admin reset key" and called an address the server didn't have (so it answered 404). Now:
   - enter your email and a **reset link** is emailed. The answer is the same whether or not the account exists, so the page can't be used to find out who has an account;
   - requests are limited to 5 an hour per email address and per IP address;
@@ -1934,6 +1410,7 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - **Still yours** (in the checklist): the SPF, DKIM and DMARC records for the sending domain, so the emails don't land in spam.
 
 **Built**
+
 - Backend:
   - `services/core/security/mailer.py` (layout and send with logging);
   - `password.py` (reset request and confirm, the changed notice, verification);
@@ -1961,10 +1438,12 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - a bad confirmation link said "This link is not valid."
   - No page errors.
 
+---
 
-### P4: Error tracking and uptime monitoring ✅
+## P4: Error Tracking and Uptime Monitoring ✅
 
 **What changed**
+
 - **Every server error is recorded.** Any unhandled error in a request is saved with the page address, the school, the user, the version running and the full technical details. The same error happening again (even with a different student or number in the message) is **counted in one group**, not listed a thousand times.
 - **Browser errors too.** When a page breaks in someone's browser (a code error, or a section that fails to show), the app sends a short report to the server. Each distinct error is sent once per page load, at most 20 per session. Network drops and browser add-ons are ignored. Anyone can send a report, including people who are not signed in, but it is limited to 60 an hour per address.
 - **Email alert** to the platform owner when a new error appears, or when a resolved one comes back. At most one alert an hour per error. Alerts go to `ERROR_ALERT_EMAILS` if set, otherwise to the superusers.
@@ -1982,6 +1461,7 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - optionally, `SENTRY_DSN`.
 
 **Built**
+
 - Backend:
   - new app `services/core/errors`:
     - `ErrorGroup` (migration `0001`);
@@ -2006,10 +1486,12 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - the details showed the stack;
   - **Mark resolved** moved it to the Resolved list.
 
+---
 
-### P5: Test-and-deploy pipeline and staging ✅
+## P5: Test-and-Deploy Pipeline and Staging ✅
 
 **What changed**
+
 - **The old CI failed on every push, so nobody looked at it.** It used retired GitHub actions, ran type checks the code was never written for, and its backup job backed up an empty test database. It is rewritten (`.github/workflows/ci-cd.yml`, now called **CI**) to run on every push and pull request:
   - **Backend tests**: first a check for missing migrations, then the full test suite, in parallel;
   - **Production settings and migrations (Postgres)**: with DEBUG off, the settings must load, every migration must apply to an empty Postgres, and static files must collect. These are the same steps as the Render start command, so a deploy that would fail is caught here;
@@ -2036,6 +1518,7 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - Free-text notes (announcements, comments, chat messages) are **not** rewritten on staging. The file says so.
 
 **Built**
+
 - CI:
   - `.github/workflows/ci-cd.yml` (rewritten);
   - `backend/requirements-dev.txt` (pytest, pytest-django, pytest-cov, pytest-xdist);
@@ -2071,14 +1554,17 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - the normal site had no strip.
 
 **Still yours** (in the checklist):
+
 - delete `.github/workflows/backup.yml`: it fails on every push and only backed up an empty test database (real backups are P2's `backup_database`);
 - in Render, check that erp-backend's Auto-Deploy says "After CI checks pass";
 - create the staging Blueprint if you want staging.
 
+---
 
-### P6: Web security hardening and rate limits ✅
+## P6: Web Security Hardening and Rate Limits ✅
 
 **What changed**
+
 - **Only our web app may call the API from a browser.** Before, *any* website was allowed (`CORS_ALLOW_ALL_ORIGINS`, with credentials). Now:
   - only the addresses in `FRONTEND_ORIGINS` are allowed; the same list is trusted for CSRF;
   - on your own computer (DEBUG) anything is still allowed;
@@ -2112,6 +1598,7 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - AI assistant: `AI_RATE_LIMIT` per user per window, plus the monthly school quota.
 
 **Built**
+
 - Backend:
   - `erp_core/security_settings.py` (CORS, HTTPS and proxy rules as testable functions), applied in `settings.py`;
   - `services/core/security/headers.py` (`SecurityHeadersMiddleware`);
@@ -2140,35 +1627,27 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 
 **Still yours** (in the checklist): set `FRONTEND_ORIGINS` on Render to the web app's real address(es). Until then, any `*.vercel.app` or `*.onrender.com` page may call the API.
 
+---
 
-### P7: Secrets and default passwords ✅
+## P7: Secrets and Default Passwords ✅
 
 **What changed**
+
 - **No sign-in with a publicly known password on the live site.** The demo passwords (`Admin@123`, `Teacher@123` and the others printed in the README) and the old shared defaults (`student123`, …) are refused at sign-in when `APP_ENV=production`, with this message: "This password is publicly known, so it can't be used here. We've emailed you a link to choose your own password." The link is sent automatically. The email link proves it is really the person; a forced "change your password" screen would not, because anyone who knows the demo password could pass it. On a developer's computer and on staging the demo still works as the README says.
 - **Nobody can choose one of these passwords anywhere**: a new password check applies to changing a password, resets and every other place passwords are checked.
-- **Demo tooling refuses to run on the live site**:
-  - `seed_demo`, `seed_sample_users`, and `sync_student_accounts` with its demo default;
-  - the three loose scripts that reset everyone to the demo passwords (`sync_all_user_passwords.py`, `sync_existing_portal_users.py`, `generate_complete_system_data.py`);
-  - `create_admin` skips a demo `ADMIN_PASSWORD`.
+- **Demo tooling refuses to run on the live site**: `seed_demo`, `seed_sample_users`, and `sync_student_accounts` with its demo default; the three loose scripts that reset everyone to the demo passwords (`sync_all_user_passwords.py`, `sync_existing_portal_users.py`, `generate_complete_system_data.py`); `create_admin` skips a demo `ADMIN_PASSWORD`.
 - The backend landing page no longer prints "Admin Login: admin@example.com / admin123".
 - **Keys can be changed without breaking things** (`docs/KEY_ROTATION.md`):
   - `SECRET_KEY_FALLBACKS` keeps links already sent working, and saved integration secrets (school email, Microsoft, Google Classroom) readable, after a `SECRET_KEY` change;
   - the new `rotate_secrets` command re-encrypts those secrets with the new key;
   - backups can be read with `BACKUP_ENCRYPTION_KEY_FALLBACKS` and with keys derived from old `SECRET_KEY`s, so backups made before setting `BACKUP_ENCRYPTION_KEY` stay restorable.
   - The note covers each key: where it lives, how to change it and what to expect.
-- **Live site settings panel** (platform owner, All Schools). It checks that:
-  - the secret key is set and debug mode is off;
-  - `FRONTEND_ORIGINS` is set;
-  - there is an own backup key, and backups go to S3;
-  - email and the alert address are set up;
-  - no demo accounts are left (`teacher@code.com`, …);
-  - no platform owner uses a demo password (checked by hashing, kept for an hour);
-  - `ADMIN_PASSWORD` has been removed from the environment after the first start.
-  - Each failing check says what to do.
+- **Live site settings panel** (platform owner, All Schools). It checks that: the secret key is set and debug mode is off; `FRONTEND_ORIGINS` is set; there is an own backup key, and backups go to S3; email and the alert address are set up; no demo accounts are left (`teacher@code.com`, …); no platform owner uses a demo password (checked by hashing, kept for an hour); `ADMIN_PASSWORD` has been removed from the environment after the first start. Each failing check says what to do.
 - Checked: no real keys are in the code. The one match is the Firebase web key in `firebase.ts`, which is a public identifier by design, not a secret.
 - Not changed: each school's own payment, SMS and WhatsApp keys are still stored as entered, in the database, not encrypted like the integration secrets. That is noted for later.
 
 **Built**
+
 - Backend:
   - `services/core/security/defaults.py` (the known list, `KnownPasswordValidator`, `refuse_on_live`);
   - the refusal in `login_view`;
@@ -2196,10 +1675,12 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 
 **Still yours** (in the checklist): open **Live site settings** after the deploy and fix what it lists. In particular, switch off the demo accounts if they were ever created on the live site, and remove `ADMIN_PASSWORD`.
 
+---
 
-### P8: Two-step sign-in for administrators ✅
+## P8: Two-Step Sign-In for Administrators ✅
 
 **What changed**
+
 - **Two-step sign-in with an authenticator app.** These are the standard 6-digit codes that Google Authenticator, Microsoft Authenticator, 1Password and similar apps show. Anyone can turn it on in **Account → My sign-ins & data**:
   1. scan the QR code (or type the key);
   2. enter a code to confirm;
@@ -2213,16 +1694,10 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - a school's **administrators** when the school ticks "Administrators must use two-step sign-in" in Security → Rules.
   - Someone who must use it but hasn't yet gets a setup screen right after signing in, and the server refuses their changes until it is on (reading still works). Required accounts can't turn it off.
 - **Lost phone and codes**: the school office can use **Reset two-step** in People & access. The person is signed out and can set it up again. The action is recorded in the activity log.
-- **Safety details**:
-  - the phone key is stored encrypted, and recovery codes only as hashes;
-  - a code can't be used twice, and one step of clock difference is allowed;
-  - the sign-in challenge expires after 5 minutes and allows 5 wrong codes;
-  - wrong codes count towards the account's lockout (P21) and the per-address limit (P6);
-  - turning it on or off and new recovery codes are recorded in the activity log;
-  - staging copies drop everyone's two-step keys;
-  - the Live site settings panel warns about platform owners without it.
+- **Safety details**: the phone key is stored encrypted, and recovery codes only as hashes; a code can't be used twice, and one step of clock difference is allowed; the sign-in challenge expires after 5 minutes and allows 5 wrong codes; wrong codes count towards the account's lockout (P21) and the per-address limit (P6); turning it on or off and new recovery codes are recorded in the activity log; staging copies drop everyone's two-step keys; the Live site settings panel warns about platform owners without it.
 
 **Built**
+
 - Backend:
   - `TwoFactor` (security migration `0003`);
   - `services/core/security/twofactor.py` (codes to RFC 6238, the encrypted key, recovery codes, the sign-in challenge, who must use it);
@@ -2257,10 +1732,12 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 
 **Still yours** (in the checklist): after the deploy, the platform owner sets up two-step sign-in (the live site asks at the first sign-in; have an authenticator app ready) and keeps the recovery codes somewhere safe.
 
+---
 
-### P9: Dependency and code scanning ✅
+## P9: Dependency and Code Scanning ✅
 
 **What changed**
+
 - **Known vulnerabilities fixed now:**
   - the web app's packages had **16 known vulnerabilities (1 critical, 8 high, 7 moderate)**, including `websocket-driver`, `ws`, `protobufjs`, `vite` and `postcss`;
   - `npm audit fix` updated them within their allowed versions, with no major upgrades; the type check, 99/99 tests and the production build still pass;
@@ -2273,6 +1750,7 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 - **Dependabot** (`.github/dependabot.yml`): weekly pull requests for Python and npm updates, with minor and patch updates grouped, and monthly ones for GitHub Actions. Each runs CI, so a breaking update shows as a red check instead of reaching the live site.
 
 **Built**
+
 - `.github/workflows/security-scan.yml`, `.github/dependabot.yml` and `frontend/package-lock.json` (updated).
 - Checks:
   - `npm audit --omit=dev` went from 16 vulnerabilities (1 critical, 8 high) to 5 moderate;
@@ -2282,140 +1760,454 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 
 **Still yours** (in the checklist): in GitHub → Settings → Code security, switch on Dependabot alerts and security updates. CodeQL results then appear under Security → Code scanning after the first push.
 
+---
 
-### P15: Help centre and support tickets ✅
+## P10: School Onboarding and Data Import ✅
 
-**What changed**
-- **Help & support** is a new menu item for every role: office, teachers, parents and students. It opens a help centre:
-  - **26 starter articles** (guides and questions with answers) written for this app's real menus: first steps, importing, who can do what, students and families, attendance, fees and online payment, marks and report cards, timetable, messages, payroll, the portal, passwords, two-step sign-in, plan and billing, export and privacy requests;
-  - **each person sees only what fits their role**: parents and students get the portal, online payment and account articles, not the office's fee setup;
-  - **search** (title matches rank first) and **topics**;
-  - each article has related articles and **"Was this helpful?"** (one vote per person);
-  - also in the search box ("help", "support", "ticket"…).
-- **Support tickets** for school staff (administrators, teachers and office staff). Parents and students are asked to contact the school office instead.
-  - A ticket has a subject, what it is about, how urgent it is, and a description. The page it was sent from is recorded.
-  - **A first-reply promise by priority**: urgent 4 hours, high 1 day, normal 2 days, low 5 days.
-  - Each ticket gets a number (#1001…), and the support team gets an email.
-  - **Conversation**: replies from both sides; each side gets an email when the other replies.
-  - The school can say **"It's sorted"**, or **"Not sorted after all"** to reopen it. A resolved ticket closes itself after a week (daily job).
-  - **Who sees a ticket**: the person who opened it, their school's administrators, and the platform's support team. Other schools never do.
-- **Support console** for the platform owner (All Schools page):
-  - every school's tickets with **reply due** (late ones in red), priority, status and who is handling it;
-  - counts: open, waiting for us, **reply overdue**, urgent;
-  - **assign** to a member of the support team, change status and priority; every change is kept in the ticket's **history**;
-  - **internal notes** that the school never sees, and **saved replies** (5 to start with);
-  - the email link opens the right ticket.
-- **Help articles editor** in the same console: add, edit, hide or delete articles, with topic, kind (guide, question, video link), who sees them, and the text ("## " heading, "- " bullet, "1. " step). Helpful and not-helpful counts show what needs improving.
-- Tickets are part of the school's **full export** and its **end-of-contract deletion** (P13). Staging copies drop them. Support works for read-only schools (P11), and every role can reach it (P1).
+**What a school can now do**
+
+- **Import data** (Administration → Import data, or **Import Students** on the admission form) from a CSV or Excel (.xlsx) file, in five steps:
+  1. **Classes and sections**, including grade level, capacity and tuition fee. For an existing class, only its new sections are added.
+  2. **Subjects**, with code, department and elective.
+  3. **Teachers and staff**: email (their sign-in), employee number, role, subjects, joining date, salary, qualifications.
+  4. **Students and guardians**: class and section, date of birth, the father's, mother's and guardian's details, address, and more. Families and the parents' portal logins are created just as on the admission form.
+  5. **Opening fee balances**, by student number. Each becomes an "Opening balance" invoice.
+- **Templates**: each step has a downloadable template. Column headings are matched loosely (for example "Roll No", "GR No" or "Admission No" all mean the student number).
+- **Preview first.** Every row is checked before anything is saved, and marked **Ready**, **Already exists** or **Needs fixing** with the reason. Checks include: a class or section that doesn't exist; a bad date, amount or email; a student number or email that already exists; the same student (name and date of birth) already in the school; the same row twice in the file. Missing student and employee numbers continue the school's own numbering (for example DS-2026120 is followed by DS-2026121).
+- **Import** adds all the ready rows in one go. If one can't be saved, nothing is saved and the office is told which row.
+- Duplicates and rows with problems are skipped and can be downloaded as a CSV to fix and import again.
+- **Past imports**: who imported what and when, with the results and the skipped rows.
+- **Setup checklist** on the dashboard has two new steps, **Choose language, currency and region style** and **Set up the school year and terms**, and an **Import** shortcut beside classes, subjects, staff and students. The region step counts once the office has saved Language & currency.
 
 **Built**
+
 - Backend:
-  - new app `services/core/support`:
-    - `HelpArticle`, `SupportTicket`, `TicketMessage` and `CannedResponse` (migrations `0001`, and `0002` for the starter articles and saved replies from `help_content.py`);
-    - `service.py` (who sees which help, search, reply promise, history, emails, who sees which ticket);
-    - `api.py` and `urls.py` at `/api/v1/support/`;
-    - commands `load_help_articles` (adds missing starter articles without overwriting edited ones) and `close_resolved_tickets` (daily);
-  - `support/` added to the always-allowed personal (P1) and read-only (P11) lists;
-  - export and deletion (P13) and staging (P5) cover tickets;
-  - `SUPPORT_EMAILS` declared in `render.yaml`.
+  - new app `services/education/imports`: `specs.py` (the five imports: columns, checks, duplicates, saving), `api.py` and `urls.py` (`/api/v1/auth/imports/`: kinds, template, preview, import, history, skipped rows), and `ImportRun` (migration `0001`);
+  - administrators only;
+  - `openpyxl` added to `requirements.txt`;
+  - onboarding steps extended in `tenants/signup.py`.
 - Frontend:
-  - `services/support.service.ts`;
-  - `pages/help/HelpCentrePage.tsx` (`/help`, `/help/article/:slug`);
-  - `pages/help/TicketsPage.tsx` (`/help/tickets`, `/help/tickets/:id`);
-  - `components/support/ArticleBody.tsx`;
-  - `components/platform/PlatformSupport.tsx`;
-  - the menu item in all 23 languages, and search shortcuts.
+  - `pages/education/ImportPage.tsx` and `services/imports.service.ts`;
+  - import shortcuts on the setup checklist;
+  - the admission form's Import Students button now works;
+  - "Import data" in the Administration menu and in search;
+  - translations in all 23 languages.
 - Tests:
-  - `backend/tests/test_support.py` has 4 new tests:
-    - help by role, search, topics, articles not for the role, one vote;
-    - a ticket from start to finish (reply promise, email to support, parents refused, who sees it, internal notes hidden, reply email, school reply and "sorted", assignment to the support team only, history, closed tickets);
-    - overdue replies, closing after a week, and the export including tickets;
-    - the platform owner managing articles.
-  - All 4 passed.
-  - The full backend suite: 324 passed. Frontend: type check and 99/99 tests pass.
-- Browser check on a copy of the demo database (separate ports):
-  - the parent saw Help & support with the portal guide but not the office's fee setup, and was told to contact the school;
-  - "pay fees" found "Paying fees online" first, and the vote was thanked;
-  - the teacher opened a high-priority ticket;
-  - the platform owner saw it with its reply-due time, added an internal note, replied with a saved reply and assigned it (all three in the history);
-  - the teacher saw the support team's reply but not the note, replied, and marked it sorted;
-  - the console then showed it as resolved, replied and assigned.
+  - `backend/tests/test_imports.py` has 5 new tests: classes, subjects and the template; staff, students and opening balances; bad files and who may import; nothing saved if a row fails; onboarding steps.
+  - Passing: these plus the signup and region tests (20 passed), and the frontend type check.
+- Browser check on the demo school (the database was restored afterwards):
+  - Import Students opened the student step, and the template downloaded;
+  - a 3-row file previewed as 1 ready (to get DS-2026121), 1 "Grade 99 does not exist" and 1 "DS-2026001 already exists";
+  - importing gave "1 added, 1 already existed, 1 had problems", and search then found the new student;
+  - Past imports listed it.
   - No page errors.
 
-**Still yours** (in the checklist):
-- optionally set `SUPPORT_EMAILS` (otherwise ticket emails go to the platform owners);
-- add `close_resolved_tickets` to the daily jobs;
-- review the starter articles and add your own.
+---
 
+## P11: SaaS Plans and Subscriptions ✅
 
-### P16: Automated SMS and WhatsApp ✅
+**Plans** (prices in USD; the platform owner can change them)
 
-**What changed** (Communication → **SMS & WhatsApp**, administrators)
-- **Automatic messages**, in the school's own words. These go out besides the email and portal notice from earlier phases:
-  - **unexcused absence** (on by default once texts are set up), **late arrival** and **frequent absence** (off by default). They are sent when the register is saved;
-  - **fee reminders**: sent with the Fee Defaulters "Send reminder" button and the monthly reminder run, to the guardians marked "Receives invoices";
-  - **emergency messages** (below).
-  - For each, the school chooses **SMS and/or WhatsApp**, switches it on or off, and edits the wording. Words in braces are filled in: `{student}`, `{class}`, `{date}`, `{minutes}`, `{count}`, `{amount}`, `{due_date}`, `{invoice}` and `{school}`. A mistyped word stays as typed, so it never stops an alert.
-  - **Test SMS / Test WhatsApp** sends the wording, filled with example values, to any number.
-- **Each alert goes to each number once**, however often the register is saved. Numbers come from the guardians marked "Receives school messages", or else the phone numbers on the student's form, converted to international format with the school's country code.
-- **Emergency message**: for closures, weather or safety. It goes straight away to everyone, all families, all staff, or chosen classes:
-  - as a **pinned announcement** (portal and email);
-  - by **SMS and/or WhatsApp** to every number, including staff phones;
-  - then it opens its own **delivery report**.
-- **Delivery log**:
-  - every text with its kind, student, number, channel, wording and **result** (queued, sent, delivered, read, not delivered), with the provider's reason when it fails;
-  - filters, and counts for the last 7 days;
-  - **Send failed ones again** (for an emergency message, or the ones shown).
-  - Twilio's **delivery reports** update each text when the server's public address (`PUBLIC_API_URL`) is set. They are checked with the school's own auth token, so they can't be faked.
-- **WhatsApp** uses the same Twilio account, from a WhatsApp-enabled Twilio number (**WhatsApp from** in Settings). Messages that start a conversation must match a template approved for that number in Twilio, as WhatsApp requires.
-- The announcements' text messages (Phase 7) now go through the same sender, so they are in the log with their delivery status too.
+| Plan | Monthly | Yearly | Students | Staff | Optional modules |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Starter | 49 | 490 | 150 | 20 | none (core only) |
+| Standard | 99 | 990 | 500 | 60 | library, transport, advanced reports |
+| Premium | 199 | 1,990 | 1,500 | 150 | also inventory, cafeteria, integrations, AI assistant, online fee payments |
+| Enterprise | custom | custom | unlimited | unlimited | everything; arranged with the team |
 
-**Fixes found on the way**
-- **A new SMS setup was saved switched off**, so texts never went out and the page never said "Ready". The page sent back the "off" it received when the school had no settings yet. A new setup now starts switched on, and Settings has a clear **Texts switched on** tick box.
-- **The AI assistant sometimes lost the previous answer in a conversation.** A question and its answer could be saved with the same time (the clock is coarse on Windows), and then came back in the wrong order. Each new turn is now always kept after the one before. This was also the cause of the occasionally failing AI test.
+The core is in every plan: students, admissions, attendance, gradebook, fees, messages, calendar and security.
+
+**What a school sees** (Settings → **Plan & billing**, administrators)
+
+- The current plan and its status, the modules it includes, and bars for active students and staff against the plan's limits.
+- The plans side by side, monthly or yearly (two months free). A plan that is too small for the school says why.
+- **Choose a plan**: upgrades apply at once. A smaller plan starts when the paid period ends, and only if the school's students and staff fit it.
+- **Cancel**: the school keeps working until the end of the period, then becomes read-only. Nothing is deleted. It can be undone before then.
+- A history of every change.
+
+**How subscriptions behave**
+
+- **New schools** get a 30-day free trial of Premium, so they can try everything.
+- **Schools from before plans existed** (the demo school) keep working with everything open until a plan is chosen or assigned.
+- **Statuses**: free trial, active, payment overdue (7 days' grace after the paid period), read-only, suspended, cancelled.
+  - After an expired trial or the end of the grace days, the school is **read-only**: everyone can view and export, but nothing can be added or changed.
+  - Choosing a plan, paying fees online, and personal account safety still work.
+- **Modules outside the plan** are refused by the server (402, "Library is not included in your Starter plan…") and hidden from the menus. The AI assistant button hides too.
+- **Limits**: adding a student or staff member beyond the plan's limit is refused with a clear message. The import preview marks the rows that would go over.
+- **Banners** above every page:
+  - administrators: "Your free trial ends in N days" (last week), "Payment overdue…", "The school is read-only… choose a plan";
+  - everyone else: "…please contact the school office".
+- **Platform owner** (All Schools page), "Plans and subscriptions":
+  - every school's plan, status, dates and numbers;
+  - **Manage**: change plan, billing, status or trial end, with a note;
+  - **Record payment**: starts a paid period and applies a scheduled plan change;
+  - a **price list** editor for prices and limits.
 
 **Built**
+
 - Backend:
-  - `communication/texts.py` (rules and wording, family numbers, one Twilio sender for SMS and WhatsApp with delivery reports, no duplicates, fee and emergency texts, signed status updates);
-  - `texts_api.py` at `/api/v1/auth/communication/texts/` (`rules/`, `log/`, `retry/`, `test/`, `emergency/`, `status/`);
-  - `AutoTextRule`, plus the WhatsApp number, event, batch, error and dedupe fields (communication migration `0006`);
-  - hooks in the attendance alerts (`register.send_notice`, in the background), the fee reminder button and `send_fee_reminders`;
-  - `TWILIO_API_BASE` setting (only for testing);
-  - `AIMessage.save` keeps turns in order.
-- Frontend: `pages/messages/SmsPage.tsx`, rewritten with four tabs (Automatic messages, Emergency message, Delivery log, Settings), and the text functions in `messaging.service.ts`.
+  - new app `services/core/billing`:
+    - `Plan`, `Subscription` and `SubscriptionEvent` (migrations `0001`, and `0002` for the four plans);
+    - `service.py`: trial, usage, limits, plan changes, renewal, and the request check;
+    - `signals.py`: student and staff limits;
+    - `api.py` and `urls.py` (`/api/v1/billing/`: plans, subscription, change, cancel; platform overview, school, plan);
+  - the plan check runs in the JWT sign-in, right after the school is known;
+  - signup starts the trial;
+  - the import preview respects the limits.
+- Frontend:
+  - `pages/settings/BillingPage.tsx`;
+  - `components/billing/SubscriptionBanner.tsx`;
+  - `store/planStore.ts` and `services/subscription.service.ts`;
+  - `components/platform/PlatformBilling.tsx` on the All Schools page;
+  - the sidebar and the AI button follow the plan;
+  - a "Plan & billing" settings tab and search shortcut.
 - Tests:
-  - `backend/tests/test_texts.py` has 5 new tests, with Twilio replaced by a fake:
-    - an absence alert by SMS and WhatsApp, sent once, with the delivery-report address; late arrivals off by default;
-    - rules and wording (placeholders, empty wording refused, test send, office only);
-    - a fee reminder with the amount and due date, once a day;
-    - an emergency message: announcement, texts, a refused number in the log, retry, and signed and forged delivery reports;
-    - nothing is sent without setup.
-  - All 5 passed, plus the Phase 7 messaging tests (11 passed) and the AI tests (19 passed).
-- Browser check, against a **local stand-in for Twilio** and a copy of the demo database (separate ports):
-  - the office entered the Twilio and WhatsApp details, and the settings showed Ready;
-  - the absence wording was changed, WhatsApp was ticked, and **Test SMS** arrived with the new wording ("…Ali Khan (Grade 5) was absent today…");
-  - an absence alert for Ali Raza went by **SMS and WhatsApp** to both family numbers;
-  - an emergency message to Grade 8 opened its delivery report, showing the refused number with the provider's reason;
-  - **Send failed ones again** delivered it;
-  - the log counted the texts.
+  - `backend/tests/test_billing.py` has 5 new tests:
+    - plans, and trials for new schools;
+    - modules outside the plan are closed;
+    - read-only after the trial, then renewal and the grace days;
+    - limits and plan changes (upgrade, scheduled downgrade, too-small refusal, Enterprise, cancel and resume);
+    - the platform owner manages schools and prices.
+  - Passing: these plus the import, signup and security tests. The public price list was added to the list of addresses that may answer without signing in.
+- Browser check on the demo school (the database was restored afterwards):
+  - Plan & billing showed "No plan (unlimited)";
+  - choosing Standard gave "Now on Standard" (a trial), and Inventory, Cafeteria and the AI assistant disappeared from the menu;
+  - the platform owner ended the trial: the red read-only banner appeared for the office and the teacher;
+  - **Record payment** ("bank transfer") made it active until 26 Oct 2026, and the history listed each step.
+  - No page errors.
+- A mistake caught during the work: the new frontend service first overwrote the existing family-billing `billing.service.ts`. It was restored from git, and the new one is `subscription.service.ts`.
+
+---
+
+## P12: Platform Payments and Invoices ✅
+
+**What a school sees** (Settings → Plan & billing)
+
+- **Invoices** from the platform:
+  - number (PI-2026-00001…), what it's for (plan and period, or the difference for an upgrade), due date, total and status (open, overdue, paid, cancelled);
+  - **View / print**: a clean invoice page to print or save as PDF, with the seller's and the school's details, tax and any payment reference;
+  - **Pay by card**: Stripe Checkout, once the platform's Stripe keys are set. Otherwise the page shows the bank-transfer details, with the invoice number as the reference;
+  - after a card payment the page confirms it, and the invoice turns paid when Stripe's signed confirmation arrives.
+- **Billing details**: legal name, address, country code, tax ID and billing email. They are printed on new invoices, the country and tax ID decide the tax, and reminders go to the billing email (or the school's admins).
+
+**How invoices are made**
+
+- **Choosing a plan** issues the first invoice. During a trial it's due when the trial ends; paying early keeps the rest of the trial. For a read-only school it's due today.
+- **Upgrading mid-period** issues an invoice for the price difference for the days left, due in 7 days. Paying it doesn't move the renewal date. Downgrades aren't billed until renewal.
+- **Renewals**: a daily job issues the next period's invoice 7 days before it's due (using a scheduled smaller plan if there is one). Only one invoice is ever made per period.
+- **Paying** a period invoice starts the paid period (P11's renewal).
+- **Payment reminders** by email, each sent once: 3 days before, on the due date, then 3 and 7 days late. The last one says the school will become read-only. After the 7 days' grace, P11 makes the school read-only automatically until it pays.
+- **Tax**: rules by country (for example GB VAT 20%). "Reverse charge" means a school that gives a tax ID pays no tax, and the invoice says so. Amounts are rounded to the cent.
+
+**Platform owner** (All Schools page)
+
+- Every school's invoices, filtered by open, overdue, paid or cancelled.
+- **Mark paid** (with the bank reference) and **Cancel**. A paid invoice can't be cancelled.
+- **Run billing now** (the same as the daily job).
+- **Tax on invoices**: add or remove country rules.
+- Every payment is written into the school's subscription history, with its reference.
+
+**Built**
+
+- Backend:
+  - `TaxRule` and `PlatformInvoice` (billing migration `0003`);
+  - `invoicing.py`: billing details, tax, issuing, proration, upcoming invoices, paying, cancelling, reminders and the daily run;
+  - `stripe_platform.py`: Checkout with the platform's own keys, reusing the Stripe helpers from fees;
+  - `invoice_api.py`: details, invoices, invoice, pay, the signed Stripe webhook, and the platform invoices, actions, run and tax endpoints;
+  - the command `run_platform_billing`;
+  - choosing a plan now bills it.
+- Frontend:
+  - `components/billing/InvoicesPanel.tsx` (invoices, pay, bank details, billing details);
+  - `pages/settings/InvoicePrintPage.tsx`;
+  - `components/platform/PlatformInvoices.tsx` (invoices, run billing, tax rules).
+- Deployment: the new `PLATFORM_*` settings are declared in `render.yaml`, and the daily job is added to the checklist.
+- Tests:
+  - `backend/tests/test_platform_invoices.py` has 5 new tests:
+    - billing details and tax, including reverse charge and one invoice per period;
+    - choosing a plan bills, and paying early keeps the trial;
+    - a read-only school gets bank details, then a signed Stripe webhook marks the invoice paid and opens the school again (a bad signature is refused);
+    - the upgrade difference, renewals and the four reminders;
+    - the platform owner marks paid, cancels, runs billing and sees the reference in the history.
+  - Passing: these plus the P11 tests (10 passed).
+  - The full backend suite after P11: 273 passed. The only failure is the one that already failed before (the leave-approval manager test).
+- Browser check on the demo school (the database was restored afterwards):
+  - the platform owner added GB VAT 20%, and the school saved its billing details;
+  - choosing Starter gave "Invoice PI-2026-00001 (USD 58.80) is ready";
+  - the printable invoice showed $49.00 plus VAT 20% ($9.80) = $58.80, due 26 Oct 2026, billed to "CodeCortex Model School Ltd";
+  - the platform owner marked it paid with reference TRF-2026-09-26, and the school was then "Active, paid until 25 Nov 2026".
   - No page errors.
 
-**Still yours** (in the checklist):
-- per school: the Twilio details (and a WhatsApp-enabled number with approved templates, if WhatsApp is wanted);
-- set `PUBLIC_API_URL` for delivery reports;
-- check the wording of the automatic messages.
+---
 
+## P13: Full School Export and End-of-Contract Deletion ✅
 
-Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
+**What a school can now do** (Settings → Security & privacy → **Data export & deletion**, administrators)
 
+- **Export all school data**: a complete copy of every record in every module (students and families, staff, classes, attendance, marks, fees and payments, messages, library, transport, cafeteria, inventory, imports and more), plus everyone who can sign in. It comes in three formats:
+  - **CSV files**: one file per kind of record, plus uploaded documents and photos, in a zip;
+  - **Excel workbook**: one sheet per kind of record;
+  - **JSON**: for moving to another system, plus uploaded files, in a zip.
 
-Yes.  treate above  **22 modules as Phase 1 / current priority**, and then removed those areas from the broader roadmap. The following are the **remaining upgrade areas** that should come after the first 22, while keeping the same format and style. These are based on the additional roadmap items in your uploaded plan, especially foundations, SaaS operations, mobile, internationalization, compliance, security, integrations, and launch requirements. 
+  Every export has a manifest (record counts) and a README explaining how the IDs link records. Passwords, sign-in secrets and integration keys are never included. Past exports are listed and kept for 7 days, then removed.
+- **Delete the school's data** when the contract ends:
+  - type the school's name to confirm (and optionally a reason);
+  - the deletion happens **30 days later**, and the office can cancel until then;
+  - a red notice shows the date, who asked, and whether an export was made first;
+  - asking and exporting still work when the school is read-only.
+- **On the date** (a daily job), everything that belongs only to this school is deleted:
+  - every record in every module, uploaded files, the activity log, sign-in history and exports;
+  - every sign-in account that belongs only to this school. Accounts that also work at another school, and the platform owner, are kept.
 
-## Remaining plan by priority (rearranged 26 Sep 2026, after phase 22)
+  The school row stays as an empty, inactive "Deleted school (CODE)" so that the platform's invoices and the proof remain.
+
+**Platform owner** (All Schools page → Data deletions)
+
+- Every request, with its status (scheduled, cancelled, deleted), who asked, the date and the reason.
+- **Delete now**: carry out a scheduled deletion early, typing the school's name again.
+- **Certificate of data deletion**: when, by whom, at whose request, and how many records, files and accounts were deleted, with a breakdown by kind. It can be printed.
+
+**Built**
+
+- Backend:
+  - new app `services/core/portability`:
+    - `SchoolExport` and `SchoolDeletion` (migration `0001`);
+    - `data.py`: every record of a school from the tenant registry, the CSV, JSON and Excel builders, and the purge;
+    - `api.py` and `urls.py` (`/api/v1/portability/`: overview, exports, download, deletion; certificate; the platform list and purge);
+    - the command `run_data_lifecycle`;
+  - export and deletion addresses are allowed while a school is read-only.
+- Frontend:
+  - `components/security/DataPanel.tsx` (a new Security & privacy tab);
+  - `components/platform/PlatformDeletions.tsx` (with the certificate);
+  - `services/portability.service.ts`;
+  - a search shortcut.
+- Fixed on the way: P12's invoices section on the All Schools page had been placed inside the price-list box. It now sits on its own, with the deletions below it.
+- Tests:
+  - `backend/tests/test_portability.py` has 3 new tests:
+    - the full export in each format (only this school's records, no password columns, who may download, expiry after 7 days);
+    - end-of-contract deletion (confirmation, cancel, reschedule, the platform owner deleting early; records, files, logs and single-school accounts gone; a shared account, the platform owner, the platform invoices and the other school kept; the certificate);
+    - the daily job deletes on the date.
+  - Passing: these plus the billing, invoice and security tests (21 passed), and the frontend type check.
+- Browser check on the demo school (the database was restored afterwards):
+  - the CSV zip (318 KB) and the Excel workbook (674 KB) each held 7,921 records and 246 people;
+  - a wrong school name kept the delete button disabled;
+  - scheduling showed "deleted on 26 Oct 2026", and cancel worked;
+  - after scheduling again, the platform owner's **Delete now** produced the certificate: 8,061 records, 2 uploaded files and 245 sign-in accounts deleted.
+  - No page errors.
+
+---
+
+## P14: Privacy Documents, Consent and Breach Response ✅
+
+**Legal documents**
+
+- **Public pages**, linked from the sign-in page: `/legal/privacy`, the platform's privacy notice; `/legal/terms`, the terms of use; `/legal/subprocessors`; `/legal/school/CODE`, a school's own privacy notice.
+- Until the platform owner publishes, the privacy and terms pages show a **starting template**, marked as needing review by a lawyer.
+- The **platform owner** reviews and publishes new versions (All Schools → Privacy notice and terms). The **school office** writes and publishes its own notice from a template with the school's name filled in (Security & privacy → Privacy & consent), and sees how many people have accepted each document.
+- **Acceptance**: after a new version is published, everyone is shown it when they next sign in and must accept it to continue, with a note of what changed. The acceptance and IP address are recorded.
+
+**Consent**
+
+- Each school has consent questions. Two come ready: **Photos and videos**, asked for each child; **Anonymous usage statistics**, asked of each person. The office can add more (for example "School trips").
+- **Privacy & consent** is a new page for parents, students and staff (in the Account section of the menu). Parents answer Yes or No for each child, can change their mind at any time, and see the history of each answer.
+- If the office changes a question's wording, earlier answers are flagged and the family is asked again.
+- **Report** for the office: yes, no and not answered for every student (or person), with who answered and when, and a CSV download.
+- **Teachers see "No photos"** next to a child on the class roster and on the student profile when the family said no.
+
+**Privacy requests**
+
+- From Privacy & consent, anyone can ask the school to **see a copy** of their data, **correct** it, **limit** or **object to** its use, or **erase** it, for themselves or one of their children.
+- Each request has a due date **one month** later. The office sees open requests with the deadline (overdue ones in red), replies, and marks them handled, completed or refused. Refusing needs a reason.
+- The requester sees the status and the reply.
+
+**Breach response**
+
+- **Sub-processors**: the platform owner keeps the list (company, purpose, data, location, optional), and the public page shows it. It starts with the services this system is built to use: Render, Vercel, Stripe, OpenAI, Anthropic, Google, Microsoft and Twilio. Their locations are for the platform owner to fill in for their own accounts.
+- **Report a problem** (school office): for example a lost device or an email to the wrong family. It creates an incident (INC-2026-001…) that the platform owner sees straight away.
+- **Incident register** (platform owner):
+  - severity, status, affected schools, data affected and number of people;
+  - the **72-hour regulator deadline**, shown in red when overdue, with a "Regulator told now" record;
+  - an 8-step **playbook** (contain, assess, record, regulator, schools, people, fix, review);
+  - a **timeline** of notes;
+  - **Tell affected schools**: emails each affected school's administrators and billing contact, and records it.
+- Privacy actions (consent, requests) keep working when a school is read-only, and the P13 export and deletion now include the privacy records.
+
+**Built**
+
+- Backend:
+  - new app `services/core/privacy`:
+    - `LegalDocument`, `DocumentAcceptance`, `ConsentType`, `ConsentRecord`, `PrivacyRequest`, `SubProcessor`, `Incident` and `IncidentUpdate` (migrations `0001`, and `0002` for the starting sub-processor list);
+    - `service.py`: templates, pending documents, current answers, photo consent, the playbook, telling schools;
+    - `api.py` and `urls.py` (`/api/v1/privacy/`);
+  - `privacy/` allowed while read-only;
+  - export and deletion cover the privacy records.
+- Frontend:
+  - `pages/LegalPage.tsx` (public);
+  - `components/privacy/AcceptanceGate.tsx` (in the main layout);
+  - `pages/PrivacyConsentPage.tsx` (`/privacy`);
+  - `components/privacy/PrivacyAdminPanel.tsx` (a new Security & privacy tab);
+  - `components/platform/PlatformPrivacy.tsx`;
+  - `components/privacy/PhotoConsent.tsx` (on the roster and the profile);
+  - links on the sign-in page;
+  - the menu item, translated into all 23 languages.
+- Tests:
+  - `backend/tests/test_privacy.py` has 5 new tests:
+    - documents are published and accepted (template, platform and school versions, re-asking after a new version, the public sub-processor page);
+    - consent per child and the report (only for your own children; history; teachers' photo flags; CSV; wording changes flag old answers; new questions);
+    - privacy requests (deadline, refusing needs a reason, the reply reaches the requester, overdue);
+    - incidents (school report, status and severity, playbook, emailing the schools, the 72-hour flag);
+    - the export and deletion cover consent.
+  - Passing: these plus the portability and billing tests (13 passed), the locale test and the frontend type check.
+- A bug caught during the work: the photo flags came back as "not asked" for everyone because the answers were looked up by the wrong kind of ID. It is fixed and tested.
+- Browser check on the demo school (the database was restored afterwards):
+  - the sign-in page links worked, and the public privacy page showed the template;
+  - the sub-processors page listed the 8 services;
+  - the platform owner published the privacy notice, and the office published the school's notice;
+  - the parent was asked to accept both, then answered "No" to photos for a child and sent a correction request, which the office completed with a reply;
+  - the consent report showed 0 yes, 1 no and 119 not answered;
+  - the office reported "Email sent to the wrong family" (INC-2026-001), and the platform owner ticked the first playbook step and told the school by email, which the timeline recorded;
+  - on the teacher's roster, "No photos" showed next to the child who had no photo consent.
+  - No page errors.
+
+---
+
+# Part C — P15–P17: Remaining Tier 1 (IN PROGRESS / NEXT)
+
+Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then deploy, then test on the live site. P10 to P14 were done first by mistake; P1 to P9 follow now, then P15 to P17.
+
+| Order | Item | Status |
+| ---: | --- | --- |
+| **P15** | Help centre and support tickets | ⏳ In progress |
+| **P16** | Automated SMS and WhatsApp | Next |
+| **P17** | Retention by record type | Next |
+
+---
+
+## P15: Help Centre and Support Tickets ⏳ In Progress
+
+**Original roadmap reference:** Items 29, 30.
+
+**Current state:** No centralized help system; support handled manually.
+
+**Upgrade to:** Integrated help centre and professional support management.
+
+**What to do:**
+
+- **Help centre**: searchable help articles, role-based guides, FAQs, tutorials, videos, module documentation.
+- **Support tickets**: tickets with priority levels, ticket status, SLA, staff assignment, canned responses, ticket history.
+
+**Why it matters:**
+
+- Schools need to find answers without contacting support for every question.
+- Support needs a structured way to track, prioritize and resolve issues.
+- Reduces support load and improves response times.
+
+**Suggested position:** With 29/30 (Tier 1).
+
+---
+
+## P16: Automated SMS and WhatsApp ⏳ Next
+
+**Original roadmap reference:** Item 33.
+
+**Current state:** WhatsApp/manual communication.
+
+**Upgrade to:** Automated messaging infrastructure.
+
+**What to do:**
+
+- Attendance alerts, fee reminders, admission updates, emergency alerts.
+- SMS templates, WhatsApp Business integration.
+- Delivery status tracking.
+- Builds on Phase 7 (Communication).
+
+**Why it matters:**
+
+- Parents expect timely, automated alerts about their children.
+- Manual messaging does not scale.
+- Delivery confirmation ensures critical messages arrive.
+
+**Suggested position:** With 33 (Tier 1).
+
+---
+
+## P17: Retention by Record Type ⏳ Next
+
+**Original roadmap reference:** Rest of 61.
+
+**Current state:** Records retained without configurable policies.
+
+**Upgrade to:** Configurable data retention.
+
+**What to do:**
+
+- Retention rules by record type (students who left, old invoices, messages).
+- Automatic archival, anonymization, deletion jobs.
+- School-specific retention policies.
+- Extends Phase 21's log retention.
+
+**Why it matters:**
+
+- Privacy laws require data minimization and retention limits.
+- Schools need to keep records for different periods depending on type.
+- Reduces data breach risk by not keeping data longer than needed.
+
+**Suggested position:** With 61 (Tier 1).
+
+---
+
+# Part D — Tier 2: Growth and Daily-Use Quality (PENDING)
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P18** | Installable web app and offline attendance [42, 44] | App manifest, icons, offline shell, push notifications. Teachers can mark attendance offline and it syncs later. |
+| **P19** | Pilot schools and feedback loop [M17, M16, 81] | 3–5 pilot schools, feedback collection, 30/60/90-day check-ins. |
+| **P20** | Product analytics, release notes, status page [37, 39, 36] | Feature use per school (without tracking students), a What's New page, and a public status page. |
+| **P21** | Accessibility audit [69, 70] | Full WCAG 2.1 AA check of every page (Phase 22 covered navigation), then a conformance report (VPAT). |
+| **P22** | Sales CRM and market pages [38, 80, M18] | Leads, demos and trials pipeline, pricing pages, demo school, case studies. |
+| **P23** | Public API and webhooks [40, 41] | Per-school API keys, rate limits and documentation. Webhooks for student, attendance, payment and admission events, with retries and delivery logs. |
+
+**What changed the order:** Growth and daily-use quality come after the first paying schools are live and stable. These items improve retention and reduce support burden.
+
+---
+
+# Part E — Tier 3: When Entering a New Country (PENDING)
+
+Do the items for a market only when a school there is signing.
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P24** | International academic structures [50] | UK Year groups, US grades, European grading scales and Pakistani boards as configurable presets. |
+| **P25** | Remaining localisation [rest of 47–49, 51, M11] | Translation management, number formats, daylight-saving checks, country legal texts. |
+| **P26** | EU and UK readiness [65, 52 (EU region), 66] | EU data region, DPA and DPIA support, UK Children's Code, AI transparency. |
+| **P27** | AI governance and privacy [78, 79] | AI on or off per school, usage limits, AI logs, teacher confirmation, data masking, zero-retention providers. |
+| **P28** | US readiness [67, 68, 74, 75] | FERPA and COPPA controls, directory information, disclosure logs, NDPA. Clever and ClassLink SSO, OneRoster. |
+| **P29** | Remaining Google and Microsoft [rest of 72, 73] | Account sync, calendar sync. |
+| **P30** | LMS and district data [76, 77] | LTI 1.3, Ed-Fi. |
+
+**Why this order:** Each item is only needed when a school in that market is signing. Doing them early wastes effort on requirements that may change.
+
+---
+
+# Part F — Tier 4: Enterprise Scale and Certification (PENDING)
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P31** | Native mobile apps [43, 45, 46, M12] | Parent, student and teacher apps. Apple and Google sign-in, biometrics. App-store privacy details and staged releases. |
+| **P32** | High availability and infrastructure as code [55, 54, 52] | Several app instances, CDN, object storage, Terraform, regional deployments. |
+| **P33** | External penetration test [M6] | Before international expansion, after P6–P9. |
+| **P34** | Trust centre and incident management [82, 83] | Public security and privacy page, on-call runbooks, affected-school notifications. |
+| **P35** | ISO 27001 / SOC 2 and continuous compliance [71, 84, M7, 60 (immutable records)] | Policies, staff training, access reviews, yearly tests and reviews. |
+
+**Why this order:** Enterprise scale and certification come when the business has enough enterprise customers to justify the cost.
+
+---
+
+# Part G — Original Roadmap Reference Table (Phases 23–84)
 
 The 23–84 list and the missing items M1–M19 (below) are put in order of urgency, based on what phases 1–22 already built and what the live site showed. Numbers in brackets are the original item numbers. The original table stays below for reference.
 
-**What changed the order**
+**What changed the order:**
+
 - **Some items are already largely done** by phases 1–22:
   - multi-school separation (23);
   - languages, currencies, time zones and region wording (47–49, 51);
@@ -2494,185 +2286,106 @@ Do the items for a market only when a school there is signing.
 | **P34** | Trust centre and incident management [82, 83] | Public security and privacy page, on-call runbooks, affected-school notifications. |
 | **P35** | ISO 27001 / SOC 2 and continuous compliance [71, 84, M7, 60 (immutable records)] | Policies, staff training, access reviews, yearly tests and reviews. |
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### Progress: Tier 0 and Tier 1
-
-The notes for each finished item are in the **Progress log**, after Phase 22.
-
-Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then deploy, then test on the live site. P10 to P14 were done first by mistake; P1 to P9 follow now, then P15 to P17.
-
-| Order | Item | Status |
-| ---: | --- | --- |
-| **P1** | Production readiness | ✅ Done |
-| **P2** | Database safety and backups | ✅ Done (switching to a paid database is yours: see the checklist) |
-| **P3** | Password reset and transactional email | ✅ Done (sending-domain DNS is yours: see the checklist) |
-| **P4** | Error tracking and uptime monitoring | ✅ Done |
-| **P5** | Test-and-deploy pipeline and staging | ✅ Done |
-| **P6** | Web security hardening and rate limits | ✅ Done |
-| **P7** | Secrets and default passwords | ✅ Done |
-| **P8** | Two-step sign-in for administrators | ✅ Done |
-| **P9** | Dependency and code scanning | ✅ Done |
-| **P10** | School onboarding and data import | ✅ Done |
-| **P11** | SaaS plans and subscriptions | ✅ Done |
-| **P12** | Platform payments and invoices | ✅ Done |
-| **P13** | Full school export and end-of-contract deletion | ✅ Done |
-| **P14** | Privacy documents, consent and breach response | ✅ Done |
-| **P15** | Help centre and support tickets | ✅ Done |
-| **P16** | Automated SMS and WhatsApp | ✅ Done |
-| **P17** | Retention by record type | ⏳ In progress |
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### Next step
 
 Start with **P1–P4**. They protect real data and make problems visible. P3 also fixes the broken "Forgot password?". P5–P9 follow, and together they are the minimum before a paying school goes live.
 
-## Next Phase — Remaining Upgradation Plan
+---
 
-|  **#** | **Phase**          | **Module**                                 | **Current Pakistani-Style System**                   | **Upgrade to International Standard**        | **Key Features to Implement**                                                                                                                            | **Priority**                 |
-| -----: | ------------------ | ------------------------------------------ | ---------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| **23** | **Platform**       | **Multi-School / Multi-Tenancy**           | Basic school separation                              | **Enterprise Multi-Tenant Architecture**     | School-level data isolation, school registry, school-specific configuration, school codes, tenant scoping, regional deployment, school-specific settings | 🔴 **23 — First Next Phase** |
-| **24** | **Platform**       | **Subscription & SaaS Plans**              | No complete school subscription system               | **School SaaS Subscription Management**      | Starter/Standard/Premium/Enterprise plans, student limits, module limits, trials, renewals, upgrades/downgrades, subscription status                     | 🔴 **24**                    |
-| **25** | **Platform**       | **Online Payment Gateway**                 | Local/manual payments                                | **International Payment Infrastructure**     | International cards, payment gateway integration, recurring payments, payment webhooks, payment verification, failed-payment handling                    | 🔴 **25**                    |
-| **26** | **Platform**       | **School Billing / Subscription Invoices** | Student fee invoices only                            | **SaaS Billing & Invoicing**                 | Platform subscription invoices, downloadable invoices, payment history, billing statements, tax information, renewal dates                               | 🔴 **26**                    |
-| **27** | **Operations**     | **Data Import / Migration**                | Manual data entry                                    | **Bulk Data Import System**                  | CSV/Excel import, students, parents, teachers, classes, fee balances, validation, duplicate detection, preview before import, error reports              | 🔴 **27**                    |
-| **28** | **Operations**     | **Data Export**                            | Individual module exports                            | **Complete School Data Export**              | CSV, Excel, PDF, JSON, complete school backup/export, module-wise export, filtered exports                                                               | 🔴 **28**                    |
-| **29** | **Operations**     | **Help Centre / Knowledge Base**           | No centralized help system                           | **Integrated Help Centre**                   | Searchable help articles, role-based guides, FAQs, tutorials, videos, module documentation                                                               | 🟠 **29**                    |
-| **30** | **Operations**     | **Support & Ticketing**                    | Support handled manually                             | **Professional Support Management**          | Support tickets, priority levels, ticket status, SLA, staff assignment, canned responses, ticket history                                                 | 🟠 **30**                    |
-| **31** | **Operations**     | **In-App Help & Onboarding**               | Users learn system manually                          | **Guided Product Onboarding**                | Setup checklist, guided tours, contextual help, first-login wizard, onboarding progress, role-based guidance                                             | 🟠 **31**                    |
-| **32** | **Operations**     | **Email Infrastructure**                   | Basic email/notifications                            | **Professional Transactional Email System**  | Password reset emails, invoice emails, notices, verification emails, SPF, DKIM, DMARC, email templates, delivery tracking                                | 🟠 **32**                    |
-| **33** | **Operations**     | **SMS / WhatsApp Integration**             | WhatsApp/manual communication                        | **Automated Messaging Infrastructure**       | Attendance alerts, fee reminders, admission updates, emergency alerts, SMS templates, WhatsApp Business integration, delivery status                     | 🟠 **33**                    |
-| **34** | **Operations**     | **Error Tracking**                         | Errors handled through development logs              | **Centralized Application Error Monitoring** | Frontend errors, backend errors, error grouping, stack traces, school/user context, alerts, production error history                                     | 🟠 **34**                    |
-| **35** | **Operations**     | **System Monitoring & Logging**            | Basic application monitoring                         | **Production Monitoring Platform**           | Uptime monitoring, API response time, database health, queue monitoring, server health, centralized logs, alerts                                         | 🟠 **35**                    |
-| **36** | **Operations**     | **Status Page**                            | No public service status                             | **Public System Status Platform**            | Service availability, incidents, maintenance notices, uptime history, incident updates                                                                   | 🟠 **36**                    |
-| **37** | **Operations**     | **Product Analytics**                      | Basic/general reports                                | **Product Usage Analytics**                  | Module usage, active schools, active users, feature adoption, usage trends, retention analytics without unnecessary student tracking                     | 🟠 **37**                    |
-| **38** | **Operations**     | **Customer / School CRM**                  | No structured customer management                    | **School Customer Relationship Management**  | Leads, demos, prospects, trials, onboarding status, renewals, customer notes, sales pipeline                                                             | 🟡 **38**                    |
-| **39** | **Operations**     | **Release Notes / Updates**                | Updates communicated manually                        | **Product Update Centre**                    | What's New, version history, feature announcements, update notifications, release notes by module                                                        | 🟡 **39**                    |
-| **40** | **API**            | **Public API**                             | Internal APIs mainly                                 | **Developer API Platform**                   | API keys per school, authentication, documented endpoints, rate limits, API versioning, developer documentation                                          | 🟡 **40**                    |
-| **41** | **API**            | **Webhooks**                               | Limited/no external event system                     | **Event-Based Webhook System**               | Student events, attendance events, payment events, admission events, webhook subscriptions, retry mechanism, delivery logs                               | 🟡 **41**                    |
-| **42** | **Mobile**         | **Progressive Web App**                    | Desktop/browser-focused system                       | **Installable PWA**                          | App manifest, icons, splash screen, service worker, offline app shell, add-to-home-screen, push notifications                                            | 🟡 **42**                    |
-| **43** | **Mobile**         | **Native Mobile Applications**             | No complete native apps                              | **iOS & Android School Apps**                | Parent app, student app, teacher app, push notifications, attendance, fees, grades, homework, messages, calendar                                         | 🟡 **43**                    |
-| **44** | **Mobile**         | **Offline Attendance**                     | Attendance requires active connection                | **Offline-First Teacher Attendance**         | Mark attendance without internet, local storage, synchronization, conflict handling, sync status                                                         | 🟡 **44**                    |
-| **45** | **Mobile**         | **Mobile Authentication**                  | Standard login                                       | **Modern Mobile Authentication**             | School login, Google login, Apple Sign-In, biometric session unlock, secure token storage, account recovery                                              | 🟡 **45**                    |
-| **46** | **Mobile**         | **Mobile Account Management**              | Account management mainly web-based                  | **Mobile Self-Service Account Controls**     | Account deletion request, session management, notification preferences, privacy settings                                                                 | 🟡 **46**                    |
-| **47** | **International**  | **Multi-Language System**                  | Mainly English/Pakistani terminology                 | **International Language Support**           | English UK/US, Urdu, Arabic RTL, French, German, Spanish, translation files, translation management                                                      | 🟢 **47**                    |
-| **48** | **International**  | **Currency & Regional Settings**           | Pakistani Rupees/defaults                            | **Multi-Currency Regional System**           | PKR, USD, GBP, EUR and other currencies, ISO currency codes, smallest currency units, regional payment methods                                           | 🟢 **48**                    |
-| **49** | **International**  | **Time Zone & Date Localization**          | Pakistan-specific date/time                          | **Global Date & Time System**                | School time zone, local date format, number format, first day of week, daylight-saving handling                                                          | 🟢 **49**                    |
-| **50** | **International**  | **International Academic Systems**         | Pakistani academic structure                         | **Configurable Global Academic Structures**  | Academic years, terms, semesters, grading scales, UK Year system, US grades, European grading systems, Pakistani boards                                  | 🟢 **50**                    |
-| **51** | **International**  | **Regional Terminology**                   | Challan, Date Sheet, Award List etc.                 | **Country-Based Terminology System**         | Grade/Class/Year, Homeroom/Form/Section, Principal/Head Teacher, configurable terminology by country                                                     | 🟢 **51**                    |
-| **52** | **Infrastructure** | **Regional Cloud Deployment**              | Single-region deployment                             | **Multi-Region Cloud Architecture**          | Pakistan region, EU region, US region, region-specific databases/files/backups, school-region assignment                                                 | 🟢 **52**                    |
-| **53** | **Infrastructure** | **Disaster Recovery**                      | Basic backups                                        | **Enterprise Disaster Recovery**             | Encrypted backups, second-region backup, point-in-time recovery, RPO/RTO, quarterly restore testing, disaster recovery documentation                     | 🟢 **53**                    |
-| **54** | **Infrastructure** | **Infrastructure as Code**                 | Manual infrastructure configuration                  | **Automated Cloud Infrastructure**           | Terraform, repeatable environments, staging/production infrastructure, regional deployment automation                                                    | 🟢 **54**                    |
-| **55** | **Infrastructure** | **Scalable Application Architecture**      | Basic application deployment                         | **Highly Available Architecture**            | Managed PostgreSQL, Redis, object storage, CDN, multiple application instances, load balancing, auto-scaling                                             | 🟢 **55**                    |
-| **56** | **Security**       | **Advanced Authentication Security**       | Basic username/password                              | **Enterprise Authentication**                | MFA, TOTP, strong password policy, account lockout, session management, refresh-token rotation, sign-out-all-devices                                     | 🟢 **56**                    |
-| **57** | **Security**       | **Application Security**                   | Basic security controls                              | **Web Application Security Hardening**       | CSP, HSTS, secure CORS, frame protection, rate limiting, secure cookies, security headers                                                                | 🟢 **57**                    |
-| **58** | **Security**       | **Security Testing**                       | Development-level testing                            | **Continuous Security Testing**              | Dependency scanning, container scanning, code scanning, vulnerability monitoring, penetration testing                                                    | 🟢 **58**                    |
-| **59** | **Security**       | **Secrets & Credential Management**        | Credentials/configuration may be application-managed | **Enterprise Secrets Management**            | Secret manager, encrypted credentials, key rotation, secure API keys, removal of shared/default passwords                                                | 🟢 **59**                    |
-| **60** | **Security**       | **Audit & Compliance Infrastructure**      | Basic audit information                              | **Enterprise Audit Trail**                   | User actions, data access, administrative changes, support access, timestamps, IP/device information, immutable audit records                            | 🟢 **60**                    |
-| **61** | **Privacy**        | **Data Retention Management**              | Records retained without configurable policies       | **Configurable Data Retention**              | Retention rules by record type, automatic archival, anonymization, deletion jobs, school-specific retention policies                                     | 🟢 **61**                    |
-| **62** | **Privacy**        | **Privacy Rights Management**              | No complete privacy workflow                         | **Data Subject Rights Centre**               | Data export, correction, deletion/anonymization, restriction, request tracking, deadlines, privacy request history                                       | 🟢 **62**                    |
-| **63** | **Privacy**        | **Consent Management**                     | Limited consent controls                             | **Centralized Consent Management**           | Parent/student consent, optional services consent, analytics consent, photo/media consent, consent history and withdrawal                                | 🟢 **63**                    |
-| **64** | **Privacy**        | **Data Processing & Privacy Controls**     | Pakistan-focused privacy workflow                    | **International Privacy Compliance Layer**   | Privacy notices, DPA support, sub-processors, processing records, privacy-by-default settings, data minimization                                         | 🟢 **64**                    |
-| **65** | **Compliance**     | **EU / UK Compliance**                     | Not designed specifically for EU/UK requirements     | **GDPR / UK GDPR Readiness**                 | EU data region, DPA, DPIA support, data-subject rights, retention, breach procedures, UK Children's Code considerations                                  | 🟢 **65**                    |
-| **66** | **Compliance**     | **EU AI Governance**                       | AI features not region-controlled                    | **AI Governance & Human Oversight**          | AI feature controls per school, explainable AI decisions, teacher confirmation, AI logs, model documentation, AI disclosure                              | 🟢 **66**                    |
-| **67** | **Compliance**     | **US Student Privacy Compliance**          | Pakistan-focused privacy model                       | **FERPA / COPPA / State Privacy Readiness**  | Student-record controls, directory-information settings, disclosure logs, retention, no targeted advertising, school-purpose data use                    | 🟢 **67**                    |
-| **68** | **Compliance**     | **US School Data Agreements**              | No US-specific contracts                             | **US School Contract Framework**             | NDPA, state addenda, data privacy agreements, SLA, security documentation, school data processing terms                                                  | 🟢 **68**                    |
-| **69** | **Compliance**     | **Accessibility**                          | Accessibility not formally standardized              | **WCAG 2.1 AA Accessibility**                | Keyboard navigation, screen readers, contrast, focus states, captions, accessible forms, accessibility testing                                           | 🟢 **69**                    |
-| **70** | **Compliance**     | **Accessibility Certification**            | No formal accessibility documentation                | **Accessibility Conformance Reporting**      | VPAT/Accessibility Conformance Report, accessibility audit, documented compliance status                                                                 | 🟢 **70**                    |
-| **71** | **Compliance**     | **Security Certification**                 | No international certification                       | **ISO 27001 / SOC 2 Readiness**              | Security policies, access control, vendor management, incident response, evidence collection, audits and certification process                           | 🟢 **71**                    |
-| **72** | **Integrations**   | **Google Workspace Integration**           | Limited external integration                         | **Google Education Integration**             | Google login, Workspace integration, user synchronization, calendar/classroom integration where required                                                 | 🟢 **72**                    |
-| **73** | **Integrations**   | **Microsoft 365 / Entra Integration**      | Limited/no Microsoft integration                     | **Microsoft Education Integration**          | Microsoft login, Entra ID SSO, account synchronization, organization-based authentication                                                                | 🟢 **73**                    |
-| **74** | **Integrations**   | **US SSO Integrations**                    | Not designed for US school districts                 | **Clever / ClassLink SSO**                   | SAML/OIDC, district authentication, role mapping, secure school login                                                                                    | 🟢 **74**                    |
-| **75** | **Integrations**   | **Education Rostering**                    | Manual student/class enrollment                      | **Automated Education Rostering**            | OneRoster 1.2, students, teachers, classes, enrollments, synchronization, conflict handling                                                              | 🟢 **75**                    |
-| **76** | **Integrations**   | **LMS Integration**                        | No standardized LMS integration                      | **LTI 1.3 Integration**                      | LMS launch, secure authentication, course linking, assignment/learning-system integration                                                                | 🟢 **76**                    |
-| **77** | **Integrations**   | **District Data Integration**              | School-level data entry                              | **District-Level Education Integration**     | Ed-Fi support, district synchronization, centralized data exchange, standardized education data                                                          | 🟢 **77**                    |
-| **78** | **AI Governance**  | **AI Feature Controls**                    | AI features treated as general application features  | **Configurable AI Governance**               | AI enable/disable per school, AI usage limits, AI audit logs, human approval, AI transparency                                                            | 🟢 **78**                    |
-| **79** | **AI Governance**  | **AI Privacy & Data Controls**             | AI data controls limited                             | **Privacy-Preserving AI**                    | Data masking, restricted AI data sharing, zero-retention providers where available, regional AI processing                                               | 🟢 **79**                    |
-| **80** | **Business**       | **International Sales Infrastructure**     | Pakistan-focused sales                               | **Global School Sales System**               | Market-specific websites, international pricing, demo school, sales materials, trust centre, case studies                                                | 🟢 **80**                    |
-| **81** | **Business**       | **Customer Success**                       | Support after problems occur                         | **Structured Customer Success**              | Onboarding calls, 30/60/90-day check-ins, product usage alerts, renewal management, customer health                                                      | 🟢 **81**                    |
-| **82** | **Business**       | **Trust & Security Centre**                | Security information scattered                       | **Public Trust Centre**                      | Security overview, privacy documents, sub-processors, DPA, SOC 2/ISO status, VPAT, status page                                                           | 🟢 **82**                    |
-| **83** | **Business**       | **Incident Management**                    | Manual incident handling                             | **Enterprise Incident Response**             | On-call rotation, incident runbooks, escalation, affected-school notifications, post-incident reviews                                                    | 🟢 **83**                    |
-| **84** | **Business**       | **Continuous Compliance Management**       | Compliance handled when needed                       | **Continuous Compliance Program**            | Annual penetration testing, quarterly access reviews, restore tests, yearly DPIA review, vendor reviews, security training                               | 🟢 **84**                    |
+# Part H — Missing Items M1–M20
 
-### Final sequence
+| Missing # | Area | What is missing / should be added | Why it matters | Suggested position |
+| --- | --- | --- | --- | --- |
+| M1 | Core Product | Production Readiness / Core Functional Completion | LocalStorage migration, fixing broken buttons, removing placeholder actions, fixing known bugs and tests are not clearly represented as their own upgrade item. | Before 23 |
+| M2 | Infrastructure | Staging Environment | Separate staging environment with anonymized data is explicitly required in the full plan but not clearly represented in 23–84. | After 52 |
+| M3 | Infrastructure | Automated Backup & Restore Testing | Backups are mentioned inside Disaster Recovery, but the Lean plan specifically requires a restore test before the first paying school. | With 53 |
+| M4 | Security | Rate Limiting | Login, signup, password reset and AI endpoint rate limits are explicitly required but are not clearly named in the 23–84 list. | With 57 |
+| M5 | Security | Dependency / Container / Code Scanning | pip-audit, npm audit, Trivy and CodeQL are specifically mentioned in the full plan. | With 58 |
+| M6 | Security | External Penetration Testing | The Lean roadmap specifically includes an affordable external security test before international expansion. | With 58 |
+| M7 | Security | Security Policies & Staff Security Training | Required later for SOC 2/ISO and continuous compliance, but currently only partially covered. | With 71/84 |
+| M8 | Privacy | Sub-Processor Management | International privacy readiness requires maintaining a list of hosting, email, AI, support and analytics providers and managing changes. | With 64/65 |
+| M9 | Privacy | Breach Response & Notification | A dedicated breach-response workflow/playbook is not clearly represented in the 23–84 list. | With 64/65 |
+| M10 | Privacy | Contract-End Data Deletion | Exporting/deleting data at the end of a school's contract is specifically required. | With 61/62 |
+| M11 | International | Legal Documents by Country | Country/language-specific privacy notices, terms and legal texts are explicitly part of internationalization. | With 47–51 / 65 |
+| M12 | Mobile | App Store Compliance & Release Pipeline | Apple privacy details, Google Data Safety, age rating, privacy manifest and staged releases are separate operational requirements. | With 43–46 |
+| M13 | Payments | Failed Payment / Dunning Workflow | Payment retries/reminders and read-only/suspension rules are not fully represented by Online Payment Gateway + Subscription Billing. | With 24–26 |
+| M14 | Payments | Tax Handling | VAT, sales tax, tax IDs and regional tax handling are mentioned in the full roadmap but not explicitly in the 23–84 list. | With 25/26 or 48 |
+| M15 | Operations | School Onboarding / Migration Workflow | Import exists, but the complete onboarding process—setup checklist, configuration and guided setup—is broader. | With 27/31 |
+| M16 | Operations | Customer Feedback / Product Feedback Loop | The launch plan explicitly includes collecting pilot feedback and using it for product improvement. | With 80/81 |
+| M17 | Business | Pilot School Program | 3–5 pilot schools per new market are explicitly part of the launch strategy. | With 80 |
+| M18 | Business | Market-Specific Sales & Pricing | International websites, pricing pages, demos and case studies are mentioned, but this deserves a clearer sales-readiness item. | With 80 |
+| M19 | Operations | Release / Deployment Process | The Lean plan requires a regular tested production deployment and release-note workflow. | With 39 + 55 |
+| M20 | Business | Ongoing Vendor / Third-Party Review | Sub-processors, support tools, AI providers, hosting and analytics need recurring review. | With 82–84 |
 
-So your overall roadmap becomes:
+---
 
-**1–22:** Core school-system modernization
-**23–46:** SaaS platform, operations, APIs and mobile
-**47–55:** Internationalization and infrastructure
-**56–64:** Security and privacy
-**65–71:** International compliance and accessibility
-**72–77:** International education integrations
-**78–79:** AI governance
-**80–84:** International business, customer success and continuous operations
+# Part I — Final Sequence Overview
 
-This keeps your original **22 modules untouched** and puts the additional work into the **next upgrade phase**, rather than repeating Student Records, Admissions, Billing, Attendance, Academics, Gradebook, Communication, Calendar, etc. The source roadmap specifically identifies foundations, SaaS billing, support/operations, mobile, internationalization, EU/UK compliance, US compliance, integrations, and launch/scale as additional work beyond the core product modules.   
+So the overall roadmap becomes:
 
+- **1–22:** Core school-system modernization (COMPLETED)
+- **P1–P9:** Tier 0 — Critical production readiness (COMPLETED)
+- **P10–P14:** Tier 1 (first part) — SaaS business readiness (COMPLETED)
+- **P15–P17:** Tier 1 (remaining) — Help, SMS, Retention (IN PROGRESS / NEXT)
+- **P18–P23:** Tier 2 — Growth and daily-use quality (PENDING)
+- **P24–P30:** Tier 3 — When entering a new country (PENDING)
+- **P31–P35:** Tier 4 — Enterprise scale and certification (PENDING)
 
+This keeps the original **22 modules untouched** and puts the additional work into the **next upgrade phase**, rather than repeating Student Records, Admissions, Billing, Attendance, Academics, Gradebook, Communication, Calendar, etc.
 
+---
 
+# Part J — Deployment Checklist (Remaining Items)
 
-Missing items from the current 1–84 overall plan
-Missing #	Area	What is missing / should be added	Why it matters	Suggested position
-M1	Core Product	Production Readiness / Core Functional Completion	LocalStorage migration, fixing broken buttons, removing placeholder actions, fixing known bugs and tests are not clearly represented as their own upgrade item.	Before 23
-M2	Infrastructure	Staging Environment	Separate staging environment with anonymized data is explicitly required in the full plan but not clearly represented in 23–84.	After 52
-M3	Infrastructure	Automated Backup & Restore Testing	Backups are mentioned inside Disaster Recovery, but the Lean plan specifically requires a restore test before the first paying school.	With 53
-M4	Security	Rate Limiting	Login, signup, password reset and AI endpoint rate limits are explicitly required but are not clearly named in the 23–84 list.	With 57
-M5	Security	Dependency / Container / Code Scanning	pip-audit, npm audit, Trivy and CodeQL are specifically mentioned in the full plan.	With 58
-M6	Security	External Penetration Testing	The Lean roadmap specifically includes an affordable external security test before international expansion.	With 58
-M7	Security	Security Policies & Staff Security Training	Required later for SOC 2/ISO and continuous compliance, but currently only partially covered.	With 71/84
-M8	Privacy	Sub-Processor Management	International privacy readiness requires maintaining a list of hosting, email, AI, support and analytics providers and managing changes.	With 64/65
-M9	Privacy	Breach Response & Notification	A dedicated breach-response workflow/playbook is not clearly represented in the 23–84 list.	With 64/65
-M10	Privacy	Contract-End Data Deletion	Exporting/deleting data at the end of a school's contract is specifically required.	With 61/62
-M11	International	Legal Documents by Country	Country/language-specific privacy notices, terms and legal texts are explicitly part of internationalization.	With 47–51 / 65
-M12	Mobile	App Store Compliance & Release Pipeline	Apple privacy details, Google Data Safety, age rating, privacy manifest and staged releases are separate operational requirements.	With 43–46
-M13	Payments	Failed Payment / Dunning Workflow	Payment retries/reminders and read-only/suspension rules are not fully represented by Online Payment Gateway + Subscription Billing.	With 24–26
-M14	Payments	Tax Handling	VAT, sales tax, tax IDs and regional tax handling are mentioned in the full roadmap but not explicitly in the 23–84 list.	With 25/26 or 48
-M15	Operations	School Onboarding / Migration Workflow	Import exists, but the complete onboarding process—setup checklist, configuration and guided setup—is broader.	With 27/31
-M16	Operations	Customer Feedback / Product Feedback Loop	The launch plan explicitly includes collecting pilot feedback and using it for product improvement.	With 80/81
-M17	Business	Pilot School Program	3–5 pilot schools per new market are explicitly part of the launch strategy.	With 80
-M18	Business	Market-Specific Sales & Pricing	International websites, pricing pages, demos and case studies are mentioned, but this deserves a clearer sales-readiness item.	With 80
-M19	Operations	Release / Deployment Process	The Lean plan requires a regular tested production deployment and release-note workflow.	With 39 + 55
-M20	Business	Ongoing Vendor / Third-Party Review	Sub-processors, support tools, AI providers, hosting and analytics need recurring review.
+These are the remaining deployment items after all 22 phases and P1–P14 are complete.
+
+- [ ] **Paid database and durable backups** (P2):
+  - move `erp-db` in `render.yaml` from `plan: free` to a paid plan (free Render databases expire);
+  - set `BACKUP_S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (a private bucket), plus `BACKUP_ENCRYPTION_KEY` (a Fernet key);
+  - add a daily cron job `python manage.py backup_database` and a weekly one `python manage.py backup_database --verify`;
+  - keep a copy of `BACKUP_ENCRYPTION_KEY` somewhere safe outside Render: without it, backups can't be opened.
+- [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
+  - `python manage.py send_scheduled_announcements`;
+  - `python manage.py send_calendar_reminders`;
+  - `python manage.py send_library_reminders`;
+  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
+  - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
+  - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
+- [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
+  - exam results readable and writable without signing in;
+  - the fee defaulter list public;
+  - the demo login endpoint;
+  - teachers with Django's staff flag treated as administrators.
+- [ ] **App addresses** on Render (now declared in `render.yaml`; enter the values in the Render dashboard):
+  - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
+  - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
+- [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
+- [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
+- [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
+- [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
+- [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
+- [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
+- [ ] **Pipeline and staging** (P5):
+  - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
+  - in Render → erp-backend → Settings, check that Auto-Deploy is "After CI checks pass". The blueprint sets it; older services may need it set by hand;
+  - optional staging: first set `BACKUP_ENCRYPTION_KEY` on the live site (so another site can read its backups); then in Render go to New → Blueprint → path `deploy/render-staging.yaml` and fill `STAGING_PASSWORD`, `STAGING_SOURCE_BACKUP=latest`, the backup bucket, the AWS keys, `BACKUP_ENCRYPTION_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`; in Vercel, set `VITE_API_URL` and `VITE_APP_ENV=staging` for the `staging` branch.
+- [ ] **Error alerts and uptime** (P4):
+  - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
+  - optionally set `SENTRY_DSN`;
+  - add a free uptime monitor (for example UptimeRobot) on `https://erp-backend-s5z7.onrender.com/api/v1/health/live/` and on the web app's address;
+  - after a push, check that the GitHub **Deploy check** turns green.
+- [ ] **Platform billing** (P12, declared in `render.yaml`):
+  - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
+  - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
+  - `PLATFORM_LEGAL_NAME`, `PLATFORM_ADDRESS` and `PLATFORM_TAX_ID` (printed on invoices);
+  - tax rules per country in the platform console.
+- [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
+- [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
+- [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.
+- [ ] **Demo school**: set up School Years and Terms, so Progress and term pages show real terms.
+- [ ] Later, with the mobile apps (phase 42–43): live GPS tracking of school buses.
+
+---
+
+**End of document.**

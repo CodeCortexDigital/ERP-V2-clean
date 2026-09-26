@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import api from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
 import security, { ActivityRow, Overview, Paged, Person, PersonAction, SecurityRules, SignInRow } from '@/services/security.service';
+import RetentionPanel from '@/components/security/RetentionPanel';
 import MySecurityPanel from '@/components/security/MySecurityPanel';
 import DataPanel from '@/components/security/DataPanel';
 import PrivacyAdminPanel from '@/components/privacy/PrivacyAdminPanel';
@@ -402,6 +403,7 @@ function RulesTab() {
     try { setRules((await security.saveSettings(rules)).settings); toast.success('Rules saved.'); } catch (e) { toast.error(errorText(e, 'Could not save.')); } finally { setSaving(false); }
   };
   return (
+    <div className="space-y-4">
     <div className={`${card} p-5 space-y-4`}>
       <div className="grid sm:grid-cols-2 gap-4">
         {RULES.map((r) => {
@@ -423,6 +425,8 @@ function RulesTab() {
           <span className="block text-xs font-normal text-slate-500">After their password, administrators also enter a code from an app on their phone. Those who haven't set it up are asked to at their next sign-in, and can't make changes until they have.</span></span>
       </label>
       <div className="flex justify-end"><button onClick={save} disabled={saving} className="auth-primary-btn w-auto px-6 disabled:opacity-50">{saving && <Loader2 className="w-4 h-4 animate-spin" />} Save rules</button></div>
+    </div>
+    <RetentionPanel />
     </div>
   );
 }

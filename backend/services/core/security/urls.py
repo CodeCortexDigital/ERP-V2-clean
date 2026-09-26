@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import api, setup_checks, twofactor_api
+from . import api, retention, setup_checks, twofactor_api
 
 urlpatterns = [
     path('rules/', api.rules_for_me),
@@ -21,6 +21,7 @@ urlpatterns = [
     path('emails/', api.email_log),
     path('me/deletion-request/', api.deletion_request),
     path('setup-checks/', setup_checks.setup_checks),
+    path('retention/', retention.retention_view),
     path('2fa/', twofactor_api.two_factor_status),
     path('2fa/setup/', twofactor_api.two_factor_setup),
     path('2fa/confirm/', twofactor_api.two_factor_confirm),
