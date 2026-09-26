@@ -69,6 +69,11 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Error alerts and uptime** (P4):
+  - set `ERROR_ALERT_EMAILS` on Render (comma-separated). Without it, alerts go to the superusers;
+  - optionally set `SENTRY_DSN`;
+  - add a free uptime monitor (for example UptimeRobot) on `https://erp-backend-s5z7.onrender.com/api/v1/health/live/` and on the web app's address;
+  - after a push, check that the GitHub **Deploy check** turns green.
 - [ ] **Platform billing** (P12, declared in `render.yaml`):
   - `PLATFORM_STRIPE_SECRET_KEY` and `PLATFORM_STRIPE_WEBHOOK_SECRET`, with the webhook address `…/api/v1/billing/stripe/webhook/` added in Stripe;
   - `PLATFORM_BANK_DETAILS` (shown for bank transfer);
@@ -1947,6 +1952,51 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - No page errors.
 
 
+### P4: Error tracking and uptime monitoring ✅
+
+**What changed**
+- **Every server error is recorded.** Any unhandled error in a request is saved with the page address, the school, the user, the version running and the full technical details. The same error happening again (even with a different student or number in the message) is **counted in one group**, not listed a thousand times.
+- **Browser errors too.** When a page breaks in someone's browser (a code error, or a section that fails to show), the app sends a short report to the server. Each distinct error is sent once per page load, at most 20 per session. Network drops and browser add-ons are ignored. Anyone can send a report, including people who are not signed in, but it is limited to 60 an hour per address.
+- **Email alert** to the platform owner when a new error appears, or when a resolved one comes back. At most one alert an hour per error. Alerts go to `ERROR_ALERT_EMAILS` if set, otherwise to the superusers.
+- **Errors panel** on the platform owner's All Schools page:
+  - open, resolved and ignored errors, server or browser, with how many times each happened and when it was last seen;
+  - click an error to see its latest cases with the details;
+  - **Mark resolved** (you hear again if it comes back), **Ignore** or **Reopen**.
+- **Optional Sentry**: set `SENTRY_DSN` (and install `sentry-sdk`) to also send server errors there. Without it, the built-in tracking is enough.
+- **A failed deploy is noticed the same day.**
+  - `/api/v1/health/version/` says which commit the live server runs.
+  - A new GitHub check (`.github/workflows/deploy-check.yml`) runs after every push to main. It waits up to 20 minutes for the live backend to run the new commit, and **fails** (GitHub emails the person who pushed) if it doesn't. Render keeps serving the old version when a deploy fails, which is why earlier failures went unnoticed.
+- **Still yours** (in the checklist):
+  - a free uptime monitor (for example UptimeRobot) on `/api/v1/health/live/` and on the site's address;
+  - setting `ERROR_ALERT_EMAILS`;
+  - optionally, `SENTRY_DSN`.
+
+**Built**
+- Backend:
+  - new app `services/core/errors`:
+    - `ErrorGroup` (migration `0001`);
+    - `capture.py` (grouping, alerts, optional Sentry), connected to Django's request-error signal;
+    - `api.py`: `/api/v1/errors/client/` (browser reports), `/api/v1/errors/` and `/api/v1/errors/<id>/` (platform owner only);
+  - `health/version/`.
+- Frontend:
+  - `utils/errorReporter.ts`;
+  - reporting from the global error handlers and the error boundary in `utils/errorHandler.tsx`;
+  - `components/platform/PlatformErrors.tsx`.
+- Tests:
+  - `backend/tests/test_errors.py` has 3 new tests:
+    - server errors are grouped and alerted once, and a resolved error that comes back reopens and alerts again;
+    - browser reports (grouped, limited per address, platform owner only, details, status checks);
+    - the version endpoint.
+  - The version endpoint was added to the public allow-list in `test_security.py`.
+  - All 3 passed.
+- Browser check on the demo school (the database was restored afterwards):
+  - an error thrown twice on the teacher's page sent **one** report;
+  - the teacher was refused the errors list (403);
+  - the platform owner's Errors panel showed the browser error (school and teacher named) and a server error;
+  - the details showed the stack;
+  - **Mark resolved** moved it to the Resolved list.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2046,8 +2096,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P1** | Production readiness | ✅ Done |
 | **P2** | Database safety and backups | ✅ Done (switching to a paid database is yours: see the checklist) |
 | **P3** | Password reset and transactional email | ✅ Done (sending-domain DNS is yours: see the checklist) |
-| **P4** | Error tracking and uptime monitoring | ⏳ In progress |
-| **P5** | Test-and-deploy pipeline and staging | Next |
+| **P4** | Error tracking and uptime monitoring | ✅ Done |
+| **P5** | Test-and-deploy pipeline and staging | ⏳ In progress |
 | **P6** | Web security hardening and rate limits | Next |
 | **P7** | Secrets and default passwords | Next |
 | **P8** | Two-step sign-in for administrators | Next |

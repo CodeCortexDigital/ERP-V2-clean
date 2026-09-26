@@ -6,6 +6,7 @@ import PlatformInvoices from './PlatformInvoices';
 import PlatformDeletions from './PlatformDeletions';
 import PlatformPrivacy from './PlatformPrivacy';
 import PlatformBackups from './PlatformBackups';
+import PlatformErrors from './PlatformErrors';
 
 const card = 'bg-white rounded-xl border border-slate-200 shadow-sm';
 const input = 'rounded-lg border border-slate-300 px-2 py-1 text-sm';
@@ -101,6 +102,7 @@ export default function PlatformBilling() {
       </section>
       <PlatformInvoices />
       <PlatformDeletions />
+      <PlatformErrors />
       <PlatformBackups />
       <PlatformPrivacy />
     </div>

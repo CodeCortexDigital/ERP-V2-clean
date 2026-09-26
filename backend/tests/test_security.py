@@ -71,7 +71,7 @@ def sec(db):
 # ---- Closed doors ---------------------------------------------------------------------------------------------
 
 PUBLIC = [  # answers without sign-in on purpose
-    r'^/api/v1/health/(ready/|live/)?$', r'^/api/v1/auth/logout/$', r'^/api/v1/tenants/signup/config/$',
+    r'^/api/v1/health/(ready/|live/|version/)?$', r'^/api/v1/auth/logout/$', r'^/api/v1/tenants/signup/config/$',
     r'^/api/v1/communication/whatsapp/webhook/$', r'^/api/v1/billing/plans/$',
 ]
 

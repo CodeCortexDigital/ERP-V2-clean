@@ -2,6 +2,7 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import type { AxiosError, AxiosInstance } from 'axios';
 import { useAuthStore } from '@/store/authStore';
+import { reportError } from './errorReporter';
 
 type ApiErrorBody = {
   error?: string;
@@ -88,6 +89,7 @@ export function setupGlobalErrorHandlers() {
 
   window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
+    reportError(event.error || event.message);
     if (import.meta.env.DEV) {
       toast.error(event.message || 'Unexpected error');
     }
@@ -95,6 +97,8 @@ export function setupGlobalErrorHandlers() {
 
   window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled rejection:', event.reason);
+    // Failed API calls are already shown to the user and logged by the server; report only real code errors.
+    if (!(event.reason && (event.reason as any).isAxiosError)) reportError(event.reason, { kind: 'UnhandledRejection' });
   });
 }
 
@@ -120,6 +124,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
+    reportError(error, { component: (errorInfo.componentStack || '').trim().split(/\r?\n/)[0] });
   }
 
   handleRetry = () => {

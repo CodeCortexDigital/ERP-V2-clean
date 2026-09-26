@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'services.core.billing',
     'services.core.portability',
     'services.core.privacy',
+    'services.core.errors',
     
     # Education apps
     'services.education.academics',

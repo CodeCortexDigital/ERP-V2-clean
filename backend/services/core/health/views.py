@@ -2,6 +2,9 @@ from services.core.accounts.permissions import IsPlatformOwner
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.utils import timezone as _tz
+
+STARTED_AT = _tz.now().isoformat()
 from rest_framework import status
 
 from .utils import get_system_health
@@ -61,3 +64,15 @@ def detailed_health(request):
     """
     health_data = get_system_health()
     return Response(health_data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def version(request):
+    """The commit this server runs (Render sets RENDER_GIT_COMMIT). Used by the deploy check after each push (P4)."""
+    import os
+
+    from services.core.errors.capture import release
+
+    return Response({'commit': os.environ.get('RENDER_GIT_COMMIT') or os.environ.get('GIT_COMMIT') or '', 'short': release(),
+                     'started_at': STARTED_AT})
