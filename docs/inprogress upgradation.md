@@ -33,7 +33,7 @@ Each phase is marked done only after it passes its backend tests and a browser c
 These are done once, after all 22 modules are finished. Each phase adds to this list.
 
 - [x] **Push** `main` to GitHub so Render and Vercel redeploy. Done on 26 Sep 2026 (up to Phase 19, `9fcf1dc`).
-- [ ] **Migrate** on Render: `python manage.py migrate`. The new migrations:
+- [x] **Migrate** on Render: nothing to do by hand. The `render.yaml` start command runs `python manage.py migrate` on every deploy, so pushing applies them. The new migrations:
   - students `0009`–`0015`;
   - admissions `0003`;
   - finance `0015`;
@@ -45,8 +45,8 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - behaviour `0003`–`0004`;
   - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`;
   - audit `0004`, security `0001`, and the sign-out token tables (`token_blacklist`, from simplejwt).
-- [ ] **New Python package**: `segno` (library QR labels) is in `requirements.txt`. Check that Render installs it.
-- [ ] **Daily cron jobs on Render**:
+- [x] **New Python package**: `segno` (library QR labels) is in `requirements.txt`, which the Render build installs on every deploy.
+- [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
   - `python manage.py send_scheduled_announcements`;
   - `python manage.py send_calendar_reminders`;
   - `python manage.py send_library_reminders`;
@@ -56,11 +56,11 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the fee defaulter list public;
   - the demo login endpoint;
   - teachers with Django's staff flag treated as administrators.
-- [ ] **App addresses** on Render:
+- [ ] **App addresses** on Render (now declared in `render.yaml`; enter the values in the Render dashboard):
   - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
   - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
-- [ ] **Email** on Render: `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
 - [ ] **Card payments** (per school): Fees → Online Payments, paste the Stripe secret key and webhook signing secret, and add the webhook address shown there in Stripe.
 - [ ] **SMS** (per school): the Twilio SID, auth token, sending number and country code under Communication.
 - [ ] **Library barcodes**: scan a printed label with the school's own barcode scanner. They are unit-tested but not yet tried on a real scanner.

@@ -94,3 +94,25 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # App addresses (Microsoft sign-in, Google Classroom and email links). Set in the Render dashboard:
+      # FRONTEND_ORIGINS = the web app URL(s), comma-separated; PUBLIC_API_URL = this backend's https URL.
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      # Outgoing email (reminders, notices). Any SMTP service: Google Workspace, SendGrid, Mailgun...
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      # Optional: one Google Classroom app shared by every school (otherwise each school enters its own).
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
