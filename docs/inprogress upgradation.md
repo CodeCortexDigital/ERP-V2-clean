@@ -1470,6 +1470,93 @@ Next Phase — Remaining Upgradation Plan after completion of above 22 steps
 
 Yes.  treate above  **22 modules as Phase 1 / current priority**, and then removed those areas from the broader roadmap. The following are the **remaining upgrade areas** that should come after the first 22, while keeping the same format and style. These are based on the additional roadmap items in your uploaded plan, especially foundations, SaaS operations, mobile, internationalization, compliance, security, integrations, and launch requirements. 
 
+## Remaining plan by priority (rearranged 26 Sep 2026, after phase 22)
+
+The 23–84 list and the missing items M1–M19 (below) are put in order of urgency, based on what phases 1–22 already built and what the live site showed. Numbers in brackets are the original item numbers. The original table stays below for reference.
+
+**What changed the order**
+- **Some items are already largely done** by phases 1–22:
+  - multi-school separation (23);
+  - languages, currencies, time zones and region wording (47–49, 51);
+  - account lockout and sign out everywhere (most of 56);
+  - the audit trail (60);
+  - retention for logs (61);
+  - data download and deletion requests (part of 62);
+  - Microsoft and Google Classroom (part of 72–73);
+  - accessible navigation (part of 69).
+
+  Only what's missing from these remains.
+- **The live site went weeks without deploying and nobody noticed.** Monitoring and a test-and-deploy check move to the top.
+- **"Forgot password?" is broken.** The sign-in page calls an address the server doesn't have (it answers 404), so users can't reset their own password. Password-reset email moves to the top.
+- **The database is on Render's free PostgreSQL, which expires.** The app then falls back to a temporary file, which is lost on restart. No backups exist. This must be fixed before any real school's data goes in.
+- **Phase 21 found many endpoints open to anyone.** The same check is still needed for signed-in people reaching other roles' data, for example a parent calling admin endpoints.
+
+### Tier 0: Critical, before any real school's data goes in
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P1** | Production readiness [M1] | Check every endpoint as each role (parent, student, teacher, staff) for data they shouldn't reach. Remove the leftover mock screens, placeholder buttons and browser-storage "data". Fix the 4 known failing tests. |
+| **P2** | Database safety and backups [53, M3] | Paid managed PostgreSQL (no expiry). Turn off the temporary-file fallback in production. Daily encrypted backups and one real restore test. |
+| **P3** | Password reset and transactional email [32] | Working "Forgot password?" by email, email verification, invoice and notice emails, templates, SPF, DKIM and DMARC for the sending domain. |
+| **P4** | Error tracking and uptime monitoring [34, 35] | Frontend and backend error reports with school and user context. Uptime and deploy-failure alerts, so a failed deploy is noticed the same day. |
+| **P5** | Test-and-deploy pipeline and staging [M19, M2] | Tests run on every push and block a broken deploy. A staging site with anonymised data. A short release checklist. |
+| **P6** | Web security hardening and rate limits [57, M4] | Security headers (CSP, HSTS, frame protection), strict CORS, secure cookies. Rate limits on sign-in, signup, password reset and the AI assistant. |
+| **P7** | Secrets and default passwords [59] | Remove demo and shared passwords (`Admin@123` and so on) from anything live. Keys kept only in Render's environment. A key-rotation note. |
+| **P8** | Two-step sign-in for administrators [rest of 56] | TOTP codes (authenticator app) for admins and the platform owner, with recovery codes. |
+| **P9** | Dependency and code scanning [58, M5] | pip-audit, npm audit and CodeQL (or GitHub's built-in scanning) on every push. |
+
+### Tier 1: To take on the first paying schools
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P10** | School onboarding and data import [27, 31, M15] | Setup checklist and first-login wizard. Bulk import of students, parents, staff, classes and opening fee balances, with preview, duplicate detection and an error report. |
+| **P11** | SaaS plans and subscriptions [24] | Plans, student and module limits, trials, renewals, upgrade and downgrade, and what a school sees when a subscription lapses. |
+| **P12** | Platform payments and invoices [25, 26, M13, M14] | Card payments for subscriptions, platform invoices, payment history, failed-payment retries and reminders (read-only mode, then suspension), and tax details (VAT and sales tax, tax IDs). |
+| **P13** | Full school export and end-of-contract deletion [28, M10] | One complete export (CSV, Excel, JSON) and deletion or anonymisation when a contract ends, with proof. |
+| **P14** | Privacy documents, consent and breach response [62, 63, 64, M8, M9] | Privacy notice and terms, consent records (photos, optional services), correction and restriction requests, a sub-processor list, and a breach-response playbook. |
+| **P15** | Help centre and support tickets [29, 30] | Searchable help by role, and support tickets with priority, status and history. |
+| **P16** | Automated SMS and WhatsApp [33] | Absence alerts, fee reminders and emergency messages through templates, with delivery status (building on phase 7). |
+| **P17** | Retention by record type [rest of 61] | Rules for students who left, old invoices and messages (archive or anonymise), extending phase 21's log retention. |
+
+### Tier 2: Growth and daily-use quality
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P18** | Installable web app and offline attendance [42, 44] | App manifest, icons, offline shell, push notifications. Teachers can mark attendance offline and it syncs later. |
+| **P19** | Pilot schools and feedback loop [M17, M16, 81] | 3–5 pilot schools, feedback collection, 30/60/90-day check-ins. |
+| **P20** | Product analytics, release notes, status page [37, 39, 36] | Feature use per school (without tracking students), a What's New page, and a public status page. |
+| **P21** | Accessibility audit [69, 70] | Full WCAG 2.1 AA check of every page (phase 22 covered navigation), then a conformance report (VPAT). |
+| **P22** | Sales CRM and market pages [38, 80, M18] | Leads, demos and trials pipeline, pricing pages, demo school, case studies. |
+| **P23** | Public API and webhooks [40, 41] | Per-school API keys, rate limits and documentation. Webhooks for student, attendance, payment and admission events, with retries and delivery logs. |
+
+### Tier 3: When entering a new country
+
+Do the items for a market only when a school there is signing.
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P24** | International academic structures [50] | UK Year groups, US grades, European grading scales and Pakistani boards as configurable presets. |
+| **P25** | Remaining localisation [rest of 47–49, 51, M11] | Translation management, number formats, daylight-saving checks, country legal texts. |
+| **P26** | EU and UK readiness [65, 52 (EU region), 66] | EU data region, DPA and DPIA support, UK Children's Code, AI transparency. |
+| **P27** | AI governance and privacy [78, 79] | AI on or off per school, usage limits, AI logs, teacher confirmation, data masking, zero-retention providers. |
+| **P28** | US readiness [67, 68, 74, 75] | FERPA and COPPA controls, directory information, disclosure logs, NDPA. Clever and ClassLink SSO, OneRoster. |
+| **P29** | Remaining Google and Microsoft [rest of 72, 73] | Account sync, calendar sync. |
+| **P30** | LMS and district data [76, 77] | LTI 1.3, Ed-Fi. |
+
+### Tier 4: Enterprise scale and certification
+
+| Order | Item | What to do |
+| ---: | --- | --- |
+| **P31** | Native mobile apps [43, 45, 46, M12] | Parent, student and teacher apps. Apple and Google sign-in, biometrics. App-store privacy details and staged releases. |
+| **P32** | High availability and infrastructure as code [55, 54, 52] | Several app instances, CDN, object storage, Terraform, regional deployments. |
+| **P33** | External penetration test [M6] | Before international expansion, after P6–P9. |
+| **P34** | Trust centre and incident management [82, 83] | Public security and privacy page, on-call runbooks, affected-school notifications. |
+| **P35** | ISO 27001 / SOC 2 and continuous compliance [71, 84, M7, 60 (immutable records)] | Policies, staff training, access reviews, yearly tests and reviews. |
+
+### Next step
+
+Start with **P1–P4**. They protect real data and make problems visible. P3 also fixes the broken "Forgot password?". P5–P9 follow, and together they are the minimum before a paying school goes live.
+
 ## Next Phase — Remaining Upgradation Plan
 
 |  **#** | **Phase**          | **Module**                                 | **Current Pakistani-Style System**                   | **Upgrade to International Standard**        | **Key Features to Implement**                                                                                                                            | **Priority**                 |
