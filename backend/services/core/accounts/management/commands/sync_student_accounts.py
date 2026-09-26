@@ -32,6 +32,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         password = options['password']
+        from services.core.security.defaults import is_known, refuse_on_live
+
+        if is_known(password):
+            refuse_on_live('sync_student_accounts with a demo password (pass --password)')
         force_password = options['force_password']
         include_inactive = options['inactive_too']
 

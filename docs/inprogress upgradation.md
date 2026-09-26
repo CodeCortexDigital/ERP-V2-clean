@@ -69,6 +69,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
 - [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
 - [ ] **Pipeline and staging** (P5):
   - delete `.github/workflows/backup.yml`. It fails on every push, and real backups are the app's own (P2);
@@ -2136,6 +2137,62 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 **Still yours** (in the checklist): set `FRONTEND_ORIGINS` on Render to the web app's real address(es). Until then, any `*.vercel.app` or `*.onrender.com` page may call the API.
 
 
+### P7: Secrets and default passwords ✅
+
+**What changed**
+- **No sign-in with a publicly known password on the live site.** The demo passwords (`Admin@123`, `Teacher@123` and the others printed in the README) and the old shared defaults (`student123`, …) are refused at sign-in when `APP_ENV=production`, with this message: "This password is publicly known, so it can't be used here. We've emailed you a link to choose your own password." The link is sent automatically. The email link proves it is really the person; a forced "change your password" screen would not, because anyone who knows the demo password could pass it. On a developer's computer and on staging the demo still works as the README says.
+- **Nobody can choose one of these passwords anywhere**: a new password check applies to changing a password, resets and every other place passwords are checked.
+- **Demo tooling refuses to run on the live site**:
+  - `seed_demo`, `seed_sample_users`, and `sync_student_accounts` with its demo default;
+  - the three loose scripts that reset everyone to the demo passwords (`sync_all_user_passwords.py`, `sync_existing_portal_users.py`, `generate_complete_system_data.py`);
+  - `create_admin` skips a demo `ADMIN_PASSWORD`.
+- The backend landing page no longer prints "Admin Login: admin@example.com / admin123".
+- **Keys can be changed without breaking things** (`docs/KEY_ROTATION.md`):
+  - `SECRET_KEY_FALLBACKS` keeps links already sent working, and saved integration secrets (school email, Microsoft, Google Classroom) readable, after a `SECRET_KEY` change;
+  - the new `rotate_secrets` command re-encrypts those secrets with the new key;
+  - backups can be read with `BACKUP_ENCRYPTION_KEY_FALLBACKS` and with keys derived from old `SECRET_KEY`s, so backups made before setting `BACKUP_ENCRYPTION_KEY` stay restorable.
+  - The note covers each key: where it lives, how to change it and what to expect.
+- **Live site settings panel** (platform owner, All Schools). It checks that:
+  - the secret key is set and debug mode is off;
+  - `FRONTEND_ORIGINS` is set;
+  - there is an own backup key, and backups go to S3;
+  - email and the alert address are set up;
+  - no demo accounts are left (`teacher@code.com`, …);
+  - no platform owner uses a demo password (checked by hashing, kept for an hour);
+  - `ADMIN_PASSWORD` has been removed from the environment after the first start.
+  - Each failing check says what to do.
+- Checked: no real keys are in the code. The one match is the Firebase web key in `firebase.ts`, which is a public identifier by design, not a secret.
+- Not changed: each school's own payment, SMS and WhatsApp keys are still stored as entered, in the database, not encrypted like the integration secrets. That is noted for later.
+
+**Built**
+- Backend:
+  - `services/core/security/defaults.py` (the known list, `KnownPasswordValidator`, `refuse_on_live`);
+  - the refusal in `login_view`;
+  - the validator in `AUTH_PASSWORD_VALIDATORS`;
+  - `SECRET_KEY_FALLBACKS`;
+  - `MultiFernet` in `integrations/secrets.py` and `backup/portable.py`;
+  - `rotate_secrets`;
+  - guards on the seed commands, the scripts and `create_admin`;
+  - `security/setup_checks.py` at `/api/v1/security/setup-checks/`.
+- `render.yaml` declares `SECRET_KEY_FALLBACKS`, `BACKUP_ENCRYPTION_KEY` and `BACKUP_ENCRYPTION_KEY_FALLBACKS`.
+- Frontend: `components/platform/PlatformSetupChecks.tsx`.
+- Docs: `docs/KEY_ROTATION.md`.
+- Tests:
+  - `backend/tests/test_secrets.py` has 6 new tests:
+    - demo passwords can't be chosen;
+    - the live site refuses a demo password and emails a link, while development allows it;
+    - demo tooling refuses on the live site, and `create_admin` skips a demo password but accepts a strong one;
+    - integration secrets survive a key change and are re-encrypted;
+    - backups made with the old key can still be read;
+    - the settings check (platform owner only, flags demo accounts, demo passwords, `ADMIN_PASSWORD` and `FRONTEND_ORIGINS`).
+  - All 6 passed.
+- Browser check on a **live-mode copy** of the demo database (`APP_ENV=production`, separate ports; the everyday local site was left untouched):
+  - `teacher@code.com` / `Teacher@123` was refused (403) with the "publicly known" message on the sign-in form, and the reset email was logged;
+  - the platform owner (strong password) saw **Live site settings** with each missing item and its advice, including the demo accounts and the leftover `ADMIN_PASSWORD`.
+
+**Still yours** (in the checklist): open **Live site settings** after the deploy and fix what it lists. In particular, switch off the demo accounts if they were ever created on the live site, and remove `ADMIN_PASSWORD`.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2224,6 +2281,27 @@ Do the items for a market only when a school there is signing.
 | **P34** | Trust centre and incident management [82, 83] | Public security and privacy page, on-call runbooks, affected-school notifications. |
 | **P35** | ISO 27001 / SOC 2 and continuous compliance [71, 84, M7, 60 (immutable records)] | Policies, staff training, access reviews, yearly tests and reviews. |
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Progress: Tier 0 and Tier 1
 
 The notes for each finished item are in the **Progress log**, after Phase 22.
@@ -2238,8 +2316,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P4** | Error tracking and uptime monitoring | ✅ Done |
 | **P5** | Test-and-deploy pipeline and staging | ✅ Done |
 | **P6** | Web security hardening and rate limits | ✅ Done |
-| **P7** | Secrets and default passwords | ⏳ In progress |
-| **P8** | Two-step sign-in for administrators | Next |
+| **P7** | Secrets and default passwords | ✅ Done |
+| **P8** | Two-step sign-in for administrators | ⏳ In progress |
 | **P9** | Dependency and code scanning | Next |
 | **P10** | School onboarding and data import | ✅ Done |
 | **P11** | SaaS plans and subscriptions | ✅ Done |
@@ -2249,6 +2327,29 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P15** | Help centre and support tickets | Next |
 | **P16** | Automated SMS and WhatsApp | Next |
 | **P17** | Retention by record type | Next |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### Next step
 

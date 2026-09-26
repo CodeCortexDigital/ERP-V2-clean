@@ -16,6 +16,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('ADMIN_PASSWORD is not set; skipping admin creation.'))
             return
 
+        from services.core.security.defaults import is_known, live
+
+        if live() and is_known(admin_password):
+            self.stdout.write(self.style.ERROR('ADMIN_PASSWORD is a publicly known demo password; skipping admin creation. '
+                                               'Set a strong one on Render.'))
+            return
+
         if not User.objects.filter(email=admin_email).exists():
             User.objects.create_superuser(
                 email=admin_email,

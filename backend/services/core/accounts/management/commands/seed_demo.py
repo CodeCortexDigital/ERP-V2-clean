@@ -83,7 +83,10 @@ class Command(BaseCommand):
         parser.add_argument("--students-per-class", type=int, default=20)
 
     def handle(self, *args, **opts):
+        from services.core.security.defaults import refuse_on_live
         from services.core.tenants.context import use_tenant
+
+        refuse_on_live('seed_demo')
 
         M = lambda app, name: apps.get_model(app, name)  # noqa: E731
         self.school = self._demo_school(M)

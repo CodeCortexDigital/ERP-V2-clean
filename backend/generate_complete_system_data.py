@@ -6,6 +6,11 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'erp_core.settings')
 import django
 django.setup()
 
+# Sets the publicly known demo passwords: never on the live site (P7).
+from services.core.security.defaults import refuse_on_live  # noqa: E402
+
+refuse_on_live(__file__)
+
 from django.apps import apps
 from django.contrib.auth import get_user_model
 

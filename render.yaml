@@ -133,3 +133,9 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: SECRET_KEY_FALLBACKS  # old SECRET_KEY during a key change (docs/KEY_ROTATION.md)
+        sync: false
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+      - key: BACKUP_ENCRYPTION_KEY_FALLBACKS
+        sync: false

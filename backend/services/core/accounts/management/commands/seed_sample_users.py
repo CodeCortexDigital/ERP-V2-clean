@@ -11,6 +11,9 @@ class Command(BaseCommand):
         parser.add_argument('--force', action='store_true', help='Force update passwords and status for sample users')
 
     def handle(self, *args, **options):
+        from services.core.security.defaults import refuse_on_live
+
+        refuse_on_live('seed_sample_users')
         force_update = options.get('force', False)
 
         with transaction.atomic():

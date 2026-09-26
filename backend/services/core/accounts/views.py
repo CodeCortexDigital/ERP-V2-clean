@@ -200,6 +200,17 @@ def login_view(request):
         if locked_now:
             return _locked_response(policy.security_settings(school)['lockout_minutes'])
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    from services.core.security import defaults
+
+    if defaults.live() and defaults.is_known(password):
+        # Anyone could know this password, including someone who isn't this person: the email link proves it is them.
+        from services.core.security.password import request_reset
+
+        request_reset(request, user.email)
+        policy.record_sign_in(request, email=user.email, outcome='failed', user=user, school=school)
+        return Response({'error': "This password is publicly known, so it can't be used here. We've emailed you a link "
+                                  "to choose your own password (or use 'Forgot password?').", 'known_password': True},
+                        status=status.HTTP_403_FORBIDDEN)
     return build_login_response(request, user)
 
 

@@ -29,6 +29,9 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', 'local
 if 'testserver' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('testserver')
 
+# Key rotation (P7, docs/KEY_ROTATION.md): put the old key here (comma-separated) after setting a new SECRET_KEY, so
+# password-reset links, confirmation links and saved integration secrets made with the old key keep working.
+SECRET_KEY_FALLBACKS = [k.strip() for k in os.environ.get('SECRET_KEY_FALLBACKS', '').split(',') if k.strip()]
 if not DEBUG and SECRET_KEY.startswith('django-insecure'):
     raise ImproperlyConfigured('A secure SECRET_KEY must be set in production via environment variables.')
 
@@ -356,6 +359,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+    {
+        # The demo and old shared passwords can never be chosen (P7).
+        'NAME': 'services.core.security.defaults.KnownPasswordValidator',
     },
 ]
 

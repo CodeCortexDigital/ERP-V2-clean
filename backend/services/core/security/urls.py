@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import api
+from . import api, setup_checks
 
 urlpatterns = [
     path('rules/', api.rules_for_me),
@@ -20,4 +20,5 @@ urlpatterns = [
     path('verify-email/confirm/', api.verify_email_confirm),
     path('emails/', api.email_log),
     path('me/deletion-request/', api.deletion_request),
+    path('setup-checks/', setup_checks.setup_checks),
 ]

@@ -20,7 +20,7 @@ import time
 from datetime import timedelta
 from pathlib import Path
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, MultiFernet
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.management import call_command
@@ -32,12 +32,18 @@ EXCLUDE = ['contenttypes', 'auth.permission', 'sessions', 'admin.logentry', 'tok
 PREFIX = 'backups/'
 
 
-def _fernet() -> Fernet:
+def _derived(secret: str) -> Fernet:
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(('backup:' + secret).encode()).digest()))
+
+
+def _fernet() -> MultiFernet:
+    """Encrypts with the current key; still reads backups made with an earlier one (P7 key rotation):
+    BACKUP_ENCRYPTION_KEY_FALLBACKS, and keys derived from the current and old SECRET_KEYs."""
     key = os.environ.get('BACKUP_ENCRYPTION_KEY', '').strip()
-    if key:
-        return Fernet(key.encode())
-    digest = hashlib.sha256(('backup:' + settings.SECRET_KEY).encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(digest))
+    keys = [Fernet(key.encode())] if key else []
+    keys += [Fernet(k.strip().encode()) for k in os.environ.get('BACKUP_ENCRYPTION_KEY_FALLBACKS', '').split(',') if k.strip()]
+    keys += [_derived(s) for s in [settings.SECRET_KEY, *getattr(settings, 'SECRET_KEY_FALLBACKS', [])]]
+    return MultiFernet(keys)
 
 
 def storage():
