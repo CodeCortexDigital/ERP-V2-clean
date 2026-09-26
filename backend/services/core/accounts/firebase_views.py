@@ -50,7 +50,7 @@ class FirebaseLoginView(APIView):
         if ident.uid and not user.firebase_uid:
             user.firebase_uid = ident.uid
             user.save(update_fields=['firebase_uid'])
-        return build_login_response(request, user)
+        return build_login_response(request, user, method='google')
 
 
 class FirebaseTokenObtainPairView(SimpleJWTTokenObtainPairView):

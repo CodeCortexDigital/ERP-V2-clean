@@ -8,7 +8,6 @@ export const API_ENDPOINTS = {
   LOGOUT: '/auth/logout/',
 
   // Demo & Google
-  DEMO_LOGIN: '/auth/demo/',
   GOOGLE_LOGIN: '/auth/google/',
 
   // Students

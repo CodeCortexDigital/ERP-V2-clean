@@ -1,42 +1,64 @@
-from django.utils.deprecation import MiddlewareMixin
-from django.utils.functional import SimpleLazyObject
 from .models import AuditLog
 
+WRITE_ACTIONS = {'POST': 'CREATE', 'PUT': 'UPDATE', 'PATCH': 'UPDATE', 'DELETE': 'DELETE'}
+# Busy, low-value writes that would drown the log (sign-in has its own history).
+SKIP_PARTS = ('/auth/login', '/token/refresh', '/auth/logout', '/firebase/login', '/sso/exchange', 'mark-read',
+              'mark_read', 'read-all', 'mark-all-read', '/heartbeat', '/ai/chat',
+              '/security/people/')  # logged by the security API itself, with the person's name
 
-class AuditMiddleware(MiddlewareMixin):
-    """Log API requests for authenticated users and record basic request metadata."""
 
-    def process_response(self, request, response):
+class AuditMiddleware:
+    """The activity log: every change a signed-in person makes through the API (add, change, delete, run),
+    every export, and every refused attempt, tagged with their school. Page views are not recorded."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
         try:
-            user = getattr(request, 'user', None)
-            path = getattr(request, 'path', '')
-            if not path.startswith('/api/'):
-                return response
-
-            if user and user.is_authenticated:
-                method = request.method.upper()
-                action = 'VIEW'
-                if method == 'POST':
-                    action = 'CREATE'
-                elif method in ('PUT', 'PATCH'):
-                    action = 'UPDATE'
-                elif method == 'DELETE':
-                    action = 'DELETE'
-
-                resource_type = path.replace('/api/', '')[:128]
-                ip = request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR')
-                ua = request.META.get('HTTP_USER_AGENT', '')[:512]
-
-                AuditLog.objects.create(
-                    user=user,
-                    action=action,
-                    resource_type=resource_type,
-                    resource_id=None,
-                    old_data=None,
-                    new_data={'status_code': response.status_code},
-                    ip_address=ip,
-                    user_agent=ua,
-                )
-        except Exception:
+            self._record(request, response)
+        except Exception:  # the log must never break a request
             pass
         return response
+
+    def _record(self, request, response):
+        path = getattr(request, 'path', '') or ''
+        if not path.startswith('/api/'):
+            return
+        user = getattr(request, 'user', None)  # DRF copies the JWT user onto the Django request
+        if not (user and user.is_authenticated):
+            return
+        code = response.status_code
+        method = request.method.upper()
+        if code == 403:
+            action = 'PERMISSION_DENIED'
+        elif code >= 400:
+            return
+        elif method in WRITE_ACTIONS:
+            action = WRITE_ACTIONS[method]
+        elif method == 'GET' and (request.GET.get('export') or request.GET.get('download')):
+            action = 'EXPORT'
+        else:
+            return
+        if any(part in path for part in SKIP_PARTS):
+            return
+        from services.core.security.access import UUID_RE
+
+        found = UUID_RE.search(path)
+        school = getattr(request, 'tenant', None)
+        AuditLog.objects.create(
+            user=user,
+            school=school if getattr(school, 'pk', None) else None,
+            action=action,
+            resource_type=path.replace('/api/', '', 1)[:128],
+            resource_id=found.group(0) if found else None,
+            new_data={'status_code': code, 'method': method},
+            ip_address=_ip(request),
+            user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:512],
+        )
+
+
+def _ip(request):
+    forwarded = (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
+    return forwarded or request.META.get('REMOTE_ADDR') or None

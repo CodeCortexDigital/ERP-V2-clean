@@ -7,6 +7,7 @@ import api from '@/services/api';
 import { API_ENDPOINTS } from '@/services/apiEndpoints';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuthStore } from '@/store/authStore';
+import MySecurityPanel from '@/components/security/MySecurityPanel';
 
 interface AccountData {
   email: string;
@@ -169,9 +170,15 @@ export default function AccountSettings() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    const confirmDelete = confirm('⚠️ WARNING: Are you sure you want to permanently delete this account? This action is irreversible and all your school data will be lost.');
-    if (confirmDelete) toast.error('Account deletion requested.');
+  // A request to the school office, which decides: the school may have to keep some records.
+  const handleDeleteAccount = async () => {
+    if (!confirm('Ask the school office to delete your account? You can keep using it until they do, and you can withdraw the request.')) return;
+    try {
+      const { default: security } = await import('@/services/security.service');
+      toast.success((await security.requestDeletion()).message);
+    } catch {
+      toast.error('Could not send the request.');
+    }
   };
 
   return (
@@ -222,6 +229,9 @@ export default function AccountSettings() {
           </button>
         </div>
       </div>
+
+      {/* My sign-ins, sign out everywhere, my data (Phase 21) */}
+      <div className="mt-6"><MySecurityPanel /></div>
 
       {/* Edit modal */}
       {editOpen && (

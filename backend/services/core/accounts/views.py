@@ -72,8 +72,8 @@ def _serialize_student(student):
 
 
 
-def build_login_response(request, user):
-    """Tokens + user/tenant payload after a successful sign-in (password, Google or signup)."""
+def build_login_response(request, user, method='password'):
+    """Tokens + user/tenant payload after a successful sign-in (password, Google, Microsoft or signup)."""
     role = get_user_role(user)
     student_obj = _get_student_for_user(user)
 
@@ -109,6 +109,8 @@ def build_login_response(request, user):
     refresh = RefreshToken.for_user(user)
     if tenant:
         set_session_tenant(request, tenant)
+    from services.core.security.policy import successful_sign_in
+    successful_sign_in(request, user, method=method)
 
     payload = {
         'access': str(refresh.access_token),
@@ -160,19 +162,44 @@ def login_view(request):
         except Teacher.DoesNotExist:
             pass
 
-    try:
-        user_obj = User.objects.get(email=login_username)
-        user = authenticate(request, username=user_obj.email, password=password)
-    except User.DoesNotExist:
-        try:
-            user_obj = User.objects.get(id=identifier)
-            user = authenticate(request, username=user_obj.email, password=password)
-        except (User.DoesNotExist, ValueError, ValidationError):
-            user = authenticate(request, username=login_username, password=password)
-    if user and user.is_active:
-        return build_login_response(request, user)
+    from services.core.security import policy
 
-    return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    user_obj = User.objects.filter(email__iexact=login_username).first()
+    if user_obj is None:
+        try:
+            user_obj = User.objects.filter(id=identifier).first()
+        except (ValueError, ValidationError):
+            user_obj = None
+    if user_obj is None:
+        policy.record_sign_in(request, email=str(identifier), outcome='failed')
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    school = policy.user_school(user_obj)
+    minutes = policy.locked_minutes(user_obj)
+    if minutes:
+        policy.record_sign_in(request, email=user_obj.email, outcome='locked', user=user_obj, school=school)
+        return _locked_response(minutes)
+
+    user = authenticate(request, username=user_obj.email, password=password)
+    if user is None:
+        if not user_obj.is_active and user_obj.check_password(password):
+            policy.record_sign_in(request, email=user_obj.email, outcome='disabled', user=user_obj, school=school)
+            return Response({'error': 'This account has been switched off. Please contact the school office.', 'disabled': True},
+                            status=status.HTTP_401_UNAUTHORIZED)
+        locked_now = policy.failed_attempt(user_obj, school)
+        policy.record_sign_in(request, email=user_obj.email, outcome='failed', user=user_obj, school=school)
+        if locked_now:
+            return _locked_response(policy.security_settings(school)['lockout_minutes'])
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    return build_login_response(request, user)
+
+
+def _locked_response(minutes):
+    plural = '' if minutes == 1 else 's'
+    return Response({
+        'error': f'Too many wrong passwords. Try again in {minutes} minute{plural}, or ask the school office to unlock your account.',
+        'locked': True, 'minutes': minutes,
+    }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 @api_view(['POST'])

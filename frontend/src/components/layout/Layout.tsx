@@ -7,6 +7,7 @@ import { useUIStore } from '@/store/uiStore';
 import { initGlobalTheme } from '@/utils/theme';
 import { useLocaleStore } from '@/store/localeStore';
 import AiAssistant, { type ChatMode } from '@/components/AiAssistant';
+import { useIdleSignOut } from '@/hooks/useIdleSignOut';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -19,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
   const assistantMode: ChatMode =
     role === 'teacher' || role === 'parent' || role === 'student' ? role : 'admin';
   const { sidebarCollapsed } = useUIStore();
+  useIdleSignOut();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Apply General Settings theme globally (sidebar/header/accent) to all pages

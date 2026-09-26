@@ -54,9 +54,9 @@ export function setupApiErrorInterceptor(api: AxiosInstance) {
 
       const status = error.response?.status;
 
-      // A wrong password on the sign-in form is not an expired session; the
-      // form shows its own error.
-      if (status === 401 && /\/auth\/login\/?$/.test(String(config?.url || ''))) {
+      // The sign-in form shows its own errors (wrong password, blocked for a while,
+      // switched off); a wrong password is not an expired session.
+      if (/\/auth\/login\/?$/.test(String(config?.url || ''))) {
         return Promise.reject(error);
       }
 
@@ -65,7 +65,8 @@ export function setupApiErrorInterceptor(api: AxiosInstance) {
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
           window.location.href = '/login';
         }
-        toast.error('Session expired — please sign in again');
+        const detail = String((error.response?.data as any)?.detail || '');
+        toast.error(detail.startsWith('You were signed out') ? detail : 'Session expired — please sign in again');
         return Promise.reject(error);
       }
 

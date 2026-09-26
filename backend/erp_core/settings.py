@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',  # sign-out really ends the session (Phase 21)
     'corsheaders',
     'drf_spectacular',
     'django_filters',
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
     'services.core.storage',
     'services.core.tenants',
     'services.core.features',
+    'services.core.security',
     
     # Education apps
     'services.education.academics',

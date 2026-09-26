@@ -1,5 +1,5 @@
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenRefreshView
+from services.core.security.tokens import SafeTokenRefreshView
 from . import views
 from . import teacher_views
 from . import views_auth
@@ -12,12 +12,11 @@ urlpatterns = [
     
     # Basic auth
     path('login/', views.login_view, name='login'),
-    path('demo/', views_auth.demo_login, name='demo-login'),
     path('firebase/login/', FirebaseLoginView.as_view(), name='firebase-login'),
     path('logout/', views.logout_view, name='logout'),
     path('me/', views.get_current_user, name='get_current_user'),
     path('my-teacher-profile/', views.get_my_teacher_profile, name='my-teacher-profile'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/refresh/', SafeTokenRefreshView.as_view(), name='token_refresh'),
     path('settings/change-password/', credential_views.change_password, name='change-password-self'),
 
     # Portal logins issued on admission / job offer letters (admin only)

@@ -48,20 +48,6 @@ const authService = {
     return response;
   },
 
-  // ✅ Demo login
-  demoLogin: async (name?: string) => {
-    const response = await api.post<LoginResponse>('/auth/demo/', { name: name || 'Demo User' });
-    if (response.data) {
-      if (response.data.access) {
-        localStorage.setItem('access_token', response.data.access);
-      }
-      if (response.data.refresh) {
-        localStorage.setItem('refresh_token', response.data.refresh);
-      }
-    }
-    return response;
-  },
-
   // ✅ Firebase login
   googleLogin: async (token: string) => {
     const response = await api.post<LoginResponse>('/auth/firebase/login/', { id_token: token });
@@ -84,7 +70,7 @@ const authService = {
 
   // ✅ Logout
   logout: async () => {
-    const response = await api.post('/auth/logout/', {});
+    const response = await api.post('/auth/logout/', { refresh: localStorage.getItem('refresh_token') || undefined });
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     return response;

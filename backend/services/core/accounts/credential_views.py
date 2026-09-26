@@ -27,7 +27,7 @@ def _forbidden():
 
 
 def _can_manage(user):
-    return bool(user.is_superuser or user.is_staff or is_admin(user))
+    return bool(user.is_superuser or is_admin(user))
 
 
 def _scoped(user, queryset):
@@ -155,10 +155,11 @@ def change_password(request):
     user = request.user
     if not user.check_password(old_password):
         return Response({'error': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        validate_password(new_password, user)
-    except ValidationError as e:
-        return Response({'error': ' '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+    from services.core.security.policy import password_problems
+
+    problems = password_problems(new_password, user)  # the school's minimum length + the standard checks
+    if problems:
+        return Response({'error': ' '.join(problems)}, status=status.HTTP_400_BAD_REQUEST)
     user.set_password(new_password)
     user.save(update_fields=['password'])
     mark_changed_by_user(user)

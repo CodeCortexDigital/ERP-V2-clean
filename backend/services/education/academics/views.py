@@ -1,9 +1,11 @@
+from services.core.accounts.decorators import is_admin
 from django.utils.decorators import method_decorator
 from django.db.models import Q
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_headers
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from services.core.accounts.permissions import IsSchoolAdmin
 from rest_framework.response import Response
 from rest_framework import generics, status, viewsets
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -354,7 +356,7 @@ class TeacherLeaveListCreateView(generics.ListCreateAPIView):
         # Default-scope to the current employee unless an admin/staff is
         # explicitly requesting all leaves. Prevents leaking everyone's leave.
         user = self.request.user
-        if not (user.is_staff or user.is_superuser):
+        if not is_admin(user):
             teacher = _resolve_current_teacher(user)
             if teacher is not None:
                 queryset = queryset.filter(
@@ -399,7 +401,7 @@ class TeacherLeaveDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         is_authorized = False
         if user and user.is_authenticated:
-            if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+            if is_admin(user):
                 is_authorized = True
             else:
                 user_role = getattr(user, 'role', None)
@@ -447,7 +449,7 @@ class TimetableSubstitutionListView(generics.ListAPIView):
 
 
 class LeaveBalanceListView(generics.ListCreateAPIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsSchoolAdmin]
     serializer_class = LeaveBalanceSerializer
 
     def get_queryset(self):
@@ -475,7 +477,7 @@ class LeaveBalanceListView(generics.ListCreateAPIView):
 
 
 class LeaveBalanceDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsSchoolAdmin]
     serializer_class = LeaveBalanceSerializer
     queryset = LeaveBalance.objects.all().select_related('teacher')
     lookup_field = 'id'
@@ -483,7 +485,7 @@ class LeaveBalanceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def leave_balance_set_defaults(request):
     """Admin bulk action: ensure every teacher has a balance row and apply
     the default entitlements (annual=15, casual=10, others=0). Existing
@@ -584,7 +586,7 @@ class ClassroomDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class TimetableEntryListCreateView(generics.ListCreateAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     serializer_class = TimetableEntrySerializer
     pagination_class = None
 
@@ -626,7 +628,7 @@ def _is_uuid(value):
 
 
 class AllTimetableEntriesView(generics.ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = TimetableEntrySerializer
     pagination_class = None
     queryset = TimetableEntry.objects.all()

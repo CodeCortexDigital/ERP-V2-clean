@@ -12,7 +12,6 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import SignupPage from './pages/auth/SignupPage'
 import PlatformSchoolsPage from './pages/platform/PlatformSchoolsPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
-import AuditLogViewer from './pages/admin/AuditLogViewer'
 
 // ============================================================
 // EDUCATION MODULE IMPORTS
@@ -303,7 +302,7 @@ function App() {
                 <Route path="calendar" element={<CalendarPage />} />
                 <Route path="meetings" element={<MeetingsPage />} />
                 <Route path="education/communication/sms" element={<RoleBasedRoute allowedRoles={['admin']}><SmsPage /></RoleBasedRoute>} />
-                <Route path="admin/audit-logs" element={<RoleBasedRoute allowedRoles={['admin']}><AuditLogViewer /></RoleBasedRoute>} />
+                <Route path="admin/audit-logs" element={<Navigate to="/settings/security?tab=activity" replace />} />
                 
                 {/* ============================================================
                     EDUCATION ROUTES

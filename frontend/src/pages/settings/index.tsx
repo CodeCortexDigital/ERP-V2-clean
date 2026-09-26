@@ -12,7 +12,7 @@ import FeeChallanDetails from './FeeChallanDetails';
 import ThemeLanguage from './ThemeLanguage';
 import LanguageSettings from './LanguageSettings';
 import AccountSettings from './AccountSettings';
-import RolePermissions from '../../components/settings/RolePermissions';
+import SecurityPage from './SecurityPage';
 import SettingsSidebar, { menuItems, isSettingsTabActive } from './components/SettingsSidebar';
 
 export default function SettingsPage() {
@@ -76,8 +76,8 @@ export default function SettingsPage() {
             <Route path="/theme" element={<ThemeLanguage />} />
           <Route path="/language" element={<LanguageSettings />} />
             <Route path="/account" element={<AccountSettings />} />
-            {/* Add RolePermissions route */}
-            <Route path="/role-permissions" element={<RolePermissions />} />
+            <Route path="/security" element={<SecurityPage />} />
+            <Route path="/role-permissions" element={<Navigate to="/settings/security?tab=roles" replace />} />
             <Route path="*" element={<Navigate to="/settings" replace />} />
           </Routes>
       </div>

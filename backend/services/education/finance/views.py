@@ -1,3 +1,5 @@
+from services.core.accounts.permissions import IsSchoolAdmin
+from services.core.accounts.decorators import is_admin
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -1099,7 +1101,7 @@ def monthly_finance_report_pdf(request):
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsSchoolAdmin])
 def monthly_revenue_chart(request):
     """Get monthly revenue data for charts"""
     months = request.query_params.get('months', 12)
@@ -1134,7 +1136,7 @@ def monthly_revenue_chart(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsSchoolAdmin])
 def defaulter_report(request):
     """Get report of students with overdue payments"""
     queryset = Invoice.objects.select_related('student').filter(
@@ -1163,7 +1165,7 @@ def defaulter_report(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsSchoolAdmin])
 def class_wise_collection(request):
     """Get collection analytics by class"""
     academic_year = request.query_params.get('academic_year', '2026-2027')
@@ -1877,7 +1879,7 @@ class PayslipListCreateView(generics.ListCreateAPIView):
             # explicitly requesting all payslips. This prevents leaking every
             # staff member's salary to a normal employee.
             user = self.request.user
-            if not (user.is_staff or user.is_superuser):
+            if not is_admin(user):
                 teacher = _resolve_current_teacher(user)
                 if teacher is not None:
                     queryset = queryset.filter(employee_id=teacher.id)

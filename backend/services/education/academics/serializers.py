@@ -1,3 +1,4 @@
+from services.core.accounts.decorators import is_admin
 from rest_framework import serializers
 from .models import (
     TeacherAttendance,
@@ -378,7 +379,7 @@ class TeacherLeaveSerializer(serializers.ModelSerializer):
                 user = request.user if request else None
                 is_authorized = False
                 if user and user.is_authenticated:
-                    if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                    if is_admin(user):
                         is_authorized = True
                     else:
                         user_role = getattr(user, 'role', None)
@@ -430,7 +431,7 @@ class TeacherLeaveSerializer(serializers.ModelSerializer):
         # Admins/staff may create already-approved leaves on behalf of staff.
         if request and request.user.is_authenticated:
             user = request.user
-            if not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            if not is_admin(user):
                 validated_data['status'] = 'pending'
         leave = super().create(validated_data)
         # Only restructure the timetable immediately when the leave is created

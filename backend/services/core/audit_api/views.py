@@ -1,12 +1,12 @@
 import datetime
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
+from services.core.accounts.permissions import IsSchoolAdmin
 from rest_framework.response import Response
 from django.apps import apps
 
 # Clear all employees' monthly salary
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def clear_teacher_salaries(request):
     try:
         Teacher = apps.get_model('education_academics', 'Teacher')
@@ -17,7 +17,7 @@ def clear_teacher_salaries(request):
 
 # Teachers endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_teachers(request):
     try:
         Teacher = apps.get_model('education_academics', 'Teacher')
@@ -56,7 +56,7 @@ def get_teachers(request):
 
 # Sections endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_sections(request):
     Section = apps.get_model('education_academics', 'Section')
     sections = Section.objects.all()
@@ -73,7 +73,7 @@ def get_sections(request):
 
 # Subjects endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_subjects(request):
     Subject = apps.get_model('education_academics', 'Subject')
     subjects = Subject.objects.all()
@@ -89,7 +89,7 @@ def get_subjects(request):
 
 # Timetables endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_timetables(request):
     TimetableEntry = apps.get_model('education_academics', 'TimetableEntry')
     entries = TimetableEntry.objects.filter(is_active=True)
@@ -107,7 +107,7 @@ def get_timetables(request):
 
 # Periods endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_periods(request):
     Period = apps.get_model('education_academics', 'Period')
     periods = Period.objects.filter(is_active=True).order_by('period_number')
@@ -125,7 +125,7 @@ def get_periods(request):
 
 # Parents endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_parents(request):
     try:
         Parent = apps.get_model('education_parents', 'Parent')
@@ -137,7 +137,7 @@ def get_parents(request):
 
 # Admissions endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_admissions(request):
     try:
         Admission = apps.get_model('education_admissions', 'Admission')
@@ -149,7 +149,7 @@ def get_admissions(request):
 
 # Staff endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_staff(request):
     Teacher = apps.get_model('education_academics', 'Teacher')
     staff_members = Teacher.objects.filter(is_active=True)
@@ -158,7 +158,7 @@ def get_staff(request):
 
 # Dashboard stats endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_dashboard_stats(request):
     Student = apps.get_model('education_students', 'Student')
     Teacher = apps.get_model('education_academics', 'Teacher')
@@ -176,7 +176,7 @@ def get_dashboard_stats(request):
 
 # Profile endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_profile(request):
     user = request.user
     if user.is_authenticated:
@@ -201,7 +201,7 @@ def get_profile(request):
 
 # Attendance with parameters endpoint
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsSchoolAdmin])
 def get_attendance_data(request):
     AttendanceRecord = apps.get_model('education_attendance', 'AttendanceRecord')
     

@@ -7,7 +7,6 @@ export function useAuth() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const accessToken = useAuthStore((s) => s.accessToken);
   const login = useAuthStore((s) => s.login);
-  const demoLogin = useAuthStore((s) => s.demoLogin);
   const googleLogin = useAuthStore((s) => s.googleLogin);
   const ssoLogin = useAuthStore((s) => s.ssoLogin);
   const logout = useAuthStore((s) => s.logout);
@@ -20,7 +19,6 @@ export function useAuth() {
     isAuthenticated,
     accessToken,
     login,
-    demoLogin,
     googleLogin,
     ssoLogin,
     logout,

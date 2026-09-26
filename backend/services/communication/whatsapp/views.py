@@ -1,3 +1,4 @@
+from services.core.accounts.permissions import IsSchoolAdmin
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
@@ -82,7 +83,7 @@ class WhatsAppWebhookView(APIView):
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 class WhatsAppTestSendView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsSchoolAdmin]
 
     def post(self, request, *args, **kwargs):
         phone = request.data.get('recipient_phone') or request.data.get('phone') or '923000000000'

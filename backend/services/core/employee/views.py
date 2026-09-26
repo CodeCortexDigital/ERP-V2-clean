@@ -1,3 +1,4 @@
+from services.core.accounts.decorators import is_admin
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,7 +17,7 @@ class EmployeeTaskListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         queryset = EmployeeTask.objects.all()
-        if not (getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False)):
+        if not is_admin(user):
             queryset = queryset.filter(assignee=user)
         status_filter = self.request.query_params.get('status')
         if status_filter:
@@ -49,7 +50,7 @@ class TimesheetListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         queryset = Timesheet.objects.all()
-        if not (getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False)):
+        if not is_admin(user):
             queryset = queryset.filter(employee=user)
         return queryset
 
@@ -71,7 +72,7 @@ class EmployeeDocumentListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         queryset = EmployeeDocument.objects.all()
-        if not (getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False)):
+        if not is_admin(user):
             queryset = queryset.filter(owner=user)
         return queryset
 

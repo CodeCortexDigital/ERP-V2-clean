@@ -30,14 +30,16 @@ class IsStudentOrReadOnly(permissions.BasePermission):
 
 class IsStaffOrReadOnly(permissions.BasePermission):
     """
-    Allow staff full access, others read-only.
+    Allow the school office full access, others read-only.
     """
     
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
         
-        return request.user and request.user.is_authenticated and request.user.is_staff
+        from services.core.accounts.decorators import is_admin
+        # The school office. (Django's is_staff only opens the Django admin site.)
+        return bool(request.user and request.user.is_authenticated and is_admin(request.user))
 
 class IsOwnerOrStaff(permissions.BasePermission):
     """
@@ -48,8 +50,9 @@ class IsOwnerOrStaff(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         
-        # Staff can access anything
-        if request.user.is_staff:
+        from services.core.accounts.decorators import is_admin
+        # The school office can access anything
+        if is_admin(request.user):
             return True
         
         # Check if user owns the object (if applicable)
@@ -67,7 +70,9 @@ class CanViewPrivateNotes(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_staff
+        from services.core.accounts.decorators import is_admin
+        # The school office. (Django's is_staff only opens the Django admin site.)
+        return bool(request.user and request.user.is_authenticated and is_admin(request.user))
 
 class CanManageDocuments(permissions.BasePermission):
     """
@@ -75,7 +80,9 @@ class CanManageDocuments(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_staff
+        from services.core.accounts.decorators import is_admin
+        # The school office. (Django's is_staff only opens the Django admin site.)
+        return bool(request.user and request.user.is_authenticated and is_admin(request.user))
 
 class CanEnrollStudents(permissions.BasePermission):
     """
@@ -83,7 +90,9 @@ class CanEnrollStudents(permissions.BasePermission):
     """
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.is_staff
+        from services.core.accounts.decorators import is_admin
+        # The school office. (Django's is_staff only opens the Django admin site.)
+        return bool(request.user and request.user.is_authenticated and is_admin(request.user))
 
 class IsSystemService(permissions.BasePermission):
     """

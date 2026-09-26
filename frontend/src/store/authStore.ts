@@ -57,7 +57,6 @@ interface AuthState {
   isAuthenticated: boolean;
   hydrate: () => Promise<void>;
   login: (userId: string, password: string) => Promise<AuthUser>;
-  demoLogin: (name?: string) => Promise<AuthUser>;
   googleLogin: (token: string) => Promise<AuthUser>;
   /** Finish a school single sign-on (Microsoft) with the one-time code the server sent back. */
   ssoLogin: (code: string) => Promise<AuthUser>;
@@ -126,27 +125,6 @@ export const useAuthStore = create<AuthState>()(
         return authUser;
       },
 
-      demoLogin: async (name) => {
-        const response = await authService.demoLogin(name);
-        const { access, refresh, user } = response.data;
-        const authUser = user as AuthUser;
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
-        applyAuthHeader(access);
-        set({
-          accessToken: access,
-          refreshToken: refresh,
-          user: authUser,
-          role: resolveRole(authUser),
-          isAuthenticated: true,
-          loading: false,
-        });
-        if (response.data.demo_warning && response.data.demo_message) {
-          console.warn(response.data.demo_message);
-        }
-        return authUser;
-      },
-
       googleLogin: async (token) => {
         const response = await authService.googleLogin(token);
         return get().startSession(response.data as { access: string; refresh: string; user: AuthUser });
@@ -173,9 +151,16 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        const refresh = localStorage.getItem('refresh_token') || get().refreshToken;
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         applyAuthHeader(null);
+        // End the session on the server too, so the refresh token can't be reused (tokens are cleared first,
+        // so this request carries no stale access token).
+        if (refresh) {
+          import('@/services/api').then(({ default: api }) =>
+            api.post('/auth/logout/', { refresh }, { skipGlobalToast: true } as any).catch(() => undefined));
+        }
         import('@/store/notificationStore').then(({ useNotificationStore }) => {
           useNotificationStore.getState().reset();
         });

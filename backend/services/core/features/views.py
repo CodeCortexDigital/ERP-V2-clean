@@ -1,7 +1,8 @@
 from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
+from services.core.accounts.permissions import IsPlatformOwner
 from rest_framework.response import Response
 
 from services.core.tenants.models import School
@@ -22,7 +23,7 @@ def feature_availability(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsPlatformOwner])
 def feature_flag_list(request):
     """All flag rows (global + overrides) for admin UI."""
     tenant_id = request.query_params.get('tenant_id')
@@ -36,7 +37,7 @@ def feature_flag_list(request):
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsPlatformOwner])
 def feature_flag_update(request, pk):
     flag = FeatureFlag.objects.filter(pk=pk).first()
     if not flag:
@@ -51,7 +52,7 @@ def feature_flag_update(request, pk):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsPlatformOwner])
 def feature_flag_upsert(request):
     """Create or update global or per-tenant override."""
     ser = FeatureFlagUpsertSerializer(data=request.data)

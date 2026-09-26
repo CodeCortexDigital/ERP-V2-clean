@@ -1,7 +1,9 @@
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.db.models import Avg, Max, Min, Count
@@ -14,14 +16,37 @@ from services.core.accounts.decorators import (
     filter_exam_results_for_user,
     filter_exams_for_user,
     ensure_teacher_or_admin_for_exam_action,
+    filter_students_for_user,
+    is_admin,
 )
 from services.core.utils.pagination import StandardResultsSetPagination
 
 Student = apps.get_model('education_students', 'Student')
 
+def _visible_registrations(user):
+    qs = ExamRegistration.objects.select_related('exam', 'student').filter(exam__in=_visible_exams(user))
+    if is_admin(user):
+        return qs
+    return qs.filter(student__in=filter_students_for_user(user, Student.objects.all()))
+
+
+NOT_ALLOWED = 'Only the school office or the class teacher can change this exam.'
+
+
+def _visible_exams(user):
+    return filter_exams_for_user(user, Exam.objects.all())
+
+
+def _can_write(user, exam):
+    return ensure_teacher_or_admin_for_exam_action(user, exam)
+
+
+def _forbidden():
+    return Response({'error': NOT_ALLOWED}, status=status.HTTP_403_FORBIDDEN)
+
 
 class ExamListCreateView(generics.ListCreateAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = ExamSerializer
     
     def get_queryset(self):
@@ -29,29 +54,43 @@ class ExamListCreateView(generics.ListCreateAPIView):
         class_filter = self.request.query_params.get('class')
         if class_filter:
             queryset = queryset.filter(class_ref_id=class_filter)
-        if self.request.user.is_authenticated:
-            queryset = filter_exams_for_user(self.request.user, queryset)
-        return queryset
+        return filter_exams_for_user(self.request.user, queryset)
+
+    def perform_create(self, serializer):
+        exam = Exam(class_ref_id=serializer.validated_data.get('class_ref').pk if serializer.validated_data.get('class_ref') else None)
+        if not _can_write(self.request.user, exam):
+            raise PermissionDenied(NOT_ALLOWED)
+        serializer.save()
 
 
 class ExamDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [AllowAny]
-    queryset = Exam.objects.all()
+    permission_classes = [IsAuthenticated]
     serializer_class = ExamSerializer
     lookup_field = 'id'
+
+    def get_queryset(self):
+        return _visible_exams(self.request.user)
+
+    def perform_update(self, serializer):
+        if not _can_write(self.request.user, serializer.instance):
+            raise PermissionDenied(NOT_ALLOWED)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not _can_write(self.request.user, instance):
+            raise PermissionDenied(NOT_ALLOWED)
+        instance.delete()
 
 
 # SIMPLE WORKING RESULTS VIEW
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def get_exam_results(request):
     """Get all exam results"""
-    if request.user.is_authenticated and deny_accountant_exam_access(request.user):
+    if deny_accountant_exam_access(request.user):
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-    queryset = ExamResult.objects.select_related('exam', 'exam__subject', 'student').all()
-    if request.user.is_authenticated:
-        queryset = filter_exam_results_for_user(request.user, queryset)
+    queryset = filter_exam_results_for_user(request.user, ExamResult.objects.select_related('exam', 'exam__subject', 'student').all())
     paginator = StandardResultsSetPagination()
     page = paginator.paginate_queryset(queryset, request)
 
@@ -81,7 +120,7 @@ def get_exam_results(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def create_exam_result(request):
     """Create a single exam result"""
     try:
@@ -90,6 +129,8 @@ def create_exam_result(request):
         obtained_marks = request.data.get('obtained_marks')
         
         exam = get_object_or_404(Exam, id=exam_id)
+        if not _can_write(request.user, exam):
+            return _forbidden()
         student = get_object_or_404(Student, id=student_id)
         
         result, created = ExamResult.objects.update_or_create(
@@ -109,11 +150,13 @@ def create_exam_result(request):
 
 
 @api_view(['DELETE'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def delete_exam_result(request, result_id):
     """Delete an exam result"""
+    result = get_object_or_404(ExamResult, id=result_id)
     try:
-        result = get_object_or_404(ExamResult, id=result_id)
+        if not _can_write(request.user, result.exam):
+            return _forbidden()
         result.delete()
         return Response({'message': 'Result deleted'}, status=status.HTTP_200_OK)
     except Exception as e:
@@ -121,11 +164,13 @@ def delete_exam_result(request, result_id):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def bulk_enter_results(request, exam_id):
     """Bulk enter results for all students in an exam"""
     try:
         exam = Exam.objects.get(id=exam_id)
+        if not _can_write(request.user, exam):
+            return _forbidden()
         results_data = request.data.get('results', [])
         
         created_count = 0
@@ -161,11 +206,11 @@ def bulk_enter_results(request, exam_id):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def exam_summary(request, exam_id):
     """Get summary statistics for an exam"""
     try:
-        exam = Exam.objects.get(id=exam_id)
+        exam = _visible_exams(request.user).get(id=exam_id)
         results = ExamResult.objects.filter(exam=exam)
         
         total_students = results.count()
@@ -189,10 +234,10 @@ def exam_summary(request, exam_id):
 
 # EXAM SCHEDULES ENDPOINTS
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def exam_schedules_list_create(request):
     if request.method == 'GET':
-        schedules = ExamSchedule.objects.select_related('exam').all()
+        schedules = ExamSchedule.objects.select_related('exam').filter(exam__in=_visible_exams(request.user))
         results = []
         for s in schedules:
             results.append({
@@ -212,6 +257,8 @@ def exam_schedules_list_create(request):
     elif request.method == 'POST':
         exam_id = request.data.get('exam_id')
         exam = get_object_or_404(Exam, id=exam_id)
+        if not _can_write(request.user, exam):
+            return _forbidden()
         schedule = ExamSchedule.objects.create(
             exam=exam,
             date=request.data.get('date'),
@@ -225,9 +272,11 @@ def exam_schedules_list_create(request):
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def exam_schedule_detail(request, schedule_id):
-    schedule = get_object_or_404(ExamSchedule, id=schedule_id)
+    schedule = get_object_or_404(ExamSchedule, id=schedule_id, exam__in=_visible_exams(request.user))
+    if request.method in ('PUT', 'DELETE') and not _can_write(request.user, schedule.exam):
+        return _forbidden()
     if request.method == 'DELETE':
         schedule.delete()
         return Response({'message': 'Schedule deleted'})
@@ -243,10 +292,10 @@ def exam_schedule_detail(request, schedule_id):
 
 # EXAM REGISTRATIONS ENDPOINTS
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def exam_registrations_list_create(request):
     if request.method == 'GET':
-        registrations = ExamRegistration.objects.select_related('exam', 'student').all()
+        registrations = _visible_registrations(request.user)
         results = []
         for r in registrations:
             results.append({
@@ -264,6 +313,8 @@ def exam_registrations_list_create(request):
         exam_id = request.data.get('exam_id')
         student_id = request.data.get('student_id')
         exam = get_object_or_404(Exam, id=exam_id)
+        if not is_admin(request.user):
+            return Response({'error': 'Only the school office can register students for exams.'}, status=status.HTTP_403_FORBIDDEN)
         student = get_object_or_404(Student, id=student_id)
         reg, _ = ExamRegistration.objects.get_or_create(
             exam=exam,
@@ -274,23 +325,25 @@ def exam_registrations_list_create(request):
 
 
 @api_view(['DELETE', 'GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def exam_registration_detail(request, reg_id):
     try:
-        reg = ExamRegistration.objects.get(id=reg_id)
+        reg = _visible_registrations(request.user).get(id=reg_id)
         if request.method == 'DELETE':
+            if not is_admin(request.user):
+                return Response({'error': 'Only the school office can remove exam registrations.'}, status=status.HTTP_403_FORBIDDEN)
             reg.delete()
             return Response({'message': 'Registration deleted'})
         return Response({'id': str(reg.id), 'student': reg.student.full_name})
-    except ExamRegistration.DoesNotExist:
-        return Response({'message': 'Registration deleted'})
+    except (ExamRegistration.DoesNotExist, ValueError, ValidationError):
+        return Response({'error': 'Registration not found'}, status=404)
 
 
 @api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def generate_admit_card(request, reg_id):
     try:
-        reg = ExamRegistration.objects.select_related('exam', 'student').get(id=reg_id)
+        reg = _visible_registrations(request.user).get(id=reg_id)
         return Response({
             'success': True,
             'admit_card_url': f'/media/admit_cards/{reg.id}.pdf',
@@ -302,12 +355,5 @@ def generate_admit_card(request, reg_id):
             'exam_date': str(reg.exam.exam_date),
             'venue': 'Main Auditorium'
         })
-    except Exception as e:
-        return Response({
-            'success': True,
-            'admit_card_url': f'/media/admit_cards/{reg_id}.pdf',
-            'registration_id': str(reg_id),
-            'student_name': 'Student',
-            'exam_title': 'Examination',
-            'venue': 'Main Hall'
-        })
+    except (ExamRegistration.DoesNotExist, ValueError, ValidationError):
+        return Response({'error': 'Registration not found'}, status=404)

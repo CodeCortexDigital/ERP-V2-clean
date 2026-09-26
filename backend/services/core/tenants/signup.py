@@ -166,7 +166,7 @@ def school_signup(request):
         fields = {k: ' '.join(v) if isinstance(v, list) else v for k, v in fields.items()}
         return Response({'error': next(iter(fields.values())), 'fields': fields}, status=status.HTTP_400_BAD_REQUEST)
 
-    response = build_login_response(request, user)
+    response = build_login_response(request, user, method='signup')
     response.status_code = status.HTTP_201_CREATED
     return response
 

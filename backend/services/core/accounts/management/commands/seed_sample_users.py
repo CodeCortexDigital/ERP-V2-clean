@@ -53,7 +53,7 @@ class Command(BaseCommand):
                     'password': 'Teacher@123',
                     'full_name': 'Teacher User',
                     'is_superuser': False,
-                    'is_staff': True,
+                    'is_staff': False,
                     'role_type': 'teacher',
                 },
                 {

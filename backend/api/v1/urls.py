@@ -169,6 +169,7 @@ urlpatterns = [
     path('search/', include('services.core.search.urls')),
     path('communication/whatsapp/', include('services.communication.whatsapp.urls')),
     path('core/audit/', include('services.core.audit.urls')),
+    path('security/', include('services.core.security.urls')),
     path('storage/', include('services.core.storage.urls')),
     path('tenants/', include('services.core.tenants.urls')),
     path('features/', include('services.core.features.urls')),

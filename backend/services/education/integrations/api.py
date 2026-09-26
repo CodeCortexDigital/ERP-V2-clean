@@ -394,7 +394,7 @@ def sso_exchange(request):
     user = User.objects.filter(pk=uid, is_active=True).first()
     if user is None:
         return _err('This account is disabled.', 403)
-    return build_login_response(request, user)
+    return build_login_response(request, user, method='microsoft')
 
 
 # ---------------------------------------------------------------------------

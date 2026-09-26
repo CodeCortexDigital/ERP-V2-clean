@@ -1,6 +1,6 @@
 # Upgrade to international standard: progress
 
-Phases 1 to 20 are done. Phase 21 (Privacy & Security) is next, then Phase 22 (UI/UX & Navigation).
+Phases 1 to 21 are done. Phase 22 (UI/UX & Navigation) is next.
 Each phase is marked done only after it passes its backend tests and a browser check. The notes for each finished phase are under **Progress log** below the table.
 
 |  Phase | Module                          | Current Pakistani-Style System                                                                 | Upgrade to International Standard      | Key Features to Implement                                                                                                                                                                            | Priority         | Status |
@@ -25,8 +25,8 @@ Each phase is marked done only after it passes its backend tests and a browser c
 | **18** | **Reports & Analytics**         | Basic reports                                                                                  | **Advanced analytics dashboard**       | Enrollment trends, attendance analytics, fee collection, academic performance, teacher/class reports, financial reports                                                                              | 🟢 **18**        | ✅ Done |
 | **19** | **Global Search**               | Search within individual modules                                                               | **Global search**                      | Search students, parents, teachers, invoices, applications, books, transport records from one place                                                                                                  | 🟢 **19**        | ✅ Done |
 | **20** | **Regionalization**             | Pakistani terminology everywhere                                                               | **Region Style System**                | Pakistan / International-US setting, terminology, currency, date format, forms, payment methods and workflows                                                                                        | 🟢 **20**        | ✅ Done |
-| **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | ⏳ Next |
-| **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | Later |
+| **21** | **Privacy & Security**          | Basic authentication/roles                                                                     | **Enterprise-grade security**          | RBAC, audit logs, permissions, data access controls, SSO, privacy settings, configurable retention policies                                                                                          | 🟢 **21**        | ✅ Done |
+| **22** | **UI/UX & Navigation**          | ~15 flat menu items with terms such as Challan, Date Sheet, Award List                         | **Modern grouped navigation**          | People, Academics, Gradebook, Attendance, Billing, Admissions, Communication, Reports + global search                                                                                                | 🟢 **22**        | ⏳ Next |
 
 ## After phase 22: deployment checklist
 
@@ -43,12 +43,19 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - communication `0005`;
   - calendar `0001`;
   - behaviour `0003`–`0004`;
-  - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`.
+  - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`;
+  - audit `0004`, security `0001`, and the sign-out token tables (`token_blacklist`, from simplejwt).
 - [ ] **New Python package**: `segno` (library QR labels) is in `requirements.txt`. Check that Render installs it.
 - [ ] **Daily cron jobs on Render**:
   - `python manage.py send_scheduled_announcements`;
   - `python manage.py send_calendar_reminders`;
-  - `python manage.py send_library_reminders`.
+  - `python manage.py send_library_reminders`;
+  - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules).
+- [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
+  - exam results readable and writable without signing in;
+  - the fee defaulter list public;
+  - the demo login endpoint;
+  - teachers with Django's staff flag treated as administrators.
 - [ ] **App addresses** on Render:
   - `FRONTEND_ORIGINS`: the web app address(es), e.g. `https://your-app.vercel.app`. Microsoft sign-in and Google Classroom only ever return people there.
   - `PUBLIC_API_URL`: the backend's public `https://` address, so the sign-in return addresses shown to schools use https.
@@ -1263,6 +1270,147 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - the caste field was gone from the add-student form;
   - receive payment offered Card, ACH bank transfer, Check, Cash and Online payment;
   - back on Pakistan, Date Sheet, Award List, Result Card, a Monday week, 26/09/2026 and the caste field all returned.
+  - No page errors.
+
+
+### Phase 21: Privacy & Security ✅
+
+**Security holes found and closed**
+- **Anyone could read or change exam results without signing in.**
+  - Exams, results, schedules, registrations and admit cards were open to the public. Anyone could list every school's results (names and marks) and create, bulk-enter or delete results.
+  - Signed-in parents and students could also write results.
+  - Now everything needs a sign-in. People see only their own role's exams and results. Only the office or the class's own teacher can change marks, schedules or registrations.
+- **The fee defaulter list, revenue and class collection figures were public.** They are now for school administrators only.
+- **Other endpoints that answered without signing in are closed too:**
+  - the timetable (it could even be added to);
+  - the WhatsApp "test send" (it could send messages through the school's account);
+  - the detailed server health page.
+- **Anyone could sign in as anyone.** The demo login accepted any existing email address and returned that person's login tokens without a password. It only failed because of a missing import. The endpoint and its code are removed.
+- **Teachers were treated as administrators.** Many endpoints trusted Django's "staff" flag, which the demo seed gave to teachers. With it, a teacher could:
+  - see every staff member's salary and ID number, and clear all salaries;
+  - read the whole audit log of every school;
+  - see and reset students' and teachers' portal passwords;
+  - switch off anyone's account;
+  - change feature flags for all schools;
+  - approve leave.
+
+  All of these now check the school administrator role. Feature flags that affect every school are for the platform owner only.
+- **The audit log was shared between schools.** Every entry now belongs to a school, and admins see only their own.
+- **Signing out didn't end the session.** The sign-out token list wasn't installed, so a signed-out refresh token kept working for 7 days. Now signing out ends it, and the app sends the token when you sign out.
+- **Misleading screens removed:**
+  - the "Role Permissions" page, whose switches saved nothing;
+  - the "Delete account" button, which only showed a message and recorded nothing.
+
+  Both are replaced below.
+
+**What a school can now do** (Settings → **Security & privacy**)
+- **Overview**:
+  - how many people can sign in;
+  - who is blocked right now, who is switched off, and who has never signed in;
+  - for the last 7 days: sign-ins, wrong passwords, blocked sign-ins, changes made, and refused actions (someone tried something their role doesn't allow);
+  - the current rules;
+  - deletion requests waiting.
+- **People & access**: everyone who can sign in to the school (administrators, teachers, staff, parents, students).
+  - Each person shows their last sign-in, where it came from, and any wrong passwords.
+  - Search, and filter by role or status: blocked, switched off, wrong passwords, never signed in, asked to be deleted.
+  - Actions:
+    - **Unlock**;
+    - **Sign out** on every device;
+    - **Switch off** (signs them out at once);
+    - **Switch on**.
+  - You can't switch off your own account or reach another school's people. Each action is recorded in the activity log with the person's name.
+- **Sign-ins**: every attempt, with:
+  - the result (signed in, wrong password, blocked for too many attempts, blocked because switched off);
+  - how (password, Microsoft, Google, signup);
+  - the IP address and device.
+
+  Filters, dates, and a CSV download.
+- **Activity log**: every change anyone makes in the school (added, changed, deleted, ran), every export, and every refused attempt, with who, when, the area of the app, and the IP address. Filter by person, action, area and dates, and download as CSV. Viewing pages is not recorded, so the log stays readable.
+- **Roles & access**: what each role can see and do in each area (students, admissions, attendance, gradebook, fees, messages, library, transport, cafeteria, inventory, reports, search, security, settings), with how many people have each role. The system enforces these on every request; this page describes them in plain words.
+- **Rules & retention**:
+  - how many wrong passwords before an account is blocked (default 5), and for how long (default 15 minutes);
+  - the shortest password (default 8), checked when someone changes their password;
+  - sign out after a period of no activity (default off; useful on shared office computers);
+  - how long to keep the activity log (default 365 days) and sign-in history (default 180 days).
+
+**Signing in**
+- After too many wrong passwords in a row the account is blocked for a while. The sign-in page says how many minutes are left, and that the office can unlock it sooner.
+- A switched-off account is told so, but only when the password is right.
+- Wrong passwords for unknown names are recorded too, without a school.
+
+**Everyone's own privacy** (Settings → Account, or Security & privacy for non-admins)
+- **My sign-ins & data**:
+  - recent sign-ins with device and IP address;
+  - a warning if wrong passwords were tried on the account since the person last signed in;
+  - **Sign out everywhere**: all sessions on all devices end, including this one;
+  - **Download my data**: a JSON file with:
+    - the account and preferences;
+    - sign-ins and own activity in the school;
+    - consents;
+    - for parents and students, the children's or their own basic record.
+- **Ask to delete my account**:
+  - sends a request to the school office, and can be withdrawn;
+  - the office sees it on the overview and in People & access;
+  - the request is completed when the office switches the account off. The office decides because the school may have to keep some records.
+
+**Built**
+- Backend:
+  - new app `services/core/security`:
+    - `SignInEvent`;
+    - `policy.py` (the school's rules, lockout, sign-in records, sign out everywhere, password rules);
+    - `access.py` (who belongs to a school, the roles summary, activity areas);
+    - `api.py` and `urls.py` (`/api/v1/security/`);
+    - `tokens.py` (a token refresh that refuses signed-out and switched-off accounts);
+    - the command `apply_retention`;
+  - the audit log gains a `school` field (audit `0004`), and its middleware now records only changes, exports and refusals;
+  - JWT sign-in rejects tokens issued before "sign out everywhere";
+  - `rest_framework_simplejwt.token_blacklist` installed;
+  - the sign-in view does lockout, disabled accounts and sign-in records, and records successful Microsoft, Google and signup sign-ins too;
+  - the "staff flag" checks replaced by the school-administrator check in:
+    - portal logins;
+    - employee tasks;
+    - leave and payslip lists;
+    - leave approval;
+    - timetable writes;
+    - the old admin data endpoints;
+    - the student permission classes.
+- Frontend:
+  - `services/security.service.ts`;
+  - `pages/settings/SecurityPage.tsx`;
+  - `components/security/MySecurityPanel.tsx` (also on Account settings);
+  - `hooks/useIdleSignOut.ts` (in the main layout);
+  - the Settings tab "Security & privacy" replaces "Role Permissions"; the old addresses redirect to it;
+  - the old audit-log viewer is removed and its address redirects to the Activity log;
+  - search shortcuts for security, the activity log, sign-ins and people;
+  - the sign-in form no longer shows a second error pop-up.
+- Tests:
+  - `backend/tests/test_security.py` has 11 new tests:
+    - **every API address is tried without signing in**: 400+ routes, GET and POST; only health checks, sign-out, signup settings and the WhatsApp webhook may answer;
+    - the demo login is gone;
+    - the staff flag gives a teacher no admin access;
+    - exam results need the office or the class teacher;
+    - lockout and unlock, and stricter rules;
+    - switched-off accounts, sign out everywhere, and sign-out ending the refresh token;
+    - people and their limits;
+    - roles, overview and rules, including the password length;
+    - the activity log (school-only, filters, CSV, refusals);
+    - retention;
+    - my own data;
+    - deletion requests.
+  - Passing:
+    - all 11 new tests;
+    - the rest of the backend suite: 134 of 135 tests pass. The one failure already failed before this phase: `test_leave_approval::test_manager_can_approve_leave`. It gives a 404 because the test's manager belongs to no school. It fails the same way without this phase's changes, and is left for later.
+    - the frontend tests.
+- Browser check on the demo school (the database was restored afterwards):
+  - five wrong passwords blocked the student, with "Try again in 15 minutes…" and no extra pop-up;
+  - the overview showed 1 blocked and 5 wrong passwords;
+  - "Blocked for now" listed Ali Raza, and **Unlock** worked;
+  - sign-ins showed the attempts with IP address and "Chrome on Windows";
+  - saving a rule and the unlock both appeared in the activity log;
+  - the old Role Permissions address opened the roles table (14 areas);
+  - the exams and timetable pages still loaded for the office;
+  - the student then signed in and saw "5 wrong passwords were tried on your account" on Account settings;
+  - **Download my data** gave `my-data.json` with 6 sign-ins, and **Sign out everywhere** returned to the sign-in page.
   - No page errors.
 
 

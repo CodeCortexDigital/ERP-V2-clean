@@ -1,3 +1,4 @@
+from services.core.accounts.permissions import IsPlatformOwner
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -52,7 +53,7 @@ def liveness_check(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsPlatformOwner])
 def detailed_health(request):
     """
     Detailed health check with all component statuses.
