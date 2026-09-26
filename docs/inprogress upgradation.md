@@ -69,6 +69,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
 - [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
 - [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
 - [ ] **Web app address** (P6): set `FRONTEND_ORIGINS` on Render to the web app's address(es), comma-separated (for example `https://your-app.vercel.app,https://erp.yourschool.com`). Only those pages may then call the API. Until it is set, any `*.vercel.app` or `*.onrender.com` page may. If sign-in history shows the same address for everyone, set `TRUSTED_PROXIES` to 2.
@@ -2255,6 +2256,31 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 **Still yours** (in the checklist): after the deploy, the platform owner sets up two-step sign-in (the live site asks at the first sign-in; have an authenticator app ready) and keeps the recovery codes somewhere safe.
 
 
+### P9: Dependency and code scanning ✅
+
+**What changed**
+- **Known vulnerabilities fixed now:**
+  - the web app's packages had **16 known vulnerabilities (1 critical, 8 high, 7 moderate)**, including `websocket-driver`, `ws`, `protobufjs`, `vite` and `postcss`;
+  - `npm audit fix` updated them within their allowed versions, with no major upgrades; the type check, 99/99 tests and the production build still pass;
+  - **5 moderate** ones remain: `react-router` 6 → 7 and a test-only `vitest` package. Both need a major upgrade, which is safer after the deploy than just before it;
+  - the backend's 129 installed Python packages were checked against the OSV vulnerability database, with **no known advisories**.
+- **Scanning on every push** (`.github/workflows/security-scan.yml`), on every push and pull request and every Monday (new advisories appear for code that hasn't changed):
+  - **pip-audit** on `backend/requirements.txt`;
+  - **npm audit** on the packages the web app ships (high or critical fail the check);
+  - **CodeQL** analysis of the Python and TypeScript code (the `security-extended` rules); findings appear in the repository's Security tab.
+- **Dependabot** (`.github/dependabot.yml`): weekly pull requests for Python and npm updates, with minor and patch updates grouped, and monthly ones for GitHub Actions. Each runs CI, so a breaking update shows as a red check instead of reaching the live site.
+
+**Built**
+- `.github/workflows/security-scan.yml`, `.github/dependabot.yml` and `frontend/package-lock.json` (updated).
+- Checks:
+  - `npm audit --omit=dev` went from 16 vulnerabilities (1 critical, 8 high) to 5 moderate;
+  - after the update: type check, vitest 99/99, and the production build all pass;
+  - the Python packages have no advisories in OSV;
+  - the backend suite is unaffected (320 passed with P8).
+
+**Still yours** (in the checklist): in GitHub → Settings → Code security, switch on Dependabot alerts and security updates. CodeQL results then appear under Security → Code scanning after the first push.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2380,13 +2406,13 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P6** | Web security hardening and rate limits | ✅ Done |
 | **P7** | Secrets and default passwords | ✅ Done |
 | **P8** | Two-step sign-in for administrators | ✅ Done |
-| **P9** | Dependency and code scanning | ⏳ In progress |
+| **P9** | Dependency and code scanning | ✅ Done |
 | **P10** | School onboarding and data import | ✅ Done |
 | **P11** | SaaS plans and subscriptions | ✅ Done |
 | **P12** | Platform payments and invoices | ✅ Done |
 | **P13** | Full school export and end-of-contract deletion | ✅ Done |
 | **P14** | Privacy documents, consent and breach response | ✅ Done |
-| **P15** | Help centre and support tickets | Next |
+| **P15** | Help centre and support tickets | ⏳ In progress |
 | **P16** | Automated SMS and WhatsApp | Next |
 | **P17** | Retention by record type | Next |
 
