@@ -12,7 +12,9 @@ class Command(BaseCommand):
         admin_password = os.environ.get('ADMIN_PASSWORD')
 
         if not admin_password:
-            raise EnvironmentError('ADMIN_PASSWORD environment variable is required for this command.')
+            # Runs in the Render start command: a missing password must not stop the server from starting.
+            self.stdout.write(self.style.WARNING('ADMIN_PASSWORD is not set; skipping admin creation.'))
+            return
 
         if not User.objects.filter(email=admin_email).exists():
             User.objects.create_superuser(
