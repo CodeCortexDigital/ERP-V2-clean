@@ -22,16 +22,24 @@ SENSITIVE = re.compile(r'password|secret|token|api_?key|private_key|credential|o
 MAX_FILES_BYTES = 500 * 1024 * 1024  # uploaded files included in a zip export, at most
 
 
+# Records owned by a school through a "school" field (not in the tenant registry). Platform invoices are deliberately
+# not here: they are the platform's financial records and survive a deletion.
+SCHOOL_FIELD = {
+    'core_privacy.ConsentType': 'school', 'core_privacy.ConsentRecord': 'school', 'core_privacy.PrivacyRequest': 'school',
+    'core_privacy.LegalDocument': 'school',
+}
+
+
 def school_querysets(school):
     """(label, model, queryset) for every kind of record that belongs to the school."""
-    for label, path in sorted(tenant_paths().items()):
-        if not path.endswith('tenant'):
-            continue
+    owned = {label: path for label, path in tenant_paths().items() if path.endswith('tenant')}
+    owned.update(SCHOOL_FIELD)
+    for label, lookup in sorted(owned.items()):
         try:
             Model = apps.get_model(label)
         except LookupError:
             continue
-        yield label, Model, Model._base_manager.filter(**{path: school})
+        yield label, Model, Model._base_manager.filter(**{lookup: school})
 
 
 def _fields(Model):

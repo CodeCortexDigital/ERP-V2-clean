@@ -1,3 +1,4 @@
+import { NoPhotoBadge, usePhotoConsent } from '@/components/privacy/PhotoConsent';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -48,6 +49,7 @@ export default function StudentProfilePage() {
   const [params, setParams] = useSearchParams();
   const tab = (TABS.find((t) => t.id === params.get('tab'))?.id || 'overview') as TabId;
   const [data, setData] = useState<StudentProfile | null>(null);
+  const photos = usePhotoConsent(data?.student?.id ? [String(data.student.id)] : []);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -107,6 +109,7 @@ export default function StudentProfilePage() {
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${s.is_active !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
                 {s.is_active !== false ? 'Enrolled' : 'Inactive'}
               </span>
+              <NoPhotoBadge consent={photos[String(s.id)]} />
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {data.health?.has_severe_allergy && (

@@ -122,6 +122,8 @@ import PaymentPlansPage from '@/pages/education/finance/PaymentPlansPage'
 import OnlinePaymentsPage from '@/pages/education/finance/OnlinePaymentsPage'
 import IntegrationsPage from '@/pages/settings/IntegrationsPage'
 import ImportPage from '@/pages/education/ImportPage'
+import LegalPage from '@/pages/LegalPage'
+import PrivacyConsentPage from '@/pages/PrivacyConsentPage'
 import SchoolReportsPage from '@/pages/education/insights/SchoolReportsPage'
 import SearchPage from '@/pages/SearchPage'
 import LessonAttendancePage from '@/pages/education/attendance/LessonAttendancePage'
@@ -292,6 +294,8 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/legal/school/:code" element={<LegalPage />} />
+              <Route path="/legal/:kind" element={<LegalPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/apply/status" element={<ApplicationStatusPage />} />
               <Route path="/apply/:slug" element={<ApplyPage />} />
@@ -564,6 +568,7 @@ function App() {
                 </Route>
                 <Route path="library" element={<MyLibraryPage />} />
                 <Route path="search" element={<SearchPage />} />
+                <Route path="privacy" element={<PrivacyConsentPage />} />
                 {/* Transport (the office sets it up; drivers and attendants run their routes under Bus duty) */}
                 <Route path="education/transport" element={<RoleBasedRoute allowedRoles={['admin']}><ModuleTabsLayout tabs={transportTabs} scopeClass="transport-scope" /></RoleBasedRoute>}>
                   <Route index element={<TransportTodayPage />} />

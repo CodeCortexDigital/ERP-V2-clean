@@ -9,6 +9,7 @@ import { useLocaleStore } from '@/store/localeStore';
 import AiAssistant, { type ChatMode } from '@/components/AiAssistant';
 import { useIdleSignOut } from '@/hooks/useIdleSignOut';
 import SubscriptionBanner from '@/components/billing/SubscriptionBanner';
+import AcceptanceGate from '@/components/privacy/AcceptanceGate';
 import { usePlanStore } from '@/store/planStore';
 
 interface LayoutProps {
@@ -91,6 +92,7 @@ export function Layout({ children }: LayoutProps) {
       </div>
 
       {hasAi && <AiAssistant key={assistantMode} mode={assistantMode} />}
+      <AcceptanceGate />
     </div>
   );
 }

@@ -1735,6 +1735,82 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - No page errors.
 
 
+### P14: Privacy documents, consent and breach response ✅
+
+**Legal documents**
+- **Public pages**, linked from the sign-in page:
+  - `/legal/privacy`, the platform's privacy notice;
+  - `/legal/terms`, the terms of use;
+  - `/legal/subprocessors`;
+  - `/legal/school/CODE`, a school's own privacy notice.
+- Until the platform owner publishes, the privacy and terms pages show a **starting template**, marked as needing review by a lawyer.
+- The **platform owner** reviews and publishes new versions (All Schools → Privacy notice and terms). The **school office** writes and publishes its own notice from a template with the school's name filled in (Security & privacy → Privacy & consent), and sees how many people have accepted each document.
+- **Acceptance**: after a new version is published, everyone is shown it when they next sign in and must accept it to continue, with a note of what changed. The acceptance and IP address are recorded.
+
+**Consent**
+- Each school has consent questions. Two come ready:
+  - **Photos and videos**, asked for each child;
+  - **Anonymous usage statistics**, asked of each person.
+
+  The office can add more (for example "School trips").
+- **Privacy & consent** is a new page for parents, students and staff (in the Account section of the menu). Parents answer Yes or No for each child, can change their mind at any time, and see the history of each answer.
+- If the office changes a question's wording, earlier answers are flagged and the family is asked again.
+- **Report** for the office: yes, no and not answered for every student (or person), with who answered and when, and a CSV download.
+- **Teachers see "No photos"** next to a child on the class roster and on the student profile when the family said no.
+
+**Privacy requests**
+- From Privacy & consent, anyone can ask the school to **see a copy** of their data, **correct** it, **limit** or **object to** its use, or **erase** it, for themselves or one of their children.
+- Each request has a due date **one month** later. The office sees open requests with the deadline (overdue ones in red), replies, and marks them handled, completed or refused. Refusing needs a reason.
+- The requester sees the status and the reply.
+
+**Breach response**
+- **Sub-processors**: the platform owner keeps the list (company, purpose, data, location, optional), and the public page shows it. It starts with the services this system is built to use: Render, Vercel, Stripe, OpenAI, Anthropic, Google, Microsoft and Twilio. Their locations are for the platform owner to fill in for their own accounts.
+- **Report a problem** (school office): for example a lost device or an email to the wrong family. It creates an incident (INC-2026-001…) that the platform owner sees straight away.
+- **Incident register** (platform owner):
+  - severity, status, affected schools, data affected and number of people;
+  - the **72-hour regulator deadline**, shown in red when overdue, with a "Regulator told now" record;
+  - an 8-step **playbook** (contain, assess, record, regulator, schools, people, fix, review);
+  - a **timeline** of notes;
+  - **Tell affected schools**: emails each affected school's administrators and billing contact, and records it.
+- Privacy actions (consent, requests) keep working when a school is read-only, and the P13 export and deletion now include the privacy records.
+
+**Built**
+- Backend:
+  - new app `services/core/privacy`:
+    - `LegalDocument`, `DocumentAcceptance`, `ConsentType`, `ConsentRecord`, `PrivacyRequest`, `SubProcessor`, `Incident` and `IncidentUpdate` (migrations `0001`, and `0002` for the starting sub-processor list);
+    - `service.py`: templates, pending documents, current answers, photo consent, the playbook, telling schools;
+    - `api.py` and `urls.py` (`/api/v1/privacy/`);
+  - `privacy/` allowed while read-only;
+  - export and deletion cover the privacy records.
+- Frontend:
+  - `pages/LegalPage.tsx` (public);
+  - `components/privacy/AcceptanceGate.tsx` (in the main layout);
+  - `pages/PrivacyConsentPage.tsx` (`/privacy`);
+  - `components/privacy/PrivacyAdminPanel.tsx` (a new Security & privacy tab);
+  - `components/platform/PlatformPrivacy.tsx`;
+  - `components/privacy/PhotoConsent.tsx` (on the roster and the profile);
+  - links on the sign-in page;
+  - the menu item, translated into all 23 languages.
+- Tests:
+  - `backend/tests/test_privacy.py` has 5 new tests:
+    - documents are published and accepted (template, platform and school versions, re-asking after a new version, the public sub-processor page);
+    - consent per child and the report (only for your own children; history; teachers' photo flags; CSV; wording changes flag old answers; new questions);
+    - privacy requests (deadline, refusing needs a reason, the reply reaches the requester, overdue);
+    - incidents (school report, status and severity, playbook, emailing the schools, the 72-hour flag);
+    - the export and deletion cover consent.
+  - Passing: these plus the portability and billing tests (13 passed), the locale test and the frontend type check.
+- A bug caught during the work: the photo flags came back as "not asked" for everyone because the answers were looked up by the wrong kind of ID. It is fixed and tested.
+- Browser check on the demo school (the database was restored afterwards):
+  - the sign-in page links worked, and the public privacy page showed the template;
+  - the sub-processors page listed the 8 services;
+  - the platform owner published the privacy notice, and the office published the school's notice;
+  - the parent was asked to accept both, then answered "No" to photos for a child and sent a correction request, which the office completed with a reply;
+  - the consent report showed 0 yes, 1 no and 119 not answered;
+  - the office reported "Email sent to the wrong family" (INC-2026-001), and the platform owner ticked the first playbook step and told the school by email, which the timeline recorded;
+  - on the teacher's roster, "No photos" showed next to the child who had no photo consent. (The demo has two pupils named Fatima Raza; the teacher teaches the other one, so the badge was checked on her.)
+  - No page errors.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -1827,9 +1903,11 @@ Do the items for a market only when a school there is signing.
 
 The notes for each finished item are in the **Progress log**, after Phase 22.
 
+Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then deploy, then test on the live site. P10 to P14 were done first by mistake; P1 to P9 follow now, then P15 to P17.
+
 | Order | Item | Status |
 | ---: | --- | --- |
-| **P1** | Production readiness | Partly done, paused (open findings in the log) |
+| **P1** | Production readiness | ⏳ Resuming next (open findings in the log) |
 | **P2** | Database safety and backups | Next |
 | **P3** | Password reset and transactional email | Next |
 | **P4** | Error tracking and uptime monitoring | Next |
@@ -1842,7 +1920,7 @@ The notes for each finished item are in the **Progress log**, after Phase 22.
 | **P11** | SaaS plans and subscriptions | ✅ Done |
 | **P12** | Platform payments and invoices | ✅ Done |
 | **P13** | Full school export and end-of-contract deletion | ✅ Done |
-| **P14** | Privacy documents, consent and breach response | ⏳ In progress |
+| **P14** | Privacy documents, consent and breach response | ✅ Done |
 | **P15** | Help centre and support tickets | Next |
 | **P16** | Automated SMS and WhatsApp | Next |
 | **P17** | Retention by record type | Next |

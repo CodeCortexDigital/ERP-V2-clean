@@ -169,7 +169,7 @@ MODULE_PREFIXES = [
     ('online_payments', ('finance/payments/session', 'finance/payment-gateways')),
 ]
 # Allowed even when the school is read-only: paying, the plan itself, and personal account safety.
-READ_ONLY_WRITES = ('billing/', 'portability/', 'finance/payments/session', 'finance/payments/webhook', 'security/me/', 'auth/logout',
+READ_ONLY_WRITES = ('billing/', 'portability/', 'privacy/', 'finance/payments/session', 'finance/payments/webhook', 'security/me/', 'auth/logout',
                     'auth/settings/change-password', 'notifications/', 'token/refresh')
 SAFE = ('GET', 'HEAD', 'OPTIONS')
 

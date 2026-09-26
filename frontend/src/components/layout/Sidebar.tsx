@@ -5,7 +5,7 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes, UtensilsCrossed, Plug, FileSpreadsheet
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes, UtensilsCrossed, Plug, FileSpreadsheet, ShieldCheck
 } from 'lucide-react';
 import cafeteriaService from '@/services/cafeteria.service';
 import transportService from '@/services/transport.service';
@@ -268,6 +268,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
         group: 'teaching',
       })),
     ...COMMS,
+    { id: 'privacy', label: 'Privacy & consent', icon: <ShieldCheck className="w-4 h-4" />, href: '/privacy', always: true, group: 'account' },
     {
       id: 'settings',
       label: 'Account Settings',
@@ -388,6 +389,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       always: true
     },
     ...COMMS,
+    { id: 'privacy', label: 'Privacy & consent', icon: <ShieldCheck className="w-4 h-4" />, href: '/privacy', always: true, group: 'account' },
     {
       id: 'notifications',
       label: 'Notifications',
@@ -424,6 +426,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     P('transport', 'Transport', <Bus className="w-4 h-4" />, '/parent/transport', 'services'),
     P('cafeteria', 'Cafeteria', <UtensilsCrossed className="w-4 h-4" />, '/parent/cafeteria', 'services'),
     ...COMMS,
+    { id: 'privacy', label: 'Privacy & consent', icon: <ShieldCheck className="w-4 h-4" />, href: '/privacy', always: true, group: 'account' },
     P('notifications', 'Notifications', <MessageSquare className="w-4 h-4" />, '/parent/notifications', 'communication'),
     {
       id: 'settings',

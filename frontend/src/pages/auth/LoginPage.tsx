@@ -283,6 +283,7 @@ export default function LoginPage() {
           {t('auth.createSchool')} <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
         </Link>
       </div>
+      <p className="mt-4 text-center text-xs text-slate-500"><Link to="/legal/privacy" className="hover:underline">Privacy notice</Link> · <Link to="/legal/terms" className="hover:underline">Terms of use</Link></p>
     </AuthShell>
   );
 }

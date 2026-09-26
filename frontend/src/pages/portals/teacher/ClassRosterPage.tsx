@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, NotebookPen, Star } from 'lucide-react';
 import workspace, { ClassCard, RosterRow } from '@/services/workspace.service';
+import { NoPhotoBadge, usePhotoConsent } from '@/components/privacy/PhotoConsent';
 
 const pct = (v: number | null) => (v == null ? '—' : `${v}%`);
 const tone = (v: number | null, low: number) => (v == null ? 'text-slate-400' : v < low ? 'text-rose-600 font-bold' : 'text-slate-800');
@@ -14,6 +15,7 @@ export default function ClassRosterPage() {
   const [error, setError] = useState('');
   const [sort, setSort] = useState<Sort>('name');
   const [onlyAttention, setOnlyAttention] = useState(false);
+  const photos = usePhotoConsent((data?.students || []).map((s) => String(s.id)));
 
   useEffect(() => { workspace.roster(id).then(setData).catch(() => setError('Class not found.')); }, [id]);
 
@@ -76,6 +78,7 @@ export default function ClassRosterPage() {
                 <td className="py-2 px-3">
                   <Link to={`/education/students/${r.id}`} className="font-semibold text-slate-800 hover:underline">{r.full_name}</Link>
                   <span className="block text-[11px] text-slate-400">{r.student_id}{r.section ? ` · ${r.section}` : ''}</span>
+                  <NoPhotoBadge consent={photos[String(r.id)]} />
                 </td>
                 <td className={`pr-3 ${tone(r.attendance_rate, t.attendance)}`}>{pct(r.attendance_rate)}</td>
                 <td className="pr-3 text-slate-600">{r.absences} / {r.late}</td>

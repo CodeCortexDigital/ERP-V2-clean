@@ -173,6 +173,7 @@ urlpatterns = [
     path('security/', include('services.core.security.urls')),
     path('billing/', include('services.core.billing.urls')),
     path('portability/', include('services.core.portability.urls')),
+    path('privacy/', include('services.core.privacy.urls')),
     path('storage/', include('services.core.storage.urls')),
     path('tenants/', include('services.core.tenants.urls')),
     path('features/', include('services.core.features.urls')),
