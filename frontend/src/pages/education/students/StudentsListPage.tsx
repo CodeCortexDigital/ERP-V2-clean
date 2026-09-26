@@ -267,6 +267,12 @@ export default function StudentsListPage() {
     return <AddStudentPage />;
   }
 
+  // The chosen class, by exact name (a loose "contains" let "Grade 1" match "Grade 10", and students with no class
+  // matched every class).
+  const sameClass = (name: string) => name.trim().toLowerCase() === selectedClass.trim().toLowerCase();
+  const inSelectedClass = (s: { class_name?: string }) => !selectedClass || sameClass(s.class_name || '');
+  const classCount = selectedClass ? students.filter(inSelectedClass).length : students.length;
+
   // Filter and sort students
   const filteredAndSortedStudents = students
     .filter(s => {
@@ -276,10 +282,7 @@ export default function StudentsListPage() {
 
       const matchesSearch = (s.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (s.student_id || '').includes(searchTerm);
-      const matchesClass = !selectedClass ||
-        (s.class_name || '').toLowerCase().includes(selectedClass.toLowerCase()) ||
-        selectedClass.toLowerCase().includes((s.class_name || '').toLowerCase());
-      return matchesSearch && matchesClass;
+      return matchesSearch && inSelectedClass(s);
     })
     .sort((a, b) => {
       const nameA = (a.full_name || '').toLowerCase();
@@ -425,7 +428,7 @@ export default function StudentsListPage() {
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <Users className="w-4 h-4 text-purple-500" />
-            <span className="font-semibold text-slate-800">{students.length}</span> Students
+            <span className="font-semibold text-slate-800">{classCount}</span> Students
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <Armchair className="w-4 h-4 text-amber-500" />
@@ -434,8 +437,8 @@ export default function StudentsListPage() {
           <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <CircleCheck className="w-4 h-4 text-teal-500" />
             Available Seats:{' '}
-            <span className={`font-semibold ${classCapacity != null && (classCapacity - students.length) > 0 ? 'text-teal-700' : 'text-rose-600'}`}>
-              {classCapacity != null ? Math.max(0, classCapacity - students.length) : '--'}
+            <span className={`font-semibold ${classCapacity != null && (classCapacity - classCount) > 0 ? 'text-teal-700' : 'text-rose-600'}`}>
+              {classCapacity != null ? Math.max(0, classCapacity - classCount) : '--'}
             </span>
           </div>
         </div>
