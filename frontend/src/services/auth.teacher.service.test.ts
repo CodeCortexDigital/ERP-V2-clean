@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockedApiGet = vi.fn();
-const mockedApiPost = vi.fn();
-const mockedApiPatch = vi.fn();
-const mockedApiDelete = vi.fn();
+// vi.mock is hoisted above the imports, so the mocks it uses must be hoisted too.
+const { mockedApiGet, mockedApiPost, mockedApiPatch, mockedApiDelete } = vi.hoisted(() => ({
+  mockedApiGet: vi.fn(),
+  mockedApiPost: vi.fn(),
+  mockedApiPatch: vi.fn(),
+  mockedApiDelete: vi.fn(),
+}));
 
 vi.mock('./api', () => ({
+  mediaUrl: (url: string) => url,
   extractListData: (data: unknown) => {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object' && Array.isArray((data as { results?: unknown[] }).results)) {
@@ -53,6 +57,6 @@ describe('auth and teacher API routes', () => {
     await teacherService.create({ full_name: 'Ada' });
 
     expect(mockedApiGet).toHaveBeenCalledWith('/auth/my-teacher-profile/');
-    expect(mockedApiPost).toHaveBeenCalledWith('/auth/academics/teachers/', { full_name: 'Ada' });
+    expect(mockedApiPost).toHaveBeenCalledWith('/auth/academics/teachers/', expect.objectContaining({ full_name: 'Ada', is_active: true }));
   });
 });

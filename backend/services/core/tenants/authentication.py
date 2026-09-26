@@ -29,4 +29,9 @@ class TenantJWTAuthentication(JWTAuthentication):
             from services.core.billing.service import check_request
 
             check_request(request, result[0], school)  # modules outside the plan; read-only after a lapse
+            if request.method not in ('GET', 'HEAD', 'OPTIONS') and not result[0].is_superuser:
+                from services.core.accounts.decorators import get_user_role
+                from services.core.security import role_policy
+
+                role_policy.check(request, result[0], get_user_role(result[0]))  # which changes this role may make
         return result

@@ -44,6 +44,16 @@ class TestLeaveApprovalPermissions:
         except Exception as e:
             print(f"Error setting up manager: {e}")
 
+        # Everyone belongs to one school, as in real use (the leave is scoped to it).
+        from services.core.tenants.models import TenantMembership
+        from tests.conftest import SchoolFactory
+
+        self.school = SchoolFactory(name='Leave Test School')
+        self.teacher.tenant = self.school
+        self.teacher.save(update_fields=['tenant'])
+        TenantMembership.objects.create(user=self.manager_user, school=self.school, role='staff')
+        TenantMembership.objects.get_or_create(user=self.teacher_user, school=self.school, defaults={'role': 'teacher'})
+
         # Create a leave request for the teacher
         self.leave = TeacherLeave.objects.create(
             teacher=self.teacher,
@@ -55,6 +65,8 @@ class TestLeaveApprovalPermissions:
             reason='Medical reasons',
             status='pending'
         )
+        TeacherLeave._base_manager.filter(pk=self.leave.pk).update(tenant=self.school)
+        self.leave.refresh_from_db()
 
     def test_admin_can_approve_leave(self, setup_leave, api_client):
         """Test that an admin user can approve a leave request."""

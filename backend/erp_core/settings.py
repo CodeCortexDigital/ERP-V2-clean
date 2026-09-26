@@ -132,7 +132,8 @@ if _use_sqlite:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            # SQLITE_PATH lets the backup restore test load a backup into a separate, empty database.
+            'NAME': os.environ.get('SQLITE_PATH') or BASE_DIR / 'db.sqlite3',
         }
     }
 else:
@@ -184,10 +185,11 @@ else:
     )
     # Emergency fallback: if DB_HOST names a database that no longer exists (e.g. an expired
     # Render free Postgres) and no DATABASE_URL is set, start on a local SQLite file instead of
-    # crash-looping. Data in that file is NOT durable on Render. Disable with DB_SQLITE_FALLBACK=0.
+    # crash-looping. Data in that file is NOT durable, so in production (DEBUG off) this is OFF unless
+    # DB_SQLITE_FALLBACK=1 is set on purpose: a missing database must stop the app, not silently lose data (P2).
     if (
         not _database_url
-        and os.environ.get('DB_SQLITE_FALLBACK', '1').lower() not in ('0', 'false', 'no')
+        and os.environ.get('DB_SQLITE_FALLBACK', '1' if DEBUG else '0').lower() not in ('0', 'false', 'no')
         and DATABASES['default']['HOST'] not in ('', '127.0.0.1', 'localhost')
     ):
         import socket as _socket

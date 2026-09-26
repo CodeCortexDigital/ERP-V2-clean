@@ -46,6 +46,11 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - library `0001`, transport `0001`, inventory `0001`, cafeteria `0001` and integrations `0001`;
   - audit `0004`, security `0001`, and the sign-out token tables (`token_blacklist`, from simplejwt).
 - [x] **New Python package**: `segno` (library QR labels) is in `requirements.txt`, which the Render build installs on every deploy.
+- [ ] **Paid database and durable backups** (P2):
+  - move `erp-db` in `render.yaml` from `plan: free` to a paid plan (free Render databases expire);
+  - set `BACKUP_S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (a private bucket), plus `BACKUP_ENCRYPTION_KEY` (a Fernet key);
+  - add a daily cron job `python manage.py backup_database` and a weekly one `python manage.py backup_database --verify`;
+  - keep a copy of `BACKUP_ENCRYPTION_KEY` somewhere safe outside Render: without it, backups can't be opened.
 - [ ] **Daily cron jobs on Render**. The free plan has no cron jobs: add Render Cron Job services (paid, from about $1 a month each) with the backend's environment, or move to a paid plan. Until then these don't run:
   - `python manage.py send_scheduled_announcements`;
   - `python manage.py send_calendar_reminders`;
@@ -1472,7 +1477,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - No page errors.
 
 
-### P1: Production readiness (partly done, paused) ⚠️
+### P1: Production readiness, part 1 (browser-stored copies)
 
 Paused on 26 Sep 2026 to start Tier 1 first, as asked.
 
@@ -1811,6 +1816,92 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
   - No page errors.
 
 
+### P1: Production readiness ✅
+
+**Every role now reaches only what it should.** The role sweep (every API address, called as each demo role) found wide holes, now closed:
+- **Changes by role**: one rule, applied in the sign-in check to every signed-in request before any view runs.
+  - **Parents and students** can only make changes in their own areas: their portal and family pages, messages and announcements (marking them read), absence reports, calendar bookings, library, cafeteria top-ups, paying fees online, admissions, and their own account, security and privacy.
+  - **Teachers and staff** can't change the school's money (invoices, payments, fee structures, scholarships, payslips, ledgers, salaries, finance settings), its structure (years, terms, classes, sections, subjects, class subjects, teacher assignments, grading setup), student and staff records, settings, integrations, imports, portal logins, security, billing, data export, audit or feature flags. Their own jobs still work: leave requests, bus duty, the cafeteria till, marking attendance, marks for their classes, homework, messages.
+  - **Administrators** aren't limited by the rule; each view still applies its own checks.
+  - Every refusal is written to the school's activity log.
+- **What families can read**:
+  - invoices and payments are only their own children's (both invoice lists);
+  - the student list and student counts are only their own children;
+  - the finance summary and forecast, the invoice and payment CSV exports, the executive dashboard, the attendance, fee, growth and teacher analytics, the staff summary and the registration counter are for administrators only;
+  - a student's history summary and AI insights need access to that student.
+- **Staff records**: everyone other than the office sees a short public profile (name, number, role, department, subjects). No salary, ID number, phone or address, except a teacher's own record. Creating, changing and deleting staff records is for the office.
+- **"Manager" and "HR" roles** can approve leave, as the leave views intended. The role's type had always been read as plain "staff".
+
+**Buttons that pretended to work**
+- "Send reminder" on Fee Defaulters waited a second and said "sent" without sending anything. It now emails the family about their oldest open invoice, through the existing reminder, with the office's own text on top. The SMS and WhatsApp options, which sent nothing, are removed.
+- "Call parent" showed a message. It now opens the phone dialler (or says there is no number).
+- Part 1 (above) removed the browser-stored copies of data from six pages.
+
+**The known failing tests are fixed**
+- Backend: the leave-approval manager test. It now uses a school like real data does, and the manager role is recognised.
+- Frontend: 3 tests updated to the current behaviour:
+  - the mocks are hoisted properly;
+  - the student list uses `/students/`;
+  - deleting a teacher asks the server, which keeps the record if it has history.
+
+**Built**
+- `services/core/security/role_policy.py`, called from `tenants/authentication.py`.
+- Read fixes in:
+  - `finance/views.py`;
+  - `api/v1/views.py`;
+  - `accounts/views.py`;
+  - `students/views.py`;
+  - `analytics/views.py`;
+  - `employee/views.py`;
+  - `academics/views.py` (the staff privacy mixin).
+- `accounts/decorators.py` (the manager and HR roles).
+- The fee reminder: `finance/views.py` (the office's own text) and `FeesDefaultersPage.tsx`.
+- Tests:
+  - `backend/tests/test_role_access.py`: families and teachers can't make office changes, families see only their own records, and a sweep posts to every address as a parent and as a teacher and fails if anything outside their areas gets through (public webhooks and signup excluded);
+  - `test_leave_approval.py` fixed, and the 3 frontend tests fixed.
+  - Full backend suite: 291 of 291 passed. Frontend: 99 of 99.
+- Browser check on the demo school:
+  - the parent's dashboard, family, fees, attendance, library, cafeteria, messages and privacy pages loaded with no refusals, and only Ali and Fatima Raza's invoices and records were visible;
+  - running invoicing and the executive dashboard were refused;
+  - the teacher's day, classes, attendance, gradebook and messages loaded, and creating a payslip was refused;
+  - the office's dashboard, students, invoices, defaulters, staff and reports loaded.
+  - No page errors.
+
+### P2: Database safety and backups ✅
+
+**What changed**
+- **No more silent data loss.** If the production database can't be found, the app now stops with a clear error instead of quietly starting on a temporary file that is wiped on restart. That old fallback is only on in development, or if `DB_SQLITE_FALLBACK=1` is set on purpose.
+- **Encrypted backups of everything.**
+  - A backup is the whole database, compressed and encrypted with a key that lives only in the environment (`BACKUP_ENCRYPTION_KEY`, or one derived from the secret key), with a checksum.
+  - It is stored in a private S3 bucket when `BACKUP_S3_BUCKET` and the AWS keys are set, otherwise in the app's own storage, with a warning that this isn't durable.
+  - It works on any host, with no database tools needed.
+  - Backups older than `BACKUP_RETENTION_DAYS` (30) are deleted.
+  - A changed or damaged file is refused (checksum).
+- **A real restore test.** It loads a backup into a brand-new, empty database in a separate process, then compares the number of records of every kind. The first run caught a genuine problem (rows the set-up creates clashed with the backup), which is fixed.
+  - The demo database (**16,442 records of 53 kinds**) restored completely. It takes a few minutes, so from the platform page it runs in the background.
+- **Commands** for the daily jobs: `python manage.py backup_database`, and `backup_database --verify` to also test the restore (weekly).
+- **Platform owner** (All Schools → Backups):
+  - when the last backup and the last successful restore test were, shown in red or amber when overdue;
+  - a warning while backups aren't in S3;
+  - **Back up now**;
+  - **Test restore** for any backup, with the result: "Restored completely", or what was missing.
+- **Found on the way:** the backup app's tables had never existed (no migrations), so the old backup code would have crashed. Its migration is now included.
+
+**Still yours to do** (in the checklist):
+- move the Render database to a paid plan;
+- set the S3 bucket, the keys and `BACKUP_ENCRYPTION_KEY`, and keep a copy of the key safely elsewhere;
+- add the daily and weekly cron jobs.
+
+**Built**
+- `services/core/backup/portable.py` (create, read, verify, prune), the `backup_database` command, `api.py` and `urls.py` (`/api/v1/backups/`), and the backup migration `0001`.
+- Settings: `SQLITE_PATH`, and the fallback off in production.
+- `components/platform/PlatformBackups.tsx`.
+- Tests: `backend/tests/test_backups.py`:
+  - a backup is complete, encrypted, has no sessions or content types, and a changed file is refused;
+  - pruning, and who may see backups;
+  - the full restore test (runs with `RUN_SLOW=1`; passed on the demo data as described above).
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -1907,9 +1998,9 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 
 | Order | Item | Status |
 | ---: | --- | --- |
-| **P1** | Production readiness | ⏳ Resuming next (open findings in the log) |
-| **P2** | Database safety and backups | Next |
-| **P3** | Password reset and transactional email | Next |
+| **P1** | Production readiness | ✅ Done |
+| **P2** | Database safety and backups | ✅ Done (switching to a paid database is yours: see the checklist) |
+| **P3** | Password reset and transactional email | ⏳ In progress |
 | **P4** | Error tracking and uptime monitoring | Next |
 | **P5** | Test-and-deploy pipeline and staging | Next |
 | **P6** | Web security hardening and rate limits | Next |

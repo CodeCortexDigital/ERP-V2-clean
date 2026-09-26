@@ -28,12 +28,12 @@ describe('teacherService.deleteTeacher', () => {
     mockedApiDelete.mockReset();
   });
 
-  it('soft-deactivates the teacher instead of issuing a hard delete', async () => {
-    mockedApiPatch.mockResolvedValue({ data: { id: 't1', is_active: false } });
+  it('asks the server to delete; the server keeps the record (deactivated) when the teacher has history', async () => {
+    mockedApiDelete.mockResolvedValue({ status: 204 });
 
     await teacherService.deleteTeacher('t1');
 
-    expect(mockedApiPatch).toHaveBeenCalledWith('/teachers/t1/', { is_active: false });
-    expect(mockedApiDelete).not.toHaveBeenCalled();
+    expect(mockedApiDelete).toHaveBeenCalledWith('/teachers/t1/', { skipGlobalToast: true });
+    expect(mockedApiPatch).not.toHaveBeenCalled();
   });
 });

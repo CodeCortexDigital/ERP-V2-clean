@@ -1,3 +1,4 @@
+from services.core.accounts.permissions import IsSchoolAdmin
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -19,6 +20,10 @@ def student_insights(request, student_id):
     try:
         Student = apps.get_model('education_students', 'Student')
         student = Student.objects.get(id=student_id)
+        from services.core.accounts.decorators import ensure_student_access
+
+        if not ensure_student_access(request.user, student):
+            return Response({'error': 'Permission denied'}, status=403)
         
         engine = InsightsEngine(student)
         
@@ -117,7 +122,7 @@ def batch_risk_assessment(request):
     }, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 @cached_api_view(cache_type='dashboard')
 def executive_dashboard(request):
     """Get executive dashboard with smart insights and trends"""

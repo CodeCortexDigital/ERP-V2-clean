@@ -39,7 +39,8 @@ describe('studentService.getAll', () => {
 
     const response = await studentService.getAll();
 
-    expect(mockedApiGet).toHaveBeenCalledWith('/auth/students/');
+    // The current student list is /students/ (the legacy /auth/students/ is only a fallback).
+    expect(mockedApiGet).toHaveBeenCalledWith('/students/', { params: undefined });
     expect(response.data).toEqual([]);
   });
 });

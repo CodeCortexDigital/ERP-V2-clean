@@ -1,3 +1,4 @@
+from services.core.accounts.permissions import IsSchoolAdmin
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -278,7 +279,7 @@ def force_update_activity(request, student_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 def last_registration(request):
     """
     Returns the student_id of the most recently created student.

@@ -1,3 +1,4 @@
+from services.core.accounts.permissions import IsSchoolAdmin
 from services.core.accounts.decorators import is_admin
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -94,7 +95,7 @@ class EmployeeDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class EmployeeSummaryView(generics.GenericAPIView):
     """Lightweight aggregate for the employee dashboard widgets."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSchoolAdmin]
 
     def get(self, request):
         user = request.user

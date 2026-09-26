@@ -34,6 +34,8 @@ def get_user_role(user):
         role_name = normalize_role_name(role_obj.name)
         if role_name in ('super admin', 'super_admin', 'school admin', 'school_admin', 'admin'):
             return 'admin'
+        if role_name in ('manager', 'hr'):  # named staff roles that may approve leave (role_type defaults to "staff")
+            return role_name
         return normalize_role_name(role_type or role_obj.name)
 
     if hasattr(user, 'parent_profile'):

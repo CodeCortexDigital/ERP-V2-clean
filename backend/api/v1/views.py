@@ -1,3 +1,4 @@
+from services.core.accounts.permissions import IsSchoolAdmin
 """
 API v1 views — versioned serializers on top of existing student endpoints.
 """
@@ -313,7 +314,7 @@ def get_payments_list(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 def get_attendance_dashboard_stats(request):
     """Real TODAY attendance summary for the admin dashboard (students)."""
     from django.utils import timezone
@@ -727,9 +728,11 @@ def get_student_history(request, id):
 def get_student_history_summary(request, id):
     try:
         try:
-            Student.objects.get(id=id)
+            student = Student.objects.get(id=id)
         except Student.DoesNotExist:
             return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+        if not ensure_student_access(request.user, student):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         audit_logs = AuditLog.objects.filter(resource_id=str(id), resource_type='Student')
         action_counts = {}
         for log in audit_logs:
@@ -856,7 +859,9 @@ def invoices_list_view(request):
     from services.education.finance.models import Invoice
     from services.education.finance.serializers import InvoiceSerializer
     if request.method == 'GET':
-        queryset = Invoice.objects.all()
+        from services.core.accounts.decorators import filter_invoices_for_user
+
+        queryset = filter_invoices_for_user(request.user, Invoice.objects.all())
         student_id = request.query_params.get('student_id') or request.query_params.get('student')
         status_filter = request.query_params.get('status')
         if student_id:

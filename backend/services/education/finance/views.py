@@ -1,3 +1,4 @@
+from services.core.accounts.decorators import filter_invoices_for_user, filter_payments_for_user
 from services.core.accounts.permissions import IsSchoolAdmin
 from services.core.accounts.decorators import is_admin
 from rest_framework import generics, status, permissions
@@ -109,10 +110,10 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
         from django.db.models import Q
         from django.utils import timezone
 
-        queryset = Invoice.objects.select_related(
+        queryset = filter_invoices_for_user(self.request.user, Invoice.objects.select_related(
             "student",
             "student__current_class"
-        )
+        ))
 
         # Student filter
         student_id = self.request.query_params.get("student_id") or self.request.query_params.get("student")
@@ -190,9 +191,9 @@ class PaymentListCreateView(generics.ListCreateAPIView):
     serializer_class = PaymentSerializer
 
     def get_queryset(self):
-        queryset = Payment.objects.select_related(
+        queryset = filter_payments_for_user(self.request.user, Payment.objects.select_related(
             'invoice__student'
-        )
+        ))
 
         invoice_id = self.request.query_params.get('invoice')
         if invoice_id:
@@ -366,7 +367,7 @@ class TransactionLogListView(generics.ListAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 def finance_summary(request):
     """Get finance summary for dashboard using correct balance calculation"""
     total_invoices = Invoice.objects.count()
@@ -579,7 +580,7 @@ def payment_receipt(request, payment_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 def export_invoices_csv(request):
     """Export invoices to CSV"""
     # Build queryset with filters
@@ -633,7 +634,7 @@ def export_invoices_csv(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 def export_payments_csv(request):
     """Export payments to CSV"""
     queryset = Payment.objects.select_related('invoice__student')
@@ -1201,7 +1202,7 @@ def class_wise_collection(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 def financial_forecast(request):
     """Basic financial forecasting based on historical data"""
     months_ahead = request.query_params.get('months', 6)
@@ -1329,7 +1330,7 @@ def send_fee_reminder(request, invoice_id):
         # Prepare email context
         context = {
             'student_name': invoice.student.full_name,
-            'school_name': getattr(settings, 'SCHOOL_NAME', 'School Management System'),
+            'school_name': getattr(getattr(request, 'tenant', None), 'name', None) or getattr(settings, 'SCHOOL_NAME', 'School Management System'),
             'school_address': getattr(settings, 'SCHOOL_ADDRESS', ''),
             'invoice_number': invoice.invoice_number,
             'due_date': invoice.due_date,
@@ -1340,6 +1341,13 @@ def send_fee_reminder(request, invoice_id):
         # Render HTML email
         html_content = render_to_string('finance/emails/fee_reminder.html', context)
         text_content = strip_tags(html_content)
+        # The office's own words (from the reminder window) go above the standard reminder.
+        note = str((request.data or {}).get('message') or '').strip()[:2000]
+        if note:
+            from django.utils.html import escape, linebreaks
+
+            text_content = note + '\n\n' + text_content
+            html_content = linebreaks(escape(note)) + html_content
         
         # Send email
         subject = f"Fee Payment Reminder - {invoice.invoice_number}"

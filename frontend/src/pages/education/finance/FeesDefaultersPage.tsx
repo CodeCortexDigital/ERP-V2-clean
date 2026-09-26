@@ -1,3 +1,4 @@
+import api from '@/services/api';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -298,15 +299,24 @@ export default function FeesDefaultersPage() {
 
   const handleSendReminderSubmit = async () => {
     if (!reminderTarget) return;
+    // Email the family about their oldest open invoice (the server finds the billing contacts).
+    const open = [...(reminderTarget.invoices || [])].sort((a: any, b: any) => String(a.due_date).localeCompare(String(b.due_date)));
+    if (!open.length) { toast.error('No open invoice for this family.'); return; }
     setSendingReminder(true);
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    setSendingReminder(false);
-    setShowReminderModal(false);
-    toast.success(`Fee reminder sent successfully via ${reminderChannel.toUpperCase()}!`);
+    try {
+      await api.post(`/auth/finance/communication/reminder/${open[0].id}/`, { message: reminderMessage });
+      setShowReminderModal(false);
+      toast.success('Reminder emailed to the family.');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || 'Could not send the reminder.');
+    } finally {
+      setSendingReminder(false);
+    }
   };
 
   const handleCallParent = (name: string, contact: string) => {
-    toast.info(`Dialing parent of ${name} (${contact || 'No contact saved'})...`);
+    if (!contact) { toast.error(`No phone number saved for ${name}'s family.`); return; }
+    window.location.href = `tel:${contact.replace(/[^\d+]/g, '')}`;
   };
 
   const filteredTableDefaulters = defaulterStudents.filter(def => {
@@ -642,9 +652,8 @@ export default function FeesDefaultersPage() {
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Reminder Channel</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: 'email', label: '📧 Email' },
-                    { value: 'sms', label: '💬 SMS' },
-                    { value: 'whatsapp', label: '🟢 WhatsApp' }
+                    { value: 'email', label: '📧 Email' }
+
                   ].map(chan => (
                     <button
                       key={chan.value}

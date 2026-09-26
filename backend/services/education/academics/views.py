@@ -286,8 +286,33 @@ class LearningResourceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # LEVEL 4: TEACHER MANAGEMENT
-class TeacherListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+PUBLIC_TEACHER_FIELDS = ('id', 'employee_id', 'full_name', 'role', 'department', 'specializations', 'is_active', 'profile_picture')
+
+
+class TeacherPrivacyMixin:
+    """The office sees whole staff records; everyone else sees a short public profile, and a teacher their own record."""
+
+    def get_serializer(self, *args, **kwargs):
+        serializer = super().get_serializer(*args, **kwargs)
+        user = self.request.user
+        if is_admin(user):
+            return serializer
+        own_email = (getattr(user, 'email', '') or '').lower()
+        target = serializer.child if hasattr(serializer, 'child') else serializer
+        original = target.to_representation
+
+        def limited(instance):
+            data = original(instance)
+            if (getattr(instance, 'email', '') or '').lower() == own_email:
+                return data
+            return {k: v for k, v in data.items() if k in PUBLIC_TEACHER_FIELDS}
+
+        target.to_representation = limited
+        return serializer
+
+
+class TeacherListCreateView(TeacherPrivacyMixin, generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
     
@@ -297,8 +322,8 @@ class TeacherListCreateView(generics.ListCreateAPIView):
 
         
                 
-class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+class TeacherDetailView(TeacherPrivacyMixin, generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, IsStaffOrReadOnly]
     queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
     lookup_field = 'id'

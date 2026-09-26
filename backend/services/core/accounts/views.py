@@ -1,3 +1,4 @@
+from services.core.accounts.permissions import IsSchoolAdmin
 from django.http import JsonResponse, HttpResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -443,7 +444,7 @@ def student_list(request):
     from django.apps import apps
     Student = apps.get_model('education_students', 'Student')
     from .serializers import StudentSerializer
-    students = Student.objects.all()
+    students = filter_students_for_user(request.user, Student.objects.all())
     serializer = StudentSerializer(students, many=True)
     return Response(serializer.data)
 
@@ -453,7 +454,7 @@ def student_list(request):
 def student_count(request):
     from django.apps import apps
     Student = apps.get_model('education_students', 'Student')
-    count = Student.objects.count()
+    count = filter_students_for_user(request.user, Student.objects.all()).count()
     return Response({'count': count})
 
 
@@ -602,7 +603,7 @@ def attendance_stats(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 def dashboard_attendance_stats(request):
     """
     Returns TODAY's attendance summary for the admin dashboard widgets.
@@ -810,7 +811,7 @@ def get_my_teacher_profile(request):
 # ============================================================
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 @cached_api_view(cache_type='analytics')
 def attendance_trends(request):
     from django.apps import apps
@@ -840,7 +841,7 @@ def attendance_trends(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 @cached_api_view(cache_type='analytics')
 def fee_trends(request):
     from django.apps import apps
@@ -950,7 +951,7 @@ def ai_insights(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 @cached_api_view(cache_type='analytics')
 def student_growth(request):
     from django.apps import apps
@@ -985,7 +986,7 @@ def student_growth(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsSchoolAdmin])
 @cached_api_view(cache_type='analytics')
 def teacher_performance(request):
     from django.apps import apps
