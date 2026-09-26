@@ -27,6 +27,7 @@ MAX_FILES_BYTES = 500 * 1024 * 1024  # uploaded files included in a zip export, 
 SCHOOL_FIELD = {
     'core_privacy.ConsentType': 'school', 'core_privacy.ConsentRecord': 'school', 'core_privacy.PrivacyRequest': 'school',
     'core_privacy.LegalDocument': 'school',
+    'core_support.SupportTicket': 'school', 'core_support.TicketMessage': 'ticket__school',
 }
 
 

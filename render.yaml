@@ -133,6 +133,8 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: SUPPORT_EMAILS  # who is emailed about new support tickets (default: the platform owners)
+        sync: false
       - key: SECRET_KEY_FALLBACKS  # old SECRET_KEY during a key change (docs/KEY_ROTATION.md)
         sync: false
       - key: BACKUP_ENCRYPTION_KEY

@@ -16,7 +16,7 @@ SAFE = ('GET', 'HEAD', 'OPTIONS')
 # Always allowed for anyone signed in: signing in and out, their own account, security and privacy, notifications.
 PERSONAL = (
     'login', 'logout', 'token/refresh', 'firebase/login', 'settings/change-password', 'me/', 'me',
-    'security/me/', 'security/verify-email/', 'security/password-reset/', 'security/2fa/', 'privacy/', 'notifications/', 'user-notifications/',
+    'security/me/', 'security/verify-email/', 'security/password-reset/', 'security/2fa/', 'privacy/', 'support/', 'notifications/', 'user-notifications/',
     'ai/', 'search',
 )
 

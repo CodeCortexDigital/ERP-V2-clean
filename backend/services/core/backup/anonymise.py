@@ -75,7 +75,7 @@ RULES = {
     'education_integrations.Integration': {'secret_blob': 'blank'},
 }
 # Logs full of addresses, emails and IPs: emptied.
-EMPTIED = ['core_security.SignInEvent', 'core_security.EmailLog', 'core_security.TwoFactor', 'education_communication.Message',
+EMPTIED = ['core_security.SignInEvent', 'core_security.EmailLog', 'core_security.TwoFactor', 'core_support.SupportTicket', 'education_communication.Message',
            'token_blacklist.OutstandingToken', 'sessions.Session']
 
 

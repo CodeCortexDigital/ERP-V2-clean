@@ -5,7 +5,8 @@ import {
   Wallet, Banknote, CreditCard, Hand, Calendar, FileText,
   Eye, MessageSquare, Video, FileQuestion,
   Edit, Award, Lock, Unlock, Search, X, ChevronRight, ChevronLeft, LogOut,
-  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes, UtensilsCrossed, Plug, FileSpreadsheet, ShieldCheck
+  DollarSign, User, Star, Building2, ClipboardList, Mail, Megaphone, CalendarDays, Handshake, TrendingUp, Library, Bus, Boxes, UtensilsCrossed, Plug, FileSpreadsheet, ShieldCheck,
+  LifeBuoy,
 } from 'lucide-react';
 import cafeteriaService from '@/services/cafeteria.service';
 import transportService from '@/services/transport.service';
@@ -234,6 +235,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     { id: 'cafeteria', label: 'Cafeteria', icon: <UtensilsCrossed className="w-4 h-4" />, href: '/education/cafeteria', group: 'services' },
     { id: 'reports', label: 'Reports', icon: <TrendingUp className="w-4 h-4" />, href: isAdmin ? '/education/analytics/insights' : '/education/analytics', group: 'reports' },
     { id: 'security', label: 'Security & privacy', icon: <Lock className="w-4 h-4" />, href: '/settings/security', group: 'admin' },
+    { id: 'help', label: 'Help & support', icon: <LifeBuoy className="w-4 h-4" />, href: '/help', always: true, group: 'admin' },
     { id: 'import-data', label: 'Import data', icon: <FileSpreadsheet className="w-4 h-4" />, href: '/education/import', group: 'admin' },
     { id: 'integrations', label: 'Integrations', icon: <Plug className="w-4 h-4" />, href: '/settings/integrations', group: 'admin' },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, href: '/settings', group: 'admin' },
@@ -269,6 +271,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
       })),
     ...COMMS,
     { id: 'privacy', label: 'Privacy & consent', icon: <ShieldCheck className="w-4 h-4" />, href: '/privacy', always: true, group: 'account' },
+    { id: 'help', label: 'Help & support', icon: <LifeBuoy className="w-4 h-4" />, href: '/help', always: true, group: 'account' },
     {
       id: 'settings',
       label: 'Account Settings',
@@ -390,6 +393,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     },
     ...COMMS,
     { id: 'privacy', label: 'Privacy & consent', icon: <ShieldCheck className="w-4 h-4" />, href: '/privacy', always: true, group: 'account' },
+    { id: 'help', label: 'Help & support', icon: <LifeBuoy className="w-4 h-4" />, href: '/help', always: true, group: 'account' },
     {
       id: 'notifications',
       label: 'Notifications',
@@ -427,6 +431,7 @@ export function Sidebar({ isMobile = false, onClose }: { isMobile?: boolean; onC
     P('cafeteria', 'Cafeteria', <UtensilsCrossed className="w-4 h-4" />, '/parent/cafeteria', 'services'),
     ...COMMS,
     { id: 'privacy', label: 'Privacy & consent', icon: <ShieldCheck className="w-4 h-4" />, href: '/privacy', always: true, group: 'account' },
+    { id: 'help', label: 'Help & support', icon: <LifeBuoy className="w-4 h-4" />, href: '/help', always: true, group: 'account' },
     P('notifications', 'Notifications', <MessageSquare className="w-4 h-4" />, '/parent/notifications', 'communication'),
     {
       id: 'settings',

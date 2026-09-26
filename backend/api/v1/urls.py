@@ -174,6 +174,7 @@ urlpatterns = [
     path('billing/', include('services.core.billing.urls')),
     path('portability/', include('services.core.portability.urls')),
     path('privacy/', include('services.core.privacy.urls')),
+    path('support/', include('services.core.support.urls')),
     path('backups/', include('services.core.backup.urls')),
     path('errors/', include('services.core.errors.urls')),
     path('storage/', include('services.core.storage.urls')),

@@ -2,6 +2,7 @@
 export interface PageLink { label: string; url: string; words?: string }
 
 const OFFICE: PageLink[] = [
+  { label: 'Help & support', url: '/help', words: 'help guide how faq support ticket contact problem' },
   { label: 'Dashboard', url: '/dashboard' },
   { label: 'All students', url: '/education/students', words: 'pupils list' },
   { label: 'Add a student', url: '/education/students/add', words: 'new admission enrol' },
@@ -38,6 +39,7 @@ const OFFICE: PageLink[] = [
   { label: 'Settings', url: '/settings' },
 ];
 const TEACHER: PageLink[] = [
+  { label: 'Help & support', url: '/help', words: 'help guide how faq support ticket contact problem' },
   { label: 'My day', url: '/teacher', words: 'dashboard today' },
   { label: 'My classes', url: '/teacher/classes', words: 'roster students' },
   { label: 'Class reports', url: '/teacher/reports', words: 'attention grades' },
@@ -51,6 +53,7 @@ const TEACHER: PageLink[] = [
   { label: 'Library', url: '/library', words: 'books' },
 ];
 const PARENT: PageLink[] = [
+  { label: 'Help & support', url: '/help', words: 'help guide how faq support ticket contact problem' },
   { label: 'Dashboard', url: '/parent' },
   { label: 'My family', url: '/parent/children', words: 'children household address' },
   { label: 'Attendance', url: '/parent/attendance', words: 'absent report absence' },
@@ -67,6 +70,7 @@ const PARENT: PageLink[] = [
   { label: 'Meetings', url: '/meetings', words: 'parent teacher' },
 ];
 const STUDENT: PageLink[] = [
+  { label: 'Help & support', url: '/help', words: 'help guide how faq support ticket contact problem' },
   { label: 'Dashboard', url: '/student' },
   { label: 'Assignments', url: '/student/assignments', words: 'homework' },
   { label: 'Progress', url: '/student/progress', words: 'grades results' },

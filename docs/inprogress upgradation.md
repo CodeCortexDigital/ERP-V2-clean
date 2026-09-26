@@ -58,6 +58,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
   - `python manage.py apply_retention` (deletes activity-log and sign-in records older than each school's rules);
   - `python manage.py run_platform_billing` (issues subscription invoices coming due and sends payment reminders);
   - `python manage.py run_data_lifecycle` (carries out school deletions whose date has come and removes expired exports).
+  - `python manage.py close_resolved_tickets` (closes support tickets resolved a week ago; P15).
 - [ ] **Push the security fixes soon** (Phase 21). The live site (up to Phase 19) still has the holes Phase 21 closed:
   - exam results readable and writable without signing in;
   - the fee defaulter list public;
@@ -69,6 +70,7 @@ These are done once, after all 22 modules are finished. Each phase adds to this 
 - [ ] Optional, on Render: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for one Google Classroom app shared by every school. Otherwise each school enters its own.
 - [ ] **Sending domain** (P3), for the email provider's domain: add the SPF and DKIM records the provider gives you, and a DMARC record (start with `v=DMARC1; p=none; rua=mailto:you@yourdomain`). Without them, password-reset emails often land in spam.
 - [ ] **Email** on Render (declared in `render.yaml`, port 587 preset; enter the values in the dashboard): `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` (for example Google Workspace, SendGrid or Mailgun SMTP).
+- [ ] **Support** (P15): optionally set `SUPPORT_EMAILS` on Render (who is emailed about new tickets; otherwise the platform owners). Review the starter help articles in All Schools → Support tickets → Help articles.
 - [ ] **Security scanning** (P9): in GitHub → Settings → Code security, switch on Dependabot alerts and Dependabot security updates. After the first push, check that the **Security scan** workflow is green, and look at Security → Code scanning for any CodeQL findings. Later, upgrade `react-router` to 7 (the last 5 moderate npm advisories).
 - [ ] **Two-step sign-in** (P8): the platform owner is asked to set it up at the first sign-in on the live site. Have an authenticator app ready (Google or Microsoft Authenticator, 1Password…) and keep the recovery codes safe. Schools can require it for their administrators in Security → Rules.
 - [ ] **Live site settings** (P7): after the deploy, open All Schools → Live site settings and fix what it lists: `BACKUP_ENCRYPTION_KEY`, the backup bucket, email, `ERROR_ALERT_EMAILS`, any demo accounts, and removing `ADMIN_PASSWORD` once you have signed in. To change a key later, follow `docs/KEY_ROTATION.md`.
@@ -2281,6 +2283,71 @@ The core is in every plan: students, admissions, attendance, gradebook, fees, me
 **Still yours** (in the checklist): in GitHub → Settings → Code security, switch on Dependabot alerts and security updates. CodeQL results then appear under Security → Code scanning after the first push.
 
 
+### P15: Help centre and support tickets ✅
+
+**What changed**
+- **Help & support** is a new menu item for every role: office, teachers, parents and students. It opens a help centre:
+  - **26 starter articles** (guides and questions with answers) written for this app's real menus: first steps, importing, who can do what, students and families, attendance, fees and online payment, marks and report cards, timetable, messages, payroll, the portal, passwords, two-step sign-in, plan and billing, export and privacy requests;
+  - **each person sees only what fits their role**: parents and students get the portal, online payment and account articles, not the office's fee setup;
+  - **search** (title matches rank first) and **topics**;
+  - each article has related articles and **"Was this helpful?"** (one vote per person);
+  - also in the search box ("help", "support", "ticket"…).
+- **Support tickets** for school staff (administrators, teachers and office staff). Parents and students are asked to contact the school office instead.
+  - A ticket has a subject, what it is about, how urgent it is, and a description. The page it was sent from is recorded.
+  - **A first-reply promise by priority**: urgent 4 hours, high 1 day, normal 2 days, low 5 days.
+  - Each ticket gets a number (#1001…), and the support team gets an email.
+  - **Conversation**: replies from both sides; each side gets an email when the other replies.
+  - The school can say **"It's sorted"**, or **"Not sorted after all"** to reopen it. A resolved ticket closes itself after a week (daily job).
+  - **Who sees a ticket**: the person who opened it, their school's administrators, and the platform's support team. Other schools never do.
+- **Support console** for the platform owner (All Schools page):
+  - every school's tickets with **reply due** (late ones in red), priority, status and who is handling it;
+  - counts: open, waiting for us, **reply overdue**, urgent;
+  - **assign** to a member of the support team, change status and priority; every change is kept in the ticket's **history**;
+  - **internal notes** that the school never sees, and **saved replies** (5 to start with);
+  - the email link opens the right ticket.
+- **Help articles editor** in the same console: add, edit, hide or delete articles, with topic, kind (guide, question, video link), who sees them, and the text ("## " heading, "- " bullet, "1. " step). Helpful and not-helpful counts show what needs improving.
+- Tickets are part of the school's **full export** and its **end-of-contract deletion** (P13). Staging copies drop them. Support works for read-only schools (P11), and every role can reach it (P1).
+
+**Built**
+- Backend:
+  - new app `services/core/support`:
+    - `HelpArticle`, `SupportTicket`, `TicketMessage` and `CannedResponse` (migrations `0001`, and `0002` for the starter articles and saved replies from `help_content.py`);
+    - `service.py` (who sees which help, search, reply promise, history, emails, who sees which ticket);
+    - `api.py` and `urls.py` at `/api/v1/support/`;
+    - commands `load_help_articles` (adds missing starter articles without overwriting edited ones) and `close_resolved_tickets` (daily);
+  - `support/` added to the always-allowed personal (P1) and read-only (P11) lists;
+  - export and deletion (P13) and staging (P5) cover tickets;
+  - `SUPPORT_EMAILS` declared in `render.yaml`.
+- Frontend:
+  - `services/support.service.ts`;
+  - `pages/help/HelpCentrePage.tsx` (`/help`, `/help/article/:slug`);
+  - `pages/help/TicketsPage.tsx` (`/help/tickets`, `/help/tickets/:id`);
+  - `components/support/ArticleBody.tsx`;
+  - `components/platform/PlatformSupport.tsx`;
+  - the menu item in all 23 languages, and search shortcuts.
+- Tests:
+  - `backend/tests/test_support.py` has 4 new tests:
+    - help by role, search, topics, articles not for the role, one vote;
+    - a ticket from start to finish (reply promise, email to support, parents refused, who sees it, internal notes hidden, reply email, school reply and "sorted", assignment to the support team only, history, closed tickets);
+    - overdue replies, closing after a week, and the export including tickets;
+    - the platform owner managing articles.
+  - All 4 passed.
+  - The full backend suite: 324 passed. Frontend: type check and 99/99 tests pass.
+- Browser check on a copy of the demo database (separate ports):
+  - the parent saw Help & support with the portal guide but not the office's fee setup, and was told to contact the school;
+  - "pay fees" found "Paying fees online" first, and the vote was thanked;
+  - the teacher opened a high-priority ticket;
+  - the platform owner saw it with its reply-due time, added an internal note, replied with a saved reply and assigned it (all three in the history);
+  - the teacher saw the support team's reply but not the note, replied, and marked it sorted;
+  - the console then showed it as resolved, replied and assigned.
+  - No page errors.
+
+**Still yours** (in the checklist):
+- optionally set `SUPPORT_EMAILS` (otherwise ticket emails go to the platform owners);
+- add `close_resolved_tickets` to the daily jobs;
+- review the starter articles and add your own.
+
+
 Next Phase — Remaining Upgradation Plan after completion of above 22 steps 
 
 
@@ -2412,8 +2479,8 @@ Order agreed on 26 Sep 2026: finish all of Tier 0 and Tier 1 (P1 to P17), then d
 | **P12** | Platform payments and invoices | ✅ Done |
 | **P13** | Full school export and end-of-contract deletion | ✅ Done |
 | **P14** | Privacy documents, consent and breach response | ✅ Done |
-| **P15** | Help centre and support tickets | ⏳ In progress |
-| **P16** | Automated SMS and WhatsApp | Next |
+| **P15** | Help centre and support tickets | ✅ Done |
+| **P16** | Automated SMS and WhatsApp | ⏳ In progress |
 | **P17** | Retention by record type | Next |
 
 

@@ -125,6 +125,8 @@ import ImportPage from '@/pages/education/ImportPage'
 import LegalPage from '@/pages/LegalPage'
 import { ResetPasswordPage, VerifyEmailPage } from '@/pages/auth/ResetPasswordPage'
 import PrivacyConsentPage from '@/pages/PrivacyConsentPage'
+import HelpCentrePage from '@/pages/help/HelpCentrePage'
+import TicketsPage from '@/pages/help/TicketsPage'
 import SchoolReportsPage from '@/pages/education/insights/SchoolReportsPage'
 import SearchPage from '@/pages/SearchPage'
 import LessonAttendancePage from '@/pages/education/attendance/LessonAttendancePage'
@@ -581,6 +583,10 @@ function App() {
                 <Route path="library" element={<MyLibraryPage />} />
                 <Route path="search" element={<SearchPage />} />
                 <Route path="privacy" element={<PrivacyConsentPage />} />
+                <Route path="help" element={<HelpCentrePage />} />
+                <Route path="help/article/:slug" element={<HelpCentrePage />} />
+                <Route path="help/tickets" element={<TicketsPage />} />
+                <Route path="help/tickets/:id" element={<TicketsPage />} />
                 {/* Transport (the office sets it up; drivers and attendants run their routes under Bus duty) */}
                 <Route path="education/transport" element={<RoleBasedRoute allowedRoles={['admin']}><ModuleTabsLayout tabs={transportTabs} scopeClass="transport-scope" /></RoleBasedRoute>}>
                   <Route index element={<TransportTodayPage />} />
