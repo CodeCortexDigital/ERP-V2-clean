@@ -56,7 +56,8 @@ const library = {
   updateCopy: async (id: string, body: Partial<CopyRow>) => (await api.patch<CopyRow>(`${base}/copies/${id}/`, body)).data,
   labels: async (params: { book?: string; copies?: string; members?: string }) =>
     (await api.get<{ labels: Label[]; qr: boolean }>(`${base}/labels/`, { params })).data,
-  members: async (q = '') => (await api.get<{ results: MemberBrief[]; exact: boolean }>(`${base}/members/`, { params: q ? { q } : {} })).data,
+  members: async (q = '', show = '') => (await api.get<{ results: MemberBrief[]; exact: boolean }>(`${base}/members/`, { params: q ? { q } : show ? { show } : {} })).data,
+  addCards: async (group: 'class' | 'students' | 'staff', class_id?: string) => (await api.post<{ made: number; message: string }>(`${base}/members/`, { group, class_id })).data,
   makeCard: async (kind: string, ref_id: string) => (await api.post<MemberBrief>(`${base}/members/`, { kind, ref_id })).data,
   member: async (id: string) => (await api.get<MemberDetail>(`${base}/members/${id}/`)).data,
   updateMember: async (id: string, body: { is_blocked?: boolean; blocked_reason?: string; notes?: string }) =>

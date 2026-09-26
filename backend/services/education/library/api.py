@@ -436,6 +436,25 @@ def members(request):
     school = _school(request)
     User = get_user_model()
     if request.method == 'POST':
+        group = request.data.get('group')
+        if group:  # cards for many people at once: a class, all students, or all staff
+            made = 0
+            if group in ('class', 'students'):
+                qs = Student.objects.filter(is_active=True)
+                if group == 'class':
+                    qs = qs.filter(current_class_id=request.data.get('class_id'))
+                for s in qs.exclude(pk__in=Member.all_objects.filter(tenant=school, kind='student').values('student_id')):
+                    member_for_student(s)
+                    made += 1
+            elif group == 'staff':
+                emails = [e for e in Teacher.objects.filter(is_active=True).values_list('email', flat=True) if e]
+                for u in User.objects.filter(email__in=emails, is_active=True):
+                    if not Member.all_objects.filter(tenant=school, kind='staff', user=u).exists():
+                        member_for_user(u, school)
+                        made += 1
+            else:
+                return _err('Choose a class, all students or all staff.')
+            return Response({'made': made, 'message': f'{made} new card(s) made.' if made else 'Everyone chosen already has a card.'}, status=201)
         kind, ref = request.data.get('kind'), request.data.get('ref_id')
         if kind == 'student':
             s = Student.objects.filter(pk=ref).first()
@@ -466,8 +485,10 @@ def members(request):
             out.append(_member_brief(m) if m else {'id': None, 'kind': 'staff', 'ref_id': str(u.pk), 'name': u.full_name or u.email,
                                                    'detail': 'Staff', 'card_number': None, 'loans_out': 0, 'overdue': 0,
                                                    'fines_due': 0, 'is_blocked': False})
-    else:
-        out = [_member_brief(m) for m in Member.objects.filter(loans__returned_at__isnull=True).distinct()[:100]]
+    elif request.query_params.get('show') == 'loans':
+        out = [_member_brief(m) for m in Member.objects.filter(loans__isnull=False, loans__returned_at__isnull=True).distinct()[:100]]
+    else:  # every card holder
+        out = [_member_brief(m) for m in Member.objects.select_related('student__current_class', 'user').order_by('name')[:300]]
     return Response({'results': out, 'exact': False})
 
 

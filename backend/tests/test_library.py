@@ -187,3 +187,21 @@ def test_reminders_due_tomorrow_and_overdue(lib):
         assert send_reminders(today + timedelta(days=1))['overdue'] == 0  # every 3 days
         assert send_reminders(today + timedelta(days=3))['overdue'] == 1
     assert Notification.objects.filter(recipient=d['sara_user'], title='Library book overdue').exists()
+
+
+@pytest.mark.django_db
+def test_add_members_for_a_class_and_list_card_holders(lib):
+    office = lib['office']
+    from services.education.library.models import Member
+
+    Member.all_objects.all().delete()
+    assert office.get(f'{URL}/members/').json()['results'] == []  # nobody has a card yet
+    c6 = lib['sara'].current_class_id
+    r = office.post(f'{URL}/members/', {'group': 'class', 'class_id': str(c6)}, format='json').json()
+    assert r['made'] == 2
+    again = office.post(f'{URL}/members/', {'group': 'students'}, format='json').json()
+    assert again['made'] == 0 and 'already' in again['message']
+    names = {m['name'] for m in office.get(f'{URL}/members/').json()['results']}
+    assert names == {'Sara Ali', 'Omar Ali'}
+    assert office.get(f'{URL}/members/', {'show': 'loans'}).json()['results'] == []
+    assert office.post(f'{URL}/members/', {'group': 'nobody'}, format='json').status_code == 400
